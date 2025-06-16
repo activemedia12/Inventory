@@ -86,6 +86,11 @@ function getStockLevelClass($stock) {
             padding: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
+
+        ::-webkit-scrollbar {
+            display: none;
+        }
+
         
         body {
             background-color: #f5f7fa;
@@ -97,7 +102,7 @@ function getStockLevelClass($stock) {
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 100px 100px;
             background: white;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -333,6 +338,10 @@ function getStockLevelClass($stock) {
         }
         
         @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
             .summary-cards {
                 grid-template-columns: 1fr;
             }
@@ -398,7 +407,7 @@ function getStockLevelClass($stock) {
             Back to Dashboard
         </a>
 
-        <h2>Inventory Log: <?= htmlspecialchars($product['product']) ?></h2>
+        <h2 style="font-size: 400%;"><?= htmlspecialchars($product['product']) ?></h2>
         
         <div class="summary-cards">
             <div class="card">
@@ -417,7 +426,7 @@ function getStockLevelClass($stock) {
 
         <form method="post" action="save_combined_log.php<?= $edit_date ? '?edit=1' : '' ?>" onsubmit="return validateDate()">
             <input type="hidden" name="product_id" value="<?= $product_id ?>">
-            <h3><?= $edit_date ? "Edit Entry for " . formatDateForDisplay($edit_date) : "New Entry" ?></h3>
+            <h3 style="font-size: 180%;"><?= $edit_date ? "Edit Record for " . formatDateForDisplay($edit_date) : "Create a New Record" ?></h3>
 
             <label>Date</label>
             <input type="date" name="log_date" required value="<?= $edit_date ?? '' ?>" <?= $edit_date ? 'readonly' : '' ?>>
@@ -461,7 +470,7 @@ function getStockLevelClass($stock) {
             </fieldset>
 
             <div class="form-footer">
-                <button type="submit" class="btn"><?= $edit_date ? 'Save Changes' : 'Save Entry' ?></button>
+                <button type="submit" class="btn"><?= $edit_date ? 'Update Changes' : 'Save Record' ?></button>
                 <span id="date-error" class="error-message"></span>
             </div>
             
