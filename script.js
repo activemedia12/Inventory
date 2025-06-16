@@ -1,4 +1,3 @@
-// Stock Level Calculation
 function getStockLevel(balance) {
   if (balance <= 0) return { label: "No Stock", color: "#ef233c", bg: "#f8d7da", text: "#721c24" };
   if (balance <= 25) return { label: "Low", color: "#dc3545", bg: "#f8d7da", text: "#721c24" };
@@ -316,8 +315,6 @@ function showDeleteConfirmation({scope, value, message, type, group}) {
 }
 
 function deleteItem(scope, value) {
-  showLoading(true);
-  
   fetch('delete_item.php', {
     method: 'POST',
     headers: {
