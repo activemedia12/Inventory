@@ -1,3 +1,10 @@
+<?php
+session_start();
+if (!isset($_SESSION['user'])) {
+    header("Location: index.php");
+    exit();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,9 +20,12 @@
 <body>
   <div class="container">
     <div class="header-container">
-      <div class="company-name">Active Media</div>
+      <div class="company-name">Active Media Designs & Printing</div>
       <h1 class="report-title">Daily Stock Report</h1>
       <div class="report-subtitle">Real-time inventory overview</div>
+    </div>
+    <div class="logout">
+      <a href="logout.php">Logout</a>
     </div>
     <div id="report-container"></div>
     

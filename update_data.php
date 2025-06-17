@@ -1,5 +1,5 @@
 <?php
-$conn = new mysqli("localhost", "root", "", "inventory");
+$mysqli = new mysqli("localhost", "u382513771_admin", "Amdp@1205", "u382513771_inventory");
 
 $data = json_decode(file_get_contents("php://input"), true);
 

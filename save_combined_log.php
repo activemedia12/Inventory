@@ -1,5 +1,5 @@
 <?php
-$mysqli = new mysqli("localhost", "root", "", "inventory");
+$mysqli = new mysqli("localhost", "u382513771_admin", "Amdp@1205", "u382513771_inventory");
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $product_id = intval($_POST['product_id']);

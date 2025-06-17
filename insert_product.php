@@ -1,5 +1,5 @@
 <?php
-$mysqli = new mysqli("localhost", "root", "", "inventory");
+$mysqli = new mysqli("localhost", "u382513771_admin", "Amdp@1205", "u382513771_inventory");
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $type = $_POST['type'] ?? '';
@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['status' => 'success']);
         exit;
     } else {
-        header("Location: index.html");
+        header("Location: dashboard.php");
         exit;
     }
 }

@@ -1,5 +1,5 @@
 <?php
-$mysqli = new mysqli("localhost", "root", "", "inventory");
+$mysqli = new mysqli("localhost", "u382513771_admin", "Amdp@1205", "u382513771_inventory");
 
 // Fetch all products
 $result = $mysqli->query("SELECT id, type, section, product, unit_price FROM stock_data ORDER BY type, section, product");
