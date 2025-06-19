@@ -11,10 +11,11 @@ $message = "";
 
 // Handle add product
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $type = trim($_POST['product_type']);
-    $group = trim($_POST['product_group']);
-    $name = trim($_POST['product_name']);
+    $type = ucwords(strtolower(trim($_POST['product_type'])));  
+    $group = strtoupper(trim($_POST['product_group']));          
+    $name = ucwords(strtolower(trim($_POST['product_name'])));  
     $price = floatval($_POST['unit_price']);
+
 
     if ($type && $group && $name && $price > 0) {
         $stmt = $mysqli->prepare("INSERT INTO products (product_type, product_group, product_name, unit_price) VALUES (?, ?, ?, ?)");
@@ -131,6 +132,12 @@ $stock_unit = $_GET['stock_unit'] ?? 'sheets';
                 }
               ?>
             </td>
+            <?php if ($_SESSION['role'] === 'admin'): ?>
+              <td>
+                <a href="edit_product.php?id=<?= $row['id'] ?>">✏️ Edit</a> | 
+                <a href="delete_product.php?id=<?= $row['id'] ?>" onclick="return confirm('Are you sure you want to delete this product?')">🗑️ Delete</a>
+              </td>
+            <?php endif; ?>
           </tr>
         <?php endwhile; ?>
       <?php else: ?>
