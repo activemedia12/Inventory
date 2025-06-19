@@ -93,7 +93,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     LIMIT 1
                 ");
 
-
                 if ($product && $product->num_rows > 0) {
                     $prod = $product->fetch_assoc();
                     $product_id = $prod['id'];
@@ -210,41 +209,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <p><a href="dashboard.php">&larr; Back</a></p>
   </form>
 </div>
-<script src="../assets/js/usage_validation.js"></script>
+
 <script>
-const paperColors = <?= json_encode($product_name_options); ?>;
-function updatePaperSequenceOptions() {
-  const paperType = document.getElementById('paper_type').value;
-  const paperSize = document.getElementById('paper_size').value;
-  const copies = parseInt(document.getElementById('copies_per_set').value) || 0;
-  const container = document.getElementById('paper-sequence-container');
-  container.innerHTML = '';
+document.addEventListener('DOMContentLoaded', function () {
+  const allProducts = <?= json_encode($product_query->fetch_all(MYSQLI_ASSOC)); ?>;
+  const paperTypeSelect = document.querySelector('[name="paper_type"]');
+  const paperSizeSelect = document.querySelector('[name="paper_size"]');
+  const copiesInput = document.querySelector('[name="copies_per_set"]');
+  const sequenceContainer = document.getElementById('paper-sequence-container');
 
-  if (!paperType || !paperSize || copies <= 0) return;
+  function updatePaperSequenceOptions() {
+    const type = paperTypeSelect.value;
+    const size = paperSizeSelect.value;
+    const copies = parseInt(copiesInput.value) || 0;
 
-  fetch(`get_products.php?type=${encodeURIComponent(paperType)}&size=${encodeURIComponent(paperSize)}`)
-    .then(res => res.json())
-    .then(names => {
-      for (let i = 0; i < copies; i++) {
-        const label = document.createElement('label');
-        label.textContent = `Copy ${i + 1}:`;
-        label.style.display = 'block';
+    // Clear and exit early if not enough input
+    if (!type || !size || copies <= 0) {
+      sequenceContainer.innerHTML = '';
+      return;
+    }
 
-        const select = document.createElement('select');
-        select.name = 'paper_sequence[]';
-        select.required = true;
-        select.innerHTML = '<option value="">-- Select Color --</option>' +
-          names.map(name => `<option value="${name}">${name}</option>`).join('');
+    // ✅ Define the matching products
+    const matchingProducts = allProducts.filter(p =>
+      p.product_type === type &&
+      p.product_group === size &&
+      p.available_sheets > 0
+    );
 
-        container.appendChild(label);
-        container.appendChild(select);
-      }
-    });
-}
+    // Clear old fields
+    sequenceContainer.innerHTML = '';
 
-document.getElementById('paper_type').addEventListener('change', updatePaperSequenceOptions);
-document.getElementById('paper_size').addEventListener('change', updatePaperSequenceOptions);
-document.getElementById('copies_per_set').addEventListener('input', updatePaperSequenceOptions);
+    // If nothing available
+    if (matchingProducts.length === 0) {
+      const msg = document.createElement('div');
+      msg.textContent = '⚠ No available stock for the selected type and size.';
+      msg.style.color = 'red';
+      sequenceContainer.appendChild(msg);
+      return;
+    }
+
+    // Create dropdowns
+    for (let i = 0; i < copies; i++) {
+      const label = document.createElement('label');
+      label.textContent = `Copy ${i + 1}:`;
+
+      const select = document.createElement('select');
+      select.name = 'paper_sequence[]';
+      select.required = true;
+
+      const defaultOpt = document.createElement('option');
+      defaultOpt.textContent = '-- Select Color --';
+      defaultOpt.value = '';
+      select.appendChild(defaultOpt);
+
+      matchingProducts.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.product_name;
+        const reams = (p.available_sheets / 500).toFixed(2);
+        opt.textContent = `${p.product_name} (${reams} reams)`;
+        select.appendChild(opt);
+      });
+
+      sequenceContainer.appendChild(label);
+      sequenceContainer.appendChild(select);
+      sequenceContainer.appendChild(document.createElement('br'));
+    }
+  }
+
+  // Attach change events
+  paperTypeSelect.addEventListener('change', updatePaperSequenceOptions);
+  paperSizeSelect.addEventListener('change', updatePaperSequenceOptions);
+  copiesInput.addEventListener('input', updatePaperSequenceOptions);
+});
 </script>
+
+
 </body>
 </html>

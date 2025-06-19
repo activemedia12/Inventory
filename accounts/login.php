@@ -18,6 +18,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $stmt->fetch();
 
         if (password_verify($password, $hashed)) {
+            session_regenerate_id(true);
             $_SESSION['user_id'] = $id;
             $_SESSION['username'] = $username;
             $_SESSION['role'] = $role;
