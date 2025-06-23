@@ -43,13 +43,27 @@ if (!$product) {
 
 // Fetch usage history grouped by date and client
 $usage_history = $mysqli->query("
-    SELECT u.log_date, j.client_name, SUM(u.used_sheets)/500 AS used_reams
+    SELECT 
+        u.log_date,
+        (
+            SELECT j.client_name
+            FROM job_orders j
+            WHERE j.log_date = u.log_date
+              AND j.paper_type = p.product_type
+              AND j.product_size = p.product_group
+              AND j.paper_sequence LIKE CONCAT('%', p.product_name, '%')
+            LIMIT 1
+        ) AS client_name,
+        ROUND(SUM(u.used_sheets) / 500, 2) AS used_reams
     FROM usage_logs u
-    LEFT JOIN job_orders j ON u.usage_note LIKE CONCAT('%', j.client_name, '%') AND u.log_date = j.log_date
+    JOIN products p ON p.id = u.product_id
     WHERE u.product_id = $product_id
-    GROUP BY u.log_date, j.client_name
+    GROUP BY u.log_date
     ORDER BY u.log_date DESC
 ");
+
+
+
 
 // Fetch delivery history
 $delivery_history = $mysqli->query("
@@ -79,28 +93,20 @@ $delivery_history = $mysqli->query("
     <p><strong>Total Used:</strong> <?= number_format($product['total_used_sheets'] / 500, 2) ?> reams</p>
     <p><strong>Current Stock:</strong> <?= number_format($product['current_stock'] / 500, 2) ?> reams</p>
 
-    <h3>Usage History (Grouped)</h3>
+    <h3>Usage History</h3>
     <table border="1" cellpadding="5" cellspacing="0">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Client Name</th>
-                <th>Used Reams</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if ($usage_history->num_rows > 0): ?>
-                <?php while ($row = $usage_history->fetch_assoc()): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($row['log_date']) ?></td>
-                        <td><?= htmlspecialchars($row['client_name'] ?: 'Unknown') ?></td>
-                        <td><?= number_format($row['used_reams'], 2) ?></td>
-                    </tr>
-                <?php endwhile; ?>
-            <?php else: ?>
-                <tr><td colspan="3">No usage history found.</td></tr>
-            <?php endif; ?>
-        </tbody>
+    <thead>
+        <tr><th>Date</th><th>Client Name</th><th>Used Reams</th></tr>
+    </thead>
+    <tbody>
+        <?php while ($row = $usage_history->fetch_assoc()): ?>
+        <tr>
+            <td><?= htmlspecialchars($row['log_date']) ?></td>
+            <td><?= htmlspecialchars($row['client_name'] ?? 'Unknown') ?></td>
+            <td><?= number_format($row['used_reams'], 2) ?></td>
+        </tr>
+        <?php endwhile; ?>
+    </tbody>
     </table>
 
     <h3>Delivery History</h3>
