@@ -18,18 +18,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $delivered_reams = floatval($_POST['delivered_reams']);
     $delivery_note = $_POST['delivery_note'] ?? '';
     $delivery_date = $_POST['delivery_date'] ?? date('Y-m-d');
+    $supplier_name = trim($_POST['supplier_name'] ?? '');
+    $amount_per_ream = floatval($_POST['amount_per_ream']);
 
-    if ($product_id && $delivered_reams > 0) {
-        $stmt = $mysqli->prepare("INSERT INTO delivery_logs (product_id, delivered_reams, delivery_note, delivery_date) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("idss", $product_id, $delivered_reams, $delivery_note, $delivery_date);
+    if ($product_id && $delivered_reams > 0 && $amount_per_ream > 0) {
+        $stmt = $mysqli->prepare("INSERT INTO delivery_logs 
+            (product_id, delivered_reams, delivery_note, delivery_date, supplier_name, amount_per_ream) 
+            VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("idsssd", $product_id, $delivered_reams, $delivery_note, $delivery_date, $supplier_name, $amount_per_ream);
+
         if ($stmt->execute()) {
-            $message = "Delivery recorded successfully.";
+            // Update unit price in products table
+            $update = $mysqli->prepare("UPDATE products SET unit_price = ? WHERE id = ?");
+            $update->bind_param("di", $amount_per_ream, $product_id);
+            $update->execute();
+            $update->close();
+
+            $message = "✅ Delivery recorded and unit price updated.";
         } else {
-            $message = "Error: " . $stmt->error;
+            $message = "❌ Error: " . $stmt->error;
         }
         $stmt->close();
     } else {
-        $message = "Please select a product and enter a valid ream amount.";
+        $message = "❌ Please fill out all required fields correctly.";
     }
 }
 
@@ -77,6 +88,16 @@ $logs = $mysqli->query("
     </div>
 
     <div class="form-group">
+      <label for="amount_per_ream">Amount per Ream (₱):</label><br>
+      <input type="number" name="amount_per_ream" id="amount_per_ream" min="0.01" step="0.01" required>
+    </div>
+
+    <div class="form-group">
+      <label for="supplier_name">Supplier Name:</label><br>
+      <input type="text" name="supplier_name" id="supplier_name" placeholder="e.g. Paper Supplier Inc." required>
+    </div>
+
+    <div class="form-group">
       <label for="delivery_date">Delivery Date:</label><br>
       <input type="date" name="delivery_date" id="delivery_date" value="<?php echo date('Y-m-d'); ?>" required>
     </div>
@@ -97,7 +118,9 @@ $logs = $mysqli->query("
       <tr>
         <th>Date</th>
         <th>Product</th>
-        <th>Reams Delivered</th>
+        <th>Reams</th>
+        <th>Amount/ream (₱)</th>
+        <th>Supplier</th>
         <th>Note</th>
       </tr>
     </thead>
@@ -108,11 +131,13 @@ $logs = $mysqli->query("
             <td><?php echo htmlspecialchars($log['delivery_date']); ?></td>
             <td><?php echo "{$log['product_type']} - {$log['product_group']} - {$log['product_name']}"; ?></td>
             <td><?php echo number_format($log['delivered_reams'], 2); ?></td>
+            <td>₱<?php echo number_format($log['amount_per_ream'], 2); ?></td>
+            <td><?php echo htmlspecialchars($log['supplier_name'] ?: '-'); ?></td>
             <td><?php echo htmlspecialchars($log['delivery_note']); ?></td>
           </tr>
         <?php endwhile; ?>
       <?php else: ?>
-        <tr><td colspan="4">No deliveries recorded yet.</td></tr>
+        <tr><td colspan="6">No deliveries recorded yet.</td></tr>
       <?php endif; ?>
     </tbody>
   </table>
