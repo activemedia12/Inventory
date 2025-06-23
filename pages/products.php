@@ -35,13 +35,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $products = $mysqli->query("
   SELECT 
     p.*,
-    IFNULL(SUM(d.delivered_reams), 0) AS total_reams,
-    IFNULL(SUM(u.used_sheets), 0) AS total_used_sheets,
-    (IFNULL(SUM(d.delivered_reams), 0) * 500) - IFNULL(SUM(u.used_sheets), 0) AS stock_balance
+    (
+      SELECT IFNULL(SUM(delivered_reams), 0)
+      FROM delivery_logs
+      WHERE product_id = p.id
+    ) AS total_reams,
+    (
+      SELECT IFNULL(SUM(used_sheets), 0)
+      FROM usage_logs
+      WHERE product_id = p.id
+    ) AS total_used_sheets,
+    (
+      (
+        SELECT IFNULL(SUM(delivered_reams), 0)
+        FROM delivery_logs
+        WHERE product_id = p.id
+      ) * 500
+      -
+      (
+        SELECT IFNULL(SUM(used_sheets), 0)
+        FROM usage_logs
+        WHERE product_id = p.id
+      )
+    ) AS stock_balance
   FROM products p
-  LEFT JOIN delivery_logs d ON d.product_id = p.id
-  LEFT JOIN usage_logs u ON u.product_id = p.id
-  GROUP BY p.id
   ORDER BY p.product_type, p.product_group, p.product_name
 ");
 
