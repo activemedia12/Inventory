@@ -73,7 +73,6 @@ $recent_usage = $mysqli->query("
     <ul>
       <li><a href="products.php">Manage Products</a></li>
       <li><a href="delivery.php">Log Deliveries</a></li>
-      <li><a href="usage.php">Log Usage</a></li>
       <li><a href="job_orders.php">Job Orders</a></li>
       <li><a href="../accounts/logout.php">Logout</a></li>
     </ul>
