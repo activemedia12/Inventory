@@ -8,62 +8,60 @@ if (!isset($_SESSION['user_id'])) {
 require_once '../config/db.php';
 
 $product_id = intval($_GET['id'] ?? 0);
-if (!$product_id) {
+if ($product_id <= 0) {
     echo "Invalid product ID.";
     exit;
 }
 
-// Fetch product info
-$product = $mysqli->query("
+// Fetch basic product info and stock
+$query = "
     SELECT 
-        p.*,
-        IFNULL(del.total_delivered, 0) AS total_delivered_reams,
-        IFNULL(used.total_used, 0) AS total_used_sheets,
-        (IFNULL(del.total_delivered, 0) * 500 - IFNULL(used.total_used, 0)) AS current_stock
+        p.product_type,
+        p.product_group,
+        p.product_name,
+        p.unit_price,
+        COALESCE(d.total_delivered, 0) AS total_delivered,
+        COALESCE(u.total_used, 0) AS total_used,
+        COALESCE(d.total_delivered, 0) - COALESCE(u.total_used, 0) AS stock_balance
     FROM products p
     LEFT JOIN (
-        SELECT product_id, SUM(delivered_reams) AS total_delivered
+        SELECT product_id, SUM(delivered_reams * 500) AS total_delivered
         FROM delivery_logs
-        WHERE product_id = $product_id
         GROUP BY product_id
-    ) del ON del.product_id = p.id
+    ) d ON p.id = d.product_id
     LEFT JOIN (
         SELECT product_id, SUM(used_sheets) AS total_used
         FROM usage_logs
-        WHERE product_id = $product_id
         GROUP BY product_id
-    ) used ON used.product_id = p.id
-    WHERE p.id = $product_id
-")->fetch_assoc();
+    ) u ON p.id = u.product_id
+    WHERE p.id = ?
+    LIMIT 1
+";
+
+$stmt = $mysqli->prepare($query);
+$stmt->bind_param("i", $product_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$product = $result->fetch_assoc();
+$stmt->close();
 
 if (!$product) {
     echo "Product not found.";
     exit;
 }
 
-// Fetch usage history grouped by date and client
+// Fetch usage history
 $usage_history = $mysqli->query("
     SELECT 
-        u.log_date,
-        (
-            SELECT j.client_name
-            FROM job_orders j
-            WHERE j.log_date = u.log_date
-              AND j.paper_type = p.product_type
-              AND j.product_size = p.product_group
-              AND j.paper_sequence LIKE CONCAT('%', p.product_name, '%')
-            LIMIT 1
-        ) AS client_name,
-        ROUND(SUM(u.used_sheets) / 500, 2) AS used_reams
-    FROM usage_logs u
-    JOIN products p ON p.id = u.product_id
-    WHERE u.product_id = $product_id
-    GROUP BY u.log_date
-    ORDER BY u.log_date DESC
+        ul.log_date, 
+        jo.client_name, 
+        jo.project_name,
+        ul.used_sheets
+    FROM usage_logs ul
+    LEFT JOIN job_orders jo ON ul.job_order_id = jo.id
+    WHERE ul.product_id = $product_id
+    ORDER BY ul.log_date DESC
 ");
-
-
-
 
 // Fetch delivery history
 $delivery_history = $mysqli->query("
@@ -82,60 +80,71 @@ $delivery_history = $mysqli->query("
     <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
-<div class="container">
-    <h2>Product Information</h2>
+    <div class="container">
+        <h2>Product Info</h2>
+        <p><strong>Type:</strong> <?= htmlspecialchars($product['product_type']) ?></p>
+        <p><strong>Group:</strong> <?= htmlspecialchars($product['product_group']) ?></p>
+        <p><strong>Name:</strong> <?= htmlspecialchars($product['product_name']) ?></p>
+        <p><strong>Unit Price:</strong> ₱<?= number_format($product['unit_price'], 2) ?></p>
 
-    <p><strong>Type:</strong> <?= htmlspecialchars($product['product_type']) ?></p>
-    <p><strong>Group (Size):</strong> <?= htmlspecialchars($product['product_group']) ?></p>
-    <p><strong>Name:</strong> <?= htmlspecialchars($product['product_name']) ?></p>
-    <p><strong>Unit Price:</strong> ₱<?= number_format($product['unit_price'], 2) ?></p>
-    <p><strong>Total Delivered:</strong> <?= number_format($product['total_delivered_reams'], 2) ?> reams</p>
-    <p><strong>Total Used:</strong> <?= number_format($product['total_used_sheets'] / 500, 2) ?> reams</p>
-    <p><strong>Current Stock:</strong> <?= number_format($product['current_stock'] / 500, 2) ?> reams</p>
+        <h3>Stock Summary</h3>
+        <p><strong>Total Delivered:</strong> <?= number_format($product['total_delivered']) ?> sheets (<?= number_format($product['total_delivered'] / 500, 2) ?> reams)</p>
+        <p><strong>Total Used:</strong> <?= number_format($product['total_used']) ?> sheets (<?= number_format($product['total_used'] / 500, 2) ?> reams)</p>
+        <p><strong>Current Stock:</strong> <?= number_format($product['stock_balance']) ?> sheets (<?= number_format($product['stock_balance'] / 500, 2) ?> reams)</p>
 
-    <h3>Usage History</h3>
-    <table border="1" cellpadding="5" cellspacing="0">
-    <thead>
-        <tr><th>Date</th><th>Client Name</th><th>Used Reams</th></tr>
-    </thead>
-    <tbody>
-        <?php while ($row = $usage_history->fetch_assoc()): ?>
-        <tr>
-            <td><?= htmlspecialchars($row['log_date']) ?></td>
-            <td><?= htmlspecialchars($row['client_name'] ?? 'Unknown') ?></td>
-            <td><?= number_format($row['used_reams'], 2) ?></td>
-        </tr>
-        <?php endwhile; ?>
-    </tbody>
-    </table>
-
-    <h3>Delivery History</h3>
-    <table border="1" cellpadding="5" cellspacing="0">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Quantity (Reams)</th>
-                <th>Supplier</th>
-                <th>Price per Ream</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if ($delivery_history->num_rows > 0): ?>
-                <?php while ($row = $delivery_history->fetch_assoc()): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($row['delivery_date']) ?></td>
-                        <td><?= number_format($row['delivered_reams'], 2) ?></td>
-                        <td><?= htmlspecialchars($row['supplier_name'] ?: '-') ?></td>
-                        <td>₱<?= number_format($row['amount_per_ream'], 2) ?></td>
-                    </tr>
+        <h3>Usage History</h3>
+        <?php if ($usage_history->num_rows > 0): ?>
+        <table border="1" cellpadding="5" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Client Name</th>
+                    <th>Project Name</th>
+                    <th>Used Reams</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php while ($row = $usage_history->fetch_assoc()): ?>
+                <tr>
+                    <td><?= htmlspecialchars($row['log_date']) ?></td>
+                    <td><?= htmlspecialchars($row['client_name'] ?? 'N/A') ?></td>
+                    <td><?= htmlspecialchars($row['project_name'] ?? 'N/A') ?></td>
+                    <td><?= number_format($row['used_sheets'] / 500, 2) ?></td>
+                </tr>
                 <?php endwhile; ?>
-            <?php else: ?>
-                <tr><td colspan="4">No delivery history found.</td></tr>
-            <?php endif; ?>
-        </tbody>
-    </table>
+            </tbody>
+        </table>
+        <?php else: ?>
+        <p>No usage history found.</p>
+        <?php endif; ?>
 
-    <p><a href="usage.php">&larr; Back to Usage Page</a></p>
-</div>
+        <h3>Delivery History</h3>
+        <?php if ($delivery_history->num_rows > 0): ?>
+        <table border="1" cellpadding="5" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Quantity (Reams)</th>
+                    <th>Supplier</th>
+                    <th>Amount per Ream</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php while ($row = $delivery_history->fetch_assoc()): ?>
+                <tr>
+                    <td><?= htmlspecialchars($row['delivery_date']) ?></td>
+                    <td><?= number_format($row['delivered_reams'], 2) ?></td>
+                    <td><?= htmlspecialchars($row['supplier_name']) ?></td>
+                    <td>₱<?= number_format($row['amount_per_ream'], 2) ?></td>
+                </tr>
+                <?php endwhile; ?>
+            </tbody>
+        </table>
+        <?php else: ?>
+        <p>No delivery history found.</p>
+        <?php endif; ?>
+
+        <p><a href="products.php">← Back to Stock Summary</a></p>
+    </div>
 </body>
 </html>

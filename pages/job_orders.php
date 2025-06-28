@@ -135,6 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($stmt->execute()) {
             $success = true;
+            $job_order_id = $mysqli->insert_id;
             foreach ($paper_sequence as $color) {
                 $product = $mysqli->query("
                   SELECT 
@@ -171,9 +172,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         continue;
                     }
 
-                    $usage_stmt = $mysqli->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, usage_note) VALUES (?, ?, ?, ?)");
+                    $usage_stmt = $mysqli->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
                     $note = "Auto-deducted from job order for $client_name";
-                    $usage_stmt->bind_param("iiss", $product_id, $used_sheets, $log_date, $note);
+                    $usage_stmt->bind_param("iisds", $product_id, $used_sheets, $log_date, $job_order_id, $note);
                     $usage_stmt->execute();
                     $usage_stmt->close();
                 } else {
