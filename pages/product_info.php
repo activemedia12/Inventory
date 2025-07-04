@@ -7,9 +7,14 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once '../config/db.php';
 
+// Enable error reporting for debugging
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 $product_id = intval($_GET['id'] ?? 0);
 if ($product_id <= 0) {
-    echo "Invalid product ID.";
+    echo "<div class='alert alert-danger'>Invalid product ID.</div>";
     exit;
 }
 
@@ -39,6 +44,9 @@ $query = "
 ";
 
 $stmt = $mysqli->prepare($query);
+if (!$stmt) {
+    die("Error in product query: " . $mysqli->error);
+}
 $stmt->bind_param("i", $product_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -46,12 +54,12 @@ $product = $result->fetch_assoc();
 $stmt->close();
 
 if (!$product) {
-    echo "Product not found.";
+    echo "<div class='alert alert-danger'>Product not found.</div>";
     exit;
 }
 
-// Fetch usage history
-$usage_history = $mysqli->query("
+// Fetch usage history with prepared statement
+$usage_query = "
     SELECT 
         ul.log_date, 
         jo.client_name, 
@@ -59,92 +67,375 @@ $usage_history = $mysqli->query("
         ul.used_sheets
     FROM usage_logs ul
     LEFT JOIN job_orders jo ON ul.job_order_id = jo.id
-    WHERE ul.product_id = $product_id
+    WHERE ul.product_id = ?
     ORDER BY ul.log_date DESC
-");
+";
+$usage_stmt = $mysqli->prepare($usage_query);
+if (!$usage_stmt) {
+    die("Error in usage history query: " . $mysqli->error);
+}
+$usage_stmt->bind_param("i", $product_id);
+$usage_stmt->execute();
+$usage_history = $usage_stmt->get_result();
 
-// Fetch delivery history
-$delivery_history = $mysqli->query("
+// Fetch delivery history with prepared statement
+$delivery_query = "
     SELECT delivery_date, delivered_reams, supplier_name, amount_per_ream
     FROM delivery_logs
-    WHERE product_id = $product_id
+    WHERE product_id = ?
     ORDER BY delivery_date DESC
-");
+";
+$delivery_stmt = $mysqli->prepare($delivery_query);
+if (!$delivery_stmt) {
+    die("Error in delivery history query: " . $mysqli->error);
+}
+$delivery_stmt->bind_param("i", $product_id);
+$delivery_stmt->execute();
+$delivery_history = $delivery_stmt->get_result();
 ?>
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <title>Product Info</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Info | InventoryPro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="../assets/css/style.css">
+    <style>
+        /* Floating window styles */
+        .floating-window {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 1200px;
+            max-height: 90vh;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .window-header {
+            padding: 1rem 1.5rem;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .window-title {
+            display: flex;
+            align-items: center;
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+
+        .window-title i {
+            margin-right: 0.8rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .window-content {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        /* Compact product info styles */
+        .product-info-compact {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-item-compact {
+            margin-bottom: 0.5rem;
+        }
+
+        .info-item-compact strong {
+            display: block;
+            color: var(--gray);
+            font-size: 0.85rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .info-item-compact span {
+            font-size: 0.95rem;
+        }
+
+        /* Stock summary compact */
+        .stock-summary-compact {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stock-card-compact {
+            padding: 0.8rem;
+            border-radius: 8px;
+            background: rgba(67, 97, 238, 0.05);
+            text-align: center;
+        }
+
+        .stock-card-compact h4 {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+
+        .stock-value-compact {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .stock-unit-compact {
+            color: var(--gray);
+            font-size: 0.75rem;
+        }
+
+        /* Section headers */
+        .section-header {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--primary);
+            margin: 1.5rem 0 0.5rem 0;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-header i {
+            margin-right: 0.5rem;
+        }
+
+        /* Compact tables */
+        .compact-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .compact-table th {
+            background: #f5f5f5;
+            padding: 0.5rem;
+            text-align: left;
+            font-weight: 500;
+        }
+
+        .compact-table td {
+            padding: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .compact-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Overlay */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        /* Empty state */
+        .empty-state {
+            padding: 2rem;
+            text-align: center;
+            color: var(--gray);
+            background: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .floating-window {
+                width: 95%;
+            }
+            
+            .product-info-compact {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .stock-summary-compact {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
+
 <body>
-    <div class="container">
-        <h2>Product Info</h2>
-        <p><strong>Type:</strong> <?= htmlspecialchars($product['product_type']) ?></p>
-        <p><strong>Group:</strong> <?= htmlspecialchars($product['product_group']) ?></p>
-        <p><strong>Name:</strong> <?= htmlspecialchars($product['product_name']) ?></p>
-        <p><strong>Unit Price:</strong> ₱<?= number_format($product['unit_price'], 2) ?></p>
+    <!-- Overlay -->
+    <div class="overlay"></div>
 
-        <h3>Stock Summary</h3>
-        <p><strong>Total Delivered:</strong> <?= number_format($product['total_delivered']) ?> sheets (<?= number_format($product['total_delivered'] / 500, 2) ?> reams)</p>
-        <p><strong>Total Used:</strong> <?= number_format($product['total_used']) ?> sheets (<?= number_format($product['total_used'] / 500, 2) ?> reams)</p>
-        <p><strong>Current Stock:</strong> <?= number_format($product['stock_balance']) ?> sheets (<?= number_format($product['stock_balance'] / 500, 2) ?> reams)</p>
+    <!-- Floating Window -->
+    <div class="floating-window">
+        <div class="window-header">
+            <div class="window-title">
+                <i class="fas fa-box"></i>
+                Product Information
+            </div>
+            <button class="close-btn" onclick="javascript:window.location.href='products.php'">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
 
-        <h3>Usage History</h3>
-        <?php if ($usage_history->num_rows > 0): ?>
-        <table border="1" cellpadding="5" cellspacing="0">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Client Name</th>
-                    <th>Project Name</th>
-                    <th>Used Reams</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php while ($row = $usage_history->fetch_assoc()): ?>
-                <tr>
-                    <td><?= htmlspecialchars($row['log_date']) ?></td>
-                    <td><?= htmlspecialchars($row['client_name'] ?? 'N/A') ?></td>
-                    <td><?= htmlspecialchars($row['project_name'] ?? 'N/A') ?></td>
-                    <td><?= number_format($row['used_sheets'] / 500, 2) ?></td>
-                </tr>
-                <?php endwhile; ?>
-            </tbody>
-        </table>
-        <?php else: ?>
-        <p>No usage history found.</p>
-        <?php endif; ?>
+        <div class="window-content">
+            <!-- Basic Product Info -->
+            <div class="product-info-compact">
+                <div class="info-item-compact">
+                    <strong>Product Type</strong>
+                    <span><?= htmlspecialchars($product['product_type']) ?></span>
+                </div>
 
-        <h3>Delivery History</h3>
-        <?php if ($delivery_history->num_rows > 0): ?>
-        <table border="1" cellpadding="5" cellspacing="0">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Quantity (Reams)</th>
-                    <th>Supplier</th>
-                    <th>Amount per Ream</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php while ($row = $delivery_history->fetch_assoc()): ?>
-                <tr>
-                    <td><?= htmlspecialchars($row['delivery_date']) ?></td>
-                    <td><?= number_format($row['delivered_reams'], 2) ?></td>
-                    <td><?= htmlspecialchars($row['supplier_name']) ?></td>
-                    <td>₱<?= number_format($row['amount_per_ream'], 2) ?></td>
-                </tr>
-                <?php endwhile; ?>
-            </tbody>
-        </table>
-        <?php else: ?>
-        <p>No delivery history found.</p>
-        <?php endif; ?>
+                <div class="info-item-compact">
+                    <strong>Product Group</strong>
+                    <span><?= htmlspecialchars($product['product_group']) ?></span>
+                </div>
 
-        <p><a href="products.php">← Back to Stock Summary</a></p>
+                <div class="info-item-compact">
+                    <strong>Product Name</strong>
+                    <span><?= htmlspecialchars($product['product_name']) ?></span>
+                </div>
+
+                <div class="info-item-compact">
+                    <strong>Unit Price</strong>
+                    <span>₱<?= number_format($product['unit_price'], 2) ?></span>
+                </div>
+            </div>
+
+            <!-- Stock Summary -->
+            <div class="stock-summary-compact">
+                <div class="stock-card-compact">
+                    <h4>Total Delivered</h4>
+                    <div class="stock-value-compact"><?= number_format($product['total_delivered']) ?></div>
+                    <div class="stock-unit-compact">sheets (<?= number_format($product['total_delivered'] / 500, 2) ?> reams)</div>
+                </div>
+
+                <div class="stock-card-compact">
+                    <h4>Total Used</h4>
+                    <div class="stock-value-compact"><?= number_format($product['total_used']) ?></div>
+                    <div class="stock-unit-compact">sheets (<?= number_format($product['total_used'] / 500, 2) ?> reams)</div>
+                </div>
+
+                <div class="stock-card-compact">
+                    <h4>Current Stock</h4>
+                    <div class="stock-value-compact"><?= number_format($product['stock_balance']) ?></div>
+                    <div class="stock-unit-compact">sheets (<?= number_format($product['stock_balance'] / 500, 2) ?> reams)</div>
+                </div>
+            </div>
+
+            <!-- Usage History Section -->
+            <div class="section-header">
+                <i class="fas fa-history"></i>
+                Usage History
+            </div>
+            
+            <?php if ($usage_history->num_rows > 0): ?>
+                <table class="compact-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Client</th>
+                            <th>Project</th>
+                            <th>Sheets</th>
+                            <th>Reams</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php while ($row = $usage_history->fetch_assoc()): ?>
+                            <tr>
+                                <td><?= date("M j, Y", strtotime($row['log_date'])) ?></td>
+                                <td><?= htmlspecialchars($row['client_name'] ?? 'N/A') ?></td>
+                                <td><?= htmlspecialchars($row['project_name'] ?? 'N/A') ?></td>
+                                <td><?= number_format($row['used_sheets']) ?></td>
+                                <td><?= number_format($row['used_sheets'] / 500, 2) ?></td>
+                            </tr>
+                        <?php endwhile; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <div class="empty-state">
+                    <p><i class="fas fa-info-circle"></i> No usage history found for this product</p>
+                </div>
+            <?php endif; ?>
+
+            <!-- Delivery History Section -->
+            <div class="section-header">
+                <i class="fas fa-truck"></i>
+                Delivery History
+            </div>
+            
+            <?php if ($delivery_history->num_rows > 0): ?>
+                <table class="compact-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Supplier</th>
+                            <th>Reams</th>
+                            <th>Price/Ream</th>
+                            <th>Sheets</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php while ($row = $delivery_history->fetch_assoc()): ?>
+                            <tr>
+                                <td><?= date("M j, Y", strtotime($row['delivery_date'])) ?></td>
+                                <td><?= htmlspecialchars($row['supplier_name']) ?></td>
+                                <td><?= number_format($row['delivered_reams'], 2) ?></td>
+                                <td>₱<?= number_format($row['amount_per_ream'], 2) ?></td>
+                                <td><?= number_format($row['delivered_reams'] * 500) ?></td>
+                            </tr>
+                        <?php endwhile; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <div class="empty-state">
+                    <p><i class="fas fa-info-circle"></i> No delivery history found for this product</p>
+                </div>
+            <?php endif; ?>
+        </div>
     </div>
+
+    <script>
+        // Close window when clicking outside
+        document.querySelector('.overlay').addEventListener('click', function() {
+            history.back();
+        });
+    </script>
 </body>
+
 </html>
+<?php
+// Close statements if they're still open
+if (isset($usage_stmt)) $usage_stmt->close();
+if (isset($delivery_stmt)) $delivery_stmt->close();
+$mysqli->close();
+?>
