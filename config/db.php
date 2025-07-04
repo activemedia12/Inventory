@@ -1,10 +1,9 @@
 <?php
 
 $host = 'localhost';
-$user = 'u382513771_admin';
-$password = 'Amdp1205';
-$database = 'u382513771_inventory
-';
+$user = 'root';
+$password = '';
+$database = 'inventory';
 
 $mysqli = new mysqli($host, $user, $password, $database);
 
