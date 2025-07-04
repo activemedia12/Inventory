@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 28, 2025 at 03:08 AM
+-- Generation Time: Jul 04, 2025 at 08:56 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -34,15 +34,9 @@ CREATE TABLE `delivery_logs` (
   `delivered_reams` decimal(10,2) NOT NULL,
   `supplier_name` varchar(50) NOT NULL,
   `amount_per_ream` int(11) NOT NULL,
-  `delivery_note` text DEFAULT NULL
+  `delivery_note` text DEFAULT NULL,
+  `created_by` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `delivery_logs`
---
-
-INSERT INTO `delivery_logs` (`id`, `product_id`, `delivery_date`, `delivered_reams`, `supplier_name`, `amount_per_ream`, `delivery_note`) VALUES
-(14, 13, '2025-06-28', 30.00, 'Erine', 237, '');
 
 -- --------------------------------------------------------
 
@@ -86,15 +80,9 @@ CREATE TABLE `products` (
   `product_type` varchar(100) DEFAULT NULL,
   `product_group` varchar(100) DEFAULT NULL,
   `product_name` varchar(100) DEFAULT NULL,
-  `unit_price` decimal(10,2) NOT NULL
+  `unit_price` decimal(10,2) NOT NULL,
+  `created_by` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `products`
---
-
-INSERT INTO `products` (`id`, `product_type`, `product_group`, `product_name`, `unit_price`) VALUES
-(13, 'Carbonless', 'LONG', 'Top White', 237.00);
 
 -- --------------------------------------------------------
 
@@ -126,13 +114,6 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `users`
---
-
-INSERT INTO `users` (`id`, `username`, `password`, `role`) VALUES
-(1, 'erine', '$2y$10$J8YMB9Ep8wkx2BFKAmQybuT42CMuqROjCALyOMUCW2UEmz64bRk0q', 'employee');
-
---
 -- Indexes for dumped tables
 --
 
@@ -141,7 +122,8 @@ INSERT INTO `users` (`id`, `username`, `password`, `role`) VALUES
 --
 ALTER TABLE `delivery_logs`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `product_id` (`product_id`);
+  ADD KEY `product_id` (`product_id`),
+  ADD KEY `fk_created_by` (`created_by`);
 
 --
 -- Indexes for table `job_orders`
@@ -155,7 +137,8 @@ ALTER TABLE `job_orders`
 -- Indexes for table `products`
 --
 ALTER TABLE `products`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_products_created_by` (`created_by`);
 
 --
 -- Indexes for table `usage_logs`
@@ -180,31 +163,31 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `delivery_logs`
 --
 ALTER TABLE `delivery_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
 
 --
 -- AUTO_INCREMENT for table `job_orders`
 --
 ALTER TABLE `job_orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=91;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=109;
 
 --
 -- AUTO_INCREMENT for table `products`
 --
 ALTER TABLE `products`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
 
 --
 -- AUTO_INCREMENT for table `usage_logs`
 --
 ALTER TABLE `usage_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=108;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=153;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- Constraints for dumped tables
@@ -214,7 +197,8 @@ ALTER TABLE `users`
 -- Constraints for table `delivery_logs`
 --
 ALTER TABLE `delivery_logs`
-  ADD CONSTRAINT `delivery_logs_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`);
+  ADD CONSTRAINT `delivery_logs_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
+  ADD CONSTRAINT `fk_created_by` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `job_orders`
@@ -223,6 +207,12 @@ ALTER TABLE `job_orders`
   ADD CONSTRAINT `fk_job_orders_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
   ADD CONSTRAINT `fk_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
   ADD CONSTRAINT `job_orders_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`);
+
+--
+-- Constraints for table `products`
+--
+ALTER TABLE `products`
+  ADD CONSTRAINT `fk_products_created_by` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
 -- Constraints for table `usage_logs`
