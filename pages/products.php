@@ -1,8 +1,8 @@
 <?php
 session_start();
 if (!isset($_SESSION['user_id'])) {
-    header("Location: ../accounts/login.php");
-    exit;
+  header("Location: ../accounts/login.php");
+  exit;
 }
 
 require_once '../config/db.php';
@@ -29,23 +29,23 @@ $product_groups = $mysqli->query("SELECT DISTINCT product_group FROM products OR
 // Handle Add Product
 $message = "";
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_type'], $_POST['product_group'], $_POST['product_name'], $_POST['unit_price'])) {
-    $type = ucwords(strtolower(trim($_POST['product_type'])));
-    $group = strtoupper(trim($_POST['product_group']));
-    $name = ucwords(strtolower(trim($_POST['product_name'])));
-    $price = floatval($_POST['unit_price']);
+  $type = ucwords(strtolower(trim($_POST['product_type'])));
+  $group = strtoupper(trim($_POST['product_group']));
+  $name = ucwords(strtolower(trim($_POST['product_name'])));
+  $price = floatval($_POST['unit_price']);
 
-    if ($type && $group && $name && $price > 0) {
-        $stmt = $mysqli->prepare("INSERT INTO products (product_type, product_group, product_name, unit_price) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("sssd", $type, $group, $name, $price);
-        if ($stmt->execute()) {
-            $message = "<div class='alert alert-success'>Product added successfully.</div>";
-        } else {
-            $message = "<div class='alert alert-danger'>Error: " . $stmt->error . "</div>";
-        }
-        $stmt->close();
+  if ($type && $group && $name && $price > 0) {
+    $created_by = $_SESSION['user_id'];
+    $stmt = $mysqli->prepare("INSERT INTO products (product_type, product_group, product_name, unit_price, created_by) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("sssdi", $type, $group, $name, $price, $created_by);
+
+    if ($stmt->execute()) {
+      $message = "<div class='alert alert-success'>Product added successfully.</div>";
     } else {
-        $message = "<div class='alert alert-warning'>All fields are required and price must be greater than 0.</div>";
+      $message = "<div class='alert alert-danger'>Error: " . $stmt->error . "</div>";
     }
+    $stmt->close();
+  }
 }
 
 $stock_unit = $_GET['stock_unit'] ?? 'sheets';
@@ -82,31 +82,31 @@ $params = [];
 $types = '';
 
 if ($type_filter) {
-    $sql .= " AND p.product_type = ?";
-    $params[] = $type_filter;
-    $types .= 's';
+  $sql .= " AND p.product_type = ?";
+  $params[] = $type_filter;
+  $types .= 's';
 }
 if ($size_filter) {
-    $sql .= " AND p.product_group = ?";
-    $params[] = $size_filter;
-    $types .= 's';
+  $sql .= " AND p.product_group = ?";
+  $params[] = $size_filter;
+  $types .= 's';
 }
 if ($name_filter) {
-    $sql .= " AND p.product_name = ?";
-    $params[] = $name_filter;
-    $types .= 's';
+  $sql .= " AND p.product_name = ?";
+  $params[] = $name_filter;
+  $types .= 's';
 }
 
 $sql .= " ORDER BY p.product_type, p.product_group, p.product_name";
 $stmt = $mysqli->prepare($sql);
 if ($types) {
-    $stmt->bind_param($types, ...$params);
+  $stmt->bind_param($types, ...$params);
 }
 $stmt->execute();
 $result = $stmt->get_result();
 $products = [];
 while ($row = $result->fetch_assoc()) {
-    $products[] = $row;
+  $products[] = $row;
 }
 $stmt->close();
 ?>
@@ -117,7 +117,8 @@ $stmt->close();
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Product Management | Active Media Designs</title>
+  <title>Product Management</title>
+  <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -421,7 +422,8 @@ $stmt->close();
       border-collapse: collapse;
     }
 
-    th, td {
+    th,
+    td {
       padding: 12px 15px;
       text-align: left;
       border-bottom: 1px solid var(--light-gray);
@@ -506,8 +508,15 @@ $stmt->close();
     }
 
     @keyframes modalFadeIn {
-      from { opacity: 0; transform: translateY(-20px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .modal-header {
@@ -819,7 +828,7 @@ $stmt->close();
         row.addEventListener('click', function(e) {
           // Don't open modal if clicking on links or buttons
           if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
-          
+
           const productId = this.dataset.id;
           fetchProductInfo(productId);
         });
@@ -863,4 +872,5 @@ $stmt->close();
     });
   </script>
 </body>
+
 </html>
