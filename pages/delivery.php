@@ -450,6 +450,16 @@ $logs = $mysqli->query("
         margin-top: 10px;
       }
     }
+
+    .action-cell a {
+      color: var(--gray);
+      margin-right: 10px;
+      transition: color 0.3s;
+    }
+
+    .action-cell a:hover {
+      color: var(--primary);
+    }
   </style>
 </head>
 
@@ -548,6 +558,7 @@ $logs = $mysqli->query("
               <th>Note</th>
               <?php if ($_SESSION['role'] === 'admin'): ?>
                 <th>Recorded By</th>
+                <th>Actions</th>
               <?php endif; ?>
             </tr>
           </thead>
@@ -562,6 +573,12 @@ $logs = $mysqli->query("
                 <td><?php echo htmlspecialchars($log['delivery_note']); ?></td>
                 <?php if ($_SESSION['role'] === 'admin'): ?>
                   <td><?php echo htmlspecialchars($log['username'] ?? 'Unknown'); ?></td>
+                <?php endif; ?>
+                <?php if ($_SESSION['role'] === 'admin'): ?>
+                  <td class="action-cell">
+                    <a href="edit_delivery.php?id=<?= $log['id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>
+                    <a href="delete_delivery.php?id=<?= $log['id'] ?>" title="Delete"><i class="fas fa-trash"></i></a>
+                  </td>
                 <?php endif; ?>
               </tr>
             <?php endwhile; ?>
