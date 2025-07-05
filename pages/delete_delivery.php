@@ -1,40 +1,79 @@
 <?php
 session_start();
-require_once '../config/db.php';
-
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id'])) {
     header("Location: ../accounts/login.php");
     exit;
 }
 
-$job_id = intval($_GET['id'] ?? 0);
-$restore_stock = isset($_GET['restore']) && $_GET['restore'] === 'yes';
+require_once '../config/db.php';
 
-if ($job_id <= 0) {
-    die("Invalid Job ID.");
+$delivery_id = intval($_GET['id'] ?? 0);
+
+if ($delivery_id <= 0) {
+    die("Invalid delivery ID.");
 }
 
-// Fetch job order
-$stmt = $mysqli->prepare("SELECT * FROM job_orders WHERE id = ?");
-$stmt->bind_param("i", $job_id);
+// Fetch the delivery log
+$stmt = $mysqli->prepare("SELECT dl.*, p.product_type, p.product_group, p.product_name 
+                         FROM delivery_logs dl
+                         JOIN products p ON dl.product_id = p.id
+                         WHERE dl.id = ?");
+$stmt->bind_param("i", $delivery_id);
 $stmt->execute();
 $result = $stmt->get_result();
-$job = $result->fetch_assoc();
-$stmt->close();
 
-if (!$job) {
-    die("Job order not found.");
+if ($result->num_rows === 0) {
+    die("Delivery not found.");
 }
 
-// Confirm UI
-if (!isset($_GET['confirm'])) {
+$delivery = $result->fetch_assoc();
+$product_id = $delivery['product_id'];
+
+// If confirmed via POST, proceed with validation and deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Calculate stock before deletion
+    $reams_to_delete = floatval($delivery['delivered_reams']);
+
+    $delivered_result = $mysqli->query("
+        SELECT SUM(delivered_reams) AS total_delivered 
+        FROM delivery_logs 
+        WHERE product_id = $product_id AND id != $delivery_id
+    ");
+    $total_delivered = floatval($delivered_result->fetch_assoc()['total_delivered'] ?? 0);
+
+    $used_result = $mysqli->query("
+        SELECT SUM(used_sheets) AS total_used_sheets 
+        FROM usage_logs 
+        WHERE product_id = $product_id
+    ");
+    $total_used_sheets = floatval($used_result->fetch_assoc()['total_used_sheets'] ?? 0);
+
+    $total_delivered_sheets = $total_delivered * 500;
+
+    if ($total_delivered_sheets < $total_used_sheets) {
+        echo "<script>
+            alert('❌ Cannot delete this delivery. It would cause negative stock.');
+            window.location.href = 'delivery.php?id=$product_id&tab=delivery';
+        </script>";
+        exit;
+    }
+
+    // Proceed with deletion
+    $delete_stmt = $mysqli->prepare("DELETE FROM delivery_logs WHERE id = ?");
+    $delete_stmt->bind_param("i", $delivery_id);
+    $delete_stmt->execute();
+
+    header("Location: delivery.php?id=$product_id&tab=delivery");
+    exit;
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Delete Job Order</title>
+    <title>Delete Delivery</title>
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -205,44 +244,40 @@ if (!isset($_GET['confirm'])) {
             line-height: 1.6;
         }
 
-        .confirmation-details {
+        /* Delivery Details */
+        .delivery-details {
             background: rgba(255, 77, 79, 0.05);
             border-radius: 6px;
-            padding: 15px;
-            margin: 20px 0;
+            padding: 20px;
+            margin: 25px 0;
             text-align: left;
             border-left: 3px solid var(--danger);
         }
 
-        .confirmation-details p {
-            margin-bottom: 8px;
-        }
-
-        .confirmation-details strong {
-            color: var(--dark);
-        }
-
-        /* Form Elements */
-        .form-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
-
-        .form-group label {
+        .detail-row {
             display: flex;
-            align-items: center;
-            cursor: pointer;
-            font-size: 14px;
-            color: var(--dark);
+            margin-bottom: 12px;
         }
 
-        .form-group input[type="checkbox"] {
-            margin-right: 10px;
-            width: 18px;
-            height: 18px;
+        .detail-label {
+            font-weight: 500;
+            color: var(--dark);
+            min-width: 150px;
+        }
+
+        .detail-value {
+            color: var(--gray);
+            flex: 1;
         }
 
         /* Buttons */
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
         .btn {
             display: inline-flex;
             align-items: center;
@@ -254,7 +289,6 @@ if (!isset($_GET['confirm'])) {
             transition: all 0.3s;
             text-decoration: none;
             font-size: 14px;
-            margin: 0 10px;
         }
 
         .btn-danger {
@@ -302,50 +336,85 @@ if (!isset($_GET['confirm'])) {
                 padding: 15px;
             }
             
+            .detail-row {
+                flex-direction: column;
+            }
+            
+            .detail-label {
+                margin-bottom: 5px;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
             .btn {
                 width: 100%;
-                margin: 5px 0;
             }
         }
     </style>
 </head>
 <body>
+    <button class="menu-toggle" id="menuToggle">
+        <i class="fas fa-bars"></i>
+    </button>
     <div class="main-content">
         <div class="confirmation-card">
             <div class="confirmation-icon">
                 <i class="fas fa-exclamation-triangle"></i>
             </div>
-            <h1 class="confirmation-title">Delete Job Order</h1>
-            <p class="confirmation-message">Are you sure you want to permanently delete this job order?</p>
+            <h1 class="confirmation-title">Delete Delivery Record</h1>
+            <p class="confirmation-message">Are you sure you want to permanently delete this delivery record?</p>
             
-            <div class="confirmation-details">
-                <p><strong>Project Name:</strong> <?= htmlspecialchars($job['project_name']) ?></p>
-                <p><strong>Client:</strong> <?= htmlspecialchars($job['client_name']) ?></p>
-                <p><strong>Date:</strong> <?= date('M j, Y', strtotime($job['log_date'])) ?></p>
-                <p><strong>Quantity:</strong> <?= $job['quantity'] ?></p>
+            <div class="delivery-details">
+                <div class="detail-row">
+                    <span class="detail-label">Product:</span>
+                    <span class="detail-value">
+                        <?= htmlspecialchars($delivery['product_type']) ?> - 
+                        <?= htmlspecialchars($delivery['product_group']) ?> - 
+                        <?= htmlspecialchars($delivery['product_name']) ?>
+                    </span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Delivery Date:</span>
+                    <span class="detail-value"><?= date('M j, Y', strtotime($delivery['delivery_date'])) ?></span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Supplier:</span>
+                    <span class="detail-value"><?= htmlspecialchars($delivery['supplier_name']) ?></span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Quantity:</span>
+                    <span class="detail-value">
+                        <?= $delivery['delivered_reams'] ?> reams (<?= $delivery['delivered_reams'] * 500 ?> sheets)
+                    </span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Price per Ream:</span>
+                    <span class="detail-value">₱<?= number_format($delivery['amount_per_ream'], 2) ?></span>
+                </div>
+                
+                <?php if (!empty($delivery['delivery_note'])): ?>
+                <div class="detail-row">
+                    <span class="detail-label">Notes:</span>
+                    <span class="detail-value"><?= nl2br(htmlspecialchars($delivery['delivery_note'])) ?></span>
+                </div>
+                <?php endif; ?>
             </div>
             
-            <form method="get" class="form-group">
-                <input type="hidden" name="id" value="<?= $job_id ?>">
-                <label>
-                    <input type="checkbox" name="restore" value="yes">
-                    Restore stock from this job order
-                </label>
-            </form>
-            
-            <div>
-                <button type="submit" form="deleteForm" name="confirm" value="1" class="btn btn-danger">
-                    Confirm Delete
-                </button>
-                <a href="job_orders.php" class="btn btn-outline">
-                    Cancel
-                </a>
-            </div>
-            
-            <form id="deleteForm" method="get" style="display: none;">
-                <input type="hidden" name="id" value="<?= $job_id ?>">
-                <input type="hidden" name="confirm" value="1">
-                <input type="hidden" name="restore" id="restoreStock" value="<?= $restore_stock ? 'yes' : 'no' ?>">
+            <form method="POST">
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-danger">
+                        Confirm Delete
+                    </button>
+                    <a href="delivery.php?id=<?= $product_id ?>&tab=delivery" class="btn btn-outline">
+                        Cancel
+                    </a>
+                </div>
             </form>
         </div>
     </div>
@@ -382,75 +451,6 @@ if (!isset($_GET['confirm'])) {
                 icon.classList.add('fa-bars');
             }
         });
-        
-        // Update the restore stock hidden input when checkbox changes
-        document.querySelector('input[name="restore"]').addEventListener('change', function() {
-            document.getElementById('restoreStock').value = this.checked ? 'yes' : 'no';
-        });
     </script>
 </body>
 </html>
-<?php
-    exit;
-}
-
-if ($restore_stock) {
-    $paper_type = $job['paper_type'];
-    $paper_size = $job['paper_size'];
-    $product_size = $job['product_size'];
-    $copies_per_set = intval($job['copies_per_set']);
-    $quantity = intval($job['quantity']);
-    $number_of_sets = intval($job['number_of_sets']);
-    $paper_sequence = explode(',', $job['paper_sequence']);
-    $log_date = $job['log_date'];
-
-    $cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, 'whole' => 1];
-    $cut_size = $cut_size_map[$product_size] ?? 1;
-
-    $total_sheets = $number_of_sets * $quantity;
-    $cut_sheets = $total_sheets / $cut_size;
-    $reams = $cut_sheets / 500;
-    $reams_per_product = $reams;
-    $used_sheets = $reams_per_product * 500;
-
-    foreach ($paper_sequence as $color) {
-        $color = trim($color);
-
-        $product = $mysqli->query("
-            SELECT id FROM products
-            WHERE product_type = '$paper_type'
-              AND product_group = '$paper_size'
-              AND product_name = '$color'
-            LIMIT 1
-        ");
-
-        if ($product && $product->num_rows > 0) {
-            $prod = $product->fetch_assoc();
-            $product_id = $prod['id'];
-
-            $note = "Stock restored after deleting job order ID #$job_id";
-            $stmt_restore = $mysqli->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
-            $negative_sheets = -$used_sheets;
-            $stmt_restore->bind_param("iisds", $product_id, $negative_sheets, $log_date, $job_id, $note);
-            $stmt_restore->execute();
-            $stmt_restore->close();
-        }
-    }
-}
-
-// Delete usage logs and job order
-$mysqli->query("DELETE FROM usage_logs WHERE job_order_id = $job_id");
-
-$stmt = $mysqli->prepare("DELETE FROM job_orders WHERE id = ?");
-$stmt->bind_param("i", $job_id);
-if ($stmt->execute()) {
-    $msg = "Job Order deleted successfully";
-    if ($restore_stock) {
-        $msg .= " and stock was restored.";
-    }
-    header("Location: job_orders.php?msg=" . urlencode($msg));
-    exit;
-} else {
-    die("Failed to delete Job Order: " . $stmt->error);
-}
-?>
