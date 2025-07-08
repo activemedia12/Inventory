@@ -48,11 +48,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $reams_per_product = $reams;
 
   $stmt = $mysqli->prepare("INSERT INTO job_orders (
-        log_date, client_name, client_address, contact_person, contact_number,
-        project_name, quantity, number_of_sets, product_size, serial_range,
-        paper_size, custom_paper_size, paper_type, copies_per_set, binding_type,
-        custom_binding, paper_sequence, special_instructions, created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      log_date, client_name, client_address, contact_person, contact_number,
+      project_name, quantity, number_of_sets, product_size, serial_range,
+      paper_size, custom_paper_size, paper_type, copies_per_set, binding_type,
+      custom_binding, paper_sequence, special_instructions, created_by,
+      status
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
+
   $paper_sequence_str = implode(', ', $paper_sequence);
 
   if ($stmt) {
@@ -143,7 +145,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Fetch and organize job orders data
-$job_orders_data = [];
+$pending_orders = [];
+$completed_orders = [];
+
 $query = "
   SELECT j.*, u.username
   FROM job_orders j
@@ -180,22 +184,19 @@ while ($row = $result->fetch_assoc()) {
   $project_key = strtolower(trim($row['project_name']));
   $project_display = $row['project_name'];
 
-  if (!isset($job_orders_data[$client])) {
-    $job_orders_data[$client] = [];
-  }
-  if (!isset($job_orders_data[$client][$date])) {
-    $job_orders_data[$client][$date] = [];
-  }
-  if (!isset($job_orders_data[$client][$date][$project_key])) {
-    $job_orders_data[$client][$date][$project_key] = [
+  $target = ($row['status'] === 'completed') ? 'completed_orders' : 'pending_orders';
+
+  if (!isset($$target[$client])) $$target[$client] = [];
+  if (!isset($$target[$client][$date])) $$target[$client][$date] = [];
+  if (!isset($$target[$client][$date][$project_key])) {
+    $$target[$client][$date][$project_key] = [
       'display' => $project_display,
       'records' => [],
     ];
   }
 
-  $job_orders_data[$client][$date][$project_key]['records'][] = $row;
+  $$target[$client][$date][$project_key]['records'][] = $row;
 }
-
 
 // Fetch product availability
 $product_query = $mysqli->query("
@@ -792,6 +793,12 @@ $product_query = $mysqli->query("
       border: 0;
     }
 
+    .action-cell {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    }
+
     .action-cell a {
       color: var(--gray);
       margin-right: 10px;
@@ -800,6 +807,13 @@ $product_query = $mysqli->query("
 
     .action-cell a:hover {
       color: var(--primary);
+    }
+
+    .btn-status {
+      max-height: 30px;
+      max-width: 90px;
+      font-size: 90%;
+      padding: 25px 10px 25px 10px;
     }
 
 
@@ -1031,17 +1045,16 @@ $product_query = $mysqli->query("
       </div>
     </div>
 
-    <!-- Job Orders List - Compressed Version -->
     <div class="card">
-      <h3><i class="fas fa-list"></i> Job Orders History</h3>
+      <h3><i class="fas fa-clock"></i> Pending Job Orders</h3>
 
-      <?php if (empty($job_orders_data)): ?>
+      <?php if (empty($pending_orders)): ?>
         <div class="empty-message">
-          <p>No job orders found</p>
+          <p>No pending job orders</p>
         </div>
       <?php else: ?>
         <div class="compact-orders">
-          <?php foreach ($job_orders_data as $client => $dates): ?>
+          <?php foreach ($pending_orders as $client => $dates): ?>
             <div class="compact-client">
               <div class="compact-client-header" onclick="toggleClient(this)">
                 <span class="compact-client-name"><?= htmlspecialchars($client) ?></span>
@@ -1089,8 +1102,8 @@ $product_query = $mysqli->query("
                                     <th>Contact Number</th>
                                     <?php if ($_SESSION['role'] === 'admin'): ?>
                                       <th>Recorded By</th>
-                                      <th>Actions</th>
-                                    <?php endif; ?>                                    
+                                      <th style="text-align: center;">Actions</th>
+                                    <?php endif; ?>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -1113,9 +1126,129 @@ $product_query = $mysqli->query("
                                       <td><?= htmlspecialchars($order['contact_person']) ?></td>
                                       <td><?= htmlspecialchars($order['contact_number']) ?></td>
                                       <?php if ($_SESSION['role'] === 'admin'): ?>
+                                        <td><?= htmlspecialchars($order['username'] ?? 'Unknown') ?></td>
+                                        <td class="action-cell">
+                                          <a href="edit_job.php?id=<?= $order['id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>
+                                          <a href="delete_job.php?id=<?= $order['id'] ?>" onclick="return confirm('Delete this job order?')" title="Delete"><i class="fas fa-trash"></i></a>
+                                          <form class="status-toggle-form" data-job-id="<?= $order['id'] ?>" data-new-status="<?= $order['status'] === 'pending' ? 'completed' : 'pending' ?>" style="display:inline;">
+                                            <button type="submit" class="btn btn-status" style="background-color: green;">
+                                              <?= $order['status'] === 'pending' ? 'Mark as Completed' : 'Mark as Pending' ?>
+                                            </button>
+                                          </form>
+                                        </td>
+                                      <?php endif; ?>
+                                    </tr>
+                                  <?php endforeach; ?>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      <?php endforeach; ?>
+                    </div>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+    </div>
+    <!-- Job Orders List - Compressed Version -->
+    <div class="card">
+      <h3><i class="fas fa-list"></i> Job Orders History</h3>
+
+      <?php if (empty($completed_orders)): ?>
+        <div class="empty-message">
+          <p>No job orders found</p>
+        </div>
+      <?php else: ?>
+        <div class="compact-orders">
+          <?php foreach ($completed_orders as $client => $dates): ?>
+            <div class="compact-client">
+              <div class="compact-client-header" onclick="toggleClient(this)">
+                <span class="compact-client-name"><?= htmlspecialchars($client) ?></span>
+                <span class="compact-client-count"><?= count($dates) ?> dates</span>
+              </div>
+
+              <div class="compact-date-group">
+                <?php foreach ($dates as $date => $projects): ?>
+                  <div>
+                    <div class="compact-date-header" onclick="toggleDate(this)">
+                      <span class="compact-date-text">
+                        <i class="fas fa-calendar-alt"></i>
+                        <?= date("F j, Y", strtotime($date)) ?>
+                      </span>
+                      <span class="compact-client-count"><?= count($projects) ?> projects</span>
+                    </div>
+
+                    <div class="compact-project-group">
+                      <?php foreach ($projects as $project_key => $project_data): ?>
+                        <div>
+                          <div class="compact-project-header" onclick="toggleProject(this)">
+                            <span>
+                              <i class="fas fa-folder-open"></i>
+                              <?= htmlspecialchars($project_data['display']) ?>
+                            </span>
+                            <span class="compact-client-count"><?= count($project_data['records']) ?> orders</span>
+                          </div>
+
+                          <div class="compact-order-item" style="display:none">
+                            <div class="order-details-table-container">
+                              <table class="order-details-table">
+                                <thead>
+                                  <tr>
+                                    <th>Quantity</th>
+                                    <th>Cut Size</th>
+                                    <th>Product Size</th>
+                                    <th>Serial Range</th>
+                                    <th>Paper Type</th>
+                                    <th>Copies per Set</th>
+                                    <th>Binding</th>
+                                    <th>Color Sequence</th>
+                                    <th>Instructions</th>
+                                    <th>Client Address</th>
+                                    <th>Contact Person</th>
+                                    <th>Contact Number</th>
+                                    <th>Date Completed</th>
+                                    <?php if ($_SESSION['role'] === 'admin'): ?>
+                                      <th>Recorded By</th>
+                                      <th style="text-align: center;">Actions</th>
+                                    <?php endif; ?>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <?php foreach ($project_data['records'] as $order): ?>
+                                    <tr>
+                                      <td><?= $order['quantity'] ?></td>
+                                      <td><?= htmlspecialchars($order['product_size']) ?></td>
+                                      <td><?= $order['paper_size'] === 'custom' ? htmlspecialchars($order['custom_paper_size']) : htmlspecialchars($order['paper_size']) ?></td>
+                                      <td><?= htmlspecialchars($order['serial_range']) ?></td>
+                                      <td><?= htmlspecialchars($order['paper_type']) ?></td>
+                                      <td><?= $order['copies_per_set'] ?></td>
+                                      <td><?= $order['binding_type'] === 'Custom' ? htmlspecialchars($order['custom_binding']) : htmlspecialchars($order['binding_type']) ?></td>
+                                      <td>
+                                        <?php foreach (explode(',', $order['paper_sequence']) as $color): ?>
+                                          <span class="sequence-item"><?= trim(htmlspecialchars($color)) ?></span>
+                                        <?php endforeach; ?>
+                                      </td>
+                                      <td><?= nl2br(htmlspecialchars($order['special_instructions'])) ?></td>
+                                      <td><?= htmlspecialchars($order['client_address']) ?></td>
+                                      <td><?= htmlspecialchars($order['contact_person']) ?></td>
+                                      <td><?= htmlspecialchars($order['contact_number']) ?></td>
+                                      <td><?= $order['completed_date'] ? date("F j, Y - g:i A", strtotime($order['completed_date'])) : '-' ?></td>
+                                      <?php if ($_SESSION['role'] === 'admin'): ?>
                                         <td><?php echo htmlspecialchars($order['username'] ?? 'Unknown'); ?></td>
-                                        <td class="action-cell"><a href="edit_job.php?id=<?= $order['id'] ?>" title="Edit"><i class="fas fa-edit"></i></a><a href="delete_job.php?id=<?= $order['id'] ?>" onclick="return confirm('Are you sure you want to delete this Job order?')" title="Delete"><i class="fas fa-trash"></i></td>
-                                      <?php endif; ?>                                      
+                                        <td class="action-cell">
+                                          <a href="edit_job.php?id=<?= $order['id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>
+                                          <a href="delete_job.php?id=<?= $order['id'] ?>" onclick="return confirm('Are you sure you want to delete this Job order?')" title="Delete"><i class="fas fa-trash"></i></a>
+                                          <form class="status-toggle-form" data-job-id="<?= $order['id'] ?>" data-new-status="<?= $order['status'] === 'pending' ? 'completed' : 'pending' ?>" style="display:inline;">
+                                            <button type="submit" class="btn btn-status">
+                                              <?= $order['status'] === 'pending' ? 'Mark as Completed' : 'Mark as Pending' ?>
+                                            </button>
+                                          </form>
+                                        </td>
+                                      <?php endif; ?>
                                     </tr>
                                   <?php endforeach; ?>
                                 </tbody>
@@ -1264,6 +1397,33 @@ $product_query = $mysqli->query("
       paperTypeSelect.addEventListener('change', updatePaperSequenceOptions);
       paperSizeSelect.addEventListener('change', updatePaperSequenceOptions);
       copiesInput.addEventListener('input', updatePaperSequenceOptions);
+    });
+
+    document.querySelectorAll('.status-toggle-form').forEach(form => {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault(); // prevent full-page submit
+
+        const jobId = this.dataset.jobId;
+        const newStatus = this.dataset.newStatus;
+
+        fetch('update_status.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: `job_id=${jobId}&new_status=${newStatus}`
+          })
+          .then(response => response.text())
+          .then(data => {
+            // Optional: alert or log the response
+            console.log(data);
+            location.reload(); // refresh current page
+          })
+          .catch(err => {
+            alert('Status update failed.');
+            console.error(err);
+          });
+      });
     });
   </script>
 </body>
