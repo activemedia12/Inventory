@@ -13,7 +13,7 @@ if ($job_id <= 0) {
     exit;
 }
 
-// Fetch job order
+// Fetch existing job order
 $stmt = $mysqli->prepare("SELECT * FROM job_orders WHERE id = ?");
 $stmt->bind_param("i", $job_id);
 $stmt->execute();
@@ -26,11 +26,8 @@ if (!$job) {
     exit;
 }
 
-// Fetch dropdown data
-$product_types = $mysqli->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
-$product_sizes = $mysqli->query("SELECT DISTINCT product_group FROM products ORDER BY product_group");
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Gather form inputs
     $client_name = $_POST['client_name'] ?? '';
     $client_address = $_POST['client_address'] ?? '';
     $contact_person = $_POST['contact_person'] ?? '';
@@ -49,23 +46,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $special_instructions = $_POST['special_instructions'] ?? '';
     $log_date = $_POST['log_date'] ?? date('Y-m-d');
 
+    // Use original paper sequence (not editable)
+    $paper_sequence = explode(',', $job['paper_sequence']);
     $cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, 'whole' => 1];
     $cut_size = $cut_size_map[$product_size] ?? 1;
-    $total_sheets = $number_of_sets * $quantity;
-    $cut_sheets = $total_sheets / $cut_size;
-    $reams = $cut_sheets / 500;
-    $reams_per_product = $reams;
-    $new_used_sheets = $reams_per_product * 500;
 
-    // Compute old used sheets
-    $old_cut_size = $cut_size_map[$job['product_size']] ?? 1;
-    $old_total_sheets = $job['quantity'] * $job['number_of_sets'];
-    $old_reams = ($old_total_sheets / $old_cut_size) / 500;
-    $old_used_sheets = $old_reams * 500;
+    $total_sets = $quantity * $number_of_sets;
+    $sheets_per_layer = $total_sets / $cut_size;
+    $used_sheets_per_product = $sheets_per_layer;
 
-    $difference = $new_used_sheets - $old_used_sheets;
-
-    // Update job_orders
+    // Update job_orders table
     $stmt = $mysqli->prepare("UPDATE job_orders SET
         log_date = ?, client_name = ?, client_address = ?, contact_person = ?, contact_number = ?,
         project_name = ?, quantity = ?, number_of_sets = ?, product_size = ?, serial_range = ?,
@@ -96,33 +86,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
 
     if ($stmt->execute()) {
-        if ($difference != 0) {
-            foreach (explode(',', $job['paper_sequence']) as $color) {
-                $color = trim($color);
-                $product = $mysqli->query("SELECT id FROM products WHERE product_type = '$paper_type' AND product_group = '$paper_size' AND product_name = '$color' LIMIT 1");
+        // Delete previous usage logs
+        $delete_stmt = $mysqli->prepare("DELETE FROM usage_logs WHERE job_order_id = ?");
+        $delete_stmt->bind_param("i", $job_id);
+        $delete_stmt->execute();
+        $delete_stmt->close();
 
-                if ($product && $product->num_rows > 0) {
-                    $prod = $product->fetch_assoc();
-                    $product_id = $prod['id'];
-                    $note = "Adjustment from job order edit for $client_name";
+        // Insert updated usage logs
+        foreach ($paper_sequence as $color) {
+            $color = trim($color);
 
-                    $stmt2 = $mysqli->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
-                    $stmt2->bind_param("iisds", $product_id, $difference, $log_date, $job_id, $note);
-                    $stmt2->execute();
-                    $stmt2->close();
-                }
+            $product_res = $mysqli->prepare("
+                SELECT id FROM products
+                WHERE product_type = ? AND product_group = ? AND product_name = ?
+                LIMIT 1
+            ");
+            $product_res->bind_param("sss", $paper_type, $paper_size, $color);
+            $product_res->execute();
+            $product_result = $product_res->get_result();
+
+            if ($product_result && $product_result->num_rows > 0) {
+                $prod = $product_result->fetch_assoc();
+                $product_id = $prod['id'];
+                $note = "Updated job order for $client_name";
+
+                $log_stmt = $mysqli->prepare("
+                    INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note)
+                    VALUES (?, ?, ?, ?, ?)
+                ");
+                $log_stmt->bind_param("iisis", $product_id, $used_sheets_per_product, $log_date, $job_id, $note);
+                $log_stmt->execute();
+                $log_stmt->close();
             }
+
+            $product_res->close();
         }
-        echo "✅ Job order updated successfully.";
+        $success = true;
     } else {
         echo "❌ Error updating job order: " . $stmt->error;
     }
+
     $stmt->close();
 }
 ?>
 
+
+
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -445,31 +457,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             body {
                 padding-left: 0;
             }
-            
+
             .sidebar {
                 transform: translateX(-100%);
                 width: 250px;
                 box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
             }
-            
+
             .sidebar.expanded {
                 transform: translateX(0);
             }
-            
+
             .menu-toggle {
                 display: block;
             }
-            
+
             .main-content {
                 margin-left: 0;
                 padding: 15px;
             }
-            
+
             .header {
                 flex-direction: column;
                 align-items: flex-start;
             }
-            
+
             .user-info {
                 margin-top: 10px;
             }
@@ -479,22 +491,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             .form-card {
                 padding: 15px;
             }
-            
+
             .btn {
                 width: 100%;
                 margin-bottom: 10px;
             }
-            
+
             .btn-outline {
                 margin-left: 0;
             }
-            
+
             .form-grid {
                 grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
+
 <body>
     <div class="main-content">
         <header class="header">
@@ -516,7 +529,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="form-card">
             <h2><i class="fas fa-edit"></i> Edit Job Order Details</h2>
-            
+
             <form method="post">
                 <div class="form-grid">
                     <!-- Client Information -->
@@ -524,110 +537,167 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label for="client_name">Client Name</label>
                         <input type="text" id="client_name" name="client_name" value="<?= htmlspecialchars($job['client_name']) ?>" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="client_address">Address</label>
                         <input type="text" id="client_address" name="client_address" value="<?= htmlspecialchars($job['client_address']) ?>" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="contact_person">Contact Person</label>
                         <input type="text" id="contact_person" name="contact_person" value="<?= htmlspecialchars($job['contact_person']) ?>" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="contact_number">Contact Number</label>
                         <input type="text" id="contact_number" name="contact_number" value="<?= htmlspecialchars($job['contact_number']) ?>" required>
                     </div>
-                    
+
                     <!-- Project Information -->
                     <div class="form-group">
                         <label for="project_name">Project Name</label>
                         <input type="text" id="project_name" name="project_name" value="<?= htmlspecialchars($job['project_name']) ?>" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="serial_range">Serial Range</label>
                         <input type="text" id="serial_range" name="serial_range" value="<?= htmlspecialchars($job['serial_range']) ?>" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="log_date">Order Date</label>
                         <input type="date" id="log_date" name="log_date" value="<?= $job['log_date'] ?>" required>
                     </div>
-                    
+
                     <!-- Job Specifications -->
                     <div class="form-group">
                         <label for="quantity">Order Quantity</label>
                         <input type="number" id="quantity" name="quantity" min="1" value="<?= $job['quantity'] ?>" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="number_of_sets">Sets per Product</label>
                         <input type="number" id="number_of_sets" name="number_of_sets" min="1" value="<?= $job['number_of_sets'] ?>" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="product_size">Product Size</label>
                         <select id="product_size" name="product_size" required>
-                            <?php foreach (['whole','1/2','1/3','1/4','1/6','1/8'] as $size): ?>
+                            <?php foreach (['whole', '1/2', '1/3', '1/4', '1/6', '1/8'] as $size): ?>
                                 <option value="<?= $size ?>" <?= $job['product_size'] == $size ? 'selected' : '' ?>><?= $size ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="paper_size">Paper Size</label>
                         <input type="text" id="paper_size" name="paper_size" value="<?= htmlspecialchars($job['paper_size']) ?>" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="custom_paper_size">Custom Paper Size</label>
                         <input type="text" id="custom_paper_size" name="custom_paper_size" value="<?= htmlspecialchars($job['custom_paper_size']) ?>">
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="paper_type">Paper Type</label>
                         <input type="text" id="paper_type" name="paper_type" value="<?= htmlspecialchars($job['paper_type']) ?>" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="copies_per_set">Copies per Set</label>
                         <input type="number" id="copies_per_set" name="copies_per_set" min="1" value="<?= $job['copies_per_set'] ?>" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="binding_type">Binding Type</label>
                         <input type="text" id="binding_type" name="binding_type" value="<?= htmlspecialchars($job['binding_type']) ?>" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="custom_binding">Custom Binding</label>
                         <input type="text" id="custom_binding" name="custom_binding" value="<?= htmlspecialchars($job['custom_binding']) ?>">
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="special_instructions">Special Instructions</label>
                     <textarea id="special_instructions" name="special_instructions"><?= htmlspecialchars($job['special_instructions']) ?></textarea>
                 </div>
-                
+
                 <div class="info-note">
                     <i class="fas fa-info-circle"></i> <strong>Note:</strong> Paper sequence cannot be changed during editing.
                 </div>
-                
+
                 <button type="submit" class="btn"><i class="fas fa-save"></i> Update Job Order</button>
                 <a href="job_orders.php" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Back to Job Orders</a>
             </form>
         </div>
     </div>
 
+    <?php if (isset($success) && $success): ?>
+        <style>
+            .success-modal-backdrop {
+                position: fixed;
+                inset: 0;
+                background-color: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+            }
+
+            .success-modal-content {
+                background: #fff;
+                padding: 1.5rem;
+                border-radius: 10px;
+                text-align: center;
+                font-size: 1rem;
+                max-width: 90%;
+                width: 320px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            }
+
+            .success-modal-content h2 {
+                margin-bottom: 10px;
+                font-size: 1.2rem;
+                color: #2d8f2d;
+            }
+
+            @media (max-width: 480px) {
+                .success-modal-content {
+                    font-size: 0.95rem;
+                    width: 90%;
+                }
+            }
+        </style>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const backdrop = document.createElement('div');
+                backdrop.className = 'success-modal-backdrop';
+
+                backdrop.innerHTML = `
+        <div class="success-modal-content">
+            <h2>✅ Success!</h2>
+            <div>Job order updated successfully.<br>Redirecting to Job Orders...</div>
+        </div>
+    `;
+
+                document.body.appendChild(backdrop);
+
+                setTimeout(() => {
+                    window.location.href = 'job_orders.php';
+                }, 3000);
+            });
+        </script>
+    <?php endif; ?>
     <script>
         // Enhanced mobile navigation toggle
         document.getElementById('menuToggle').addEventListener('click', function() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('expanded');
-            
+
             // Toggle menu icon
             const icon = this.querySelector('i');
             if (sidebar.classList.contains('expanded')) {
@@ -638,15 +708,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 icon.classList.add('fa-bars');
             }
         });
-        
+
         // Close menu when clicking outside on mobile
         document.addEventListener('click', function(event) {
             const sidebar = document.getElementById('sidebar');
             const menuToggle = document.getElementById('menuToggle');
-            
-            if (window.innerWidth <= 768 && 
-                !sidebar.contains(event.target) && 
-                event.target !== menuToggle && 
+
+            if (window.innerWidth <= 768 &&
+                !sidebar.contains(event.target) &&
+                event.target !== menuToggle &&
                 !menuToggle.contains(event.target)) {
                 sidebar.classList.remove('expanded');
                 const icon = menuToggle.querySelector('i');
@@ -656,4 +726,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         });
     </script>
 </body>
+
 </html>
