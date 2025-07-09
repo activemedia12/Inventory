@@ -10,13 +10,12 @@ require_once '../config/db.php';
 $search_client = strtolower(trim($_GET['search_client'] ?? ''));
 $search_project = strtolower(trim($_GET['search_project'] ?? ''));
 
-// Fetch data for dropdowns
+// Fetch dropdown data
 $product_types = $mysqli->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
 $product_sizes = $mysqli->query("SELECT DISTINCT product_group FROM products ORDER BY product_group");
 $product_names = $mysqli->query("SELECT DISTINCT product_name FROM products ORDER BY product_name");
 $project_names = $mysqli->query("SELECT DISTINCT project_name FROM job_orders ORDER BY project_name");
 
-// Handle form submission
 $message = "";
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $client_name = $_POST['client_name'] ?? '';
@@ -38,113 +37,125 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $special_instructions = $_POST['special_instructions'] ?? '';
   $log_date = $_POST['log_date'] ?? date('Y-m-d');
   $created_by = $_SESSION['user_id'];
+  $rdo_code = trim($_POST['rdo_code'] ?? '');
+  $taxpayer_name = trim($_POST['taxpayer_name'] ?? '');
 
   $cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, 'whole' => 1];
   $cut_size = $cut_size_map[$product_size] ?? 1;
-
   $total_sheets = $number_of_sets * $quantity;
   $cut_sheets = $total_sheets / $cut_size;
   $reams = $cut_sheets / 500;
   $reams_per_product = $reams;
+  $used_sheets = $reams_per_product * 500;
+  $paper_sequence_str = implode(', ', $paper_sequence);
 
-  $stmt = $mysqli->prepare("INSERT INTO job_orders (
-      log_date, client_name, client_address, contact_person, contact_number,
+  // 1. Check all paper sequence products for available stock before inserting job order
+  $insufficient = [];
+  $products_used = [];
+
+  foreach ($paper_sequence as $color) {
+    $color = trim($color);
+    $result = $mysqli->query("
+      SELECT 
+        p.id,
+        (
+          (
+            SELECT IFNULL(SUM(delivered_reams), 0)
+            FROM delivery_logs
+            WHERE product_id = p.id
+          ) * 500
+          -
+          (
+            SELECT IFNULL(SUM(used_sheets), 0)
+            FROM usage_logs
+            WHERE product_id = p.id
+          )
+        ) AS available
+      FROM products p
+      WHERE p.product_type = '$paper_type'
+        AND p.product_group = '$paper_size'
+        AND p.product_name = '$color'
+      LIMIT 1
+    ");
+
+    if ($result && $result->num_rows > 0) {
+      $row = $result->fetch_assoc();
+      if ($row['available'] < $used_sheets) {
+        $insufficient[] = "❌ Not enough stock for $color. Available: {$row['available']} sheets, Required: $used_sheets sheets.";
+      } else {
+        $products_used[] = [
+          'product_id' => $row['id'],
+          'color' => $color
+        ];
+      }
+    } else {
+      $insufficient[] = "❌ Product not found for $color.";
+    }
+  }
+
+  // 2. If any product has issues, stop here
+  if (!empty($insufficient)) {
+    $message = implode("<br>", $insufficient);
+  } else {
+    // 3. Insert job order
+    $stmt = $mysqli->prepare("INSERT INTO job_orders (
+      log_date, client_name, client_address, contact_person, contact_number, taxpayer_name, rdo_code,
       project_name, quantity, number_of_sets, product_size, serial_range,
       paper_size, custom_paper_size, paper_type, copies_per_set, binding_type,
       custom_binding, paper_sequence, special_instructions, created_by,
       status
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
 
-  $paper_sequence_str = implode(', ', $paper_sequence);
+    if ($stmt) {
+      $stmt->bind_param(
+        "ssssssssiisssssissssi",
+        $log_date,
+        $client_name,
+        $client_address,
+        $contact_person,
+        $contact_number,
+        $rdo_code,
+        $taxpayer_name,
+        $project_name,
+        $quantity,
+        $number_of_sets,
+        $product_size,
+        $serial_range,
+        $paper_size,
+        $custom_paper_size,
+        $paper_type,
+        $copies_per_set,
+        $binding_type,
+        $custom_binding,
+        $paper_sequence_str,
+        $special_instructions,
+        $created_by
+      );
 
-  if ($stmt) {
-    $stmt->bind_param(
-      "ssssssiisssssissssi",
-      $log_date,
-      $client_name,
-      $client_address,
-      $contact_person,
-      $contact_number,
-      $project_name,
-      $quantity,
-      $number_of_sets,
-      $product_size,
-      $serial_range,
-      $paper_size,
-      $custom_paper_size,
-      $paper_type,
-      $copies_per_set,
-      $binding_type,
-      $custom_binding,
-      $paper_sequence_str,
-      $special_instructions,
-      $created_by
-    );
-
-    if ($stmt->execute()) {
-      $success = true;
-      $job_order_id = $mysqli->insert_id;
-      foreach ($paper_sequence as $color) {
-        $product = $mysqli->query("
-                  SELECT 
-                    p.id,
-                    (
-                      (
-                        SELECT IFNULL(SUM(delivered_reams), 0)
-                        FROM delivery_logs
-                        WHERE product_id = p.id
-                      ) * 500
-                      -
-                      (
-                        SELECT IFNULL(SUM(used_sheets), 0)
-                        FROM usage_logs
-                        WHERE product_id = p.id
-                      )
-                    ) AS available
-                  FROM products p
-                  WHERE p.product_type = '$paper_type'
-                  AND p.product_group = '$paper_size'
-                  AND p.product_name = '$color'
-                  LIMIT 1
-                ");
-
-        if ($product && $product->num_rows > 0) {
-          $prod = $product->fetch_assoc();
-          $product_id = $prod['id'];
-          $available = floatval($prod['available']);
-          $used_sheets = $reams_per_product * 500;
-
-          if ($available < $used_sheets) {
-            $message .= "❌ Not enough stock for $color. Available: $available sheets, Required: $used_sheets sheets.<br>";
-            $success = false;
-            continue;
-          }
-
-          $usage_stmt = $mysqli->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
+      if ($stmt->execute()) {
+        $job_order_id = $mysqli->insert_id;
+        foreach ($products_used as $prod) {
+          $product_id = $prod['product_id'];
+          $color = $prod['color'];
           $note = "Auto-deducted from job order for $client_name";
+          $usage_stmt = $mysqli->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
           $usage_stmt->bind_param("iisds", $product_id, $used_sheets, $log_date, $job_order_id, $note);
           $usage_stmt->execute();
           $usage_stmt->close();
-        } else {
-          $message .= "❌ Product not found for $color.<br>";
-          $success = false;
         }
-      }
 
-      if ($success) {
         $message = "✅ Job order saved. Reams used per product: " . number_format($reams_per_product, 2);
+      } else {
+        $message = "❌ Error saving job order: " . $stmt->error;
       }
+      $stmt->close();
     } else {
-      $message = "❌ Error saving job order: " . $stmt->error;
+      $message = "❌ Failed to prepare job order insert.";
     }
-
-    $stmt->close();
-  } else {
-    $message = "❌ Failed to prepare job order insert.";
   }
 }
 
-// Fetch and organize job orders data
+// Fetch job orders
 $pending_orders = [];
 $completed_orders = [];
 
@@ -171,7 +182,6 @@ if (!empty($search_project)) {
 
 $query .= " ORDER BY j.client_name, j.log_date DESC, j.project_name";
 $stmt = $mysqli->prepare($query);
-
 if ($params) {
   $stmt->bind_param($types, ...$params);
 }
@@ -183,7 +193,6 @@ while ($row = $result->fetch_assoc()) {
   $date = $row['log_date'];
   $project_key = strtolower(trim($row['project_name']));
   $project_display = $row['project_name'];
-
   $target = ($row['status'] === 'completed') ? 'completed_orders' : 'pending_orders';
 
   if (!isset($$target[$client])) $$target[$client] = [];
@@ -200,24 +209,31 @@ while ($row = $result->fetch_assoc()) {
 
 // Fetch product availability
 $product_query = $mysqli->query("
-    SELECT 
-      p.id, p.product_type, p.product_group, p.product_name,
+  SELECT 
+    p.id, p.product_type, p.product_group, p.product_name,
+    (
       (
-        (
-          SELECT IFNULL(SUM(delivered_reams), 0)
-          FROM delivery_logs
-          WHERE product_id = p.id
-        ) * 500
-        -
-        (
-          SELECT IFNULL(SUM(used_sheets), 0)
-          FROM usage_logs
-          WHERE product_id = p.id
-        )
-      ) AS available_sheets
-    FROM products p
-    ORDER BY p.product_type, p.product_group, p.product_name
+        SELECT IFNULL(SUM(delivered_reams), 0)
+        FROM delivery_logs
+        WHERE product_id = p.id
+      ) * 500
+      -
+      (
+        SELECT IFNULL(SUM(used_sheets), 0)
+        FROM usage_logs
+        WHERE product_id = p.id
+      )
+    ) AS available_sheets
+  FROM products p
+  ORDER BY p.product_type, p.product_group, p.product_name
 ");
+
+// Fetch provinces if needed
+$provinces = [];
+$result = $mysqli->query("SELECT DISTINCT province FROM locations ORDER BY province ASC");
+while ($row = $result->fetch_assoc()) {
+  $provinces[] = $row['province'];
+}
 ?>
 
 <!DOCTYPE html>
@@ -924,7 +940,7 @@ $product_query = $mysqli->query("
         <i class="fas fa-chevron-down" id="form-chevron"></i>
       </div>
       <div class="collapsible-form-content" id="job-order-form">
-        <form method="post">
+        <form id="jobOrderForm" method="post">
           <fieldset class="form-section">
             <legend><i class="fas fa-user"></i> Client Details</legend>
             <div class="form-grid">
@@ -933,9 +949,172 @@ $product_query = $mysqli->query("
                 <input type="text" id="client_name" name="client_name" required>
               </div>
               <div class="form-group">
-                <label for="client_address">Address</label>
-                <input type="text" id="client_address" name="client_address" required>
+                <label for="building_no">Building / House No.</label>
+                <input type="text" id="building_no" placeholder="e.g. Bldg 4, Lot 6">
               </div>
+              <div class="form-group">
+                <label for="floor_no">Floor / Room No.</label>
+                <input type="text" id="floor_no" placeholder="e.g. 2F, Room 201">
+              </div>
+              <div class="form-group">
+                <label for="street">Street</label>
+                <input type="text" id="street" placeholder="e.g. Rizal St.">
+              </div>
+              <div class="form-group">
+                <label for="province">Province</label>
+                <select id="province" required>
+                  <option value="">-- Select Province --</option>
+                  <?php foreach ($provinces as $prov): ?>
+                    <option value="<?= htmlspecialchars($prov) ?>"><?= htmlspecialchars($prov) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="city">City / Municipality</label>
+                <select id="city" required>
+                  <option value="">-- Select City --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="zip_code">ZIP Code</label>
+                <input type="text" id="zip_code" name="zip_code" placeholder="e.g. 3020" required>
+              </div>
+              <input type="hidden" name="client_address" id="client_address" oninput="suggestRDO()" required>
+              <div class="form-group">
+                <label for="rdo_code">BIR RDO Code</label>
+                <input list="rdo_list" id="rdo_code" name="rdo_code" placeholder="Enter or select RDO code">
+                <datalist id="rdo_list">
+                  <option value="001 - Laoag City, Ilocos Norte">
+                  <option value="002 - Vigan, Ilocos Sur">
+                  <option value="003 - San Fernando, La Union">
+                  <option value="004 - Calasiao, West Pangasinan">
+                  <option value="005 - Alaminos, Pangasinan">
+                  <option value="006 - Urdaneta, Pangasinan">
+                  <option value="007 - Bangued, Abra">
+                  <option value="008 - Baguio City">
+                  <option value="009 - La Trinidad, Benguet">
+                  <option value="010 - Bontoc, Mt. Province">
+                  <option value="011 - Tabuk City, Kalinga">
+                  <option value="012 - Lagawe, Ifugao">
+                  <option value="013 - Tuguegarao, Cagayan">
+                  <option value="014 - Bayombong, Nueva Vizcaya">
+                  <option value="015 - Naguilian, Isabela">
+                  <option value="016 - Cabarroguis, Quirino">
+                  <option value="17A - Tarlac City, Tarlac">
+                  <option value="17B - Paniqui, Tarlac">
+                  <option value="018 - Olongapo City">
+                  <option value="019 - Subic Bay Freeport Zone">
+                  <option value="020 - Balanga, Bataan">
+                  <option value="21A - North Pampanga">
+                  <option value="21B - South Pampanga">
+                  <option value="21C - Clark Freeport Zone">
+                  <option value="022 - Baler, Aurora">
+                  <option value="23A - North Nueva Ecija">
+                  <option value="23B - South Nueva Ecija">
+                  <option value="024 - Valenzuela City">
+                  <option value="25A - Plaridel, Bulacan (now RDO West Bulacan)">
+                  <option value="25B - Sta. Maria, Bulacan (now RDO East Bulacan)">
+                  <option value="026 - Malabon-Navotas">
+                  <option value="027 - Caloocan City">
+                  <option value="028 - Novaliches">
+                  <option value="029 - Tondo – San Nicolas">
+                  <option value="030 - Binondo">
+                  <option value="031 - Sta. Cruz">
+                  <option value="032 - Quiapo-Sampaloc-San Miguel-Sta. Mesa">
+                  <option value="033 - Intramuros-Ermita-Malate">
+                  <option value="034 - Paco-Pandacan-Sta. Ana-San Andres">
+                  <option value="035 - Romblon">
+                  <option value="036 - Puerto Princesa">
+                  <option value="037 - San Jose, Occidental Mindoro">
+                  <option value="038 - North Quezon City">
+                  <option value="039 - South Quezon City">
+                  <option value="040 - Cubao">
+                  <option value="041 - Mandaluyong City">
+                  <option value="042 - San Juan">
+                  <option value="043 - Pasig">
+                  <option value="044 - Taguig-Pateros">
+                  <option value="045 - Marikina">
+                  <option value="046 - Cainta-Taytay">
+                  <option value="047 - East Makati">
+                  <option value="048 - West Makati">
+                  <option value="049 - North Makati">
+                  <option value="050 - South Makati">
+                  <option value="051 - Pasay City">
+                  <option value="052 - Parañaque">
+                  <option value="53A - Las Piñas City">
+                  <option value="53B - Muntinlupa City">
+                  <option value="54A - Trece Martirez City, East Cavite">
+                  <option value="54B - Kawit, West Cavite">
+                  <option value="055 - San Pablo City">
+                  <option value="056 - Calamba, Laguna">
+                  <option value="057 - Biñan, Laguna">
+                  <option value="058 - Batangas City">
+                  <option value="059 - Lipa City">
+                  <option value="060 - Lucena City">
+                  <option value="061 - Gumaca, Quezon">
+                  <option value="062 - Boac, Marinduque">
+                  <option value="063 - Calapan, Oriental Mindoro">
+                  <option value="064 - Talisay, Camarines Norte">
+                  <option value="065 - Naga City">
+                  <option value="066 - Iriga City">
+                  <option value="067 - Legazpi City, Albay">
+                  <option value="068 - Sorsogon, Sorsogon">
+                  <option value="069 - Virac, Catanduanes">
+                  <option value="070 - Masbate, Masbate">
+                  <option value="071 - Kalibo, Aklan">
+                  <option value="072 - Roxas City">
+                  <option value="073 - San Jose, Antique">
+                  <option value="074 - Iloilo City">
+                  <option value="075 - Zarraga, Iloilo City">
+                  <option value="076 - Victorias City, Negros Occidental">
+                  <option value="077 - Bacolod City">
+                  <option value="078 - Binalbagan, Negros Occidental">
+                  <option value="079 - Dumaguete City">
+                  <option value="080 - Mandaue City">
+                  <option value="081 - Cebu City North">
+                  <option value="082 - Cebu City South">
+                  <option value="083 - Talisay City, Cebu">
+                  <option value="084 - Tagbilaran City">
+                  <option value="085 - Catarman, Northern Samar">
+                  <option value="086 - Borongan, Eastern Samar">
+                  <option value="087 - Calbayog City, Samar">
+                  <option value="088 - Tacloban City">
+                  <option value="089 - Ormoc City">
+                  <option value="090 - Maasin, Southern Leyte">
+                  <option value="091 - Dipolog City">
+                  <option value="092 - Pagadian City, Zamboanga del Sur">
+                  <option value="093A - Zamboanga City, Zamboanga del Sur">
+                  <option value="093B - Ipil, Zamboanga Sibugay">
+                  <option value="094 - Isabela, Basilan">
+                  <option value="095 - Jolo, Sulu">
+                  <option value="096 - Bongao, Tawi-Tawi">
+                  <option value="097 - Gingoog City">
+                  <option value="098 - Cagayan de Oro City">
+                  <option value="099 - Malaybalay City, Bukidnon">
+                  <option value="100 - Ozamis City">
+                  <option value="101 - Iligan City">
+                  <option value="102 - Marawi City">
+                  <option value="103 - Butuan City">
+                  <option value="104 - Bayugan City, Agusan del Sur">
+                  <option value="105 - Surigao City">
+                  <option value="106 - Tandag, Surigao del Sur">
+                  <option value="107 - Cotabato City">
+                  <option value="108 - Kidapawan, North Cotabato">
+                  <option value="109 - Tacurong, Sultan Kudarat">
+                  <option value="110 - General Santos City">
+                  <option value="111 - Koronadal City, South Cotabato">
+                  <option value="112 - Tagum, Davao del Norte">
+                  <option value="113A - West Davao City">
+                  <option value="113B - East Davao City">
+                  <option value="114 - Mati, Davao Oriental">
+                  <option value="115 - Digos, Davao del Sur">
+                </datalist>
+              </div>
+              <div class="form-group">
+                <label for="taxpayer_name">Taxpayer Name</label>
+                <input type="text" id="taxpayer_name" name="taxpayer_name" required>
+              </div>
+
               <div class="form-group">
                 <label for="contact_person">Contact Person</label>
                 <input type="text" id="contact_person" name="contact_person" required>
@@ -978,7 +1157,7 @@ $product_query = $mysqli->query("
                 <input type="number" id="quantity" name="quantity" min="1" required>
               </div>
               <div class="form-group">
-                <label for="number_of_sets">Sets per Product</label>
+                <label for="number_of_sets">Sets per Booklet/Pads</label>
                 <input type="number" id="number_of_sets" name="number_of_sets" min="1" required>
               </div>
               <div class="form-group">
@@ -1005,7 +1184,7 @@ $product_query = $mysqli->query("
                 <input type="text" id="custom_paper_size" name="custom_paper_size" placeholder="Enter custom size" style="display: none; margin-top: 0.5rem;">
               </div>
               <div class="form-group">
-                <label for="paper_type">Paper Type</label>
+                <label for="paper_type">Paper/Media Type</label>
                 <select id="paper_type" name="paper_type" required>
                   <option value="">-- Select --</option>
                   <?php while ($type = $product_types->fetch_assoc()): ?>
@@ -1014,11 +1193,11 @@ $product_query = $mysqli->query("
                 </select>
               </div>
               <div class="form-group">
-                <label for="copies_per_set">Copies per Set</label>
+                <label for="copies_per_set">Number of Copies per Set</label>
                 <input type="number" id="copies_per_set" name="copies_per_set" min="1" required>
               </div>
               <div class="form-group">
-                <label for="binding_type">Binding</label>
+                <label for="binding_type">Type of Binding</label>
                 <select id="binding_type" name="binding_type" required>
                   <option value="">-- Select --</option>
                   <option value="Booklet">Booklet</option>
@@ -1030,12 +1209,12 @@ $product_query = $mysqli->query("
             </div>
 
             <div class="form-group">
-              <label>Paper Color Sequence</label>
+              <label>Color of Paper (In-Proper Order)</label>
               <div id="paper-sequence-container"></div>
             </div>
 
             <div class="form-group">
-              <label for="special_instructions">Special Instructions</label>
+              <label for="special_instructions">Other Special Instructions</label>
               <textarea id="special_instructions" name="special_instructions" rows="3"></textarea>
             </div>
           </fieldset>
@@ -1089,17 +1268,20 @@ $product_query = $mysqli->query("
                                 <thead>
                                   <tr>
                                     <th>Quantity</th>
+                                    <th>Sets per bind</th>
                                     <th>Cut Size</th>
-                                    <th>Product Size</th>
+                                    <th>Paper Size</th>
                                     <th>Serial Range</th>
                                     <th>Paper Type</th>
                                     <th>Copies per Set</th>
                                     <th>Binding</th>
                                     <th>Color Sequence</th>
-                                    <th>Instructions</th>
+                                    <th>Special Instructions</th>
                                     <th>Client Address</th>
                                     <th>Contact Person</th>
                                     <th>Contact Number</th>
+                                    <th>Tax Payer Name</th>
+                                    <th>BIR RDO Code</th>
                                     <?php if ($_SESSION['role'] === 'admin'): ?>
                                       <th>Recorded By</th>
                                       <th style="text-align: center;">Actions</th>
@@ -1110,6 +1292,7 @@ $product_query = $mysqli->query("
                                   <?php foreach ($project_data['records'] as $order): ?>
                                     <tr>
                                       <td><?= $order['quantity'] ?></td>
+                                      <td><?= $order['number_of_sets'] ?></td>
                                       <td><?= htmlspecialchars($order['product_size']) ?></td>
                                       <td><?= $order['paper_size'] === 'custom' ? htmlspecialchars($order['custom_paper_size']) : htmlspecialchars($order['paper_size']) ?></td>
                                       <td><?= htmlspecialchars($order['serial_range']) ?></td>
@@ -1125,6 +1308,8 @@ $product_query = $mysqli->query("
                                       <td><?= htmlspecialchars($order['client_address']) ?></td>
                                       <td><?= htmlspecialchars($order['contact_person']) ?></td>
                                       <td><?= htmlspecialchars($order['contact_number']) ?></td>
+                                      <td><?= htmlspecialchars($order['rdo_code']) ?></td>
+                                      <td><?= htmlspecialchars($order['taxpayer_name']) ?></td>
                                       <?php if ($_SESSION['role'] === 'admin'): ?>
                                         <td><?= htmlspecialchars($order['username'] ?? 'Unknown') ?></td>
                                         <td class="action-cell">
@@ -1199,17 +1384,20 @@ $product_query = $mysqli->query("
                                 <thead>
                                   <tr>
                                     <th>Quantity</th>
+                                    <th>Sets per bind</th>
                                     <th>Cut Size</th>
-                                    <th>Product Size</th>
+                                    <th>Paper Size</th>
                                     <th>Serial Range</th>
                                     <th>Paper Type</th>
                                     <th>Copies per Set</th>
                                     <th>Binding</th>
                                     <th>Color Sequence</th>
-                                    <th>Instructions</th>
+                                    <th>Special Instructions</th>
                                     <th>Client Address</th>
                                     <th>Contact Person</th>
                                     <th>Contact Number</th>
+                                    <th>Tax Payer Name</th>
+                                    <th>BIR RDO Code</th>
                                     <th>Date Completed</th>
                                     <?php if ($_SESSION['role'] === 'admin'): ?>
                                       <th>Recorded By</th>
@@ -1221,6 +1409,7 @@ $product_query = $mysqli->query("
                                   <?php foreach ($project_data['records'] as $order): ?>
                                     <tr>
                                       <td><?= $order['quantity'] ?></td>
+                                      <td><?= $order['number_of_sets'] ?></td>
                                       <td><?= htmlspecialchars($order['product_size']) ?></td>
                                       <td><?= $order['paper_size'] === 'custom' ? htmlspecialchars($order['custom_paper_size']) : htmlspecialchars($order['paper_size']) ?></td>
                                       <td><?= htmlspecialchars($order['serial_range']) ?></td>
@@ -1236,6 +1425,8 @@ $product_query = $mysqli->query("
                                       <td><?= htmlspecialchars($order['client_address']) ?></td>
                                       <td><?= htmlspecialchars($order['contact_person']) ?></td>
                                       <td><?= htmlspecialchars($order['contact_number']) ?></td>
+                                      <td><?= htmlspecialchars($order['rdo_code']) ?></td>
+                                      <td><?= htmlspecialchars($order['taxpayer_name']) ?></td>
                                       <td><?= $order['completed_date'] ? date("F j, Y - g:i A", strtotime($order['completed_date'])) : '-' ?></td>
                                       <?php if ($_SESSION['role'] === 'admin'): ?>
                                         <td><?php echo htmlspecialchars($order['username'] ?? 'Unknown'); ?></td>
@@ -1269,6 +1460,241 @@ $product_query = $mysqli->query("
   </div>
 
   <script>
+    const form = document.getElementById("jobOrderForm");
+    const storageKey = "jobOrderFormData";
+
+    // Restore saved form data on page load
+    window.addEventListener("DOMContentLoaded", () => {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const data = JSON.parse(saved);
+        for (const [name, value] of Object.entries(data)) {
+          const field = form.elements[name];
+          if (!field) continue;
+
+          if (field.type === "checkbox" || field.type === "radio") {
+            field.checked = value;
+          } else {
+            field.value = value;
+          }
+        }
+      }
+    });
+
+    // Save form data to localStorage on input/change
+    form.addEventListener("input", () => {
+      const data = {};
+      for (const element of form.elements) {
+        if (!element.name) continue;
+        if (element.type === "checkbox" || element.type === "radio") {
+          data[element.name] = element.checked;
+        } else {
+          data[element.name] = element.value;
+        }
+      }
+      localStorage.setItem(storageKey, JSON.stringify(data));
+    });
+
+    // Optional: Clear localStorage when form is successfully submitted
+    form.addEventListener("submit", () => {
+      localStorage.removeItem(storageKey);
+    });
+
+    function suggestRDO() {
+      const city = document.getElementById("city").value.trim();
+      const rdoInput = document.getElementById("rdo_code");
+      const matchedCity = Object.keys(rdoMapping).find(key => city.toLowerCase().includes(key.toLowerCase()));
+      if (matchedCity) {
+        rdoInput.value = `${rdoMapping[matchedCity]} - ${matchedCity}`;
+      }
+    }
+
+
+    const rdoMapping = {
+      "Laoag City, Ilocos Norte": "001",
+      "Vigan, Ilocos Sur": "002",
+      "San Fernando, La Union": "003",
+      "Calasiao, West Pangasinan": "004",
+      "Alaminos, Pangasinan": "005",
+      "Urdaneta, Pangasinan": "006",
+      "Bangued, Abra": "007",
+      "Baguio City": "008",
+      "La Trinidad, Benguet": "009",
+      "Bontoc, Mt. Province": "010",
+      "Tabuk City, Kalinga": "011",
+      "Lagawe, Ifugao": "012",
+      "Tuguegarao, Cagayan": "013",
+      "Bayombong, Nueva Vizcaya": "014",
+      "Naguilian, Isabela": "015",
+      "Cabarroguis, Quirino": "016",
+      "Tarlac City, Tarlac": "17A",
+      "Paniqui, Tarlac": "17B",
+      "Olongapo City": "018",
+      "Subic Bay Freeport Zone": "019",
+      "Balanga, Bataan": "020",
+      "North Pampanga": "21A",
+      "South Pampanga": "21B",
+      "Clark Freeport Zone": "21C",
+      "Baler, Aurora": "022",
+      "North Nueva Ecija": "23A",
+      "South Nueva Ecija": "23B",
+      "Valenzuela City": "024",
+      "Plaridel, Bulacan": "25A (now RDO West Bulacan)",
+      "Sta. Maria, Bulacan": "25B (now RDO East Bulacan)",
+      "Malabon-Navotas": "026",
+      "Caloocan City": "027",
+      "Novaliches": "028",
+      "Tondo – San Nicolas": "029",
+      "Binondo": "030",
+      "Sta. Cruz": "031",
+      "Quiapo-Sampaloc-San Miguel-Sta. Mesa": "032",
+      "Intramuros-Ermita-Malate": "033",
+      "Paco-Pandacan-Sta. Ana-San Andres": "034",
+      "Romblon": "035",
+      "Puerto Princesa": "036",
+      "San Jose, Occidental Mindoro": "037",
+      "North Quezon City": "038",
+      "South Quezon City": "039",
+      "Cubao": "040",
+      "Mandaluyong City": "041",
+      "San Juan": "042",
+      "Pasig": "043",
+      "Taguig-Pateros": "044",
+      "Marikina": "045",
+      "Cainta-Taytay": "046",
+      "East Makati": "047",
+      "West Makati": "048",
+      "North Makati": "049",
+      "South Makati": "050",
+      "Pasay City": "051",
+      "Parañaque": "052",
+      "Las Piñas City": "53A",
+      "Muntinlupa City": "53B",
+      "Trece Martirez City, East Cavite": "54A",
+      "Kawit, West Cavite": "54B",
+      "San Pablo City": "055",
+      "Calamba, Laguna": "056",
+      "Biñan, Laguna": "057",
+      "Batangas City": "058",
+      "Lipa City": "059",
+      "Lucena City": "060",
+      "Gumaca, Quezon": "061",
+      "Boac, Marinduque": "062",
+      "Calapan, Oriental Mindoro": "063",
+      "Talisay, Camarines Norte": "064",
+      "Naga City": "065",
+      "Iriga City": "066",
+      "Legazpi City, Albay": "067",
+      "Sorsogon, Sorsogon": "068",
+      "Virac, Catanduanes": "069",
+      "Masbate, Masbate": "070",
+      "Kalibo, Aklan": "071",
+      "Roxas City": "072",
+      "San Jose, Antique": "073",
+      "Iloilo City": "074",
+      "Zarraga, Iloilo City": "075",
+      "Victorias City, Negros Occidental": "076",
+      "Bacolod City": "077",
+      "Binalbagan, Negros Occidental": "078",
+      "Dumaguete City": "079",
+      "Mandaue City": "080",
+      "Cebu City North": "081",
+      "Cebu City South": "082",
+      "Talisay City, Cebu": "083",
+      "Tagbilaran City": "084",
+      "Catarman, Northern Samar": "085",
+      "Borongan, Eastern Samar": "086",
+      "Calbayog City, Samar": "087",
+      "Tacloban City": "088",
+      "Ormoc City": "089",
+      "Maasin, Southern Leyte": "090",
+      "Dipolog City": "091",
+      "Pagadian City, Zamboanga del Sur": "092",
+      "Zamboanga City, Zamboanga del Sur": "093A",
+      "Ipil, Zamboanga Sibugay": "093B",
+      "Isabela, Basilan": "094",
+      "Jolo, Sulu": "095",
+      "Bongao, Tawi-Tawi": "096",
+      "Gingoog City": "097",
+      "Cagayan de Oro City": "098",
+      "Malaybalay City, Bukidnon": "099",
+      "Ozamis City": "100",
+      "Iligan City": "101",
+      "Marawi City": "102",
+      "Butuan City": "103",
+      "Bayugan City, Agusan del Sur": "104",
+      "Surigao City": "105",
+      "Tandag, Surigao del Sur": "106",
+      "Cotabato City": "107",
+      "Kidapawan, North Cotabato": "108",
+      "Tacurong, Sultan Kudarat": "109",
+      "General Santos City": "110",
+      "Koronadal City, South Cotabato": "111",
+      "Tagum, Davao del Norte": "112",
+      "West Davao City": "113A",
+      "East Davao City": "113B",
+      "Mati, Davao Oriental": "114",
+      "Digos, Davao del Sur": "115"
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const cityInput = document.getElementById('city'); // your city input/select
+      const rdoInput = document.getElementById('rdo_code'); // your RDO input field
+
+      if (cityInput && rdoInput) {
+        cityInput.addEventListener('change', () => {
+          const city = cityInput.value.trim();
+          if (rdoMapping[city]) {
+            rdoInput.value = rdoMapping[city];
+          }
+        });
+      }
+    });
+
+    function updateClientAddress() {
+      const building = document.getElementById("building_no").value.trim();
+      const floor = document.getElementById("floor_no").value.trim();
+      const street = document.getElementById("street").value.trim();
+      const city = document.getElementById("city").value;
+      const province = document.getElementById("province").value;
+      const zip = document.getElementById("zip_code").value.trim();
+
+      let parts = [];
+      if (floor) parts.push(floor);
+      if (building) parts.push(building);
+      if (street) parts.push(street);
+      if (city) parts.push(city);
+      if (province) parts.push(province);
+      if (zip) parts.push(zip);
+
+      document.getElementById("client_address").value = parts.join(", ");
+    }
+
+    // Load cities when province changes
+    document.getElementById("province").addEventListener("change", function() {
+      const province = this.value;
+      const citySelect = document.getElementById("city");
+      citySelect.innerHTML = '<option value="">-- Select City --</option>';
+      updateClientAddress();
+
+      if (!province) return;
+
+      fetch(`get_cities.php?province=${encodeURIComponent(province)}`)
+        .then(res => res.json())
+        .then(cities => {
+          cities.forEach(city => {
+            const option = document.createElement("option");
+            option.value = city;
+            option.textContent = city;
+            citySelect.appendChild(option);
+          });
+        });
+    });
+
+    // Update address whenever inputs change
+    ["city", "building_no", "floor_no", "street", "zip_code"].forEach(id => {
+      document.getElementById(id).addEventListener("input", updateClientAddress);
+    });
     // Toggle collapsible form
     function toggleForm() {
       const form = document.getElementById('job-order-form');

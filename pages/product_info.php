@@ -93,6 +93,7 @@ $delivery_stmt->bind_param("i", $product_id);
 $delivery_stmt->execute();
 $delivery_history = $delivery_stmt->get_result();
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
