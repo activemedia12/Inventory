@@ -36,19 +36,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $delivered_reams = floatval($_POST['delivered_reams'] ?? 0);
     $supplier_name = trim($_POST['supplier_name'] ?? '');
     $amount_per_ream = floatval($_POST['amount_per_ream'] ?? 0);
+    $unit = trim($_POST['unit'] ?? '');
     $delivery_note = trim($_POST['delivery_note'] ?? '');
 
-    // Basic validation
     if (!$delivery_date || $delivered_reams <= 0 || !$supplier_name || $amount_per_ream <= 0) {
         echo "<script>alert('Please fill in all required fields.');</script>";
     } else {
-        // Update record
         $update_stmt = $mysqli->prepare("
             UPDATE delivery_logs 
-            SET delivery_date = ?, delivered_reams = ?, supplier_name = ?, amount_per_ream = ?, delivery_note = ?
+            SET delivery_date = ?, delivered_reams = ?, supplier_name = ?, amount_per_ream = ?, unit = ?, delivery_note = ?
             WHERE id = ?
         ");
-        $update_stmt->bind_param("sdsssi", $delivery_date, $delivered_reams, $supplier_name, $amount_per_ream, $delivery_note, $delivery_id);
+        $update_stmt->bind_param("sdssssi", $delivery_date, $delivered_reams, $supplier_name, $amount_per_ream, $unit, $delivery_note, $delivery_id);
 
         if ($update_stmt->execute()) {
             header("Location: delivery.php?id=$product_id&tab=delivery");
@@ -58,10 +57,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -72,6 +73,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgb(140, 140, 140);
+            border-radius: 10px;
+        }
+
         :root {
             --primary: #1877f2;
             --secondary: #166fe5;
@@ -242,24 +253,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             body {
                 padding-left: 0;
             }
-            
+
             .main-content {
                 padding: 20px;
             }
-            
+
             .btn-group {
                 flex-direction: column;
             }
-            
+
             .btn {
                 width: 100%;
             }
         }
     </style>
 </head>
+
 <body>
     <!-- Include your sidebar navigation here -->
-    
+
     <div class="main-content">
         <div class="edit-card">
             <div class="edit-header">
@@ -271,8 +283,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="product-info">
                 <div class="product-name">
-                    <?= htmlspecialchars($delivery['product_type']) ?> - 
-                    <?= htmlspecialchars($delivery['product_group']) ?> - 
+                    <?= htmlspecialchars($delivery['product_type']) ?> -
+                    <?= htmlspecialchars($delivery['product_group']) ?> -
                     <?= htmlspecialchars($delivery['product_name']) ?>
                 </div>
                 <div class="product-details">
@@ -283,26 +295,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <form method="POST">
                 <div class="form-group">
                     <label class="form-label">Delivery Date</label>
-                    <input type="date" name="delivery_date" class="form-control" 
-                           value="<?= htmlspecialchars($delivery['delivery_date']) ?>" required>
+                    <input type="date" name="delivery_date" class="form-control"
+                        value="<?= htmlspecialchars($delivery['delivery_date']) ?>" required>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Delivered Reams</label>
-                    <input type="number" step="0.01" name="delivered_reams" class="form-control" 
-                           value="<?= htmlspecialchars($delivery['delivered_reams']) ?>" required>
+                    <label class="form-label">Delivered Quantity</label>
+                    <input type="number" step="0.01" name="delivered_reams" class="form-control"
+                        value="<?= htmlspecialchars($delivery['delivered_reams']) ?>" required>
                 </div>
+                
+                <div class="form-group">
+                <label class="form-label">Unit</label>
+                <input type="text" name="unit" class="form-control"
+                    value="<?= htmlspecialchars($delivery['unit'] ?? '') ?>">
+                </div>
+
 
                 <div class="form-group">
                     <label class="form-label">Supplier Name</label>
-                    <input type="text" name="supplier_name" class="form-control" 
-                           value="<?= htmlspecialchars($delivery['supplier_name']) ?>" required>
+                    <input type="text" name="supplier_name" class="form-control"
+                        value="<?= htmlspecialchars($delivery['supplier_name']) ?>" required>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Amount per Ream (₱)</label>
-                    <input type="number" step="0.01" name="amount_per_ream" class="form-control" 
-                           value="<?= htmlspecialchars($delivery['amount_per_ream']) ?>" required>
+                    <label class="form-label">Amount per Unit (₱)</label>
+                    <input type="number" step="0.01" name="amount_per_ream" class="form-control"
+                        value="<?= htmlspecialchars($delivery['amount_per_ream']) ?>" required>
                 </div>
 
                 <div class="form-group">
@@ -322,4 +341,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 </body>
+
 </html>

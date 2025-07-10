@@ -104,28 +104,56 @@ $delivery_history = $delivery_stmt->get_result();
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <link rel="stylesheet" href="../assets/css/style.css">
     <style>
-        /* Floating window styles */
+        @keyframes centerZoomIn {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0;
+                animation-delay: 1000;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+                animation-delay: 1000;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgb(140, 140, 140);
+            border-radius: 10px;
+        }
+
+        :root {
+            --animate-duration: 300ms;
+        }
+
         .floating-window {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             width: 90%;
-            max-width: 1200px;
-            max-height: 90vh;
+            max-width: 1000px;
+            max-height: 80vh;
             background: white;
             border-radius: 12px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             z-index: 1000;
             overflow: hidden;
-            display: flex;
+            display: flex;  
             flex-direction: column;
+            animation: centerZoomIn 0.3s ease-in-out forwards;
         }
 
         .window-header {
-            padding: 1rem 1.5rem;
+            padding: 0.5rem 1.5rem;
             background: var(--primary);
             color: white;
             display: flex;
@@ -148,7 +176,7 @@ $delivery_history = $delivery_stmt->get_result();
             background: none;
             border: none;
             color: white;
-            font-size: 1.5rem;
+            font-size: 1rem;
             cursor: pointer;
             padding: 0.5rem;
         }
@@ -262,7 +290,8 @@ $delivery_history = $delivery_stmt->get_result();
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(3px);
             z-index: 999;
         }
 
@@ -276,16 +305,20 @@ $delivery_history = $delivery_stmt->get_result();
             margin-bottom: 1.5rem;
         }
 
+        .container {
+            overflow: scroll;
+        }
+
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .floating-window {
-                width: 95%;
+                width: 90%;
             }
-            
+
             .product-info-compact {
                 grid-template-columns: 1fr 1fr;
             }
-            
+
             .stock-summary-compact {
                 grid-template-columns: 1fr;
             }
@@ -295,16 +328,16 @@ $delivery_history = $delivery_stmt->get_result();
 
 <body>
     <!-- Overlay -->
-    <div class="overlay"></div>
+    <div id='productModal' class="overlay animate__animated animate__fadeIn"></div>
 
     <!-- Floating Window -->
-    <div class="floating-window">
+    <div id='productModalBody' class="floating-window">
         <div class="window-header">
             <div class="window-title">
                 <i class="fas fa-box"></i>
                 Product Information
             </div>
-            <button class="close-btn" onclick="javascript:window.location.href='products.php'">
+            <button class="close-btn" onclick="closeModal()">
                 <i class="fas fa-times"></i>
             </button>
         </div>
@@ -359,7 +392,7 @@ $delivery_history = $delivery_stmt->get_result();
                 <i class="fas fa-history"></i>
                 Usage History
             </div>
-            
+            <div class="container">
             <?php if ($usage_history->num_rows > 0): ?>
                 <table class="compact-table">
                     <thead>
@@ -388,13 +421,13 @@ $delivery_history = $delivery_stmt->get_result();
                     <p><i class="fas fa-info-circle"></i> No usage history found for this product</p>
                 </div>
             <?php endif; ?>
-
+            </div>
             <!-- Delivery History Section -->
             <div class="section-header">
                 <i class="fas fa-truck"></i>
                 Delivery History
             </div>
-            
+            <div class="container">
             <?php if ($delivery_history->num_rows > 0): ?>
                 <table class="compact-table">
                     <thead>
@@ -423,15 +456,9 @@ $delivery_history = $delivery_stmt->get_result();
                     <p><i class="fas fa-info-circle"></i> No delivery history found for this product</p>
                 </div>
             <?php endif; ?>
+            </div>
         </div>
     </div>
-
-    <script>
-        // Close window when clicking outside
-        document.querySelector('.overlay').addEventListener('click', function() {
-            history.back();
-        });
-    </script>
 </body>
 
 </html>

@@ -28,38 +28,47 @@ $out_of_stock = $mysqli->query("
     WHERE IFNULL(balance, 0) <= 0
 ")->fetch_assoc()['total'];
 
-// Recent Deliveries
+// Updated Recent Deliveries
 $recent_deliveries = $mysqli->query("
-    SELECT d.delivery_date, p.product_type, p.product_group, p.product_name, d.delivered_reams
+    SELECT d.product_id, d.delivery_date, p.product_type, p.product_group, p.product_name, d.delivered_reams
     FROM delivery_logs d
     JOIN products p ON d.product_id = p.id
     ORDER BY d.delivery_date DESC
     LIMIT 5
 ");
 
-// Recent Usage
+// Updated Recent Usage
 $recent_usage = $mysqli->query("
-    SELECT u.log_date, p.product_type, p.product_group, p.product_name, u.used_sheets
+    SELECT u.product_id, u.log_date, p.product_type, p.product_group, p.product_name, u.used_sheets
     FROM usage_logs u
     JOIN products p ON u.product_id = p.id
     ORDER BY u.log_date DESC
     LIMIT 5
 ");
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard</title>
-  <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
+  <link rel="icon" type="image/png" href="../assets/images/plainlogo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
   <style>
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgb(140, 140, 140);
+      border-radius: 10px;
+    }
+
     :root {
       --primary: #1877f2;
       --secondary: #166fe5;
@@ -363,10 +372,10 @@ $recent_usage = $mysqli->query("
     <header class="header">
       <h1>Dashboard Overview</h1>
       <div class="user-info">
-        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="User">
+        <img src="https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['username']) ?>&background=random" alt="User">
         <div class="user-details">
-          <h4><?php echo htmlspecialchars($_SESSION['username']); ?></h4>
-          <small><?php echo $_SESSION['role']; ?></small>
+          <h4><?= htmlspecialchars($_SESSION['username']) ?></h4>
+          <small><?= $_SESSION['role'] ?></small>
         </div>
       </div>
     </header>
@@ -377,35 +386,27 @@ $recent_usage = $mysqli->query("
         <div class="card-header">
           <div>
             <p>Total Products</p>
-            <h3><?php echo $total_products; ?></h3>
+            <h3><?= $total_products ?></h3>
           </div>
-          <div class="card-icon">
-            <i class="fas fa-boxes"></i>
-          </div>
+          <div class="card-icon"><i class="fas fa-boxes"></i></div>
         </div>
       </div>
-
       <div class="stat-card">
         <div class="card-header">
           <div>
             <p>Deliveries This Week</p>
-            <h3><?php echo $deliveries_this_week; ?></h3>
+            <h3><?= $deliveries_this_week ?></h3>
           </div>
-          <div class="card-icon">
-            <i class="fas fa-truck"></i>
-          </div>
+          <div class="card-icon"><i class="fas fa-truck"></i></div>
         </div>
       </div>
-
       <div class="stat-card">
         <div class="card-header">
           <div>
             <p>Out of Stock</p>
-            <h3><?php echo $out_of_stock; ?></h3>
+            <h3><?= $out_of_stock ?></h3>
           </div>
-          <div class="card-icon">
-            <i class="fas fa-exclamation-triangle"></i>
-          </div>
+          <div class="card-icon"><i class="fas fa-exclamation-triangle"></i></div>
         </div>
       </div>
     </div>
@@ -424,10 +425,10 @@ $recent_usage = $mysqli->query("
           </thead>
           <tbody>
             <?php while ($row = $recent_deliveries->fetch_assoc()): ?>
-              <tr>
-                <td><?php echo date("M j, Y", strtotime($row['delivery_date'])); ?></td>
-                <td><?php echo "{$row['product_type']} - {$row['product_group']} - {$row['product_name']}"; ?></td>
-                <td><?php echo number_format($row['delivered_reams'], 2); ?></td>
+              <tr class="clickable-row" data-id="<?= $row['product_id'] ?>">
+                <td><?= date("M j, Y", strtotime($row['delivery_date'])) ?></td>
+                <td><?= "{$row['product_type']} - {$row['product_group']} - {$row['product_name']}" ?></td>
+                <td><?= number_format($row['delivered_reams'], 2) ?></td>
               </tr>
             <?php endwhile; ?>
           </tbody>
@@ -447,18 +448,73 @@ $recent_usage = $mysqli->query("
           </thead>
           <tbody>
             <?php while ($row = $recent_usage->fetch_assoc()): ?>
-              <tr>
-                <td><?php echo date("M j, Y", strtotime($row['log_date'])); ?></td>
-                <td><?php echo "{$row['product_type']} - {$row['product_group']} - {$row['product_name']}"; ?></td>
-                <td><?php echo number_format($row['used_sheets'], 2); ?></td>
+              <tr class="clickable-row" data-id="<?= $row['product_id'] ?>">
+                <td><?= date("M j, Y", strtotime($row['log_date'])) ?></td>
+                <td><?= "{$row['product_type']} - {$row['product_group']} - {$row['product_name']}" ?></td>
+                <td><?= number_format($row['used_sheets'], 2) ?></td>
               </tr>
             <?php endwhile; ?>
           </tbody>
         </table>
-        <a href="job_orders.php" class="view-all">View All Usage →</a>
+        <a href="products.php" class="view-all">View All Usage →</a>
       </div>
     </div>
   </div>
+
+  <!-- Product Modal -->
+  <div id="productModal">
+    <div id="productModalBody"></div>
+  </div>
+
+  <!-- Modal JS -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.clickable-row').forEach(row => {
+        row.addEventListener('click', function() {
+          const productId = this.dataset.id;
+          if (!productId) return;
+
+          fetch(`product_info.php?id=${productId}`)
+            .then(res => {
+              if (!res.ok) throw new Error("Failed to fetch");
+              return res.text();
+            })
+            .then(html => {
+              document.getElementById('productModalBody').innerHTML = html;
+              document.getElementById('productModal').style.display = 'flex';
+            })
+            .catch(err => {
+              document.getElementById('productModalBody').innerHTML = `
+              <p style="color:red;">Error loading product info: ${err.message}</p>
+              <p>Requested ID: ${productId}</p>
+              <p>URL: product_info.php?id=${productId}</p>
+            `;
+              document.getElementById('productModal').style.display = 'flex';
+            });
+        });
+      });
+    });
+
+    function closeModal() {
+      document.getElementById('productModal').style.display = 'none';
+      document.getElementById('productModalBody').innerHTML = '';
+    }
+
+    const scrollKey = `scroll-position-/dashboard.php`;
+
+    // Restore scroll position on load
+    window.addEventListener('DOMContentLoaded', () => {
+      const scrollY = sessionStorage.getItem(scrollKey);
+      if (scrollY !== null) {
+        window.scrollTo(0, parseInt(scrollY));
+      }
+    });
+
+    // Save scroll position on scroll
+    window.addEventListener('scroll', () => {
+      sessionStorage.setItem(scrollKey, window.scrollY);
+    });
+  </script>
 </body>
 
 </html>

@@ -5,48 +5,49 @@ $message = '';
 $success = false;
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $username = trim($_POST['username']);
-    $password = $_POST['password'];
-    $confirm_password = $_POST['confirm_password'];
-    $role = $_POST['role'];
+  $username = trim($_POST['username']);
+  $password = $_POST['password'];
+  $confirm_password = $_POST['confirm_password'];
+  $role = $_POST['role'];
 
-    if (!empty($username) && !empty($password) && !empty($confirm_password)) {
-        // Check if passwords match
-        if ($password !== $confirm_password) {
-            $message = "Passwords do not match.";
-        } else {
-            // Check if username exists
-            $check_stmt = $mysqli->prepare("SELECT id FROM users WHERE username = ?");
-            $check_stmt->bind_param("s", $username);
-            $check_stmt->execute();
-            $check_stmt->store_result();
-
-            if ($check_stmt->num_rows > 0) {
-                $message = "Username already exists. Please choose another.";
-            } else {
-                $hashed = password_hash($password, PASSWORD_DEFAULT);
-
-                $stmt = $mysqli->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
-                $stmt->bind_param("sss", $username, $hashed, $role);
-
-                if ($stmt->execute()) {
-                    $message = "Account created successfully. Redirecting to login...";
-                    $success = true;
-                } else {
-                    $message = "Error: " . $stmt->error;
-                }
-
-                $stmt->close();
-            }
-            $check_stmt->close();
-        }
+  if (!empty($username) && !empty($password) && !empty($confirm_password)) {
+    // Check if passwords match
+    if ($password !== $confirm_password) {
+      $message = "Passwords do not match.";
     } else {
-        $message = "All fields are required.";
+      // Check if username exists
+      $check_stmt = $mysqli->prepare("SELECT id FROM users WHERE username = ?");
+      $check_stmt->bind_param("s", $username);
+      $check_stmt->execute();
+      $check_stmt->store_result();
+
+      if ($check_stmt->num_rows > 0) {
+        $message = "Username already exists. Please choose another.";
+      } else {
+        $hashed = password_hash($password, PASSWORD_DEFAULT);
+
+        $stmt = $mysqli->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
+        $stmt->bind_param("sss", $username, $hashed, $role);
+
+        if ($stmt->execute()) {
+          $message = "Account created successfully. Redirecting to login...";
+          $success = true;
+        } else {
+          $message = "Error: " . $stmt->error;
+        }
+
+        $stmt->close();
+      }
+      $check_stmt->close();
     }
+  } else {
+    $message = "All fields are required.";
+  }
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -57,6 +58,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgb(140, 140, 140);
+      border-radius: 10px;
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -65,7 +76,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     body {
-      background-color:rgb(245, 245, 245);
+      background-color: rgb(245, 245, 245);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -86,7 +97,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     .header {
       text-align: center;
       padding: 20px;
-      background: linear-gradient(90deg,rgba(176, 0, 176, 1) 0%, rgba(0, 0, 0, 1) 30%, rgba(0, 0, 0, 1) 40%, rgba(0, 145, 255, 1) 70%, rgba(255, 255, 0, 1) 100%);;
+      background: linear-gradient(90deg, rgba(176, 0, 176, 1) 0%, rgba(0, 0, 0, 1) 30%, rgba(0, 0, 0, 1) 40%, rgba(0, 145, 255, 1) 70%, rgba(255, 255, 0, 1) 100%);
+      ;
       color: white;
     }
 
@@ -151,7 +163,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     .signup-btn:hover {
-      background-color:rgb(80, 80, 80);
+      background-color: rgb(80, 80, 80);
     }
 
     .error-message {
@@ -204,12 +216,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       .content {
         flex-direction: column;
       }
-      
+
       .signup-box {
         border-left: none;
         border-top: 1px solid #dddfe2;
       }
-      
+
       .logo-container img {
         max-width: 200px;
       }
@@ -219,17 +231,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <meta http-equiv="refresh" content="3;url=login.php">
   <?php endif; ?>
 </head>
+
 <body>
   <div class="signup-container">
     <div class="header">
       <h1>Active Media Designs & Printing Inventory System</h1>
     </div>
-    
+
     <div class="content">
       <div class="logo-container">
         <img src="../assets/images/plainlogo.png" alt="Active Media Designs Logo">
       </div>
-      
+
       <div class="signup-box">
         <?php if (!empty($message)): ?>
           <div class="<?php echo $success ? 'success-message' : 'error-message'; ?>">
@@ -240,25 +253,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         <form method="post" class="signup-form">
           <input type="text" name="username" placeholder="Username" required>
-          
+
           <div class="password-container">
             <input type="password" name="password" placeholder="Password" required>
             <i class="fas fa-eye password-toggle" onclick="togglePassword(this)"></i>
           </div>
-          
+
           <div class="password-container">
             <input type="password" name="confirm_password" placeholder="Re-enter Password" required>
             <i class="fas fa-eye password-toggle" onclick="togglePassword(this)"></i>
           </div>
-          
+
           <select name="role" required>
             <option value="" disabled selected>Select account type</option>
             <option value="employee">Employee</option>
             <option value="admin">Admin</option>
           </select>
-          
+
           <button type="submit" class="signup-btn">Sign Up</button>
-          
+
           <p class="footer-text">Already have an account? <a href="login.php">Log in</a></p>
         </form>
       </div>
@@ -278,4 +291,5 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
   </script>
 </body>
+
 </html>

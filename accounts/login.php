@@ -5,37 +5,38 @@ require_once '../config/db.php';
 $error = '';
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $username = trim($_POST['username']);
-    $password = $_POST['password'];
+  $username = trim($_POST['username']);
+  $password = $_POST['password'];
 
-    $stmt = $mysqli->prepare("SELECT id, password, role FROM users WHERE username = ?");
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $stmt->store_result();
+  $stmt = $mysqli->prepare("SELECT id, password, role FROM users WHERE username = ?");
+  $stmt->bind_param("s", $username);
+  $stmt->execute();
+  $stmt->store_result();
 
-    if ($stmt->num_rows === 1) {
-        $stmt->bind_result($id, $hashed, $role);
-        $stmt->fetch();
+  if ($stmt->num_rows === 1) {
+    $stmt->bind_result($id, $hashed, $role);
+    $stmt->fetch();
 
-        if (password_verify($password, $hashed)) {
-            session_regenerate_id(true);
-            $_SESSION['user_id'] = $id;
-            $_SESSION['username'] = $username;
-            $_SESSION['role'] = $role;
-            header("Location: ../pages/dashboard.php");
-            exit;
-        } else {
-            $error = "Incorrect password.";
-        }
+    if (password_verify($password, $hashed)) {
+      session_regenerate_id(true);
+      $_SESSION['user_id'] = $id;
+      $_SESSION['username'] = $username;
+      $_SESSION['role'] = $role;
+      header("Location: ../pages/dashboard.php");
+      exit;
     } else {
-        $error = "User not found.";
+      $error = "Incorrect password.";
     }
+  } else {
+    $error = "User not found.";
+  }
 
-    $stmt->close();
+  $stmt->close();
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -46,6 +47,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgb(140, 140, 140);
+      border-radius: 10px;
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -54,7 +65,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     body {
-      background-color:rgb(245, 245, 245);
+      background-color: rgb(245, 245, 245);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -75,7 +86,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     .header {
       text-align: center;
       padding: 20px;
-      background: linear-gradient(90deg,rgba(176, 0, 176, 1) 0%, rgba(0, 0, 0, 1) 30%, rgba(0, 0, 0, 1) 40%, rgba(0, 145, 255, 1) 70%, rgba(255, 255, 0, 1) 100%);;
+      background: linear-gradient(90deg, rgba(176, 0, 176, 1) 0%, rgba(0, 0, 0, 1) 30%, rgba(0, 0, 0, 1) 40%, rgba(0, 145, 255, 1) 70%, rgba(255, 255, 0, 1) 100%);
+      ;
       color: white;
     }
 
@@ -138,7 +150,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     .login-btn:hover {
-      background-color:rgb(80, 80, 80);
+      background-color: rgb(80, 80, 80);
     }
 
     .error-message {
@@ -182,29 +194,30 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       .content {
         flex-direction: column;
       }
-      
+
       .login-box {
         border-left: none;
         border-top: 1px solid #dddfe2;
       }
-      
+
       .logo-container img {
         max-width: 200px;
       }
     }
   </style>
 </head>
+
 <body>
   <div class="login-container">
     <div class="header">
       <h1>Active Media Designs & Printing Inventory System</h1>
     </div>
-    
+
     <div class="content">
       <div class="logo-container">
         <img src="../assets/images/plainlogo.png" alt="Active Media Designs Logo">
       </div>
-      
+
       <div class="login-box">
         <?php if ($error): ?>
           <div class="error-message">
@@ -215,14 +228,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         <form method="post" class="login-form">
           <input type="text" name="username" placeholder="Username" required>
-          
+
           <div class="password-container">
             <input type="password" name="password" placeholder="Password" required>
             <i class="fas fa-eye password-toggle" onclick="togglePassword(this)"></i>
           </div>
-          
+
           <button type="submit" class="login-btn">Log In</button>
-          
+
           <p class="footer-text">Don't have an account? Contact Admin</p>
         </form>
       </div>
@@ -242,4 +255,5 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
   </script>
 </body>
+
 </html>

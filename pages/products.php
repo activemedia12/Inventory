@@ -22,12 +22,11 @@ $out_of_stock = $mysqli->query("
     WHERE IFNULL(balance, 0) <= 0
 ")->fetch_assoc()['total'];
 
-// Fetch distinct product types and sizes for filters
+// Fetch filters
 $product_types = $mysqli->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
 $product_groups = $mysqli->query("SELECT DISTINCT product_group FROM products ORDER BY product_group");
 
 // Handle Add Product
-$message = "";
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_type'], $_POST['product_group'], $_POST['product_name'], $_POST['unit_price'])) {
   $type = ucwords(strtolower(trim($_POST['product_type'])));
   $group = strtoupper(trim($_POST['product_group']));
@@ -40,47 +39,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_type'], $_POS
     $stmt->bind_param("sssdi", $type, $group, $name, $price, $created_by);
 
     if ($stmt->execute()) {
-      $message = "<div class='alert alert-success'>Product added successfully.</div>";
+      $_SESSION['success_message'] = "Product added successfully.";
     } else {
-      $message = "<div class='alert alert-danger'>Error: " . $stmt->error . "</div>";
+      $_SESSION['error_message'] = "Error: " . $stmt->error;
     }
     $stmt->close();
+  } else {
+    $_SESSION['warning_message'] = "Please fill out all required fields correctly.";
   }
+
+  // Redirect to prevent resubmission
+  header("Location: " . $_SERVER['PHP_SELF']);
+  exit;
 }
 
+// Show alert messages
+$message = "";
+if (isset($_SESSION['success_message'])) {
+  $message = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> " . $_SESSION['success_message'] . "</div>";
+  unset($_SESSION['success_message']);
+} elseif (isset($_SESSION['error_message'])) {
+  $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle'></i> " . $_SESSION['error_message'] . "</div>";
+  unset($_SESSION['error_message']);
+} elseif (isset($_SESSION['warning_message'])) {
+  $message = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle'></i> " . $_SESSION['warning_message'] . "</div>";
+  unset($_SESSION['warning_message']);
+}
+
+// Filters
 $stock_unit = $_GET['stock_unit'] ?? 'sheets';
 $type_filter = $_GET['product_type'] ?? '';
 $size_filter = $_GET['product_group'] ?? '';
 $name_filter = $_GET['product_name'] ?? '';
 
-// Build query
+// Build main query
 $sql = "
-    SELECT 
-        p.id,
-        p.product_type, 
-        p.product_group AS paper_size, 
-        p.product_name, 
-        p.unit_price,
-        COALESCE(d.total_delivered, 0) - COALESCE(u.total_used, 0) AS available_sheets,
-        u2.username
-    FROM products p
-    LEFT JOIN (
-        SELECT product_id, SUM(delivered_reams * 500) AS total_delivered
-        FROM delivery_logs
-        GROUP BY product_id
-    ) d ON d.product_id = p.id
-    LEFT JOIN (
-        SELECT product_id, SUM(used_sheets) AS total_used
-        FROM usage_logs
-        GROUP BY product_id
-    ) u ON u.product_id = p.id
-    LEFT JOIN users u2 ON p.created_by = u2.id
-    WHERE 1=1
+  SELECT 
+    p.id,
+    p.product_type, 
+    p.product_group AS paper_size, 
+    p.product_name, 
+    p.unit_price,
+    COALESCE(d.total_delivered, 0) - COALESCE(u.total_used, 0) AS available_sheets,
+    u2.username
+  FROM products p
+  LEFT JOIN (
+    SELECT product_id, SUM(delivered_reams * 500) AS total_delivered
+    FROM delivery_logs
+    GROUP BY product_id
+  ) d ON d.product_id = p.id
+  LEFT JOIN (
+    SELECT product_id, SUM(used_sheets) AS total_used
+    FROM usage_logs
+    GROUP BY product_id
+  ) u ON u.product_id = p.id
+  LEFT JOIN users u2 ON p.created_by = u2.id
+  WHERE 1=1
 ";
 
 $params = [];
 $types = '';
-
 if ($type_filter) {
   $sql .= " AND p.product_type = ?";
   $params[] = $type_filter;
@@ -96,14 +114,15 @@ if ($name_filter) {
   $params[] = $name_filter;
   $types .= 's';
 }
-
 $sql .= " ORDER BY p.product_type, p.product_group, p.product_name";
+
 $stmt = $mysqli->prepare($sql);
 if ($types) {
   $stmt->bind_param($types, ...$params);
 }
 $stmt->execute();
 $result = $stmt->get_result();
+
 $products = [];
 while ($row = $result->fetch_assoc()) {
   $products[] = $row;
@@ -124,6 +143,16 @@ $stmt->close();
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgb(140, 140, 140);
+      border-radius: 10px;
+    }
+
     :root {
       --primary: #1877f2;
       --secondary: #166fe5;
@@ -298,25 +327,41 @@ $stmt->close();
       padding: 12px 15px;
       border-radius: 6px;
       margin-bottom: 20px;
-      font-size: 14px;
+      display: flex;
+      align-items: center;
+    }
+
+    .alert i {
+      margin-right: 10px;
     }
 
     .alert-success {
-      background-color: rgba(66, 183, 42, 0.1);
-      color: var(--success);
-      border-left: 4px solid var(--success);
+      background-color: rgba(40, 167, 69, 0.1);
+      color: #28a745;
+      border: 1px solid rgba(40, 167, 69, 0.2);
     }
 
     .alert-danger {
-      background-color: rgba(255, 77, 79, 0.1);
-      color: var(--danger);
-      border-left: 4px solid var(--danger);
+      background-color: rgba(220, 53, 69, 0.1);
+      color: #dc3545;
+      border: 1px solid rgba(220, 53, 69, 0.2);
     }
 
     .alert-warning {
-      background-color: rgba(250, 173, 20, 0.1);
-      color: var(--warning);
-      border-left: 4px solid var(--warning);
+      background-color: rgba(255, 193, 7, 0.1);
+      color: #ffc107;
+      border: 1px solid rgba(255, 193, 7, 0.2);
+    }
+
+    /* Empty State */
+    .empty-message {
+      padding: 30px;
+      text-align: center;
+      color: var(--gray);
+      background: var(--card-bg);
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      margin: 20px 0;
     }
 
     /* Forms */
@@ -596,6 +641,37 @@ $stmt->close();
         margin-top: 10px;
       }
     }
+
+    .collapsible-header {
+      cursor: pointer;
+      padding: 10px;
+      background: #f2f2f2;
+      border: 1px solid #ccc;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    .collapsible-header i {
+      margin-right: 8px;
+      transition: transform 0.2s;
+    }
+
+    .product-content {
+      padding: 10px;
+      overflow: scroll;
+      display: block;
+    }
+
+    .table-card table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .table-card table td,
+    .table-card table th {
+      padding: 8px;
+      border: 1px solid #ddd;
+    }
   </style>
 </head>
 
@@ -740,136 +816,176 @@ $stmt->close();
         </span>
       </h3>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Type</th>
-            <th>Size</th>
-            <th>Name</th>
-            <th>Unit Price</th>
-            <th>Stock</th>
-            <?php if ($_SESSION['role'] === 'admin'): ?>
-              <th>Recorded By</th>
-              <th>Actions</th>
-            <?php endif; ?>
-          </tr>
-        </thead>
-        <tbody>
-          <?php
-          $current_type = '';
-          $current_group = '';
-          foreach ($products as $prod):
-            if ($current_type !== $prod['product_type']) {
-              $current_type = $prod['product_type'];
-              echo "<tr class='category-header'><td colspan='6'>" . htmlspecialchars($current_type) . "</td></tr>";
-              $current_group = '';
-            }
+      <?php
+      // Group products by type
+      $grouped_products = [];
+      foreach ($products as $prod) {
+        $grouped_products[$prod['product_type']][] = $prod;
+      }
+      ?>
 
-            if ($current_group !== $prod['paper_size']) {
-              $current_group = $prod['paper_size'];
-              echo "<tr class='subcategory-header'><td colspan='6'>" . htmlspecialchars($current_group) . "</td></tr>";
-            }
-          ?>
-            <tr class="clickable-row" data-id="<?= $prod['id'] ?>">
-              <td><?= htmlspecialchars($prod['product_type']) ?></td>
-              <td><?= htmlspecialchars($prod['paper_size']) ?></td>
-              <td><?= htmlspecialchars($prod['product_name']) ?></td>
-              <td>₱<?= number_format($prod['unit_price'], 2) ?></td>
-              <td>
-                <?php
-                if ($stock_unit === 'reams') {
-                  echo number_format($prod['available_sheets'] / 500, 2) . ' reams';
-                } else {
-                  echo number_format($prod['available_sheets'], 2) . ' sheets';
-                }
-                ?>
-              </td>
-              <?php if ($_SESSION['role'] === 'admin'): ?>
-                <td><?php echo htmlspecialchars($prod['username'] ?? 'Unknown'); ?></td>
-              <?php endif; ?>
-              <?php if ($_SESSION['role'] === 'admin'): ?>
-                <td class="action-cell">
-                  <a href="edit_product.php?id=<?= $prod['id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>
-                  <a href="delete_product.php?id=<?= $prod['id'] ?>" onclick="return confirm('Are you sure you want to delete this product?')" title="Delete"><i class="fas fa-trash"></i></a>
-                </td>
-              <?php endif; ?>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
+      <?php foreach ($grouped_products as $type => $items): ?>
+        <div class="product-type-block">
+          <h4 class="collapsible-header" onclick="toggleProductGroup(this)">
+            <i class="fas fa-chevron-down"></i> <?= htmlspecialchars($type) ?>
+          </h4>
+
+          <div class="product-content">
+            <table>
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Size</th>
+                  <th>Name</th>
+                  <th>Unit Price</th>
+                  <th>Stock</th>
+                  <?php if ($_SESSION['role'] === 'admin'): ?>
+                    <th>Recorded By</th>
+                    <th>Actions</th>
+                  <?php endif; ?>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($items as $prod): ?>
+                  <tr class="clickable-row" data-id="<?= $prod['id'] ?>">
+                    <td><?= htmlspecialchars($prod['product_type']) ?></td>
+                    <td><?= htmlspecialchars($prod['paper_size']) ?></td>
+                    <td><?= htmlspecialchars($prod['product_name']) ?></td>
+                    <td>₱<?= number_format($prod['unit_price'], 2) ?></td>
+                    <td>
+                      <?php
+                      if ($stock_unit === 'reams') {
+                        echo number_format($prod['available_sheets'] / 500, 2) . ' reams';
+                      } else {
+                        echo number_format($prod['available_sheets'], 2) . ' sheets';
+                      }
+                      ?>
+                    </td>
+                    <?php if ($_SESSION['role'] === 'admin'): ?>
+                      <td><?= htmlspecialchars($prod['username'] ?? 'Unknown') ?></td>
+                      <td class="action-cell">
+                        <a href="edit_product.php?id=<?= $prod['id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>
+                        <a href="delete_product.php?id=<?= $prod['id'] ?>" onclick="return confirm('Are you sure you want to delete this product?')" title="Delete"><i class="fas fa-trash"></i></a>
+                      </td>
+                    <?php endif; ?>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      <?php endforeach; ?>
     </div>
+
   </div>
 
   <!-- Product Info Modal -->
-  <div class="modal" id="productModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>Product Details</h3>
-        <span class="close">&times;</span>
-      </div>
-      <div class="modal-body" id="productModalBody">
-        <!-- Content will be loaded via AJAX -->
-      </div>
-      <div class="modal-footer">
-        <button class="btn" id="closeModal">Close</button>
-      </div>
-    </div>
+  <div id="productModal">
+    <div id="productModalBody"></div>
   </div>
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      const modal = document.getElementById('productModal');
-      const modalBody = document.getElementById('productModalBody');
-      const closeBtn = document.querySelector('.close');
-      const closeModalBtn = document.getElementById('closeModal');
-
-      // Handle row clicks
-      document.querySelectorAll('.clickable-row').forEach(function(row) {
-        row.addEventListener('click', function(e) {
-          // Don't open modal if clicking on links or buttons
-          if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
-
+      document.querySelectorAll('.clickable-row').forEach(row => {
+        row.addEventListener('click', function() {
           const productId = this.dataset.id;
-          fetchProductInfo(productId);
+          if (!productId) return;
+
+          fetch(`product_info.php?id=${productId}`)
+            .then(res => {
+              if (!res.ok) throw new Error("Failed to fetch");
+              return res.text();
+            })
+            .then(html => {
+              document.getElementById('productModalBody').innerHTML = html;
+              document.getElementById('productModal').style.display = 'flex';
+            })
+            .catch(err => {
+              document.getElementById('productModalBody').innerHTML = `
+              <p style="color:red;">Error loading product info: ${err.message}</p>
+              <p>Requested ID: ${productId}</p>
+              <p>URL: product_info.php?id=${productId}</p>
+            `;
+              document.getElementById('productModal').style.display = 'flex';
+            });
         });
       });
+    });
 
-      // Close modal when clicking X or Close button
-      closeBtn.addEventListener('click', () => modal.style.display = 'none');
-      closeModalBtn.addEventListener('click', () => modal.style.display = 'none');
+    function closeModal() {
+      document.getElementById('productModal').style.display = 'none';
+      document.getElementById('productModalBody').innerHTML = '';
+    }
 
-      // Close modal when clicking outside
-      window.addEventListener('click', (e) => {
-        if (e.target === modal) {
-          modal.style.display = 'none';
-        }
-      });
+    function toggleProductGroup(header) {
+      const content = header.nextElementSibling;
+      content.style.display = content.style.display === 'none' ? 'block' : 'none';
 
-      // Fetch product info via AJAX
-      function fetchProductInfo(productId) {
-        fetch(`product_info.php?id=${productId}`)
-          .then(response => {
-            if (!response.ok) {
-              throw new Error('Network response was not ok');
-            }
-            return response.text();
-          })
-          .then(data => {
-            modalBody.innerHTML = data;
-            modal.style.display = 'flex';
-          })
-          .catch(error => {
-            console.error('Fetch error:', error);
-            modalBody.innerHTML = `
-              <div class="alert alert-danger">
-                Error loading product information: ${error.message}
-                <br>Requested ID: ${productId}
-                <br>URL: product_info.php?id=${productId}
-              </div>`;
-            modal.style.display = 'flex';
-          });
+      const icon = header.querySelector('i');
+      icon.classList.toggle('fa-chevron-down');
+      icon.classList.toggle('fa-chevron-right');
+    }
+
+
+  const pageKey = '/products.php';
+
+  // Restore scroll, dropdowns, and collapsibles
+  window.addEventListener('DOMContentLoaded', () => {
+    // Restore scroll position
+    const scrollY = sessionStorage.getItem(`scroll-${pageKey}`);
+    if (scrollY !== null) window.scrollTo(0, parseInt(scrollY));
+
+    // Restore dropdowns
+    document.querySelectorAll('select').forEach(select => {
+      const savedValue = sessionStorage.getItem(`select-${pageKey}-${select.name}`);
+      if (savedValue !== null) {
+        select.value = savedValue;
+        const event = new Event('change', { bubbles: true });
+        select.dispatchEvent(event);
       }
     });
+
+    // Restore collapsible states
+    document.querySelectorAll('.collapsible-header').forEach(header => {
+      const key = `collapse-${pageKey}-${header.textContent.trim()}`;
+      const savedState = sessionStorage.getItem(key);
+      const content = header.nextElementSibling;
+      if (savedState === 'closed') {
+        content.style.display = 'none';
+        header.querySelector('i').classList.replace('fa-chevron-down', 'fa-chevron-right');
+      }
+    });
+  });
+
+  // Save scroll position
+  window.addEventListener('scroll', () => {
+    sessionStorage.setItem(`scroll-${pageKey}`, window.scrollY);
+  });
+
+  // Save dropdown state
+  document.querySelectorAll('select').forEach(select => {
+    select.addEventListener('change', () => {
+      sessionStorage.setItem(`select-${pageKey}-${select.name}`, select.value);
+    });
+  });
+
+  // Collapse toggle handler with save
+  function toggleProductGroup(header) {
+    const content = header.nextElementSibling;
+    const key = `collapse-${pageKey}-${header.textContent.trim()}`;
+    const icon = header.querySelector('i');
+
+    if (content.style.display === 'none') {
+      content.style.display = 'block';
+      sessionStorage.setItem(key, 'open');
+      icon.classList.replace('fa-chevron-right', 'fa-chevron-down');
+    } else {
+      content.style.display = 'none';
+      sessionStorage.setItem(key, 'closed');
+      icon.classList.replace('fa-chevron-down', 'fa-chevron-right');
+    }
+  }
+
   </script>
 </body>
 

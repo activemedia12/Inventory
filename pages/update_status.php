@@ -26,7 +26,7 @@ if (!$current) {
   exit;
 }
 
-if ($current['status'] === $new_status) {   
+if ($current['status'] === $new_status) {
   echo "No change in status.";
   exit;
 }
