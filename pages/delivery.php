@@ -9,13 +9,11 @@ require_once '../config/db.php';
 
 $message = "";
 
-// Fetch products for dropdown
-$products = $mysqli->query("SELECT id, product_type, product_group, product_name FROM products ORDER BY product_type, product_group, product_name");
-
-// Handle delivery submission
+// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $product_id = intval($_POST['product_id']);
   $delivered_reams = floatval($_POST['delivered_reams']);
+  $unit = $_POST['unit'] ?? '';
   $delivery_note = $_POST['delivery_note'] ?? '';
   $delivery_date = $_POST['delivery_date'] ?? date('Y-m-d');
   $supplier_name = trim($_POST['supplier_name'] ?? '');
@@ -24,28 +22,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if ($product_id && $delivered_reams > 0 && $amount_per_ream > 0) {
     $stmt = $mysqli->prepare("INSERT INTO delivery_logs 
-          (product_id, delivered_reams, delivery_note, delivery_date, supplier_name, amount_per_ream, created_by) 
-          VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("idsssdi", $product_id, $delivered_reams, $delivery_note, $delivery_date, $supplier_name, $amount_per_ream, $created_by);
+        (product_id, delivered_reams, unit, delivery_note, delivery_date, supplier_name, amount_per_ream, created_by) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("idssssdi", $product_id, $delivered_reams, $unit, $delivery_note, $delivery_date, $supplier_name, $amount_per_ream, $created_by);
 
     if ($stmt->execute()) {
-      // Update unit price in products table
+      // Update unit price
       $update = $mysqli->prepare("UPDATE products SET unit_price = ? WHERE id = ?");
       $update->bind_param("di", $amount_per_ream, $product_id);
       $update->execute();
       $update->close();
 
-      $message = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> Delivery recorded and unit price updated.</div>";
+      $_SESSION['success_message'] = "Delivery recorded and unit price updated.";
+      header("Location: " . $_SERVER['PHP_SELF']);
+      exit;
     } else {
-      $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle'></i> Error: " . $stmt->error . "</div>";
+      $_SESSION['error_message'] = "Error: " . $stmt->error;
     }
     $stmt->close();
   } else {
-    $message = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle'></i> Please fill out all required fields correctly.</div>";
+    $_SESSION['warning_message'] = "Please fill out all required fields correctly.";
   }
+
+  // Redirect even if failed to avoid resubmission on refresh
+  header("Location: " . $_SERVER['PHP_SELF']);
+  exit;
 }
 
-// Fetch past deliveries
+// Display messages from session
+if (isset($_SESSION['success_message'])) {
+  $message = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> " . $_SESSION['success_message'] . "</div>";
+  unset($_SESSION['success_message']);
+} elseif (isset($_SESSION['error_message'])) {
+  $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle'></i> " . $_SESSION['error_message'] . "</div>";
+  unset($_SESSION['error_message']);
+} elseif (isset($_SESSION['warning_message'])) {
+  $message = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle'></i> " . $_SESSION['warning_message'] . "</div>";
+  unset($_SESSION['warning_message']);
+}
+
+// Fetch dropdown products
+$products = $mysqli->query("SELECT id, product_type, product_group, product_name FROM products ORDER BY product_type, product_group, product_name");
+
+// Fetch delivery logs grouped by date
 $logs = $mysqli->query("
   SELECT dl.*, p.product_type, p.product_group, p.product_name, u.username
   FROM delivery_logs dl
@@ -54,7 +73,14 @@ $logs = $mysqli->query("
   ORDER BY dl.delivery_date DESC, dl.id DESC
   LIMIT 50
 ");
+
+$grouped_logs = [];
+while ($log = $logs->fetch_assoc()) {
+  $date = date("F j, Y", strtotime($log['delivery_date']));
+  $grouped_logs[$date][] = $log;
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -67,7 +93,18 @@ $logs = $mysqli->query("
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
   <style>
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgb(140, 140, 140);
+      border-radius: 10px;
+    }
+
     :root {
       --primary: #1877f2;
       --secondary: #166fe5;
@@ -429,6 +466,10 @@ $logs = $mysqli->query("
       .form-grid {
         grid-template-columns: 1fr;
       }
+
+      .table-card {
+        font-size: 90%;
+      }
     }
 
     @media (max-width: 576px) {
@@ -459,6 +500,110 @@ $logs = $mysqli->query("
 
     .action-cell a:hover {
       color: var(--primary);
+    }
+
+    /* Search field input */
+    .select2-container .select2-search--dropdown .select2-search__field {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 85%;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      outline: none;
+      color: #111827;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    /* Focus state */
+    .select2-container .select2-search--dropdown .select2-search__field:focus {
+      border-color: #3b82f6;
+      /* Blue border on focus */
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    /* Placeholder (uses actual HTML placeholder attribute) */
+    .select2-container .select2-search--dropdown .select2-search__field::placeholder {
+      color: #9ca3af;
+      font-style: italic;
+    }
+
+    .select2-container .select2-dropdown {
+      background-color: #ffffff;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+    }
+
+    .select2-results__options {
+
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 0.25rem 0;
+    }
+
+    .select2-results__option {
+      padding: 10px 16px;
+      font-size: 90%;
+      color: #1f2937;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .select2-results__option--highlighted[aria-selected] {
+      background-color: #e0f2fe;
+      color: #0369a1;
+    }
+
+    .select2-results__group {
+      padding: 8px 16px;
+      font-weight: 600;
+      font-size: 90%;
+      color: #6b7280;
+      background-color: #f9fafb;
+      border-top: 1px solid #f3f4f6;
+    }
+
+    .select2-selection__arrow {
+      margin: 10px 10px 0 0;
+    }
+
+    .select2-search__field {
+      border-radius: 10px;
+    }
+
+    .select2-container--default .select2-selection--single {
+      min-height: 45px;
+      display: flex;
+      align-items: center;
+      width: 100%;
+      border: 1px solid var(--light-gray);
+      border-radius: 6px;
+      font-family: inherit;
+      transition: border-color 0.3s;
+      font-size: 85%;
+    }
+
+    .select2-container--default .select2-selection--single:focus {
+      border-color: var(--primary);
+      outline: none;
+    }
+
+    .toggle-btn {
+      width: 100%;
+      padding: 10px 15px;
+      background: #f0f2f5;
+      border: none;
+      text-align: left;
+      cursor: pointer;
+      border-radius: 5px;
+      margin-top: 10px;
+      font-size: 100%;
+    }
+
+    .group-content {
+      margin-top: 5px;
+      padding: 0 10px;
     }
   </style>
 </head>
@@ -500,21 +645,44 @@ $logs = $mysqli->query("
             <label for="product_id">Product</label>
             <select name="product_id" id="product_id" required>
               <option value="">-- Select Product --</option>
-              <?php while ($row = $products->fetch_assoc()): ?>
-                <option value="<?php echo $row['id']; ?>">
-                  <?php echo "{$row['product_type']} - {$row['product_group']} - {$row['product_name']}"; ?>
-                </option>
-              <?php endwhile; ?>
+              <?php
+              $selected_id = $_POST['product_id'] ?? ($existing_job['product_id'] ?? '');
+
+              $organized = [];
+              while ($row = $products->fetch_assoc()) {
+                $type = $row['product_type'];
+                $group = $row['product_group'];
+                $organized[$type][$group][] = $row;
+              }
+
+              // Generate grouped options
+              foreach ($organized as $type => $groups) {
+                echo "<optgroup label=\"$type\">";
+                foreach ($groups as $group => $items) {
+                  foreach ($items as $item) {
+                    $id = $item['id'];
+                    $name = htmlspecialchars($item['product_name']);
+                    $selected = ($id == $selected_id) ? 'selected' : '';
+                    echo "<option value=\"$id\" $selected>$type - $group - $name</option>";
+                  }
+                }
+                echo "</optgroup>";
+              }
+              ?>
             </select>
           </div>
-
           <div class="form-group">
-            <label for="delivered_reams">Delivered Reams</label>
+            <label for="delivered_reams">Delivered Quantity</label>
             <input type="number" name="delivered_reams" id="delivered_reams" min="0.01" step="0.01" required>
           </div>
 
           <div class="form-group">
-            <label for="amount_per_ream">Amount per Ream (₱)</label>
+            <label for="unit">Unit</label>
+            <input type="text" name="unit" id="unit" class="form-control" placeholder="e.g., Ream, Per Piece" value="<?= htmlspecialchars($_POST['unit'] ?? '') ?>">
+          </div>
+
+          <div class="form-group">
+            <label for="amount_per_ream">Amount per Unit (₱)</label>
             <input type="number" name="amount_per_ream" id="amount_per_ream" min="0.01" step="0.01" required>
           </div>
 
@@ -543,54 +711,160 @@ $logs = $mysqli->query("
     <!-- Delivery History -->
     <div class="table-card">
       <div class="delivery-summary">
-        <h3><i class="fas fa-history"></i> Recent Deliveries</h3>
+        <h3><i class="fas fa-history"></i> Delivery History</h3>
       </div>
 
-      <?php if ($logs->num_rows > 0): ?>
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Product</th>
-              <th>Reams</th>
-              <th>Amount/Ream</th>
-              <th>Supplier</th>
-              <th>Note</th>
-              <?php if ($_SESSION['role'] === 'admin'): ?>
-                <th>Recorded By</th>
-                <th>Actions</th>
-              <?php endif; ?>
-            </tr>
-          </thead>
-          <tbody>
-            <?php while ($log = $logs->fetch_assoc()): ?>
-              <tr>
-                <td><?php echo date("M j, Y", strtotime($log['delivery_date'])); ?></td>
-                <td><?php echo "{$log['product_type']} - {$log['product_group']} - {$log['product_name']}"; ?></td>
-                <td><?php echo number_format($log['delivered_reams'], 2); ?></td>
-                <td>₱<?php echo number_format($log['amount_per_ream'], 2); ?></td>
-                <td><?php echo htmlspecialchars($log['supplier_name'] ?: '-'); ?></td>
-                <td><?php echo htmlspecialchars($log['delivery_note']); ?></td>
-                <?php if ($_SESSION['role'] === 'admin'): ?>
-                  <td><?php echo htmlspecialchars($log['username'] ?? 'Unknown'); ?></td>
-                <?php endif; ?>
-                <?php if ($_SESSION['role'] === 'admin'): ?>
-                  <td class="action-cell">
-                    <a href="edit_delivery.php?id=<?= $log['id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>
-                    <a href="delete_delivery.php?id=<?= $log['id'] ?>" title="Delete"><i class="fas fa-trash"></i></a>
-                  </td>
-                <?php endif; ?>
-              </tr>
-            <?php endwhile; ?>
-          </tbody>
-        </table>
+      <?php if (!empty($grouped_logs)): ?>
+        <?php foreach ($grouped_logs as $date => $logs_by_date): ?>
+          <div class="delivery-group">
+            <button class="toggle-btn" onclick="toggleGroup(this)">
+              <i class="fas fa-calendar-alt"></i> <?= $date ?>
+            </button>
+            <div class="group-content" style="display: none;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Reams</th>
+                    <th>Unit</th>
+                    <th>Amount</th>
+                    <th>Supplier</th>
+                    <th>Note</th>
+                    <?php if ($_SESSION['role'] === 'admin'): ?>
+                      <th>Recorded By</th>
+                      <th>Actions</th>
+                    <?php endif; ?>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($logs_by_date as $log): ?>
+                    <tr class="clickable-row" data-id="<?= $log['product_id'] ?>">
+                      <td><?= "{$log['product_type']} - {$log['product_group']} - {$log['product_name']}" ?></td>
+                      <td><?= number_format($log['delivered_reams'], 2) ?></td>
+                      <td><?= htmlspecialchars($log['unit'] ?? '---') ?></td>
+                      <td>₱<?= number_format($log['amount_per_ream'], 2) ?></td>
+                      <td><?= htmlspecialchars($log['supplier_name'] ?: '-') ?></td>
+                      <td><?= htmlspecialchars($log['delivery_note']) ?></td>
+                      <?php if ($_SESSION['role'] === 'admin'): ?>
+                        <td><?= htmlspecialchars($log['username'] ?? 'Unknown') ?></td>
+                        <td class="action-cell">
+                          <a href="edit_delivery.php?id=<?= $log['id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>
+                          <a href="delete_delivery.php?id=<?= $log['id'] ?>" title="Delete"><i class="fas fa-trash"></i></a>
+                        </td>
+                      <?php endif; ?>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <?php endforeach; ?>
       <?php else: ?>
         <div class="empty-message">
           <p>No deliveries recorded yet</p>
         </div>
       <?php endif; ?>
+
+
     </div>
   </div>
+
+  <div id="productModal">
+    <div id="productModalBody"></div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+  <script>
+    function toggleGroup(button) {
+      const content = button.nextElementSibling;
+      content.style.display = content.style.display === 'none' ? 'block' : 'none';
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.clickable-row').forEach(row => {
+        row.addEventListener('click', function() {
+          const productId = this.dataset.id;
+          if (!productId) return;
+
+          fetch(`product_info.php?id=${productId}`)
+            .then(res => {
+              if (!res.ok) throw new Error("Failed to fetch");
+              return res.text();
+            })
+            .then(html => {
+              document.getElementById('productModalBody').innerHTML = html;
+              document.getElementById('productModal').style.display = 'flex';
+            })
+            .catch(err => {
+              document.getElementById('productModalBody').innerHTML = `
+              <p style="color:red;">Error loading product info: ${err.message}</p>
+              <p>Requested ID: ${productId}</p>
+              <p>URL: product_info.php?id=${productId}</p>
+            `;
+              document.getElementById('productModal').style.display = 'flex';
+            });
+        });
+      });
+    });
+
+    function closeModal() {
+      document.getElementById('productModal').style.display = 'none';
+      document.getElementById('productModalBody').innerHTML = '';
+    }
+
+    $(document).ready(function() {
+      $('#product_id').select2({
+        placeholder: "-- Select Product --",
+        width: '100%',
+      });
+
+      $('#product_id').on('select2:open', function() {
+        $('.select2-search__field').attr('placeholder', 'Search product...');
+      });
+    });
+
+
+  const pageKey = 'delivery.php';
+
+  // Restore toggle state on load
+  window.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.toggle-btn').forEach((btn, index) => {
+      const key = `delivery-toggle-${pageKey}-${index}`;
+      const saved = sessionStorage.getItem(key);
+      const content = btn.nextElementSibling;
+      const icon = btn.querySelector('i');
+
+      if (saved === 'open') {
+        content.style.display = 'block';
+        icon.classList.replace('fa-calendar-alt', 'fa-calendar-check');
+      } else {
+        content.style.display = 'none';
+        icon.classList.replace('fa-calendar-check', 'fa-calendar-alt');
+      }
+    });
+  });
+
+  // Toggle with memory
+  function toggleGroup(btn) {
+    const content = btn.nextElementSibling;
+    const icon = btn.querySelector('i');
+    const allBtns = Array.from(document.querySelectorAll('.toggle-btn'));
+    const index = allBtns.indexOf(btn);
+    const key = `delivery-toggle-${pageKey}-${index}`;
+
+    if (content.style.display === 'none' || content.style.display === '') {
+      content.style.display = 'block';
+      icon.classList.replace('fa-calendar-alt', 'fa-calendar-check');
+      sessionStorage.setItem(key, 'open');
+    } else {
+      content.style.display = 'none';
+      icon.classList.replace('fa-calendar-check', 'fa-calendar-alt');
+      sessionStorage.setItem(key, 'closed');
+    }
+  }
+
+
+  </script>
 </body>
 
 </html>

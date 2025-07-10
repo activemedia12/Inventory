@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ref_stmt->execute();
     $ref_result = $ref_stmt->get_result();
     $total_refs = intval($ref_result->fetch_assoc()['total_refs'] ?? 0);
-    
+
     if ($total_refs > 0) {
         header("Location: products.php?error=Cannot delete product referenced in logs");
         exit;
@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Proceed with deletion
     $delete_stmt = $mysqli->prepare("DELETE FROM products WHERE id = ?");
     $delete_stmt->bind_param("i", $product_id);
-    
+
     if ($delete_stmt->execute()) {
         header("Location: products.php?success=Product deleted successfully");
         exit;
@@ -78,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -88,6 +89,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgb(140, 140, 140);
+            border-radius: 10px;
+        }
+
         :root {
             --primary: #1877f2;
             --secondary: #166fe5;
@@ -231,23 +242,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             body {
                 padding-left: 0;
             }
-            
+
             .main-content {
                 padding: 20px;
             }
-            
+
             .detail-row {
                 flex-direction: column;
             }
-            
+
             .detail-label {
                 margin-bottom: 5px;
             }
-            
+
             .btn-group {
                 flex-direction: column;
             }
-            
+
             .btn {
                 width: 100%;
             }
@@ -258,9 +269,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     </style>
 </head>
+
 <body>
     <!-- Include your sidebar navigation here -->
-    
+
     <div class="main-content">
         <div class="confirmation-card">
             <div class="confirmation-icon">
@@ -268,58 +280,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <h1 class="confirmation-title">Delete Product</h1>
             <p class="confirmation-message">Are you sure you want to permanently delete this product? This action cannot be undone.</p>
-            
+
             <div class="product-details">
                 <div class="detail-row">
                     <span class="detail-label">Product Type:</span>
                     <span class="detail-value"><?= htmlspecialchars($product['product_type']) ?></span>
                 </div>
-                
+
                 <div class="detail-row">
                     <span class="detail-label">Product Group:</span>
                     <span class="detail-value"><?= htmlspecialchars($product['product_group']) ?></span>
                 </div>
-                
+
                 <div class="detail-row">
                     <span class="detail-label">Product Name:</span>
                     <span class="detail-value"><?= htmlspecialchars($product['product_name']) ?></span>
                 </div>
-                
+
                 <div class="detail-row">
                     <span class="detail-label">Current Stock:</span>
                     <span class="detail-value">
-                        <?= number_format($remaining_sheets) ?> sheets 
+                        <?= number_format($remaining_sheets) ?> sheets
                         (<?= number_format($remaining_sheets / 500, 2) ?> reams)
                     </span>
                 </div>
-                
+
                 <?php if ($remaining_sheets > 0): ?>
-                <div class="stock-warning">
-                    <i class="fas fa-exclamation-circle"></i> 
-                    Deletion failed: This product is linked to existing job orders and delivery records. Please remove those entries first.
-                </div>
+                    <div class="stock-warning">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Deletion failed: This product is linked to existing job orders and delivery records. Please remove those entries first.
+                    </div>
                 <?php endif; ?>
             </div>
-            
+
             <?php if ($remaining_sheets <= 0): ?>
-            <form method="POST">
+                <form method="POST">
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-danger" <?= $remaining_sheets > 0 ? 'disabled' : '' ?>>
+                            <i class="fas fa-trash-alt"></i> Confirm Delete
+                        </button>
+                        <a href="products.php" class="btn btn-outline">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            <?php else: ?>
                 <div class="btn-group">
-                    <button type="submit" class="btn btn-danger" <?= $remaining_sheets > 0 ? 'disabled' : '' ?>>
-                        <i class="fas fa-trash-alt"></i> Confirm Delete
-                    </button>
                     <a href="products.php" class="btn btn-outline">
-                        <i class="fas fa-times"></i> Cancel
+                        <i class="fas fa-arrow-left"></i> Back to Products
                     </a>
                 </div>
-            </form>
-            <?php else: ?>
-            <div class="btn-group">
-                <a href="products.php" class="btn btn-outline">
-                    <i class="fas fa-arrow-left"></i> Back to Products
-                </a>
-            </div>
             <?php endif; ?>
         </div>
     </div>
 </body>
+
 </html>

@@ -46,13 +46,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $update = $mysqli->prepare("UPDATE products SET product_type = ?, product_group = ?, product_name = ?, unit_price = ? WHERE id = ?");
         $update->bind_param("sssdi", $new_type, $new_group, $new_name, $new_price, $product_id);
-        
+
         if ($update->execute()) {
-            $message = "✅ Product updated successfully.";
+            $message = "Product updated successfully.";
             $product['product_type'] = $new_type;
             $product['product_group'] = $new_group;
             $product['product_name'] = $new_name;
             $product['unit_price'] = $new_price;
+
+            header("Location: products.php?id=$product_id&tab=products");
+            exit;
         } else {
             $message = "❌ Update failed: " . $mysqli->error;
         }
@@ -63,6 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -73,6 +77,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgb(140, 140, 140);
+            border-radius: 10px;
+        }
+
         :root {
             --primary: #1877f2;
             --secondary: #166fe5;
@@ -312,24 +326,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             body {
                 padding-left: 0;
             }
-            
+
             .main-content {
                 padding: 20px;
             }
-            
+
             .page-header {
                 flex-direction: column;
                 align-items: flex-start;
             }
-            
+
             .user-info {
                 margin-top: 15px;
             }
-            
+
             .btn-group {
                 flex-direction: column;
             }
-            
+
             .btn {
                 width: 100%;
             }
@@ -342,9 +356,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     </style>
 </head>
+
 <body>
     <!-- Include your sidebar navigation here -->
-    
+
     <div class="main-content">
         <header class="page-header">
             <h1 class="page-title"><i class="fas fa-box-open"></i> Edit Product</h1>
@@ -360,10 +375,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </header>
 
         <?php if ($message): ?>
-        <div class="alert <?= strpos($message, '❌') !== false ? 'alert-danger' : 'alert-success' ?>">
-            <i class="fas <?= strpos($message, '❌') !== false ? 'fa-exclamation-circle' : 'fa-check-circle' ?>"></i>
-            <?= $message ?>
-        </div>
+            <div class="alert <?= strpos($message, '❌') !== false ? 'alert-danger' : 'alert-success' ?>">
+                <i class="fas <?= strpos($message, '❌') !== false ? 'fa-exclamation-circle' : 'fa-check-circle' ?>"></i>
+                <?= $message ?>
+            </div>
         <?php endif; ?>
 
         <div class="form-card">
@@ -385,26 +400,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <form method="POST">
                 <div class="form-group">
                     <label class="form-label">Product Type</label>
-                    <input type="text" name="product_type" class="form-control" 
-                           value="<?= htmlspecialchars($product['product_type']) ?>" required>
+                    <input type="text" name="product_type" class="form-control"
+                        value="<?= htmlspecialchars($product['product_type']) ?>" required>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Product Group</label>
-                    <input type="text" name="product_group" class="form-control" 
-                           value="<?= htmlspecialchars($product['product_group']) ?>" required>
+                    <input type="text" name="product_group" class="form-control"
+                        value="<?= htmlspecialchars($product['product_group']) ?>" required>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Product Name</label>
-                    <input type="text" name="product_name" class="form-control" 
-                           value="<?= htmlspecialchars($product['product_name']) ?>" required>
+                    <input type="text" name="product_name" class="form-control"
+                        value="<?= htmlspecialchars($product['product_name']) ?>" required>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Unit Price (₱)</label>
-                    <input type="number" step="0.01" name="unit_price" class="form-control" 
-                           value="<?= htmlspecialchars($product['unit_price']) ?>" required>
+                    <input type="number" step="0.01" name="unit_price" class="form-control"
+                        value="<?= htmlspecialchars($product['unit_price']) ?>" required>
                 </div>
 
                 <div class="btn-group">
@@ -419,4 +434,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 </body>
+
 </html>

@@ -70,6 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -80,6 +81,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgb(140, 140, 140);
+            border-radius: 10px;
+        }
+
         :root {
             --primary: #1877f2;
             --secondary: #166fe5;
@@ -316,44 +327,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             body {
                 padding-left: 0;
             }
-            
+
             .sidebar {
                 transform: translateX(-100%);
                 width: 250px;
                 box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
             }
-            
+
             .sidebar.expanded {
                 transform: translateX(0);
             }
-            
+
             .menu-toggle {
                 display: block;
             }
-            
+
             .main-content {
                 margin-left: 0;
                 padding: 15px;
             }
-            
+
             .detail-row {
                 flex-direction: column;
             }
-            
+
             .detail-label {
                 margin-bottom: 5px;
             }
-            
+
             .btn-group {
                 flex-direction: column;
             }
-            
+
             .btn {
                 width: 100%;
             }
         }
     </style>
 </head>
+
 <body>
     <button class="menu-toggle" id="menuToggle">
         <i class="fas fa-bars"></i>
@@ -365,47 +377,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <h1 class="confirmation-title">Delete Delivery Record</h1>
             <p class="confirmation-message">Are you sure you want to permanently delete this delivery record?</p>
-            
+
             <div class="delivery-details">
                 <div class="detail-row">
                     <span class="detail-label">Product:</span>
                     <span class="detail-value">
-                        <?= htmlspecialchars($delivery['product_type']) ?> - 
-                        <?= htmlspecialchars($delivery['product_group']) ?> - 
+                        <?= htmlspecialchars($delivery['product_type']) ?> -
+                        <?= htmlspecialchars($delivery['product_group']) ?> -
                         <?= htmlspecialchars($delivery['product_name']) ?>
                     </span>
                 </div>
-                
+
                 <div class="detail-row">
                     <span class="detail-label">Delivery Date:</span>
                     <span class="detail-value"><?= date('M j, Y', strtotime($delivery['delivery_date'])) ?></span>
                 </div>
-                
+
                 <div class="detail-row">
                     <span class="detail-label">Supplier:</span>
                     <span class="detail-value"><?= htmlspecialchars($delivery['supplier_name']) ?></span>
                 </div>
-                
+
                 <div class="detail-row">
                     <span class="detail-label">Quantity:</span>
                     <span class="detail-value">
                         <?= $delivery['delivered_reams'] ?> reams (<?= $delivery['delivered_reams'] * 500 ?> sheets)
                     </span>
                 </div>
-                
+
                 <div class="detail-row">
                     <span class="detail-label">Price per Ream:</span>
                     <span class="detail-value">₱<?= number_format($delivery['amount_per_ream'], 2) ?></span>
                 </div>
-                
+
                 <?php if (!empty($delivery['delivery_note'])): ?>
-                <div class="detail-row">
-                    <span class="detail-label">Notes:</span>
-                    <span class="detail-value"><?= nl2br(htmlspecialchars($delivery['delivery_note'])) ?></span>
-                </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Notes:</span>
+                        <span class="detail-value"><?= nl2br(htmlspecialchars($delivery['delivery_note'])) ?></span>
+                    </div>
                 <?php endif; ?>
             </div>
-            
+
             <form method="POST">
                 <div class="btn-group">
                     <button type="submit" class="btn btn-danger">
@@ -424,7 +436,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         document.getElementById('menuToggle').addEventListener('click', function() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('expanded');
-            
+
             // Toggle menu icon
             const icon = this.querySelector('i');
             if (sidebar.classList.contains('expanded')) {
@@ -435,15 +447,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 icon.classList.add('fa-bars');
             }
         });
-        
+
         // Close menu when clicking outside on mobile
         document.addEventListener('click', function(event) {
             const sidebar = document.getElementById('sidebar');
             const menuToggle = document.getElementById('menuToggle');
-            
-            if (window.innerWidth <= 768 && 
-                !sidebar.contains(event.target) && 
-                event.target !== menuToggle && 
+
+            if (window.innerWidth <= 768 &&
+                !sidebar.contains(event.target) &&
+                event.target !== menuToggle &&
                 !menuToggle.contains(event.target)) {
                 sidebar.classList.remove('expanded');
                 const icon = menuToggle.querySelector('i');
@@ -453,4 +465,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         });
     </script>
 </body>
+
 </html>

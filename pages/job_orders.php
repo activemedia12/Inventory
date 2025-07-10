@@ -4,19 +4,22 @@ if (!isset($_SESSION['user_id'])) {
   header("Location: ../accounts/login.php");
   exit;
 }
-
 require_once '../config/db.php';
 
-$search_client = strtolower(trim($_GET['search_client'] ?? ''));
-$search_project = strtolower(trim($_GET['search_project'] ?? ''));
+// Handle alert messages from redirect
+$message = $_SESSION['message'] ?? '';
+unset($_SESSION['message']);
 
-// Fetch dropdown data
+// FETCH Dropdowns
 $product_types = $mysqli->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
 $product_sizes = $mysqli->query("SELECT DISTINCT product_group FROM products ORDER BY product_group");
 $product_names = $mysqli->query("SELECT DISTINCT product_name FROM products ORDER BY product_name");
 $project_names = $mysqli->query("SELECT DISTINCT project_name FROM job_orders ORDER BY project_name");
 
-$message = "";
+$search_client = strtolower(trim($_GET['search_client'] ?? ''));
+$search_project = strtolower(trim($_GET['search_project'] ?? ''));
+
+// Handle POST submission (PRG pattern)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $client_name = $_POST['client_name'] ?? '';
   $client_address = $_POST['client_address'] ?? '';
@@ -45,117 +48,109 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $total_sheets = $number_of_sets * $quantity;
   $cut_sheets = $total_sheets / $cut_size;
   $reams = $cut_sheets / 500;
-  $reams_per_product = $reams;
-  $used_sheets = $reams_per_product * 500;
+  $used_sheets = $reams * 500;
   $paper_sequence_str = implode(', ', $paper_sequence);
 
-  // 1. Check all paper sequence products for available stock before inserting job order
   $insufficient = [];
   $products_used = [];
 
   foreach ($paper_sequence as $color) {
     $color = trim($color);
     $result = $mysqli->query("
-      SELECT 
-        p.id,
+      SELECT p.id, (
         (
-          (
-            SELECT IFNULL(SUM(delivered_reams), 0)
-            FROM delivery_logs
-            WHERE product_id = p.id
-          ) * 500
-          -
-          (
-            SELECT IFNULL(SUM(used_sheets), 0)
-            FROM usage_logs
-            WHERE product_id = p.id
-          )
-        ) AS available
+          SELECT IFNULL(SUM(delivered_reams), 0)
+          FROM delivery_logs
+          WHERE product_id = p.id
+        ) * 500 - (
+          SELECT IFNULL(SUM(used_sheets), 0)
+          FROM usage_logs
+          WHERE product_id = p.id
+        )
+      ) AS available
       FROM products p
-      WHERE p.product_type = '$paper_type'
-        AND p.product_group = '$paper_size'
-        AND p.product_name = '$color'
+      WHERE p.product_type = '$paper_type' AND p.product_group = '$paper_size' AND p.product_name = '$color'
       LIMIT 1
     ");
 
     if ($result && $result->num_rows > 0) {
       $row = $result->fetch_assoc();
       if ($row['available'] < $used_sheets) {
-        $insufficient[] = "❌ Not enough stock for $color. Available: {$row['available']} sheets, Required: $used_sheets sheets.";
+        $insufficient[] = "❌ Not enough stock for <strong>$color</strong>. Available: {$row['available']} sheets, Required: $used_sheets sheets.";
       } else {
-        $products_used[] = [
-          'product_id' => $row['id'],
-          'color' => $color
-        ];
+        $products_used[] = ['product_id' => $row['id'], 'color' => $color];
       }
     } else {
-      $insufficient[] = "❌ Product not found for $color.";
+      $insufficient[] = "❌ Product not found for <strong>$color</strong>.";
     }
   }
 
-  // 2. If any product has issues, stop here
   if (!empty($insufficient)) {
-    $message = implode("<br>", $insufficient);
-  } else {
-    // 3. Insert job order
-    $stmt = $mysqli->prepare("INSERT INTO job_orders (
-      log_date, client_name, client_address, contact_person, contact_number, taxpayer_name, rdo_code,
-      project_name, quantity, number_of_sets, product_size, serial_range,
-      paper_size, custom_paper_size, paper_type, copies_per_set, binding_type,
-      custom_binding, paper_sequence, special_instructions, created_by,
-      status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
-
-    if ($stmt) {
-      $stmt->bind_param(
-        "ssssssssiisssssissssi",
-        $log_date,
-        $client_name,
-        $client_address,
-        $contact_person,
-        $contact_number,
-        $rdo_code,
-        $taxpayer_name,
-        $project_name,
-        $quantity,
-        $number_of_sets,
-        $product_size,
-        $serial_range,
-        $paper_size,
-        $custom_paper_size,
-        $paper_type,
-        $copies_per_set,
-        $binding_type,
-        $custom_binding,
-        $paper_sequence_str,
-        $special_instructions,
-        $created_by
-      );
-
-      if ($stmt->execute()) {
-        $job_order_id = $mysqli->insert_id;
-        foreach ($products_used as $prod) {
-          $product_id = $prod['product_id'];
-          $color = $prod['color'];
-          $note = "Auto-deducted from job order for $client_name";
-          $usage_stmt = $mysqli->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
-          $usage_stmt->bind_param("iisds", $product_id, $used_sheets, $log_date, $job_order_id, $note);
-          $usage_stmt->execute();
-          $usage_stmt->close();
-        }
-
-        $message = "✅ Job order saved. Reams used per product: " . number_format($reams_per_product, 2);
-      } else {
-        $message = "❌ Error saving job order: " . $stmt->error;
-      }
-      $stmt->close();
-    } else {
-      $message = "❌ Failed to prepare job order insert.";
-    }
+    $_SESSION['message'] = "<div class='alert alert-danger'>" . implode("<br>", $insufficient) . "</div>";
+    header("Location: job_orders.php");
+    exit;
   }
+
+  $stmt = $mysqli->prepare("INSERT INTO job_orders (
+    log_date, client_name, client_address, contact_person, contact_number, taxpayer_name, rdo_code,
+    project_name, quantity, number_of_sets, product_size, serial_range,
+    paper_size, custom_paper_size, paper_type, copies_per_set, binding_type,
+    custom_binding, paper_sequence, special_instructions, created_by,
+    status
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
+
+  if ($stmt) {
+    $stmt->bind_param(
+      "ssssssssiisssssissssi",
+      $log_date,
+      $client_name,
+      $client_address,
+      $contact_person,
+      $contact_number,
+      $taxpayer_name,
+      $rdo_code,
+      $project_name,
+      $quantity,
+      $number_of_sets,
+      $product_size,
+      $serial_range,
+      $paper_size,
+      $custom_paper_size,
+      $paper_type,
+      $copies_per_set,
+      $binding_type,
+      $custom_binding,
+      $paper_sequence_str,
+      $special_instructions,
+      $created_by
+    );
+
+    if ($stmt->execute()) {
+      $job_order_id = $mysqli->insert_id;
+      foreach ($products_used as $prod) {
+        $usage_stmt = $mysqli->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
+        $note = "Auto-deducted from job order for $client_name";
+        $usage_stmt->bind_param("iisds", $prod['product_id'], $used_sheets, $log_date, $job_order_id, $note);
+        $usage_stmt->execute();
+        $usage_stmt->close();
+      }
+
+      $_SESSION['message'] = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> Job order saved. Reams used per product: " . number_format($reams, 2) . "</div>";
+    } else {
+      $_SESSION['message'] = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle'></i> Error saving job order: " . $stmt->error . "</div>";
+    }
+
+    $stmt->close();
+  } else {
+    $_SESSION['message'] = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Failed to prepare job order insert.</div>";
+  }
+
+  header("Location: job_orders.php");
+  exit;
 }
 
-// Fetch job orders
+
+
 $pending_orders = [];
 $completed_orders = [];
 
@@ -207,34 +202,29 @@ while ($row = $result->fetch_assoc()) {
   $$target[$client][$date][$project_key]['records'][] = $row;
 }
 
-// Fetch product availability
 $product_query = $mysqli->query("
   SELECT 
     p.id, p.product_type, p.product_group, p.product_name,
-    (
-      (
-        SELECT IFNULL(SUM(delivered_reams), 0)
-        FROM delivery_logs
-        WHERE product_id = p.id
-      ) * 500
-      -
-      (
-        SELECT IFNULL(SUM(used_sheets), 0)
-        FROM usage_logs
-        WHERE product_id = p.id
-      )
-    ) AS available_sheets
+    ((
+      SELECT IFNULL(SUM(delivered_reams), 0)
+      FROM delivery_logs
+      WHERE product_id = p.id
+    ) * 500 - (
+      SELECT IFNULL(SUM(used_sheets), 0)
+      FROM usage_logs
+      WHERE product_id = p.id
+    )) AS available_sheets
   FROM products p
   ORDER BY p.product_type, p.product_group, p.product_name
 ");
 
-// Fetch provinces if needed
 $provinces = [];
 $result = $mysqli->query("SELECT DISTINCT province FROM locations ORDER BY province ASC");
 while ($row = $result->fetch_assoc()) {
   $provinces[] = $row['province'];
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -249,6 +239,16 @@ while ($row = $result->fetch_assoc()) {
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgb(140, 140, 140);
+      border-radius: 10px;
+    }
+
     :root {
       --primary: #1877f2;
       --secondary: #166fe5;
@@ -377,22 +377,42 @@ while ($row = $result->fetch_assoc()) {
     /* Alert */
     .alert {
       padding: 12px 16px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      font-size: 14px;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .alert i {
+      font-size: 18px;
     }
 
     .alert-success {
-      background-color: rgba(66, 183, 42, 0.1);
-      color: var(--success);
-      border-left: 4px solid var(--success);
+      background-color: #e6f4ea;
+      border: 1px solid #b8e0c2;
+      color: #276738;
     }
 
     .alert-danger {
-      background-color: rgba(255, 77, 79, 0.1);
-      color: var(--danger);
-      border-left: 4px solid var(--danger);
+      background-color: #fdecea;
+      border: 1px solid #f5c6cb;
+      color: #a92828;
     }
+
+    .alert-warning {
+      background-color: #fff8e1;
+      border: 1px solid #ffecb5;
+      color: #8c6d1f;
+    }
+
+    .alert-info {
+      background-color: #e7f3fe;
+      border: 1px solid #bee3f8;
+      color: #0b5394;
+    }
+
 
     /* Forms */
     .card {
@@ -710,7 +730,6 @@ while ($row = $result->fetch_assoc()) {
       border-radius: 6px;
       margin-top: 5px;
       font-size: 13px;
-      overflow: scroll;
     }
 
     .compact-order-item p {
@@ -909,9 +928,7 @@ while ($row = $result->fetch_assoc()) {
     </header>
 
     <?php if ($message): ?>
-      <div class="alert <?php echo strpos($message, '❌') !== false ? 'alert-danger' : 'alert-success'; ?>">
-        <?php echo $message; ?>
-      </div>
+      <?php echo $message; ?>
     <?php endif; ?>
 
     <!-- Search Form -->
@@ -1240,7 +1257,7 @@ while ($row = $result->fetch_assoc()) {
                 <span class="compact-client-count"><?= count($dates) ?> dates</span>
               </div>
 
-              <div class="compact-date-group">
+              <div class="compact-date-group" style="display:none;">
                 <?php foreach ($dates as $date => $projects): ?>
                   <div>
                     <div class="compact-date-header" onclick="toggleDate(this)">
@@ -1251,7 +1268,7 @@ while ($row = $result->fetch_assoc()) {
                       <span class="compact-client-count"><?= count($projects) ?> projects</span>
                     </div>
 
-                    <div class="compact-project-group">
+                    <div class="compact-project-group" style="display:none;">
                       <?php foreach ($projects as $project_key => $project_data): ?>
                         <div>
                           <div class="compact-project-header" onclick="toggleProject(this)">
@@ -1262,7 +1279,7 @@ while ($row = $result->fetch_assoc()) {
                             <span class="compact-client-count"><?= count($project_data['records']) ?> orders</span>
                           </div>
 
-                          <div class="compact-order-item" style="display:none">
+                          <div class="compact-order-item" style="display:none;">
                             <div class="order-details-table-container">
                               <table class="order-details-table">
                                 <thead>
@@ -1334,6 +1351,7 @@ while ($row = $result->fetch_assoc()) {
                   </div>
                 <?php endforeach; ?>
               </div>
+
             </div>
           <?php endforeach; ?>
         </div>
@@ -1356,7 +1374,7 @@ while ($row = $result->fetch_assoc()) {
                 <span class="compact-client-count"><?= count($dates) ?> dates</span>
               </div>
 
-              <div class="compact-date-group">
+              <div class="compact-date-group" style="display:none;">
                 <?php foreach ($dates as $date => $projects): ?>
                   <div>
                     <div class="compact-date-header" onclick="toggleDate(this)">
@@ -1367,7 +1385,7 @@ while ($row = $result->fetch_assoc()) {
                       <span class="compact-client-count"><?= count($projects) ?> projects</span>
                     </div>
 
-                    <div class="compact-project-group">
+                    <div class="compact-project-group" style="display:none;">
                       <?php foreach ($projects as $project_key => $project_data): ?>
                         <div>
                           <div class="compact-project-header" onclick="toggleProject(this)">
@@ -1378,7 +1396,7 @@ while ($row = $result->fetch_assoc()) {
                             <span class="compact-client-count"><?= count($project_data['records']) ?> orders</span>
                           </div>
 
-                          <div class="compact-order-item" style="display:none">
+                          <div class="compact-order-item" style="display:none;">
                             <div class="order-details-table-container">
                               <table class="order-details-table">
                                 <thead>
@@ -1460,44 +1478,181 @@ while ($row = $result->fetch_assoc()) {
   </div>
 
   <script>
-    const form = document.getElementById("jobOrderForm");
-    const storageKey = "jobOrderFormData";
+    // Normalize key helper
+    function normalizeKey(text) {
+      return text.trim().toLowerCase().replace(/\s+/g, '-');
+    }
 
-    // Restore saved form data on page load
-    window.addEventListener("DOMContentLoaded", () => {
+    function toggleClient(el) {
+      const container = el.nextElementSibling;
+      const isOpen = container.offsetHeight > 0;
+      container.style.display = isOpen ? 'none' : 'block';
+
+      const clientName = el.querySelector('.compact-client-name').textContent.trim();
+      sessionStorage.setItem(`client-${clientName}`, !isOpen);
+    }
+
+    function toggleDate(el) {
+      const container = el.nextElementSibling;
+      const isOpen = container.offsetHeight > 0;
+      container.style.display = isOpen ? 'none' : 'block';
+
+      const client = el.closest('.compact-client').querySelector('.compact-client-name').textContent.trim();
+      const date = el.querySelector('.compact-date-text').textContent.trim();
+      sessionStorage.setItem(`date-${client}-${date}`, !isOpen);
+    }
+
+    function toggleProject(el) {
+      const container = el.nextElementSibling;
+      const isOpen = container.offsetHeight > 0;
+      container.style.display = isOpen ? 'none' : 'block';
+
+      const client = el.closest('.compact-client').querySelector('.compact-client-name').textContent.trim();
+      const date = el.closest('.compact-date-group').querySelector('.compact-date-text').textContent.trim();
+      const project = el.querySelector('span').textContent.trim();
+      sessionStorage.setItem(`project-${client}-${date}-${project}`, !isOpen);
+    }
+
+
+    document.addEventListener("DOMContentLoaded", function() {
+      const form = document.getElementById("jobOrderForm");
+      const storageKey = "jobOrderFormData";
+      const scrollKey = "scroll-position-job_orders.php";
+
+      // Restore collapsible state
+      document.querySelectorAll('.compact-client').forEach(clientEl => {
+        const clientNameRaw = clientEl.querySelector('.compact-client-name').textContent;
+        const clientKey = normalizeKey(clientNameRaw);
+        const isClientOpen = sessionStorage.getItem(`client-${clientKey}`) === 'true';
+
+        if (isClientOpen) {
+          clientEl.querySelectorAll('.compact-date-group').forEach(group => {
+            group.style.display = 'block';
+          });
+        }
+
+
+        clientEl.querySelectorAll('.compact-date-header').forEach(dateEl => {
+          const dateRaw = dateEl.querySelector('.compact-date-text').textContent;
+          const dateKey = normalizeKey(dateRaw);
+          const isDateOpen = sessionStorage.getItem(`date-${clientKey}-${dateKey}`) === 'true';
+
+          if (isDateOpen) {
+            const dateContent = dateEl.nextElementSibling;
+            if (dateContent) dateContent.style.display = 'block';
+          }
+
+          dateEl.closest('.compact-date-group').querySelectorAll('.compact-project-header').forEach(projectEl => {
+            const projectRaw = projectEl.querySelector('span').textContent;
+            const projectKey = normalizeKey(projectRaw);
+            const isProjectOpen = sessionStorage.getItem(`project-${clientKey}-${dateKey}-${projectKey}`) === 'true';
+
+            if (isProjectOpen) {
+              const projectContent = projectEl.nextElementSibling;
+              if (projectContent) projectContent.style.display = 'block';
+            }
+          });
+        });
+      });
+
+      // Restore scroll position
+      const scrollY = sessionStorage.getItem(scrollKey);
+      if (scrollY !== null) {
+        window.scrollTo(0, parseInt(scrollY));
+      }
+
+      // Save scroll position
+      window.addEventListener("scroll", () => {
+        sessionStorage.setItem(scrollKey, window.scrollY);
+      });
+
+      // Restore form data
       const saved = localStorage.getItem(storageKey);
-      if (saved) {
+      if (saved && form) {
         const data = JSON.parse(saved);
         for (const [name, value] of Object.entries(data)) {
           const field = form.elements[name];
           if (!field) continue;
-
           if (field.type === "checkbox" || field.type === "radio") {
             field.checked = value;
           } else {
             field.value = value;
           }
+
+          // Handle custom field visibility
+          if (name === 'paper_size' && value === 'custom') {
+            document.getElementById('custom_paper_size').style.display = 'block';
+          }
+          if (name === 'binding_type' && value === 'Custom') {
+            document.getElementById('custom_binding').style.display = 'block';
+          }
         }
       }
-    });
 
-    // Save form data to localStorage on input/change
-    form.addEventListener("input", () => {
-      const data = {};
-      for (const element of form.elements) {
-        if (!element.name) continue;
-        if (element.type === "checkbox" || element.type === "radio") {
-          data[element.name] = element.checked;
-        } else {
-          data[element.name] = element.value;
-        }
+      // Save form inputs on change
+      if (form) {
+        form.addEventListener("input", () => {
+          const data = {};
+          for (const element of form.elements) {
+            if (!element.name) continue;
+            if (element.type === "checkbox" || element.type === "radio") {
+              data[element.name] = element.checked;
+            } else {
+              data[element.name] = element.value;
+            }
+          }
+          localStorage.setItem(storageKey, JSON.stringify(data));
+        });
+
+        // Clear form data on submit
+        form.addEventListener("submit", () => {
+          localStorage.removeItem(storageKey);
+        });
       }
-      localStorage.setItem(storageKey, JSON.stringify(data));
-    });
 
-    // Optional: Clear localStorage when form is successfully submitted
-    form.addEventListener("submit", () => {
-      localStorage.removeItem(storageKey);
+      // Province → City dynamic dropdown (with restore)
+      const province = document.getElementById("province");
+      const city = document.getElementById("city");
+
+      if (province && city) {
+        const savedData = localStorage.getItem(storageKey) ? JSON.parse(localStorage.getItem(storageKey)) : {};
+        const savedProvince = savedData.province || '';
+        const savedCity = savedData.city || '';
+
+        if (savedProvince) {
+          province.value = savedProvince;
+          fetch('get_cities.php?province=' + encodeURIComponent(savedProvince))
+            .then(response => response.json())
+            .then(cities => {
+              city.innerHTML = '<option value="">-- Select City --</option>';
+              cities.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                city.appendChild(opt);
+              });
+
+              if (savedCity) {
+                city.value = savedCity;
+              }
+            });
+        }
+
+        province.addEventListener("change", function() {
+          const selectedProvince = this.value;
+          fetch('get_cities.php?province=' + encodeURIComponent(selectedProvince))
+            .then(response => response.json())
+            .then(cities => {
+              city.innerHTML = '<option value="">-- Select City --</option>';
+              cities.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                city.appendChild(opt);
+              });
+            });
+        });
+      }
     });
 
     function suggestRDO() {
@@ -1508,7 +1663,6 @@ while ($row = $result->fetch_assoc()) {
         rdoInput.value = `${rdoMapping[matchedCity]} - ${matchedCity}`;
       }
     }
-
 
     const rdoMapping = {
       "Laoag City, Ilocos Norte": "001",
@@ -1638,8 +1792,8 @@ while ($row = $result->fetch_assoc()) {
     };
 
     document.addEventListener('DOMContentLoaded', () => {
-      const cityInput = document.getElementById('city'); // your city input/select
-      const rdoInput = document.getElementById('rdo_code'); // your RDO input field
+      const cityInput = document.getElementById('city');
+      const rdoInput = document.getElementById('rdo_code');
 
       if (cityInput && rdoInput) {
         cityInput.addEventListener('change', () => {
@@ -1670,7 +1824,6 @@ while ($row = $result->fetch_assoc()) {
       document.getElementById("client_address").value = parts.join(", ");
     }
 
-    // Load cities when province changes
     document.getElementById("province").addEventListener("change", function() {
       const province = this.value;
       const citySelect = document.getElementById("city");
@@ -1691,11 +1844,10 @@ while ($row = $result->fetch_assoc()) {
         });
     });
 
-    // Update address whenever inputs change
     ["city", "building_no", "floor_no", "street", "zip_code"].forEach(id => {
       document.getElementById(id).addEventListener("input", updateClientAddress);
     });
-    // Toggle collapsible form
+
     function toggleForm() {
       const form = document.getElementById('job-order-form');
       const chevron = document.getElementById('form-chevron');
@@ -1711,33 +1863,28 @@ while ($row = $result->fetch_assoc()) {
       }
     }
 
-    // Toggle client group
     function toggleClient(element) {
       const dateGroup = element.nextElementSibling;
       dateGroup.style.display = dateGroup.style.display === 'block' ? 'none' : 'block';
     }
 
-    // Toggle date group
     function toggleDate(element) {
       const projectGroup = element.nextElementSibling;
       projectGroup.style.display = projectGroup.style.display === 'block' ? 'none' : 'block';
     }
 
-    // Toggle project group
     function toggleProject(element) {
       const orderItem = element.nextElementSibling;
       orderItem.style.display = orderItem.style.display === 'block' ? 'none' : 'block';
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-      // Toggle sections
       document.querySelectorAll('.date-header, .project-header').forEach(header => {
         header.addEventListener('click', function() {
           this.classList.toggle('collapsed');
         });
       });
 
-      // Show/hide custom fields
       document.getElementById('paper_size').addEventListener('change', function() {
         document.getElementById('custom_paper_size').style.display =
           this.value === 'custom' ? 'block' : 'none';
@@ -1748,7 +1895,6 @@ while ($row = $result->fetch_assoc()) {
           this.value === 'Custom' ? 'block' : 'none';
       });
 
-      // Paper sequence logic
       const allProducts = <?= json_encode($product_query->fetch_all(MYSQLI_ASSOC)); ?>;
       const paperTypeSelect = document.getElementById('paper_type');
       const paperSizeSelect = document.getElementById('paper_size');
@@ -1827,8 +1973,7 @@ while ($row = $result->fetch_assoc()) {
 
     document.querySelectorAll('.status-toggle-form').forEach(form => {
       form.addEventListener('submit', function(e) {
-        e.preventDefault(); // prevent full-page submit
-
+        e.preventDefault();
         const jobId = this.dataset.jobId;
         const newStatus = this.dataset.newStatus;
 
@@ -1841,9 +1986,8 @@ while ($row = $result->fetch_assoc()) {
           })
           .then(response => response.text())
           .then(data => {
-            // Optional: alert or log the response
             console.log(data);
-            location.reload(); // refresh current page
+            location.reload();
           })
           .catch(err => {
             alert('Status update failed.');
@@ -1852,6 +1996,7 @@ while ($row = $result->fetch_assoc()) {
       });
     });
   </script>
+
 </body>
 
 </html>

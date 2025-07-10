@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job Order</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        font-family: "Times New Roman", Times, serif;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      .page {
+        width: 816px; /* 8.5 inch - A4 exact printable size */
+        margin: 0 auto;
+        padding: 40px;
+        border: 1px solid black;
+      }
+      .header {
+        text-align: center;
+        line-height: 1.4;
+      }
+      .header h1 {
+        font-size: 20pt;
+        margin: 0;
+      }
+      .contact {
+        font-size: 11pt;
+        margin-top: 4px;
+      }
+      .job-order-label {
+        float: right;
+        font-weight: bold;
+        font-size: 14pt;
+      }
+      .clearfix::after {
+        content: "";
+        display: table;
+        clear: both;
+      }
+      .input-box {
+        border: 1px solid black;
+        height: 20px;
+        width: 100%;
+      }
+      .half {
+        width: 49%;
+      }
+      .third {
+        width: 32%;
+      }
+      .small-box {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 1px solid black;
+        margin-right: 2px;
+      }
+      .table-title {
+        font-weight: bold;
+        background: #ccc;
+        border: 1px solid black;
+        padding: 4px;
+        margin-top: 15px;
+        margin-bottom: 3px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11pt;
+      }
+      th,
+      td {
+        border: 1px solid black;
+        padding: 4px;
+        height: 28px;
+        vertical-align: top;
+      }
+      textarea {
+        width: 100%;
+        height: 50px;
+        border: 1px solid black;
+      }
+      .footer-note {
+        font-size: 9pt;
+        margin-top: 20px;
+      }
+
+      section {
+        display: flex;
+        gap: 5px;
+      }
+
+      .container {
+        border: 1px solid black;
+        padding: 10px 25px;
+        border-radius: 20px;
+      }
+
+      .input {
+        border: none;
+        border-bottom: 1px solid black;
+        outline: none;
+      }
+
+      .client {
+        width: 187.8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="header clearfix">
+        <div class="job-order-label">JOB ORDER</div>
+        <h1>ACTIVE MEDIA DESIGNS & PRINTING</h1>
+        <div class="contact">
+          30-C Lucero St., Fausta Rd., Mabolo, Malolos City Bulacan<br />
+          (044) 7964101 | 0998-791-6018 | activemediaprint@gmail.com
+        </div>
+      </div>
+      <section>
+        <div class="container one">
+            <div>
+                Client/Company Name:
+                <input type="text" class="input client">
+            </div>
+            <div>
+                Address or Branch:
+                <input type="text" class="input address">
+            </div>
+            <div>
+                TIN:
+                <input type="text" class="input tin">
+            </div>
+            <div>
+                Contact Number:
+                <input type="text" class="input contact">
+            </div>
+            <div>
+                Client By:
+                <input type="text" class="input by">
+            </div>
+            <div>
+                Contact Person & Mobile:
+                <input type="text" class="input person">
+            </div>
+        </div>
+        <div class="container two">
+            <div>
+                Date:
+                <input type="text" class="input date">
+            </div>
+            <div>
+                P.O. Date:
+                <input type="text" class="input poDate">
+            </div>
+            <div>
+                P.0./Reference#:
+                <input type="text" class="input refNo">
+            </div>
+            <div>
+                Delivery Date:
+                <input type="text" class="input delDate">
+            </div>
+        </div>
+      </section>
+      <div class="table-title">PROJECT REQUESTED/ORDERED & SPECIFICATIONS</div>
+      <table>
+        <tr>
+          <th>PROJECT NAME</th>
+          <th>QUANTITY</th>
+          <th>SIZE</th>
+          <th>STARTING#</th>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      </table>
+
+      <table>
+        <tr>
+          <th>Paper/Media Type</th>
+          <th># of Copies per set</th>
+          <th>Type of Binding</th>
+          <th colspan="6">COLOR OF PAPER (In-Proper Order)</th>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td colspan="6">
+            <div class="small-box"></div>
+            <div class="small-box"></div>
+            <div class="small-box"></div>
+            <div class="small-box"></div>
+            <div class="small-box"></div>
+            <div class="small-box"></div>
+          </td>
+        </tr>
+      </table>
+
+      <div class="section">
+        Other Special Instructions:
+        <textarea></textarea>
+      </div>
+
+      <div class="table-title">PRODUCTION SCHEDULE</div>
+      <table>
+        <tr>
+          <th rowspan="2">
+            Paper/Media Type<br />COLOR OF PAPER (In-Proper Order)
+          </th>
+          <th rowspan="2">ACTUAL QTY USED PER COLOR (PER REAM)</th>
+          <th colspan="2">PRINTING</th>
+          <th colspan="2">NUMBERING</th>
+          <th colspan="2">GATHERING</th>
+          <th colspan="2">FINISHING & CUTTING</th>
+        </tr>
+        <tr>
+          <td>START DATE/TIME</td>
+          <td>END DATE/TIME</td>
+          <td>START DATE/TIME</td>
+          <td>END DATE/TIME</td>
+          <td>START DATE/TIME</td>
+          <td>END DATE/TIME</td>
+          <td>START DATE/TIME</td>
+          <td>END DATE/TIME</td>
+        </tr>
+        <tr>
+          <td rowspan="2"></td>
+          <td>
+            <div class="small-box"></div>
+            <div class="small-box"></div>
+            <div class="small-box"></div>
+            <div class="small-box"></div>
+            <div class="small-box"></div>
+            <div class="small-box"></div>
+          </td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="9">
+            Other:
+            <span
+              class="input-box"
+              style="width: 120px; display: inline-block"
+            ></span>
+            &nbsp; START DATE/TIME:
+            <span
+              class="input-box"
+              style="width: 120px; display: inline-block"
+            ></span>
+            &nbsp; END DATE/TIME:
+            <span
+              class="input-box"
+              style="width: 120px; display: inline-block"
+            ></span>
+            <br />
+            ACTUAL STARTING & END#:
+            <span
+              class="input-box"
+              style="width: 180px; display: inline-block"
+            ></span>
+            &nbsp; Remarks:
+            <span
+              class="input-box"
+              style="width: 300px; display: inline-block"
+            ></span>
+          </td>
+        </tr>
+      </table>
+
+      <div class="table-title">PRODUCTION COST</div>
+      <table>
+        <tr>
+          <th>QUANTITY</th>
+          <th>UNIT PRICE</th>
+          <th>TOTAL COST</th>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      </table>
+
+      <div class="footer-note">
+        A:\Active Media - Documents\AMDP Forms\2024\JOB ORDER 2024
+      </div>
+    </div>
+  </body>
+</html>
