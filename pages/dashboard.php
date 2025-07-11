@@ -351,6 +351,25 @@ $recent_usage = $mysqli->query("
         margin-top: 10px;
       }
     }
+  .stat-card table th, .stat-card table td {
+    font-size: 14px;
+    border-bottom: 1px solid var(--light-gray);
+    white-space: nowrap;
+  }
+
+.stat-card table span.low {
+  color: red;
+  font-weight: 600;
+}
+.stat-card table span.mid {
+  color: orange;
+  font-weight: 600;
+}
+.stat-card table span.high {
+  color: green;
+  font-weight: 600;
+}
+
   </style>
 </head>
 
@@ -381,84 +400,143 @@ $recent_usage = $mysqli->query("
     </header>
 
     <!-- Stats Cards -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="card-header">
-          <div>
-            <p>Total Products</p>
-            <h3><?= $total_products ?></h3>
-          </div>
-          <div class="card-icon"><i class="fas fa-boxes"></i></div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="card-header">
-          <div>
-            <p>Deliveries This Week</p>
-            <h3><?= $deliveries_this_week ?></h3>
-          </div>
-          <div class="card-icon"><i class="fas fa-truck"></i></div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="card-header">
-          <div>
-            <p>Out of Stock</p>
-            <h3><?= $out_of_stock ?></h3>
-          </div>
-          <div class="card-icon"><i class="fas fa-exclamation-triangle"></i></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Tables Section -->
-    <div class="tables-section">
-      <div class="table-card">
-        <h3><i class="fas fa-truck"></i> Recent Deliveries</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Product</th>
-              <th>Reams</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php while ($row = $recent_deliveries->fetch_assoc()): ?>
-              <tr class="clickable-row" data-id="<?= $row['product_id'] ?>">
-                <td><?= date("M j, Y", strtotime($row['delivery_date'])) ?></td>
-                <td><?= "{$row['product_type']} - {$row['product_group']} - {$row['product_name']}" ?></td>
-                <td><?= number_format($row['delivered_reams'], 2) ?></td>
-              </tr>
-            <?php endwhile; ?>
-          </tbody>
-        </table>
-        <a href="delivery.php" class="view-all">View All Deliveries →</a>
+    <div class="stat-card">
+      <div class="card-header">
+        <div><h3>Stock Summary</h3></div>
+        <div class="card-icon"><i class="fas fa-boxes"></i></div>
       </div>
 
-      <div class="table-card">
-        <h3><i class="fas fa-file-alt"></i> Recent Usage</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Product</th>
-              <th>Sheets Used</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php while ($row = $recent_usage->fetch_assoc()): ?>
-              <tr class="clickable-row" data-id="<?= $row['product_id'] ?>">
-                <td><?= date("M j, Y", strtotime($row['log_date'])) ?></td>
-                <td><?= "{$row['product_type']} - {$row['product_group']} - {$row['product_name']}" ?></td>
-                <td><?= number_format($row['used_sheets'], 2) ?></td>
-              </tr>
-            <?php endwhile; ?>
-          </tbody>
-        </table>
-        <a href="products.php" class="view-all">View All Usage →</a>
+      <?php
+        $stock_data = $mysqli->query("
+          SELECT 
+            p.product_type, p.product_group, p.product_name,
+            ((SELECT IFNULL(SUM(delivered_reams), 0) FROM delivery_logs WHERE product_id = p.id) * 500 -
+            (SELECT IFNULL(SUM(used_sheets), 0) FROM usage_logs WHERE product_id = p.id)) AS available_sheets
+          FROM products p
+          ORDER BY p.product_type, p.product_name, p.product_group
+        ");
+
+        $grouped = [];
+        while ($row = $stock_data->fetch_assoc()) {
+          $type = $row['product_type'];
+          $group = $row['product_group'];
+          $name = $row['product_name'];
+          $sheets = max(0, $row['available_sheets']);
+          $reams = $sheets / 500;
+
+          if (!isset($grouped[$type])) $grouped[$type] = [];
+          if (!isset($grouped[$type][$name])) $grouped[$type][$name] = [];
+          $grouped[$type][$name][$group] = $reams;
+        }
+      ?>
+
+      <?php foreach ($grouped as $type => $products): ?>
+        <div>
+          <button onclick="toggleStockTable('<?= md5($type) ?>')">
+            ▶ <?= htmlspecialchars($type) ?>
+          </button>
+          <div id="table-<?= md5($type) ?>">
+            <table>
+              <thead>
+                <tr>
+                  <th>Product Name</th>
+                  <?php
+                    $all_groups = [];
+                    foreach ($products as $pname => $groupStocks) {
+                      foreach ($groupStocks as $grp => $_) $all_groups[$grp] = true;
+                    }
+                    $columns = array_keys($all_groups);
+                    foreach ($columns as $grp):
+                  ?>
+                    <th><?= htmlspecialchars($grp) ?></th>
+                  <?php endforeach; ?>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($products as $pname => $groupStocks): ?>
+                  <tr>
+                    <td><?= htmlspecialchars($pname) ?></td>
+                    <?php foreach ($columns as $grp): ?>
+                      <?php
+                        $reams = $groupStocks[$grp] ?? null;
+                        if ($reams !== null) {
+                          $class = 'low';
+                          if ($reams >= 80) $class = 'high';
+                          else if ($reams >= 20) $class = 'mid';
+                        }
+                      ?>
+                      <td>
+                        <?= $reams !== null ? "<span class='$class'>" . number_format($reams, 2) . "</span>" : "-" ?>
+                      </td>
+                    <?php endforeach; ?>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+
+    <div class="stat-card">
+      <div class="card-header">
+        <div>
+          <p>Out of Stock</p>
+          <h3><?= $out_of_stock ?></h3>
+        </div>
+        <div class="card-icon"><i class="fas fa-exclamation-triangle"></i></div>
       </div>
     </div>
+  </div>
+
+  <!-- Tables Section -->
+  <div class="tables-section">
+    <div class="table-card">
+      <h3><i class="fas fa-truck"></i> Recent Deliveries</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Product</th>
+            <th>Reams</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php while ($row = $recent_deliveries->fetch_assoc()): ?>
+            <tr class="clickable-row" data-id="<?= $row['product_id'] ?>">
+              <td><?= date("M j, Y", strtotime($row['delivery_date'])) ?></td>
+              <td><?= "{$row['product_type']} - {$row['product_group']} - {$row['product_name']}" ?></td>
+              <td><?= number_format($row['delivered_reams'], 2) ?></td>
+            </tr>
+          <?php endwhile; ?>
+        </tbody>
+      </table>
+      <a href="delivery.php" class="view-all">View All Deliveries →</a>
+    </div>
+
+    <div class="table-card">
+      <h3><i class="fas fa-file-alt"></i> Recent Usage</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Product</th>
+            <th>Sheets Used</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php while ($row = $recent_usage->fetch_assoc()): ?>
+            <tr class="clickable-row" data-id="<?= $row['product_id'] ?>">
+              <td><?= date("M j, Y", strtotime($row['log_date'])) ?></td>
+              <td><?= "{$row['product_type']} - {$row['product_group']} - {$row['product_name']}" ?></td>
+              <td><?= number_format($row['used_sheets'], 2) ?></td>
+            </tr>
+          <?php endwhile; ?>
+        </tbody>
+      </table>
+      <a href="products.php" class="view-all">View All Usage →</a>
+    </div>
+  </div>
   </div>
 
   <!-- Product Modal -->
@@ -468,6 +546,11 @@ $recent_usage = $mysqli->query("
 
   <!-- Modal JS -->
   <script>
+    function toggleStockTable(id) {
+      const el = document.getElementById('table-' + id);
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       document.querySelectorAll('.clickable-row').forEach(row => {
         row.addEventListener('click', function() {

@@ -898,6 +898,11 @@ while ($row = $result->fetch_assoc()) {
         margin-top: 10px;
       }
     }
+
+  .disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
   </style>
 </head>
 
@@ -1190,24 +1195,25 @@ while ($row = $result->fetch_assoc()) {
                 </select>
               </div>
               <div class="form-group">
-                <label for="paper_size">Paper Size</label>
-                <select id="paper_size" name="paper_size" required>
-                  <option value="">-- Select --</option>
-                  <?php while ($size = $product_sizes->fetch_assoc()): ?>
-                    <option value="<?= htmlspecialchars($size['product_group']) ?>"><?= htmlspecialchars($size['product_group']) ?></option>
-                  <?php endwhile; ?>
-                  <option value="custom">Custom Size</option>
-                </select>
-                <input type="text" id="custom_paper_size" name="custom_paper_size" placeholder="Enter custom size" style="display: none; margin-top: 0.5rem;">
-              </div>
-              <div class="form-group">
                 <label for="paper_type">Paper/Media Type</label>
                 <select id="paper_type" name="paper_type" required>
                   <option value="">-- Select --</option>
-                  <?php while ($type = $product_types->fetch_assoc()): ?>
+                  <?php
+                  $product_types = $mysqli->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
+                  while ($type = $product_types->fetch_assoc()):
+                  ?>
                     <option value="<?= htmlspecialchars($type['product_type']) ?>"><?= htmlspecialchars($type['product_type']) ?></option>
                   <?php endwhile; ?>
                 </select>
+              </div>
+
+              <div class="form-group">
+                <label for="paper_size">Paper Size</label>
+                <select id="paper_size" name="paper_size" required>
+                  <option value="">-- Select --</option>
+                  <option value="custom">Custom Size</option>
+                </select>
+                <input type="text" id="custom_paper_size" name="custom_paper_size" placeholder="Enter custom size" style="display: none; margin-top: 0.5rem;">
               </div>
               <div class="form-group">
                 <label for="copies_per_set">Number of Copies per Set</label>
@@ -1236,7 +1242,7 @@ while ($row = $result->fetch_assoc()) {
             </div>
           </fieldset>
 
-          <button type="submit" class="btn"><i class="fas fa-save"></i> Submit Job Order</button>
+          <button id="mainsubBtn" type="submit" class="btn"><i class="fas fa-save"></i> Submit Job Order</button>
         </form>
       </div>
     </div>
@@ -1297,8 +1303,8 @@ while ($row = $result->fetch_assoc()) {
                                     <th>Client Address</th>
                                     <th>Contact Person</th>
                                     <th>Contact Number</th>
-                                    <th>Tax Payer Name</th>
                                     <th>BIR RDO Code</th>
+                                    <th>Tax Payer Name</th>
                                     <?php if ($_SESSION['role'] === 'admin'): ?>
                                       <th>Recorded By</th>
                                       <th style="text-align: center;">Actions</th>
@@ -1414,8 +1420,8 @@ while ($row = $result->fetch_assoc()) {
                                     <th>Client Address</th>
                                     <th>Contact Person</th>
                                     <th>Contact Number</th>
+                                    <th>BIR RDO Code</th>                                    
                                     <th>Tax Payer Name</th>
-                                    <th>BIR RDO Code</th>
                                     <th>Date Completed</th>
                                     <?php if ($_SESSION['role'] === 'admin'): ?>
                                       <th>Recorded By</th>
@@ -1901,6 +1907,35 @@ while ($row = $result->fetch_assoc()) {
       const copiesInput = document.getElementById('copies_per_set');
       const sequenceContainer = document.getElementById('paper-sequence-container');
 
+      function updatePaperSizeOptions() {
+        const selectedType = paperTypeSelect.value;
+
+        // Clear the dropdown
+        paperSizeSelect.innerHTML = '<option value="">-- Select --</option>';
+
+        // Get unique product groups (sizes) that match the selected type
+        const matchingSizes = new Set();
+        allProducts.forEach(p => {
+          if (p.product_type === selectedType) {
+            matchingSizes.add(p.product_group);
+          }
+        });
+
+        // Append each matching size
+        Array.from(matchingSizes).sort().forEach(size => {
+          const opt = document.createElement('option');
+          opt.value = size;
+          opt.textContent = size;
+          paperSizeSelect.appendChild(opt);
+        });
+
+        // Add custom option
+        const customOpt = document.createElement('option');
+        customOpt.value = 'custom';
+        customOpt.textContent = 'Custom Size';
+        paperSizeSelect.appendChild(customOpt);
+      }
+
       function updatePaperSequenceOptions() {
         const type = paperTypeSelect.value;
         const size = paperSizeSelect.value;
@@ -1921,11 +1956,28 @@ while ($row = $result->fetch_assoc()) {
 
         if (matchingProducts.length === 0) {
           const msg = document.createElement('div');
+          const submitBtn = document.getElementById('mainsubBtn');
+
           msg.textContent = '⚠ No available stock for the selected type and size.';
           msg.style.color = 'var(--danger)';
           sequenceContainer.appendChild(msg);
+
+          if (submitBtn) {
+            submitBtn.disabled = true;                
+            submitBtn.classList.add('disabled');      
+            submitBtn.title = 'Cannot submit — no stock available';
+          }
+
           return;
         }
+
+        const submitBtn = document.getElementById('mainsubBtn');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.classList.remove('disabled');
+          submitBtn.title = '';
+        }
+
 
         for (let i = 0; i < copies; i++) {
           const group = document.createElement('div');
@@ -1966,7 +2018,10 @@ while ($row = $result->fetch_assoc()) {
         }
       }
 
-      paperTypeSelect.addEventListener('change', updatePaperSequenceOptions);
+      paperTypeSelect.addEventListener('change', () => {
+        updatePaperSizeOptions();  
+        updatePaperSequenceOptions(); 
+      });
       paperSizeSelect.addEventListener('change', updatePaperSequenceOptions);
       copiesInput.addEventListener('input', updatePaperSequenceOptions);
     });
