@@ -67,7 +67,7 @@ if (isset($_SESSION['success_message'])) {
 }
 
 // Filters
-$stock_unit = $_GET['stock_unit'] ?? 'sheets';
+$stock_unit = $_GET['stock_unit'] ?? 'reams';
 $type_filter = $_GET['product_type'] ?? '';
 $size_filter = $_GET['product_group'] ?? '';
 $name_filter = $_GET['product_name'] ?? '';
@@ -170,7 +170,7 @@ $stmt->close();
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: 'Poppins', sans-serif;
+      font-family: "Poppins", sans-serif;
     }
 
     body {
@@ -658,8 +658,8 @@ $stmt->close();
 
     .product-content {
       padding: 10px;
-      overflow: scroll;
       display: block;
+      overflow: scroll;
     }
 
     .table-card table {
@@ -808,9 +808,10 @@ $stmt->close();
           <form method="get" style="display:inline;">
             <input type="hidden" name="product_type" value="<?= htmlspecialchars($type_filter) ?>">
             <input type="hidden" name="product_group" value="<?= htmlspecialchars($size_filter) ?>">
+            <input type="hidden" name="product_name" value="<?= htmlspecialchars($name_filter) ?>">
             <select name="stock_unit" onchange="this.form.submit()">
-              <option value="sheets" <?= $stock_unit == 'sheets' ? 'selected' : '' ?>>Sheets</option>
               <option value="reams" <?= $stock_unit == 'reams' ? 'selected' : '' ?>>Reams</option>
+              <option value="sheets" <?= $stock_unit == 'sheets' ? 'selected' : '' ?>>Sheets</option>
             </select>
           </form>
         </span>
@@ -927,65 +928,62 @@ $stmt->close();
     }
 
 
-  const pageKey = '/products.php';
+    const pageKey = '/products.php';
 
-  // Restore scroll, dropdowns, and collapsibles
-  window.addEventListener('DOMContentLoaded', () => {
-    // Restore scroll position
-    const scrollY = sessionStorage.getItem(`scroll-${pageKey}`);
-    if (scrollY !== null) window.scrollTo(0, parseInt(scrollY));
+    // Restore scroll, dropdowns, and collapsibles
+    window.addEventListener('DOMContentLoaded', () => {
+      // Restore scroll position
+      const scrollY = sessionStorage.getItem(`scroll-${pageKey}`);
+      if (scrollY !== null) window.scrollTo(0, parseInt(scrollY));
 
-    // Restore dropdowns
+      // Restore dropdowns
+      document.querySelectorAll('select').forEach(select => {
+        const savedValue = sessionStorage.getItem(`select-${pageKey}-${select.name}`);
+        if (savedValue !== null) {
+          select.value = savedValue;
+        }
+      });
+
+      // Restore collapsible states
+      document.querySelectorAll('.collapsible-header').forEach(header => {
+        const key = `collapse-${pageKey}-${header.textContent.trim()}`;
+        const savedState = sessionStorage.getItem(key);
+        const content = header.nextElementSibling;
+        if (savedState === 'closed') {
+          content.style.display = 'none';
+          header.querySelector('i').classList.replace('fa-chevron-down', 'fa-chevron-right');
+        }
+      });
+    });
+
+    // Save scroll position
+    window.addEventListener('scroll', () => {
+      sessionStorage.setItem(`scroll-${pageKey}`, window.scrollY);
+    });
+
+    // Save dropdown state
     document.querySelectorAll('select').forEach(select => {
-      const savedValue = sessionStorage.getItem(`select-${pageKey}-${select.name}`);
-      if (savedValue !== null) {
-        select.value = savedValue;
-        const event = new Event('change', { bubbles: true });
-        select.dispatchEvent(event);
-      }
+      select.addEventListener('change', () => {
+        sessionStorage.setItem(`select-${pageKey}-${select.name}`, select.value);
+      });
     });
 
-    // Restore collapsible states
-    document.querySelectorAll('.collapsible-header').forEach(header => {
-      const key = `collapse-${pageKey}-${header.textContent.trim()}`;
-      const savedState = sessionStorage.getItem(key);
+    // Collapse toggle handler with save
+    function toggleProductGroup(header) {
       const content = header.nextElementSibling;
-      if (savedState === 'closed') {
+      const key = `collapse-${pageKey}-${header.textContent.trim()}`;
+      const icon = header.querySelector('i');
+
+      if (content.style.display === 'none') {
+        content.style.display = 'block';
+        sessionStorage.setItem(key, 'open');
+        icon.classList.replace('fa-chevron-right', 'fa-chevron-down');
+      } else {
         content.style.display = 'none';
-        header.querySelector('i').classList.replace('fa-chevron-down', 'fa-chevron-right');
+        sessionStorage.setItem(key, 'closed');
+        icon.classList.replace('fa-chevron-down', 'fa-chevron-right');
       }
-    });
-  });
-
-  // Save scroll position
-  window.addEventListener('scroll', () => {
-    sessionStorage.setItem(`scroll-${pageKey}`, window.scrollY);
-  });
-
-  // Save dropdown state
-  document.querySelectorAll('select').forEach(select => {
-    select.addEventListener('change', () => {
-      sessionStorage.setItem(`select-${pageKey}-${select.name}`, select.value);
-    });
-  });
-
-  // Collapse toggle handler with save
-  function toggleProductGroup(header) {
-    const content = header.nextElementSibling;
-    const key = `collapse-${pageKey}-${header.textContent.trim()}`;
-    const icon = header.querySelector('i');
-
-    if (content.style.display === 'none') {
-      content.style.display = 'block';
-      sessionStorage.setItem(key, 'open');
-      icon.classList.replace('fa-chevron-right', 'fa-chevron-down');
-    } else {
-      content.style.display = 'none';
-      sessionStorage.setItem(key, 'closed');
-      icon.classList.replace('fa-chevron-down', 'fa-chevron-right');
     }
-  }
-
   </script>
 </body>
 
