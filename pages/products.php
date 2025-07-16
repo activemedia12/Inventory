@@ -89,7 +89,7 @@ $sql = "
     GROUP BY product_id
   ) d ON d.product_id = p.id
   LEFT JOIN (
-    SELECT product_id, SUM(used_sheets) AS total_used
+    SELECT product_id, SUM(used_sheets + spoilage_sheets) AS total_used
     FROM usage_logs
     GROUP BY product_id
   ) u ON u.product_id = p.id
