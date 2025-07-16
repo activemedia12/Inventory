@@ -1445,18 +1445,6 @@ while ($row = $result->fetch_assoc()) {
               </div>
               <input type="hidden" name="client_address" id="client_address" oninput="suggestRDO()" required>
               <div class="form-group">
-                <label for="building_no">Building / House No.</label>
-                <input type="text" id="building_no" placeholder="e.g. Bldg 4, Lot 6">
-              </div>
-              <div class="form-group">
-                <label for="floor_no">Floor / Room No.</label>
-                <input type="text" id="floor_no" placeholder="e.g. 2F, Room 201">
-              </div>
-              <div class="form-group">
-                <label for="street">Street</label>
-                <input type="text" id="street" placeholder="e.g. Rizal St.">
-              </div>
-              <div class="form-group">
                 <label for="province">Province</label>
                 <select id="province" required>
                   <option value="">Select Province</option>
@@ -1470,6 +1458,38 @@ while ($row = $result->fetch_assoc()) {
                 <select id="city" required>
                   <option value="">Select City</option>
                 </select>
+              </div>
+              <div class="form-group" style="position: relative;">
+                <label for="barangay">Barangay</label>
+                <span style="
+                  position: absolute;
+                  top: 70%;
+                  left: 12px;
+                  transform: translateY(-50%);
+                  color: #6c757d;
+                  pointer-events: none;
+                  font-size: 14px;
+                ">
+                  Brgy.
+                </span>
+                <input type="text"
+                      id="barangay"
+                      name="barangay"
+                      class="form-control"
+                      placeholder="e.g. San Isidro"
+                      style="padding-left: 60px;" />
+              </div>
+              <div class="form-group">
+                <label for="street">Subdivision / Street</label>
+                <input type="text" id="street" placeholder="e.g. Rizal St.">
+              </div>
+              <div class="form-group">
+                <label for="building_no">Building / House No.</label>
+                <input type="text" id="building_no" placeholder="e.g. Bldg 4, Lot 6">
+              </div>
+              <div class="form-group">
+                <label for="floor_no">Floor / Room No.</label>
+                <input type="text" id="floor_no" placeholder="e.g. 2F, Room 201">
               </div>
               <div class="form-group">
                 <label for="zip_code">ZIP Code</label>
@@ -1875,10 +1895,6 @@ while ($row = $result->fetch_assoc()) {
             <span>${order.client_name || 'None'}</span>
           </div>
           <div class="info-item-compact">
-            <strong>Project Name</strong>
-            <span>${order.project_name || 'None'}</span>
-          </div>
-          <div class="info-item-compact">
             <strong>Tax Payer Name</strong>
             <span>${order.taxpayer_name || 'None'}</span>
           </div>
@@ -1912,10 +1928,10 @@ while ($row = $result->fetch_assoc()) {
           </div>
         </div>
 
-        <!-- Order Summary Section -->
+        <!-- Project Details Section -->
         <div class="section-header">
           <i class="fas fa-clipboard-list"></i>
-          Order Summary
+          Project Details
         </div>
         <div class="stock-summary-compact">
           <div class="stock-card-compact">
@@ -1934,21 +1950,31 @@ while ($row = $result->fetch_assoc()) {
             <div class="stock-unit-compact">copies</div>
           </div>
         </div>
-        <div class="info-item-compact">
-          <strong>OCN Number</strong>
-          <span>${order.ocn_number || 'Pending'}</span>
-        </div>
-        <div class="info-item-compact">
-          <strong>Date Issued</strong>
-        <span>
-          ${order.date_issued
-            ? new Date(order.date_issued).toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })
-            : 'Pending'}
-        </span>
+        <div class="product-info-compact">
+          <div class="info-item-compact">
+            <strong>Project Name</strong>
+            <span>${order.project_name || 'None'}</span>
+          </div>
+          <div class="info-item-compact">
+            <strong>Serial Range</strong>
+            <span>${order.serial_range}</span>
+          </div>
+          <div class="info-item-compact">
+            <strong>OCN Number</strong>
+            <span>${order.ocn_number || 'Pending'}</span>
+          </div>
+          <div class="info-item-compact">
+            <strong>Date Issued</strong>
+            <span>
+              ${order.date_issued
+                ? new Date(order.date_issued).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })
+                : 'Pending'}
+            </span>
+          </div>
         </div>
 
         <!-- Specifications Section -->
@@ -1957,10 +1983,6 @@ while ($row = $result->fetch_assoc()) {
           Specifications
         </div>
         <div class="product-info-compact">
-          <div class="info-item-compact">
-            <strong>Serial Range</strong>
-            <span>${order.serial_range}</span>
-          </div>
           <div class="info-item-compact">
             <strong>Paper Size</strong>
             <span>${order.paper_size === 'custom' ? order.custom_paper_size : order.paper_size}</span>
@@ -2197,6 +2219,7 @@ while ($row = $result->fetch_assoc()) {
       // Province → City dynamic dropdown (with restore)
       const province = document.getElementById("province");
       const city = document.getElementById("city");
+      const barangay = document.getElementById("barangay");
 
       if (province && city) {
         const savedData = localStorage.getItem(storageKey) ? JSON.parse(localStorage.getItem(storageKey)) : {};
@@ -2393,14 +2416,23 @@ while ($row = $result->fetch_assoc()) {
       const building = document.getElementById("building_no").value.trim();
       const floor = document.getElementById("floor_no").value.trim();
       const street = document.getElementById("street").value.trim();
+      const barangayRaw = document.getElementById("barangay").value.trim();
       const city = document.getElementById("city").value;
       const province = document.getElementById("province").value;
       const zip = document.getElementById("zip_code").value.trim();
 
+      // Capitalize Barangay input
+      const capitalizedBarangay = barangayRaw.replace(/\b\w/g, c => c.toUpperCase());
+
+      // Update input value (without Brgy.)
+      document.getElementById("barangay").value = capitalizedBarangay;
+
+      // Add "Brgy." in final address only
       let parts = [];
       if (floor) parts.push(floor);
       if (building) parts.push(building);
       if (street) parts.push(street);
+      if (capitalizedBarangay) parts.push("Brgy. " + capitalizedBarangay);
       if (city) parts.push(city);
       if (province) parts.push(province);
       if (zip) parts.push(zip);
@@ -2408,7 +2440,8 @@ while ($row = $result->fetch_assoc()) {
       document.getElementById("client_address").value = parts.join(", ");
     }
 
-    document.getElementById("province").addEventListener("change", function() {
+    // Province → City dynamic dropdown
+    document.getElementById("province").addEventListener("change", function () {
       const province = this.value;
       const citySelect = document.getElementById("city");
       citySelect.innerHTML = '<option value="">Select City</option>';
@@ -2428,7 +2461,8 @@ while ($row = $result->fetch_assoc()) {
         });
     });
 
-    ["city", "building_no", "floor_no", "street", "zip_code"].forEach(id => {
+    // Attach listeners
+    ["city", "building_no", "floor_no", "street", "zip_code", "barangay"].forEach(id => {
       document.getElementById(id).addEventListener("input", updateClientAddress);
     });
 

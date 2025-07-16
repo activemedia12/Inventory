@@ -853,15 +853,25 @@ unset($_SESSION['message']);
     $spoilage_query->close();
 
     $product_query = $mysqli->query("
-            SELECT 
-                p.*,
-                COALESCE(SUM(d.delivered_reams * 500), 0) -
-                COALESCE(SUM(u.used_reams * 500), 0) AS available_sheets
-            FROM products p
-            LEFT JOIN delivery_logs d ON p.id = d.product_id
-            LEFT JOIN usage_logs u ON p.id = u.product_id
-            GROUP BY p.id
-        ");
+  SELECT 
+    p.id,
+    p.product_name,
+    p.product_type,
+    p.product_group,
+    COALESCE(d.total_delivered, 0) * 500 - COALESCE(u.total_used, 0) AS available_sheets
+  FROM products p
+  LEFT JOIN (
+    SELECT product_id, SUM(delivered_reams) AS total_delivered
+    FROM delivery_logs
+    GROUP BY product_id
+  ) d ON p.id = d.product_id
+  LEFT JOIN (
+    SELECT product_id, SUM(used_sheets + spoilage_sheets) AS total_used
+    FROM usage_logs
+    GROUP BY product_id
+  ) u ON p.id = u.product_id
+");
+
     ?>
     <script>
         // Tab functionality
@@ -1028,10 +1038,10 @@ unset($_SESSION['message']);
                         opt.value = p.product_name;
                         const reams = (p.available_sheets / 500).toFixed(2);
                         opt.textContent = `${p.product_name} (${reams} reams available)`;
-                        if (preSelectedSequence[i] === p.product_name) {
+                        if (preSelectedSequence[i] && preSelectedSequence[i].trim() === p.product_name) {
                             opt.selected = true;
-                            if (existingSpoilage[p.product_name]) {
-                                spoilageInput.value = existingSpoilage[p.product_name];
+                            if (existingSpoilage[preSelectedSequence[i]]) {
+                                spoilageInput.value = existingSpoilage[preSelectedSequence[i]];
                             }
                         }
                         select.appendChild(opt);
