@@ -363,15 +363,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="main-content">
         <header class="page-header">
             <h1 class="page-title"><i class="fas fa-box-open"></i> Edit Product</h1>
-            <div class="user-info">
-                <div class="user-avatar">
-                    <?= strtoupper(substr($_SESSION['username'], 0, 1)) ?>
-                </div>
-                <div class="user-details">
-                    <h4><?= htmlspecialchars($_SESSION['username']) ?></h4>
-                    <small><?= htmlspecialchars($_SESSION['role']) ?></small>
-                </div>
-            </div>
         </header>
 
         <?php if ($message): ?>

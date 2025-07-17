@@ -258,10 +258,12 @@ while ($row = $result->fetch_assoc()) {
     ::-webkit-scrollbar-thumb {
       background: rgb(140, 140, 140);
       border-radius: 10px;
+      cursor: pointer;
     }
 
     :root {
       --primary: #1877f2;
+      --primary-light: #eef2ff;
       --secondary: #166fe5;
       --light: #f0f2f5;
       --dark: #1c1e21;
@@ -641,16 +643,6 @@ while ($row = $result->fetch_assoc()) {
       font-weight: 500;
     }
 
-    .sequence-item {
-      display: inline-block;
-      padding: 4px 8px;
-      background: var(--light-gray);
-      border-radius: 4px;
-      margin-right: 8px;
-      margin-bottom: 8px;
-      font-size: 13px;
-    }
-
     /* Empty State */
     .empty-message {
       text-align: center;
@@ -688,6 +680,7 @@ while ($row = $result->fetch_assoc()) {
       cursor: pointer;
       padding: 8px;
       border-radius: 6px;
+      transition: 0.3s;
       background: rgba(24, 119, 242, 0.05);
     }
 
@@ -721,6 +714,7 @@ while ($row = $result->fetch_assoc()) {
       padding: 6px 8px;
       margin-top: 5px;
       border-radius: 4px;
+      transition: 0.3s;
     }
 
     .compact-date-header:hover {
@@ -813,9 +807,9 @@ while ($row = $result->fetch_assoc()) {
 
     /* Order Details Table */
     .order-details-table-container {
-      overflow-x: auto;
+      overflow-x: scroll;
       margin-top: 10px;
-      border: 1px solid var(--light-gray);
+      border: 1px solid rgb(0, 0, 0, 0.05);
       border-radius: 8px;
     }
 
@@ -827,27 +821,29 @@ while ($row = $result->fetch_assoc()) {
 
     .order-details-table th,
     .order-details-table td {
+      transition: 0.3s;
       padding: 8px 12px;
       text-align: left;
-      border-bottom: 1px solid var(--light-gray);
+      border-bottom: 1px solid rgb(0, 0, 0, 0.05);
       vertical-align: top;
     }
 
     .order-details-table th {
-      background-color: rgba(24, 119, 242, 0.1);
+      background-color: rgba(0, 0, 0, 0.05);
       color: var(--dark);
       font-weight: 500;
       white-space: nowrap;
     }
 
     .order-details-table tr:hover td {
-      background-color: rgba(24, 119, 242, 0.03);
+      background-color: rgba(0, 0, 0, 0.03);
+      cursor: pointer;
     }
 
     .sequence-item {
       display: inline-block;
       padding: 2px 6px;
-      background: var(--light-gray);
+      background: #0060b41a;
       border-radius: 4px;
       margin: 2px;
       font-size: 12px;
@@ -1153,13 +1149,17 @@ while ($row = $result->fetch_assoc()) {
         width: 50px;
         overflow: hidden;
         height: 200px;
-        bottom: 10px;
+        bottom: 300px;
         padding: 0;
         left: 10px;
         background-color: rgba(255, 255, 255, 0.3);
         backdrop-filter: blur(2px);
         box-shadow: 1px 1px 10px rgb(190, 190, 190);
         border-radius: 100px;
+        cursor: grab;
+        transition: left 0.05s ease-in, top 0.05s ease-in;
+        touch-action: manipulation;
+        z-index: 9999;
       }
 
       .sidebar img,
@@ -1189,6 +1189,7 @@ while ($row = $result->fetch_assoc()) {
       .info-grid {
         grid-template-columns: 1fr 1fr;
       }
+
       .floating-window {
         width: 95%;
       }
@@ -1222,11 +1223,39 @@ while ($row = $result->fetch_assoc()) {
       .user-info {
         margin-top: 10px;
       }
+
+      .compact-client-count {
+        font-size: 10px;
+        min-width: 50.5px;
+      }
+
+      .order-details-table {
+        font-size: 10px;
+      }
+
+      .sequence-item {
+        font-size: 10px;
+        text-align: center;
+      }
     }
 
     .disabled {
       opacity: 0.6;
       cursor: not-allowed;
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      background-color: #1c1c1c27;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      font-weight: 600;
+      margin-right: 0.75rem;
     }
   </style>
 </head>
@@ -1249,7 +1278,9 @@ while ($row = $result->fetch_assoc()) {
     <header class="header">
       <h1>Job Orders Management</h1>
       <div class="user-info">
-        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="User">
+        <div class="user-avatar">
+          <?= strtoupper(substr($_SESSION['username'], 0, 2)) ?>
+        </div>
         <div class="user-details">
           <h4><?php echo htmlspecialchars($_SESSION['username']); ?></h4>
           <small><?php echo $_SESSION['role']; ?></small>
@@ -1473,11 +1504,11 @@ while ($row = $result->fetch_assoc()) {
                   Brgy.
                 </span>
                 <input type="text"
-                      id="barangay"
-                      name="barangay"
-                      class="form-control"
-                      placeholder="e.g. San Isidro"
-                      style="padding-left: 60px;" />
+                  id="barangay"
+                  name="barangay"
+                  class="form-control"
+                  placeholder="e.g. San Isidro"
+                  style="padding-left: 60px;" />
               </div>
               <div class="form-group">
                 <label for="street">Subdivision / Street</label>
@@ -1626,9 +1657,9 @@ while ($row = $result->fetch_assoc()) {
         <div class="compact-orders">
           <?php foreach ($pending_orders as $client => $dates): ?>
             <div class="compact-client">
-              <div class="compact-client-header" onclick="toggleClient(this)">
+              <div class="compact-client-header" onclick="toggleClient(this)" style="background-color: #42b72a21;">
                 <span class="compact-client-name"><?= htmlspecialchars($client) ?></span>
-                <span class="compact-client-count"><?= count($dates) ?> dates</span>
+                <span class="compact-client-count" style="background-color: #227e10ff;"><?= count($dates) ?> dates</span>
               </div>
 
               <div class="compact-date-group" style="display:none;">
@@ -1639,7 +1670,7 @@ while ($row = $result->fetch_assoc()) {
                         <i class="fas fa-calendar-alt"></i>
                         <?= date("F j, Y", strtotime($date)) ?>
                       </span>
-                      <span class="compact-client-count"><?= count($projects) ?> projects</span>
+                      <span class="compact-client-count" style="background-color: #227e10ff;"><?= count($projects) ?> projects</span>
                     </div>
 
                     <div class="compact-project-group" style="display:none;">
@@ -1650,10 +1681,10 @@ while ($row = $result->fetch_assoc()) {
                               <i class="fas fa-folder-open"></i>
                               <?= htmlspecialchars($project_data['display']) ?>
                             </span>
-                            <span class="compact-client-count"><?= count($project_data['records']) ?> orders</span>
+                            <span class="compact-client-count" style="background-color: #227e10ff;"><?= count($project_data['records']) ?> orders</span>
                           </div>
 
-                          <div class="compact-order-item" style="display:none;">
+                          <div class="compact-order-item" style="display:none; background-color: #42b72a21;">
                             <div class="order-details-table-container">
                               <table class="order-details-table">
                                 <thead>
@@ -1696,7 +1727,7 @@ while ($row = $result->fetch_assoc()) {
                                       <td><?= $order['binding_type'] === 'Custom' ? htmlspecialchars($order['custom_binding']) : htmlspecialchars($order['binding_type']) ?></td>
                                       <td>
                                         <?php foreach (explode(',', $order['paper_sequence']) as $color): ?>
-                                          <span class="sequence-item"><?= trim(htmlspecialchars($color)) ?></span>
+                                          <span class="sequence-item" style="background-color: #42b72a31;"><?= trim(htmlspecialchars($color)) ?></span>
                                         <?php endforeach; ?>
                                       </td>
                                       <td><?= nl2br(htmlspecialchars($order['special_instructions'])) ?></td>
@@ -1826,7 +1857,7 @@ while ($row = $result->fetch_assoc()) {
                                       <td><?= htmlspecialchars($order['tin']) ?></td>
                                       <td><?= htmlspecialchars($order['client_by']) ?></td>
                                       <td><?= htmlspecialchars($order['taxpayer_name']) ?></td>
-                                      <td><?= htmlspecialchars($order['ocn_number'])?></td>
+                                      <td><?= htmlspecialchars($order['ocn_number']) ?></td>
                                       <td><?= $order['date_issued'] ? date("F j, Y", strtotime($order['date_issued'])) : 'Pending' ?></td>
                                       <td><?= $order['completed_date'] ? date("F j, Y - g:i A", strtotime($order['completed_date'])) : '-' ?></td>
                                       <?php if ($_SESSION['role'] === 'admin'): ?>
@@ -2441,7 +2472,7 @@ while ($row = $result->fetch_assoc()) {
     }
 
     // Province → City dynamic dropdown
-    document.getElementById("province").addEventListener("change", function () {
+    document.getElementById("province").addEventListener("change", function() {
       const province = this.value;
       const citySelect = document.getElementById("city");
       citySelect.innerHTML = '<option value="">Select City</option>';
@@ -2662,6 +2693,87 @@ while ($row = $result->fetch_assoc()) {
           });
       });
     });
+    if (window.matchMedia("(max-width: 768px)").matches) {
+      const sidebar = document.querySelector('.sidebar');
+
+      let isDragging = false;
+      let offsetX = 0;
+      let offsetY = 0;
+      let startX = 0;
+      let startY = 0;
+      let dragged = false;
+
+      const DRAG_THRESHOLD = 5;
+
+      sidebar.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+
+        const rect = sidebar.getBoundingClientRect();
+        offsetX = touch.clientX - rect.left;
+        offsetY = touch.clientY - rect.top;
+
+        isDragging = true;
+        dragged = false;
+
+        document.addEventListener('touchmove', onTouchMove, {
+          passive: false
+        });
+        document.addEventListener('touchend', onTouchEnd);
+      });
+
+      function onTouchMove(e) {
+        if (!isDragging) return;
+
+        const touch = e.touches[0];
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+
+        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+          dragged = true;
+
+          const newLeft = touch.clientX - offsetX;
+          const newTop = touch.clientY - offsetY;
+
+          sidebar.style.left = `${newLeft}px`;
+          sidebar.style.top = `${newTop}px`;
+          sidebar.style.bottom = 'auto';
+
+          e.preventDefault(); // only prevent scrolling when dragging
+        }
+      }
+
+      function onTouchEnd(e) {
+        if (!isDragging) return;
+
+        if (dragged) {
+          const rect = sidebar.getBoundingClientRect();
+          const viewportWidth = window.innerWidth;
+          const snappedLeft = rect.left < viewportWidth / 2;
+
+          sidebar.style.left = snappedLeft ? '10px' : `${viewportWidth - rect.width - 10}px`;
+
+          const maxTop = window.innerHeight - rect.height - 10;
+          const top = Math.max(10, Math.min(rect.top, maxTop));
+          sidebar.style.top = `${top}px`;
+        }
+
+        isDragging = false;
+
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onTouchEnd);
+      }
+
+      // Prevent accidental clicks only if dragged
+      sidebar.addEventListener('click', function(e) {
+        if (dragged) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          dragged = false;
+        }
+      });
+    }
   </script>
 
 </body>

@@ -567,7 +567,7 @@ unset($_SESSION['message']);
             </div>
             <div class="user-profile">
                 <div class="user-avatar">
-                    <?= strtoupper(substr($_SESSION['username'], 0, 1)) ?>
+                    <?= strtoupper(substr($_SESSION['username'], 0, 2)) ?>
                 </div>
                 <div class="user-info">
                     <div><?= htmlspecialchars($_SESSION['username']) ?></div>

@@ -317,7 +317,6 @@ while ($log = $logs->fetch_assoc()) {
       border-radius: 8px;
       padding: 20px;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-      overflow: scroll;
     }
 
     .table-card h3 {
@@ -350,6 +349,10 @@ while ($log = $logs->fetch_assoc()) {
       font-size: 14px;
     }
 
+    tr td {
+      transition: 0.3s;
+    }
+
     tr:hover td {
       background-color: rgba(24, 119, 242, 0.05);
     }
@@ -371,6 +374,10 @@ while ($log = $logs->fetch_assoc()) {
 
     .view-all i {
       margin-left: 5px;
+    }
+
+    .clickable-row {
+      cursor: pointer;
     }
 
     /* Alerts */
@@ -434,13 +441,17 @@ while ($log = $logs->fetch_assoc()) {
         width: 50px;
         overflow: hidden;
         height: 200px;
-        bottom: 10px;
+        bottom: 300px;
         padding: 0;
         left: 10px;
         background-color: rgba(255, 255, 255, 0.3);
         backdrop-filter: blur(2px);
         box-shadow: 1px 1px 10px rgb(190, 190, 190);
         border-radius: 100px;
+        cursor: grab;
+        transition: left 0.05s ease-in, top 0.05s ease-in;
+        touch-action: manipulation;
+        z-index: 9999;
       }
 
       .sidebar img,
@@ -604,6 +615,7 @@ while ($log = $logs->fetch_assoc()) {
     .group-content {
       margin-top: 5px;
       padding: 0 10px;
+      overflow: scroll;
     }
   </style>
 </head>
@@ -824,46 +836,125 @@ while ($log = $logs->fetch_assoc()) {
     });
 
 
-  const pageKey = 'delivery.php';
+    const pageKey = 'delivery.php';
 
-  // Restore toggle state on load
-  window.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.toggle-btn').forEach((btn, index) => {
-      const key = `delivery-toggle-${pageKey}-${index}`;
-      const saved = sessionStorage.getItem(key);
+    // Restore toggle state on load
+    window.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.toggle-btn').forEach((btn, index) => {
+        const key = `delivery-toggle-${pageKey}-${index}`;
+        const saved = sessionStorage.getItem(key);
+        const content = btn.nextElementSibling;
+        const icon = btn.querySelector('i');
+
+        if (saved === 'open') {
+          content.style.display = 'block';
+          icon.classList.replace('fa-calendar-alt', 'fa-calendar-check');
+        } else {
+          content.style.display = 'none';
+          icon.classList.replace('fa-calendar-check', 'fa-calendar-alt');
+        }
+      });
+    });
+
+    // Toggle with memory
+    function toggleGroup(btn) {
       const content = btn.nextElementSibling;
       const icon = btn.querySelector('i');
+      const allBtns = Array.from(document.querySelectorAll('.toggle-btn'));
+      const index = allBtns.indexOf(btn);
+      const key = `delivery-toggle-${pageKey}-${index}`;
 
-      if (saved === 'open') {
+      if (content.style.display === 'none' || content.style.display === '') {
         content.style.display = 'block';
         icon.classList.replace('fa-calendar-alt', 'fa-calendar-check');
+        sessionStorage.setItem(key, 'open');
       } else {
         content.style.display = 'none';
         icon.classList.replace('fa-calendar-check', 'fa-calendar-alt');
+        sessionStorage.setItem(key, 'closed');
       }
-    });
-  });
-
-  // Toggle with memory
-  function toggleGroup(btn) {
-    const content = btn.nextElementSibling;
-    const icon = btn.querySelector('i');
-    const allBtns = Array.from(document.querySelectorAll('.toggle-btn'));
-    const index = allBtns.indexOf(btn);
-    const key = `delivery-toggle-${pageKey}-${index}`;
-
-    if (content.style.display === 'none' || content.style.display === '') {
-      content.style.display = 'block';
-      icon.classList.replace('fa-calendar-alt', 'fa-calendar-check');
-      sessionStorage.setItem(key, 'open');
-    } else {
-      content.style.display = 'none';
-      icon.classList.replace('fa-calendar-check', 'fa-calendar-alt');
-      sessionStorage.setItem(key, 'closed');
     }
-  }
+    if (window.matchMedia("(max-width: 768px)").matches) {
+      const sidebar = document.querySelector('.sidebar');
 
+      let isDragging = false;
+      let offsetX = 0;
+      let offsetY = 0;
+      let startX = 0;
+      let startY = 0;
+      let dragged = false;
 
+      const DRAG_THRESHOLD = 5;
+
+      sidebar.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+
+        const rect = sidebar.getBoundingClientRect();
+        offsetX = touch.clientX - rect.left;
+        offsetY = touch.clientY - rect.top;
+
+        isDragging = true;
+        dragged = false;
+
+        document.addEventListener('touchmove', onTouchMove, {
+          passive: false
+        });
+        document.addEventListener('touchend', onTouchEnd);
+      });
+
+      function onTouchMove(e) {
+        if (!isDragging) return;
+
+        const touch = e.touches[0];
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+
+        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+          dragged = true;
+
+          const newLeft = touch.clientX - offsetX;
+          const newTop = touch.clientY - offsetY;
+
+          sidebar.style.left = `${newLeft}px`;
+          sidebar.style.top = `${newTop}px`;
+          sidebar.style.bottom = 'auto';
+
+          e.preventDefault(); // only prevent scrolling when dragging
+        }
+      }
+
+      function onTouchEnd(e) {
+        if (!isDragging) return;
+
+        if (dragged) {
+          const rect = sidebar.getBoundingClientRect();
+          const viewportWidth = window.innerWidth;
+          const snappedLeft = rect.left < viewportWidth / 2;
+
+          sidebar.style.left = snappedLeft ? '10px' : `${viewportWidth - rect.width - 10}px`;
+
+          const maxTop = window.innerHeight - rect.height - 10;
+          const top = Math.max(10, Math.min(rect.top, maxTop));
+          sidebar.style.top = `${top}px`;
+        }
+
+        isDragging = false;
+
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onTouchEnd);
+      }
+
+      // Prevent accidental clicks only if dragged
+      sidebar.addEventListener('click', function(e) {
+        if (dragged) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          dragged = false;
+        }
+      });
+    }
   </script>
 </body>
 
