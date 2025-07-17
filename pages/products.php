@@ -144,8 +144,9 @@ $stmt->close();
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
     ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
+      /* width: 5px;
+      height: 5px; */
+      display: none;
     }
 
     ::-webkit-scrollbar-thumb {
@@ -480,6 +481,10 @@ $stmt->close();
       font-size: 14px;
     }
 
+    tr td {
+      transition: 0.3s;
+    }
+
     tr:hover td {
       background-color: rgba(24, 119, 242, 0.05);
     }
@@ -601,13 +606,17 @@ $stmt->close();
         width: 50px;
         overflow: hidden;
         height: 200px;
-        bottom: 10px;
+        bottom: 300px;
         padding: 0;
         left: 10px;
         background-color: rgba(255, 255, 255, 0.3);
         backdrop-filter: blur(2px);
         box-shadow: 1px 1px 10px rgb(190, 190, 190);
         border-radius: 100px;
+        cursor: grab;
+        transition: left 0.05s ease-in, top 0.05s ease-in;
+        touch-action: manipulation;
+        z-index: 9999;
       }
 
       .sidebar img,
@@ -628,6 +637,15 @@ $stmt->close();
         margin-left: 0;
         overflow: auto;
         margin-bottom: 200px;
+      }
+
+      .product-content {
+        font-size: 13px;
+      }
+
+      .product-content th {
+        font-size: 13px;
+        text-align: center;
       }
     }
 
@@ -658,7 +676,6 @@ $stmt->close();
 
     .product-content {
       padding: 10px;
-      display: block;
       overflow: scroll;
     }
 
@@ -983,6 +1000,87 @@ $stmt->close();
         sessionStorage.setItem(key, 'closed');
         icon.classList.replace('fa-chevron-down', 'fa-chevron-right');
       }
+    }
+    if (window.matchMedia("(max-width: 768px)").matches) {
+      const sidebar = document.querySelector('.sidebar');
+
+      let isDragging = false;
+      let offsetX = 0;
+      let offsetY = 0;
+      let startX = 0;
+      let startY = 0;
+      let dragged = false;
+
+      const DRAG_THRESHOLD = 5;
+
+      sidebar.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+
+        const rect = sidebar.getBoundingClientRect();
+        offsetX = touch.clientX - rect.left;
+        offsetY = touch.clientY - rect.top;
+
+        isDragging = true;
+        dragged = false;
+
+        document.addEventListener('touchmove', onTouchMove, {
+          passive: false
+        });
+        document.addEventListener('touchend', onTouchEnd);
+      });
+
+      function onTouchMove(e) {
+        if (!isDragging) return;
+
+        const touch = e.touches[0];
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+
+        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+          dragged = true;
+
+          const newLeft = touch.clientX - offsetX;
+          const newTop = touch.clientY - offsetY;
+
+          sidebar.style.left = `${newLeft}px`;
+          sidebar.style.top = `${newTop}px`;
+          sidebar.style.bottom = 'auto';
+
+          e.preventDefault(); // only prevent scrolling when dragging
+        }
+      }
+
+      function onTouchEnd(e) {
+        if (!isDragging) return;
+
+        if (dragged) {
+          const rect = sidebar.getBoundingClientRect();
+          const viewportWidth = window.innerWidth;
+          const snappedLeft = rect.left < viewportWidth / 2;
+
+          sidebar.style.left = snappedLeft ? '10px' : `${viewportWidth - rect.width - 10}px`;
+
+          const maxTop = window.innerHeight - rect.height - 10;
+          const top = Math.max(10, Math.min(rect.top, maxTop));
+          sidebar.style.top = `${top}px`;
+        }
+
+        isDragging = false;
+
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onTouchEnd);
+      }
+
+      // Prevent accidental clicks only if dragged
+      sidebar.addEventListener('click', function(e) {
+        if (dragged) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          dragged = false;
+        }
+      });
     }
   </script>
 </body>

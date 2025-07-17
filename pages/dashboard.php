@@ -324,15 +324,22 @@ while ($row = $stock_data->fetch_assoc()) {
         /* Tables Section */
         .tables-section {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
             gap: 20px;
+            width: 100%;
+        }
+
+        .recent-tables td {
+            cursor: pointer;
         }
 
         .table-card {
+            width: 100%;
             background: var(--card-bg);
             border-radius: 8px;
             padding: 20px;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            /* overflow: scroll; */
         }
 
         .table-card h3 {
@@ -348,7 +355,7 @@ while ($row = $stock_data->fetch_assoc()) {
         }
 
         table {
-            width: 100%;
+            min-width: 100%;
             border-collapse: collapse;
         }
 
@@ -363,6 +370,10 @@ while ($row = $stock_data->fetch_assoc()) {
             font-weight: 500;
             color: var(--gray);
             font-size: 14px;
+        }
+
+        tr td {
+            transition: 0.3s;
         }
 
         tr:hover td {
@@ -387,13 +398,17 @@ while ($row = $stock_data->fetch_assoc()) {
                 width: 50px;
                 overflow: hidden;
                 height: 200px;
-                bottom: 10px;
+                bottom: 300px;
                 padding: 0;
                 left: 10px;
                 background-color: rgba(255, 255, 255, 0.3);
                 backdrop-filter: blur(2px);
                 box-shadow: 1px 1px 10px rgb(190, 190, 190);
                 border-radius: 100px;
+                cursor: grab;
+                transition: left 0.05s ease-in, top 0.05s ease-in;
+                touch-action: manipulation;
+                z-index: 9999;
             }
 
             .sidebar img,
@@ -423,6 +438,15 @@ while ($row = $stock_data->fetch_assoc()) {
             .out-card {
                 min-width: 100%;
             }
+
+            .recent-tables {
+                overflow: scroll;
+            }
+
+            .tables-section {
+                grid-template-columns: repeat(auto-fit, minmax(100%, 1fr));
+                font-size: 90%;
+            }
         }
 
         @media (max-width: 576px) {
@@ -437,6 +461,10 @@ while ($row = $stock_data->fetch_assoc()) {
 
             .user-info {
                 margin-top: 10px;
+            }
+
+            .recent-tables table {
+                min-width: 500px;
             }
         }
 
@@ -526,8 +554,9 @@ while ($row = $stock_data->fetch_assoc()) {
 
         .stock-table-container {
             display: none;
-            padding: 10px;
             background-color: var(--card-bg);
+            max-height: 250px;
+            overflow: scroll;
         }
 
         .stock-table-container table {
@@ -541,6 +570,11 @@ while ($row = $stock_data->fetch_assoc()) {
             color: var(--gray);
             padding: 8px 10px;
             text-align: left;
+            position: sticky;
+            top: 0;
+            background-color: #fff;
+            z-index: 2;
+            box-shadow: 0 2px 2px rgba(0, 0, 0, 0.05);
         }
 
         .stock-table-container th.text-center {
@@ -889,7 +923,7 @@ while ($row = $stock_data->fetch_assoc()) {
                     <div class="card-icon"><i class="fas fa-exclamation-triangle"></i></div>
                 </div>
             </div>
-            
+
             <div id="lowStockModal" class="modal">
                 <div class="modal-content">
                     <h3><i class="fas fa-exclamation-triangle"></i> Low Stock Items<span class="close" onclick="closeLowStockModal()">&times;</span></h3>
@@ -903,48 +937,52 @@ while ($row = $stock_data->fetch_assoc()) {
             <!-- Recent Deliveries Table -->
             <div class="table-card">
                 <h3><i class="fas fa-truck"></i> Recent Deliveries</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Product</th>
-                            <th>Reams</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php while ($row = $recent_deliveries->fetch_assoc()): ?>
-                            <tr class="clickable-row" data-id="<?= $row['product_id'] ?>">
-                                <td><?= date("M j, Y", strtotime($row['delivery_date'])) ?></td>
-                                <td><?= "{$row['product_type']} - {$row['product_group']} - {$row['product_name']}" ?></td>
-                                <td><?= number_format($row['delivered_reams'], 2) ?></td>
+                <div class="recent-tables">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Product</th>
+                                <th>Reams</th>
                             </tr>
-                        <?php endwhile; ?>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <?php while ($row = $recent_deliveries->fetch_assoc()): ?>
+                                <tr class="clickable-row" data-id="<?= $row['product_id'] ?>">
+                                    <td><?= date("M j, Y", strtotime($row['delivery_date'])) ?></td>
+                                    <td><?= "{$row['product_type']} - {$row['product_group']} - {$row['product_name']}" ?></td>
+                                    <td><?= number_format($row['delivered_reams'], 2) ?></td>
+                                </tr>
+                            <?php endwhile; ?>
+                        </tbody>
+                    </table>
+                </div>
                 <a href="delivery.php" class="view-all">View All Deliveries →</a>
             </div>
 
             <!-- Recent Usage Table -->
             <div class="table-card">
                 <h3><i class="fas fa-file-alt"></i> Recent Usage</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Product</th>
-                            <th>Sheets Used</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php while ($row = $recent_usage->fetch_assoc()): ?>
-                            <tr class="clickable-row" data-id="<?= $row['product_id'] ?>">
-                                <td><?= date("M j, Y", strtotime($row['log_date'])) ?></td>
-                                <td><?= "{$row['product_type']} - {$row['product_group']} - {$row['product_name']}" ?></td>
-                                <td><?= number_format($row['used_sheets'], 2) ?></td>
+                <div class="recent-tables">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Product</th>
+                                <th>Sheets Used</th>
                             </tr>
-                        <?php endwhile; ?>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <?php while ($row = $recent_usage->fetch_assoc()): ?>
+                                <tr class="clickable-row" data-id="<?= $row['product_id'] ?>">
+                                    <td><?= date("M j, Y", strtotime($row['log_date'])) ?></td>
+                                    <td><?= "{$row['product_type']} - {$row['product_group']} - {$row['product_name']}" ?></td>
+                                    <td><?= number_format($row['used_sheets'], 2) ?></td>
+                                </tr>
+                            <?php endwhile; ?>
+                        </tbody>
+                    </table>
+                </div>
                 <a href="products.php" class="view-all">View All Usage →</a>
             </div>
         </div>
@@ -959,7 +997,7 @@ while ($row = $stock_data->fetch_assoc()) {
         function showLowStockItems() {
             const modal = document.getElementById('lowStockModal');
             const content = document.getElementById('lowStockItems');
-            
+
             modal.style.display = "flex"; // Changed to flex for centering
 
             fetch('get_low_stock.php')
@@ -1058,6 +1096,88 @@ while ($row = $stock_data->fetch_assoc()) {
         window.addEventListener('scroll', () => {
             sessionStorage.setItem(scrollKey, window.scrollY);
         });
+
+        if (window.matchMedia("(max-width: 768px)").matches) {
+            const sidebar = document.querySelector('.sidebar');
+
+            let isDragging = false;
+            let offsetX = 0;
+            let offsetY = 0;
+            let startX = 0;
+            let startY = 0;
+            let dragged = false;
+
+            const DRAG_THRESHOLD = 5;
+
+            sidebar.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                startX = touch.clientX;
+                startY = touch.clientY;
+
+                const rect = sidebar.getBoundingClientRect();
+                offsetX = touch.clientX - rect.left;
+                offsetY = touch.clientY - rect.top;
+
+                isDragging = true;
+                dragged = false;
+
+                document.addEventListener('touchmove', onTouchMove, {
+                    passive: false
+                });
+                document.addEventListener('touchend', onTouchEnd);
+            });
+
+            function onTouchMove(e) {
+                if (!isDragging) return;
+
+                const touch = e.touches[0];
+                const dx = touch.clientX - startX;
+                const dy = touch.clientY - startY;
+
+                if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+                    dragged = true;
+
+                    const newLeft = touch.clientX - offsetX;
+                    const newTop = touch.clientY - offsetY;
+
+                    sidebar.style.left = `${newLeft}px`;
+                    sidebar.style.top = `${newTop}px`;
+                    sidebar.style.bottom = 'auto';
+
+                    e.preventDefault(); // only prevent scrolling when dragging
+                }
+            }
+
+            function onTouchEnd(e) {
+                if (!isDragging) return;
+
+                if (dragged) {
+                    const rect = sidebar.getBoundingClientRect();
+                    const viewportWidth = window.innerWidth;
+                    const snappedLeft = rect.left < viewportWidth / 2;
+
+                    sidebar.style.left = snappedLeft ? '10px' : `${viewportWidth - rect.width - 10}px`;
+
+                    const maxTop = window.innerHeight - rect.height - 10;
+                    const top = Math.max(10, Math.min(rect.top, maxTop));
+                    sidebar.style.top = `${top}px`;
+                }
+
+                isDragging = false;
+
+                document.removeEventListener('touchmove', onTouchMove);
+                document.removeEventListener('touchend', onTouchEnd);
+            }
+
+            // Prevent accidental clicks only if dragged
+            sidebar.addEventListener('click', function(e) {
+                if (dragged) {
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                    dragged = false;
+                }
+            });
+        }
     </script>
 </body>
 

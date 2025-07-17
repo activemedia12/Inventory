@@ -120,8 +120,9 @@ $delivery_history = $delivery_stmt->get_result();
         }
 
         ::-webkit-scrollbar {
-            width: 5px;
-            height: 5px;
+            /* width: 5px;
+            height: 5px; */
+            display: none;
         }
 
         ::-webkit-scrollbar-thumb {
@@ -366,23 +367,24 @@ $delivery_history = $delivery_stmt->get_result();
             </div>
 
             <!-- Stock Summary -->
+            <p class="stock-unit-compact">Displayed per ream*</p>
             <div class="stock-summary-compact">
                 <div class="stock-card-compact">
                     <h4>Total Delivered</h4>
-                    <div class="stock-value-compact"><?= number_format($product['total_delivered']) ?></div>
-                    <div class="stock-unit-compact">sheets (<?= number_format($product['total_delivered'] / 500, 2) ?> reams)</div>
+                    <div class="stock-value-compact"><?= number_format($product['total_delivered'] / 500, 2) ?></div>
+                    <div class="stock-unit-compact">(<?= number_format($product['total_delivered']) ?> sheets)</div>
                 </div>
 
                 <div class="stock-card-compact">
                     <h4>Total Used</h4>
-                    <div class="stock-value-compact"><?= number_format($product['total_used']) ?></div>
-                    <div class="stock-unit-compact">sheets (<?= number_format($product['total_used'] / 500, 2) ?> reams)</div>
+                    <div class="stock-value-compact"><?= number_format($product['total_used'] / 500, 2) ?></div>
+                    <div class="stock-unit-compact">(<?= number_format($product['total_used']) ?> sheets)</div>
                 </div>
 
                 <div class="stock-card-compact">
                     <h4>Current Stock</h4>
-                    <div class="stock-value-compact"><?= number_format($product['stock_balance']) ?></div>
-                    <div class="stock-unit-compact">sheets (<?= number_format($product['stock_balance'] / 500, 2) ?> reams)</div>
+                    <div class="stock-value-compact"><?= number_format($product['stock_balance'] / 500, 2) ?></div>
+                    <div class="stock-unit-compact">(<?= number_format($product['stock_balance']) ?> sheets)</div>
                 </div>
             </div>
 
