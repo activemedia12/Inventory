@@ -1214,6 +1214,10 @@ while ($row = $result->fetch_assoc()) {
         flex-direction: column;
       }
 
+      .status-toggle-form {
+        flex-direction: column;
+      }
+
       .btn-status,
       .btn-edit,
       .btn-delete,
@@ -1300,7 +1304,7 @@ while ($row = $result->fetch_assoc()) {
       color: white;
       border: 1px solid var(--primary);
       display: inline-flex;
-      align-items: center;
+      text-align: center;
       gap: 0.5rem;
       transition: all 0.2s;
       margin: 6px 6px;
