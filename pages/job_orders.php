@@ -163,6 +163,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
 $pending_orders = [];
+$unpaid_orders = [];
+$for_delivery_orders = [];
 $completed_orders = [];
 
 $query = "
@@ -199,7 +201,20 @@ while ($row = $result->fetch_assoc()) {
   $date = $row['log_date'];
   $project_key = strtolower(trim($row['project_name']));
   $project_display = $row['project_name'];
-  $target = ($row['status'] === 'completed') ? 'completed_orders' : 'pending_orders';
+  switch ($row['status']) {
+    case 'unpaid':
+      $target = 'unpaid_orders';
+      break;
+    case 'for_delivery':
+      $target = 'for_delivery_orders';
+      break;
+    case 'completed':
+      $target = 'completed_orders';
+      break;
+    default:
+      $target = 'pending_orders';
+      break;
+  }
 
   if (!isset($$target[$client])) $$target[$client] = [];
   if (!isset($$target[$client][$date])) $$target[$client][$date] = [];
@@ -1039,8 +1054,11 @@ while ($row = $result->fetch_assoc()) {
     /* Action Buttons */
     .action-buttons {
       display: flex;
-      gap: 10px;
       margin-top: 1rem;
+    }
+
+    .status-toggle-form {
+      display: flex;
     }
 
     .btn-status {
@@ -1048,25 +1066,14 @@ while ($row = $result->fetch_assoc()) {
       border-radius: 6px;
       font-size: 0.85rem;
       cursor: pointer;
-      background: rgba(67, 97, 238, 0.1);
-      color: var(--primary);
-      border: 1px solid var(--primary);
+      background: rgba(67, 238, 76, 0.1);
+      color: #28a745;
+      border: 1px solid #28a745;
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
       transition: all 0.2s;
-    }
-
-    .btn-status.pending {
-      background: rgba(255, 152, 0, 0.1);
-      color: #ff9800;
-      border-color: #ff9800;
-    }
-
-    .btn-status.completed {
-      background: rgba(40, 167, 69, 0.1);
-      color: #28a745;
-      border-color: #28a745;
+      margin: 6px 6px;
+      gap: 6px;
     }
 
     .btn-edit,
@@ -1080,6 +1087,7 @@ while ($row = $result->fetch_assoc()) {
       align-items: center;
       gap: 0.5rem;
       transition: all 0.2s;
+      margin: 6px 6px;
     }
 
     .btn-edit {
@@ -1095,7 +1103,7 @@ while ($row = $result->fetch_assoc()) {
     }
 
     .btn-status:hover {
-      background: rgba(67, 97, 238, 0.2);
+      background: rgba(40, 167, 69, 0.2);
     }
 
     .btn-status.pending:hover {
@@ -1208,7 +1216,8 @@ while ($row = $result->fetch_assoc()) {
 
       .btn-status,
       .btn-edit,
-      .btn-delete {
+      .btn-delete,
+      .status-select {
         width: 100%;
         justify-content: center;
       }
@@ -1257,6 +1266,70 @@ while ($row = $result->fetch_assoc()) {
       font-weight: 600;
       margin-right: 0.75rem;
     }
+
+    .quick-fill-btn {
+      color: black;
+      height: 100%;
+      width: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      background-color: rgba(0, 0, 0, 0.05);
+      border: 2px solid rgba(0, 0, 0, 0.05);
+      cursor: pointer;
+      transition: 0.3s;
+      padding: 5px;
+      margin-bottom: 5px;
+    }
+
+    .quick-fill-btn:hover {
+      background-color: rgba(0, 0, 0, 0.2);
+    }
+
+    .status-select:focus {
+      outline: none;
+    }
+
+    .status-select {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      background: rgba(67, 97, 238, 0.1);
+      color: white;
+      border: 1px solid var(--primary);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s;
+      margin: 6px 6px;
+    }
+
+    .status-pending {
+      background: rgba(255, 152, 0, 0.1);
+      color: #ff9800;
+      border-color: #ff9800;
+    }
+
+    .status-unpaid {
+      background: rgba(255, 0, 0, 0.1);
+      color: #ff0000ff;
+      border-color: #ff0000ff;
+    }
+
+    .status-for_delivery {
+      background: rgba(0, 38, 255, 0.1);
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .status-completed {
+      background: rgba(40, 167, 69, 0.1);
+      color: #28a745;
+      border-color: #28a745;
+    }
+
   </style>
 </head>
 
@@ -1278,12 +1351,10 @@ while ($row = $result->fetch_assoc()) {
     <header class="header">
       <h1>Job Orders Management</h1>
       <div class="user-info">
-        <div class="user-avatar">
-          <?= strtoupper(substr($_SESSION['username'], 0, 2)) ?>
-        </div>
+        <img src="https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['username']) ?>&background=random" alt="User">
         <div class="user-details">
-          <h4><?php echo htmlspecialchars($_SESSION['username']); ?></h4>
-          <small><?php echo $_SESSION['role']; ?></small>
+          <h4><?= htmlspecialchars($_SESSION['username']) ?></h4>
+          <small><?= $_SESSION['role'] ?></small>
         </div>
       </div>
     </header>
@@ -1323,11 +1394,11 @@ while ($row = $result->fetch_assoc()) {
             <legend><i class="fas fa-user"></i> Client Details</legend>
             <div class="form-grid">
               <div class="form-group">
-                <label for="client_name">Company / Trade Name</label>
+                <label for="client_name">Company / Trade Name *</label>
                 <input type="text" id="client_name" name="client_name" required>
               </div>
               <div class="form-group">
-                <label for="taxpayer_name">Taxpayer Name</label>
+                <label for="taxpayer_name">Taxpayer Name *</label>
                 <input type="text" id="taxpayer_name" name="taxpayer_name" required>
               </div>
               <div class="form-group">
@@ -1335,7 +1406,7 @@ while ($row = $result->fetch_assoc()) {
                 <input type="text" name="tin" id="tin" class="form-control" placeholder="e.g. 123-456-789-0000">
               </div>
               <div class="vat-group">
-                <label>Tax Type</label>
+                <label>Tax Type *</label>
                 <div class="vatlabels">
                   <label><input type="radio" name="tax_type" value="VAT" required> VAT</label>
                   <label><input type="radio" name="tax_type" value="NONVAT"> NONVAT</label>
@@ -1476,8 +1547,8 @@ while ($row = $result->fetch_assoc()) {
               </div>
               <input type="hidden" name="client_address" id="client_address" oninput="suggestRDO()" required>
               <div class="form-group">
-                <label for="province">Province</label>
-                <select id="province" required>
+                <label for="province">Province *</label>
+                <select id="province" name="province" required>
                   <option value="">Select Province</option>
                   <?php foreach ($provinces as $prov): ?>
                     <option value="<?= htmlspecialchars($prov) ?>"><?= htmlspecialchars($prov) ?></option>
@@ -1485,8 +1556,8 @@ while ($row = $result->fetch_assoc()) {
                 </select>
               </div>
               <div class="form-group">
-                <label for="city">City / Municipality</label>
-                <select id="city" required>
+                <label for="city">City / Municipality *</label>
+                <select id="city" name="city" required>
                   <option value="">Select City</option>
                 </select>
               </div>
@@ -1508,34 +1579,34 @@ while ($row = $result->fetch_assoc()) {
                   name="barangay"
                   class="form-control"
                   placeholder="e.g. San Isidro"
-                  style="padding-left: 60px;" />
+                  style="padding-left: 60px;" pattern="[^,]*" title="Commas are not allowed" />
               </div>
               <div class="form-group">
                 <label for="street">Subdivision / Street</label>
-                <input type="text" id="street" placeholder="e.g. Rizal St.">
+                <input type="text" id="street" name="street" placeholder="e.g. Rizal St." pattern="[^,]*" title="Commas are not allowed">
               </div>
               <div class="form-group">
                 <label for="building_no">Building / House No.</label>
-                <input type="text" id="building_no" placeholder="e.g. Bldg 4, Lot 6">
+                <input type="text" id="building_no" name="building_no" placeholder="e.g. Bldg 4, Lot 6" pattern="[^,]*" title="Commas are not allowed">
               </div>
               <div class="form-group">
                 <label for="floor_no">Floor / Room No.</label>
-                <input type="text" id="floor_no" placeholder="e.g. 2F, Room 201">
+                <input type="text" id="floor_no" name="floor_no" placeholder="e.g. 2F, Room 201" pattern="[^,]*" title="Commas are not allowed">
               </div>
               <div class="form-group">
                 <label for="zip_code">ZIP Code</label>
-                <input type="text" id="zip_code" name="zip_code" placeholder="e.g. 3020">
+                <input type="text" id="zip_code" name="zip_code" placeholder="e.g. 3020" pattern="[^,]*" title="Commas are not allowed">
               </div>
               <div class="form-group">
-                <label for="contact_person">Contact Person</label>
+                <label for="contact_person">Contact Person *</label>
                 <input type="text" id="contact_person" name="contact_person" required>
               </div>
               <div class="form-group">
-                <label for="contact_number">Contact Number</label>
+                <label for="contact_number">Contact Number *</label>
                 <input type="text" id="contact_number" name="contact_number" required>
               </div>
               <div class="form-group">
-                <label for="client_by">Client By</label>
+                <label for="client_by">Client By *</label>
                 <input type="text" name="client_by" id="client_by" class="form-control" required>
               </div>
             </div>
@@ -1545,7 +1616,7 @@ while ($row = $result->fetch_assoc()) {
             <legend><i class="fas fa-project-diagram"></i> Project Details</legend>
             <div class="form-grid">
               <div class="form-group">
-                <label for="project_name">Project Name</label>
+                <label for="project_name">Project Name *</label>
                 <input list="project_name_list" id="project_name" name="project_name" placeholder="e.g. Official Receipt" required>
                 <datalist id="project_name_list">
                   <?php while ($p = $project_names->fetch_assoc()): ?>
@@ -1554,11 +1625,11 @@ while ($row = $result->fetch_assoc()) {
                 </datalist>
               </div>
               <div class="form-group">
-                <label for="serial_range">Serial Range</label>
+                <label for="serial_range">Serial Range *</label>
                 <input type="text" id="serial_range" name="serial_range" placeholder="e.g. 3501 - 5500" required>
               </div>
               <div class="form-group">
-                <label for="log_date">Order Date</label>
+                <label for="log_date">Order Date *</label>
                 <input type="date" id="log_date" name="log_date" value="<?= date('Y-m-d') ?>">
               </div>
               <div class="form-group">
@@ -1576,15 +1647,15 @@ while ($row = $result->fetch_assoc()) {
             <legend><i class="fas fa-tasks"></i> Job Specifications</legend>
             <div class="form-grid">
               <div class="form-group">
-                <label for="quantity">Order Quantity</label>
+                <label for="quantity">Order Quantity *</label>
                 <input type="number" id="quantity" name="quantity" min="1" required>
               </div>
               <div class="form-group">
-                <label for="number_of_sets">Sets per Bind</label>
+                <label for="number_of_sets">Sets per Bind *</label>
                 <input type="number" id="number_of_sets" name="number_of_sets" min="1" required>
               </div>
               <div class="form-group">
-                <label for="product_size">Cut Size</label>
+                <label for="product_size">Cut Size *</label>
                 <select id="product_size" name="product_size" required>
                   <option value="">Select</option>
                   <option value="whole">Whole</option>
@@ -1596,7 +1667,7 @@ while ($row = $result->fetch_assoc()) {
                 </select>
               </div>
               <div class="form-group">
-                <label for="paper_type">Paper / Media Type</label>
+                <label for="paper_type">Paper / Media Type *</label>
                 <select id="paper_type" name="paper_type" required>
                   <option value="">Select</option>
                   <?php
@@ -1609,17 +1680,17 @@ while ($row = $result->fetch_assoc()) {
               </div>
 
               <div class="form-group">
-                <label for="paper_size">Paper Size</label>
+                <label for="paper_size">Paper Size *</label>
                 <select id="paper_size" name="paper_size" required>
                   <option value="">Select</option>
                 </select>
               </div>
               <div class="form-group">
-                <label for="copies_per_set">Number of Copies per Set</label>
+                <label for="copies_per_set">Number of Copies per Set *</label>
                 <input type="number" id="copies_per_set" name="copies_per_set" min="1" placeholder="e.g. 2, 3, 4" required>
               </div>
               <div class="form-group">
-                <label for="binding_type">Type of Binding</label>
+                <label for="binding_type">Type of Binding *</label>
                 <select id="binding_type" name="binding_type" required>
                   <option value="">Select</option>
                   <option value="Booklet">Booklet</option>
@@ -1631,7 +1702,7 @@ while ($row = $result->fetch_assoc()) {
             </div>
 
             <div class="form-group">
-              <label>Color of Paper (In-Proper Order)</label>
+              <label>Color of Paper (In-Proper Order) *</label>
               <div id="paper-sequence-container"></div>
             </div>
 
@@ -1641,243 +1712,60 @@ while ($row = $result->fetch_assoc()) {
             </div>
           </fieldset>
 
-          <button id="mainsubBtn" type="submit" class="btn"><i class="fas fa-save"></i> Submit Job Order</button>
+          <button id="mainsubBtn" type="submit" class="btn"><i class="fas fa-save"></i>Submit Job Order</button>
         </form>
       </div>
     </div>
 
     <div class="card">
       <h3><i class="fas fa-clock"></i> Pending Job Orders</h3>
-
       <?php if (empty($pending_orders)): ?>
         <div class="empty-message">
           <p>No pending job orders</p>
         </div>
       <?php else: ?>
-        <div class="compact-orders">
-          <?php foreach ($pending_orders as $client => $dates): ?>
-            <div class="compact-client">
-              <div class="compact-client-header" onclick="toggleClient(this)" style="background-color: #42b72a21;">
-                <span class="compact-client-name"><?= htmlspecialchars($client) ?></span>
-                <span class="compact-client-count" style="background-color: #227e10ff;"><?= count($dates) ?> dates</span>
-              </div>
-
-              <div class="compact-date-group" style="display:none;">
-                <?php foreach ($dates as $date => $projects): ?>
-                  <div>
-                    <div class="compact-date-header" onclick="toggleDate(this)">
-                      <span class="compact-date-text">
-                        <i class="fas fa-calendar-alt"></i>
-                        <?= date("F j, Y", strtotime($date)) ?>
-                      </span>
-                      <span class="compact-client-count" style="background-color: #227e10ff;"><?= count($projects) ?> projects</span>
-                    </div>
-
-                    <div class="compact-project-group" style="display:none;">
-                      <?php foreach ($projects as $project_key => $project_data): ?>
-                        <div>
-                          <div class="compact-project-header" onclick="toggleProject(this)">
-                            <span>
-                              <i class="fas fa-folder-open"></i>
-                              <?= htmlspecialchars($project_data['display']) ?>
-                            </span>
-                            <span class="compact-client-count" style="background-color: #227e10ff;"><?= count($project_data['records']) ?> orders</span>
-                          </div>
-
-                          <div class="compact-order-item" style="display:none; background-color: #42b72a21;">
-                            <div class="order-details-table-container">
-                              <table class="order-details-table">
-                                <thead>
-                                  <tr>
-                                    <th>Quantity</th>
-                                    <th>Sets per bind</th>
-                                    <th>Cut Size</th>
-                                    <th>Paper Size</th>
-                                    <th>Serial Range</th>
-                                    <th>Paper Type</th>
-                                    <th>Copies per Set</th>
-                                    <th>Binding</th>
-                                    <th>Color Sequence</th>
-                                    <th>Special Instructions</th>
-                                    <th>Client Address</th>
-                                    <th>Contact Person</th>
-                                    <th>Contact Number</th>
-                                    <th>BIR RDO Code</th>
-                                    <th>Tax Type</th>
-                                    <th>TIN</th>
-                                    <th>Client By</th>
-                                    <th>Tax Payer Name</th>
-                                    <th>OCN Number</th>
-                                    <th>Date Issued</th>
-                                    <?php if ($_SESSION['role'] === 'admin'): ?>
-                                      <th>Recorded By</th>
-                                    <?php endif; ?>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <?php foreach ($project_data['records'] as $order): ?>
-                                    <tr class="clickable-row" data-order='<?= htmlspecialchars(json_encode($order), ENT_QUOTES, 'UTF-8') ?>' data-role="<?= htmlspecialchars($_SESSION['role']) ?>">
-                                      <td><?= $order['quantity'] ?></td>
-                                      <td><?= $order['number_of_sets'] ?></td>
-                                      <td><?= htmlspecialchars($order['product_size']) ?></td>
-                                      <td><?= $order['paper_size'] === 'custom' ? htmlspecialchars($order['custom_paper_size']) : htmlspecialchars($order['paper_size']) ?></td>
-                                      <td><?= htmlspecialchars($order['serial_range']) ?></td>
-                                      <td><?= htmlspecialchars($order['paper_type']) ?></td>
-                                      <td><?= $order['copies_per_set'] ?></td>
-                                      <td><?= $order['binding_type'] === 'Custom' ? htmlspecialchars($order['custom_binding']) : htmlspecialchars($order['binding_type']) ?></td>
-                                      <td>
-                                        <?php foreach (explode(',', $order['paper_sequence']) as $color): ?>
-                                          <span class="sequence-item" style="background-color: #42b72a31;"><?= trim(htmlspecialchars($color)) ?></span>
-                                        <?php endforeach; ?>
-                                      </td>
-                                      <td><?= nl2br(htmlspecialchars($order['special_instructions'])) ?></td>
-                                      <td><?= htmlspecialchars($order['client_address']) ?></td>
-                                      <td><?= htmlspecialchars($order['contact_person']) ?></td>
-                                      <td><?= htmlspecialchars($order['contact_number']) ?></td>
-                                      <td><?= htmlspecialchars($order['rdo_code']) ?></td>
-                                      <td><?= htmlspecialchars($order['tax_type']) ?></td>
-                                      <td><?= htmlspecialchars($order['tin']) ?></td>
-                                      <td><?= htmlspecialchars($order['client_by']) ?></td>
-                                      <td><?= htmlspecialchars($order['taxpayer_name']) ?></td>
-                                      <td><?= htmlspecialchars($order['ocn_number']) ?></td>
-                                      <td><?= htmlspecialchars($order['date_issued']) ?></td>
-                                      <?php if ($_SESSION['role'] === 'admin'): ?>
-                                        <td><?= htmlspecialchars($order['username'] ?? 'Unknown') ?></td>
-                                      <?php endif; ?>
-                                    </tr>
-                                  <?php endforeach; ?>
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        </div>
-                      <?php endforeach; ?>
-                    </div>
-                  </div>
-                <?php endforeach; ?>
-              </div>
-
-            </div>
-          <?php endforeach; ?>
-        </div>
+        <?php $orders_to_show = $pending_orders;
+        $status_title = 'Pending'; ?>
+        <?php include 'job_order_card_renderer.php'; ?>
       <?php endif; ?>
     </div>
-    <!-- Job Orders List - Compressed Version -->
-    <div class="card">
-      <h3><i class="fas fa-list"></i> Job Orders History</h3>
 
+    <div class="card">
+      <h3><i class="fas fa-money-bill-wave"></i> Unpaid Job Orders</h3>
+      <?php if (empty($unpaid_orders)): ?>
+        <div class="empty-message">
+          <p>No unpaid job orders</p>
+        </div>
+      <?php else: ?>
+        <?php $orders_to_show = $unpaid_orders;
+        $status_title = 'Unpaid'; ?>
+        <?php include 'job_order_card_renderer.php'; ?>
+      <?php endif; ?>
+    </div>
+
+    <div class="card">
+      <h3><i class="fas fa-truck"></i> For Delivery Job Orders</h3>
+      <?php if (empty($for_delivery_orders)): ?>
+        <div class="empty-message">
+          <p>No job orders waiting for delivery</p>
+        </div>
+      <?php else: ?>
+        <?php $orders_to_show = $for_delivery_orders;
+        $status_title = 'For Delivery'; ?>
+        <?php include 'job_order_card_renderer.php'; ?>
+      <?php endif; ?>
+    </div>
+
+    <div class="card">
+      <h3><i class="fas fa-list"></i> Completed Job Orders</h3>
       <?php if (empty($completed_orders)): ?>
         <div class="empty-message">
           <p>No job orders found</p>
         </div>
       <?php else: ?>
-        <div class="compact-orders">
-          <?php foreach ($completed_orders as $client => $dates): ?>
-            <div class="compact-client">
-              <div class="compact-client-header" onclick="toggleClient(this)">
-                <span class="compact-client-name"><?= htmlspecialchars($client) ?></span>
-                <span class="compact-client-count"><?= count($dates) ?> dates</span>
-              </div>
-
-              <div class="compact-date-group" style="display:none;">
-                <?php foreach ($dates as $date => $projects): ?>
-                  <div>
-                    <div class="compact-date-header" onclick="toggleDate(this)">
-                      <span class="compact-date-text">
-                        <i class="fas fa-calendar-alt"></i>
-                        <?= date("F j, Y", strtotime($date)) ?>
-                      </span>
-                      <span class="compact-client-count"><?= count($projects) ?> projects</span>
-                    </div>
-
-                    <div class="compact-project-group" style="display:none;">
-                      <?php foreach ($projects as $project_key => $project_data): ?>
-                        <div>
-                          <div class="compact-project-header" onclick="toggleProject(this)">
-                            <span>
-                              <i class="fas fa-folder-open"></i>
-                              <?= htmlspecialchars($project_data['display']) ?>
-                            </span>
-                            <span class="compact-client-count"><?= count($project_data['records']) ?> orders</span>
-                          </div>
-
-                          <div class="compact-order-item" style="display:none;">
-                            <div class="order-details-table-container">
-                              <table class="order-details-table">
-                                <thead>
-                                  <tr>
-                                    <th>Quantity</th>
-                                    <th>Sets per bind</th>
-                                    <th>Cut Size</th>
-                                    <th>Paper Size</th>
-                                    <th>Serial Range</th>
-                                    <th>Paper Type</th>
-                                    <th>Copies per Set</th>
-                                    <th>Binding</th>
-                                    <th>Color Sequence</th>
-                                    <th>Special Instructions</th>
-                                    <th>Client Address</th>
-                                    <th>Contact Person</th>
-                                    <th>Contact Number</th>
-                                    <th>BIR RDO Code</th>
-                                    <th>Tax Type</th>
-                                    <th>TIN</th>
-                                    <th>Client By</th>
-                                    <th>Tax Payer Name</th>
-                                    <th>OCN Number</th>
-                                    <th>Date Issued</th>
-                                    <th>Date Completed</th>
-                                    <?php if ($_SESSION['role'] === 'admin'): ?>
-                                      <th>Recorded By</th>
-                                    <?php endif; ?>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <?php foreach ($project_data['records'] as $order): ?>
-                                    <tr class="clickable-row" data-order='<?= htmlspecialchars(json_encode($order), ENT_QUOTES, 'UTF-8') ?>' data-role="<?= htmlspecialchars($_SESSION['role']) ?>">
-                                      <td><?= $order['quantity'] ?></td>
-                                      <td><?= $order['number_of_sets'] ?></td>
-                                      <td><?= htmlspecialchars($order['product_size']) ?></td>
-                                      <td><?= $order['paper_size'] === 'custom' ? htmlspecialchars($order['custom_paper_size']) : htmlspecialchars($order['paper_size']) ?></td>
-                                      <td><?= htmlspecialchars($order['serial_range']) ?></td>
-                                      <td><?= htmlspecialchars($order['paper_type']) ?></td>
-                                      <td><?= $order['copies_per_set'] ?></td>
-                                      <td><?= $order['binding_type'] === 'Custom' ? htmlspecialchars($order['custom_binding']) : htmlspecialchars($order['binding_type']) ?></td>
-                                      <td>
-                                        <?php foreach (explode(',', $order['paper_sequence']) as $color): ?>
-                                          <span class="sequence-item"><?= trim(htmlspecialchars($color)) ?></span>
-                                        <?php endforeach; ?>
-                                      </td>
-                                      <td><?= nl2br(htmlspecialchars($order['special_instructions'])) ?></td>
-                                      <td><?= htmlspecialchars($order['client_address']) ?></td>
-                                      <td><?= htmlspecialchars($order['contact_person']) ?></td>
-                                      <td><?= htmlspecialchars($order['contact_number']) ?></td>
-                                      <td><?= htmlspecialchars($order['rdo_code']) ?></td>
-                                      <td><?= htmlspecialchars($order['tax_type']) ?></td>
-                                      <td><?= htmlspecialchars($order['tin']) ?></td>
-                                      <td><?= htmlspecialchars($order['client_by']) ?></td>
-                                      <td><?= htmlspecialchars($order['taxpayer_name']) ?></td>
-                                      <td><?= htmlspecialchars($order['ocn_number']) ?></td>
-                                      <td><?= $order['date_issued'] ? date("F j, Y", strtotime($order['date_issued'])) : 'Pending' ?></td>
-                                      <td><?= $order['completed_date'] ? date("F j, Y - g:i A", strtotime($order['completed_date'])) : '-' ?></td>
-                                      <?php if ($_SESSION['role'] === 'admin'): ?>
-                                        <td><?php echo htmlspecialchars($order['username'] ?? 'Unknown'); ?></td>
-                                      <?php endif; ?>
-                                    </tr>
-                                  <?php endforeach; ?>
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        </div>
-                      <?php endforeach; ?>
-                    </div>
-                  </div>
-                <?php endforeach; ?>
-              </div>
-            </div>
-          <?php endforeach; ?>
-        </div>
+        <?php $orders_to_show = $completed_orders;
+        $status_title = 'Completed'; ?>
+        <?php include 'job_order_card_renderer.php'; ?>
       <?php endif; ?>
     </div>
   </div>
@@ -1891,6 +1779,134 @@ while ($row = $result->fetch_assoc()) {
 
 
   <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const inputs = document.querySelectorAll('#jobOrderForm input[type="text"], #jobOrderForm textarea');
+
+      inputs.forEach(input => {
+        input.addEventListener('keydown', e => {
+          if (e.key === ',') {
+            e.preventDefault(); // Block comma key
+          }
+        });
+
+        input.addEventListener('input', () => {
+          input.value = input.value.replace(/,/g, ''); // Remove pasted commas
+        });
+      });
+
+      document.querySelectorAll('.quick-fill-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const order = JSON.parse(this.dataset.order);
+          quickFillUp(order);
+        });
+      });
+    });
+
+    function quickFillUp(order) {
+      const form = document.getElementById('jobOrderForm');
+      if (!form) return;
+
+      // Basic Project Info
+      form.project_name.value = order.project_name || '';
+      form.quantity.value = order.quantity || '';
+      form.number_of_sets.value = order.number_of_sets || '';
+      form.copies_per_set.value = order.copies_per_set || '';
+      form.special_instructions.value = order.special_instructions || '';
+      form.serial_range.value = order.serial_range || '';
+      form.product_size.value = order.product_size || '';
+
+      // Client Info
+      form.client_name.value = order.client_name || '';
+      form.taxpayer_name.value = order.taxpayer_name || '';
+      form.tin.value = order.tin || '';
+      form.rdo_code.value = order.rdo_code || '';
+      form.contact_person.value = order.contact_person || '';
+      form.contact_number.value = order.contact_number || '';
+      form.client_by.value = order.client_by || '';
+
+      // Tax Type (radio buttons)
+      if (order.tax_type) {
+        const taxRadio = document.querySelector(`input[name="tax_type"][value="${order.tax_type}"]`);
+        if (taxRadio) taxRadio.checked = true;
+      }
+
+      // 🌐 Parse Address String (client_address)
+      const fullAddress = order.client_address || '';
+      document.getElementById('client_address').value = fullAddress;
+
+      const parts = fullAddress.split(',').map(p => p.trim());
+
+      // Example expected structure:
+      // ["2F Room 201", "Bldg 4 Lot 6", "Rizal St.", "Brgy. San Isidro", "Caloocan City", "Metro Manila", "1400"]
+      document.getElementById('floor_no').value = parts[0] || '';
+      document.getElementById('building_no').value = parts[1] || '';
+      document.getElementById('street').value = parts[2] || '';
+      document.getElementById('barangay').value = parts[3]?.replace(/^Brgy\.?\s*/i, '') || '';
+      document.getElementById('city').value = parts[4] || '';
+      document.getElementById('province').value = parts[5] || '';
+      document.getElementById('zip_code').value = parts[6] || '';
+
+      // Province and City (dependent dropdowns)
+      const provinceSelect = document.getElementById('province');
+      const citySelect = document.getElementById('city');
+
+      provinceSelect.value = parts[5] || '';
+      provinceSelect.dispatchEvent(new Event('change'));
+
+      setTimeout(() => {
+        citySelect.value = parts[4] || '';
+        citySelect.dispatchEvent(new Event('change'));
+      }, 300);
+
+      // Paper Settings
+      form.paper_type.value = order.paper_type || '';
+      form.paper_type.dispatchEvent(new Event('change'));
+
+      setTimeout(() => {
+        const paperSize = order.paper_size === 'custom' ? 'custom' : order.paper_size;
+        form.paper_size.value = paperSize || '';
+        form.paper_size.dispatchEvent(new Event('change'));
+
+        if (paperSize === 'custom') {
+          document.getElementById('custom_paper_size').value = order.custom_paper_size || '';
+        }
+
+        const binding = order.binding_type === 'Custom' ? 'Custom' : order.binding_type;
+        form.binding_type.value = binding || '';
+        form.binding_type.dispatchEvent(new Event('change'));
+
+        if (binding === 'Custom') {
+          document.getElementById('custom_binding').value = order.custom_binding || '';
+        }
+
+        // Paper Sequence
+        const sequenceContainer = document.getElementById('paper-sequence-container');
+        const sequence = order.paper_sequence ? order.paper_sequence.split(',') : [];
+
+        const copies = parseInt(order.copies_per_set) || 0;
+        form.copies_per_set.value = copies;
+        form.copies_per_set.dispatchEvent(new Event('input'));
+
+        setTimeout(() => {
+          const selects = sequenceContainer.querySelectorAll('select[name="paper_sequence[]"]');
+          selects.forEach((select, index) => {
+            if (sequence[index]) {
+              select.value = sequence[index].trim();
+            }
+          });
+        }, 300);
+      }, 300);
+
+      // Scroll to form
+      window.scrollTo({
+        top: form.offsetTop - 40,
+        behavior: 'smooth'
+      });
+    }
+
     document.querySelectorAll('.clickable-row').forEach(row => {
       row.addEventListener('click', function() {
         const orderData = JSON.parse(this.dataset.order);
@@ -1900,6 +1916,18 @@ while ($row = $result->fetch_assoc()) {
     });
 
     function openModal(order, userRole) {
+      function applyStatusColor(selectEl) {
+        const status = selectEl.value;
+        selectEl.classList.remove('status-pending', 'status-unpaid', 'status-for_delivery', 'status-completed');
+        selectEl.classList.add(`status-${status}`);
+      }
+
+      // Run for all dropdowns (on initial load or after modal opens)
+      document.querySelectorAll('.status-select').forEach(select => {
+        applyStatusColor(select);
+        select.addEventListener('change', () => applyStatusColor(select));
+      });
+
       const modal = document.getElementById('jobModal');
       const modalBody = document.getElementById('modal-body');
 
@@ -2047,26 +2075,36 @@ while ($row = $result->fetch_assoc()) {
   `;
 
       if (userRole === 'admin') {
+        const statuses = ['pending', 'unpaid', 'for_delivery', 'completed'];
+        const currentStatus = order.status;
+        const options = statuses.map(status => {
+          const selected = status === currentStatus ? 'selected' : '';
+          const label = status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()); // Capitalize
+          return `<option value="${status}" ${selected}>${label}</option>`;
+        }).join('');
+
         html += `
-              <div class="section-header">
-                <i class="fas fa-cog"></i>
-                Actions
-              </div>
-              <div class="action-buttons">
-                <form class="status-toggle-form" data-job-id="${order.id}" data-new-status="${nextStatus}">
-                  <button type="submit" class="btn-status ${nextStatus}">
-                    <i class="fas ${nextStatus === 'pending' ? 'fa-clock' : 'fa-check-circle'}"></i>
-                    ${statusText}
-                  </button>
-                </form>
-                <a href="edit_job.php?id=${order.id}" class="btn-edit">
-                  <i class="fas fa-edit"></i> Edit
-                </a>
-                <a href="delete_job.php?id=${order.id}" class="btn-delete" onclick="return confirm('Delete this job order?')">
-                  <i class="fas fa-trash-alt"></i> Delete
-                </a>
-              </div>
-          `;
+          <div class="section-header">
+            <i class="fas fa-cog"></i>
+            Actions
+          </div>
+          <div class="action-buttons">
+            <form class="status-toggle-form" data-job-id="${order.id}">
+              <select name="new_status" class="status-select">
+                ${options}
+              </select>
+              <button type="submit" class="btn-status">
+                <i class="fas fa-sync-alt"></i> Update Status
+              </button>
+            </form>
+            <a href="edit_job.php?id=${order.id}" class="btn-edit">
+              <i class="fas fa-edit"></i> Edit
+            </a>
+            <a href="delete_job.php?id=${order.id}" class="btn-delete" onclick="return confirm('Delete this job order?')">
+              <i class="fas fa-trash-alt"></i> Delete
+            </a>
+          </div>
+        `;
       }
 
       html += `
@@ -2083,14 +2121,14 @@ while ($row = $result->fetch_assoc()) {
         statusForm.addEventListener('submit', function(e) {
           e.preventDefault();
           const jobId = this.dataset.jobId;
-          const newStatus = this.dataset.newStatus;
+          const newStatus = this.querySelector('select[name="new_status"]').value;
 
           fetch('update_status.php', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
               },
-              body: `job_id=${jobId}&new_status=${newStatus}`
+              body: `job_id=${encodeURIComponent(jobId)}&new_status=${encodeURIComponent(newStatus)}`
             })
             .then(response => response.text())
             .then(data => {
@@ -2103,7 +2141,26 @@ while ($row = $result->fetch_assoc()) {
             });
         });
       }
+
+      // ✅ Apply status color now that the select is in the DOM
+      const select = modalBody.querySelector('.status-select');
+      if (select) {
+        applyStatusColor(select); // Initial color
+        select.addEventListener('change', () => applyStatusColor(select)); // Update on change
+      }
     }
+
+    function applyStatusColor(selectEl) {
+      const status = selectEl.value;
+      selectEl.classList.remove('status-pending', 'status-unpaid', 'status-for_delivery', 'status-completed');
+      selectEl.classList.add(`status-${status}`);
+    }
+
+    // For dropdowns already in DOM
+    document.querySelectorAll('.status-select').forEach(select => {
+      applyStatusColor(select);
+      select.addEventListener('change', () => applyStatusColor(select));
+    });
 
     function closeModal() {
       document.getElementById('jobModal').style.display = 'none';
@@ -2775,7 +2832,7 @@ while ($row = $result->fetch_assoc()) {
       });
     }
   </script>
-
+  <script src="../assets/js/print.js"></script>
 </body>
 
 </html>

@@ -11,12 +11,12 @@ require_once '../config/db.php';
 $job_id = intval($_POST['job_id'] ?? 0);
 $new_status = $_POST['new_status'] ?? '';
 
-if ($job_id <= 0 || !in_array($new_status, ['pending', 'completed'])) {
+$valid_statuses = ['pending', 'unpaid', 'for_delivery', 'completed'];
+if ($job_id <= 0 || !in_array($new_status, $valid_statuses)) {
   http_response_code(400);
   echo "Invalid request. job_id: $job_id, new_status: $new_status";
   exit;
 }
-
 
 // Check current status
 $current = $mysqli->query("SELECT status FROM job_orders WHERE id = $job_id")->fetch_assoc();
@@ -31,14 +31,14 @@ if ($current['status'] === $new_status) {
   exit;
 }
 
-// Update status (and set completed_date if applicable)
+// Update status
 if ($new_status === 'completed') {
-  $stmt = $mysqli->prepare("UPDATE job_orders SET status = 'completed', completed_date = NOW() WHERE id = ?");
+  $stmt = $mysqli->prepare("UPDATE job_orders SET status = ?, completed_date = NOW() WHERE id = ?");
 } else {
-  $stmt = $mysqli->prepare("UPDATE job_orders SET status = 'pending', completed_date = NULL WHERE id = ?");
+  $stmt = $mysqli->prepare("UPDATE job_orders SET status = ?, completed_date = NULL WHERE id = ?");
 }
 
-$stmt->bind_param("i", $job_id);
+$stmt->bind_param("si", $new_status, $job_id);
 
 if ($stmt->execute()) {
   echo "Status updated to $new_status.";

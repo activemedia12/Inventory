@@ -611,9 +611,9 @@ unset($_SESSION['message']);
                                     value="<?= htmlspecialchars($job['taxpayer_name'] ?? '') ?>">
                             </div>
                             <div class="form-group">
-                                <label for="tin">TIN *</label>
+                                <label for="tin">TIN</label>
                                 <input type="text" id="tin" name="tin" class="form-control"
-                                    value="<?= htmlspecialchars($job['tin'] ?? '') ?>" required>
+                                    value="<?= htmlspecialchars($job['tin'] ?? '') ?>">
                             </div>
                             <div class="form-group">
                                 <label>Tax Type</label>
@@ -758,7 +758,7 @@ unset($_SESSION['message']);
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="paper_type">Paper / Media Type</label>
+                                <label for="paper_type">Paper / Media Type *</label>
                                 <select id="paper_type" name="paper_type" class="form-control" required>
                                     <option value="">Select</option>
                                     <?php
@@ -773,7 +773,7 @@ unset($_SESSION['message']);
                             </div>
 
                             <div class="form-group">
-                                <label for="paper_size">Paper Size</label>
+                                <label for="paper_size">Paper Size *</label>
                                 <select id="paper_size" name="paper_size" class="form-control" required>
                                     <option value="">Select</option>
                                 </select>
