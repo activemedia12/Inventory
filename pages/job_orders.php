@@ -1934,10 +1934,7 @@ while ($row = $result->fetch_assoc()) {
 
       const modal = document.getElementById('jobModal');
       const modalBody = document.getElementById('modal-body');
-
-      const statusText = order.status === 'pending' ? 'Mark as Completed' : 'Mark as Pending';
-      const nextStatus = order.status === 'pending' ? 'completed' : 'pending';
-
+      
       let html = `
     <div class="floating-window">
       <div class="window-header">
@@ -2176,51 +2173,57 @@ while ($row = $result->fetch_assoc()) {
       if (e.target === modal) closeModal();
     };
 
-    // Normalize key helper
     function normalizeKey(text) {
-      return text.trim().toLowerCase().replace(/\s+/g, '-');
+      return text.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
     }
 
-    function toggleClient(el) {
+    // ✅ Toggle CLIENT
+    window.toggleClient = function (el) {
       const container = el.nextElementSibling;
-      const isOpen = container.offsetHeight > 0;
+      const isOpen = window.getComputedStyle(container).display !== 'none';
       container.style.display = isOpen ? 'none' : 'block';
 
-      const clientName = el.querySelector('.compact-client-name').textContent.trim();
-      sessionStorage.setItem(`client-${clientName}`, !isOpen);
-    }
+      const nameEl = el.querySelector('.compact-client-name');
+      if (!nameEl) return;
 
-    function toggleDate(el) {
+      const clientKey = normalizeKey(nameEl.textContent);
+      sessionStorage.setItem(`client-${clientKey}`, !isOpen);
+    };
+
+    // ✅ Toggle DATE
+    window.toggleDate = function (el) {
       const container = el.nextElementSibling;
-      const isOpen = container.offsetHeight > 0;
+      const isOpen = window.getComputedStyle(container).display !== 'none';
       container.style.display = isOpen ? 'none' : 'block';
 
-      const client = el.closest('.compact-client').querySelector('.compact-client-name').textContent.trim();
-      const date = el.querySelector('.compact-date-text').textContent.trim();
-      sessionStorage.setItem(`date-${client}-${date}`, !isOpen);
-    }
+      const client = el.closest('.compact-client').querySelector('.compact-client-name').textContent;
+      const date = el.querySelector('.compact-date-text').textContent;
+      const clientKey = normalizeKey(client);
+      const dateKey = normalizeKey(date);
 
-    function toggleProject(el) {
+      sessionStorage.setItem(`date-${clientKey}-${dateKey}`, !isOpen);
+    };
+
+    // ✅ Toggle PROJECT
+    window.toggleProject = function (el) {
       const container = el.nextElementSibling;
-      const isOpen = container.offsetHeight > 0;
+      const isOpen = window.getComputedStyle(container).display !== 'none';
       container.style.display = isOpen ? 'none' : 'block';
 
-      const client = el.closest('.compact-client').querySelector('.compact-client-name').textContent.trim();
-      const date = el.closest('.compact-date-group').querySelector('.compact-date-text').textContent.trim();
-      const project = el.querySelector('span').textContent.trim();
-      sessionStorage.setItem(`project-${client}-${date}-${project}`, !isOpen);
-    }
+      const client = el.closest('.compact-client').querySelector('.compact-client-name').textContent;
+      const date = el.closest('.compact-date-group').querySelector('.compact-date-text').textContent;
+      const project = el.querySelector('span').textContent;
+      const clientKey = normalizeKey(client);
+      const dateKey = normalizeKey(date);
+      const projectKey = normalizeKey(project);
 
+      sessionStorage.setItem(`project-${clientKey}-${dateKey}-${projectKey}`, !isOpen);
+    };
 
-    document.addEventListener("DOMContentLoaded", function() {
-      const form = document.getElementById("jobOrderForm");
-      const storageKey = "jobOrderFormData";
-      const scrollKey = "scroll-position-job_orders.php";
-
-      // Restore collapsible state
+    // ✅ Restore all states on load
+    document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.compact-client').forEach(clientEl => {
-        const clientNameRaw = clientEl.querySelector('.compact-client-name').textContent;
-        const clientKey = normalizeKey(clientNameRaw);
+        const clientKey = normalizeKey(clientEl.querySelector('.compact-client-name').textContent);
         const isClientOpen = sessionStorage.getItem(`client-${clientKey}`) === 'true';
 
         if (isClientOpen) {
@@ -2229,10 +2232,8 @@ while ($row = $result->fetch_assoc()) {
           });
         }
 
-
         clientEl.querySelectorAll('.compact-date-header').forEach(dateEl => {
-          const dateRaw = dateEl.querySelector('.compact-date-text').textContent;
-          const dateKey = normalizeKey(dateRaw);
+          const dateKey = normalizeKey(dateEl.querySelector('.compact-date-text').textContent);
           const isDateOpen = sessionStorage.getItem(`date-${clientKey}-${dateKey}`) === 'true';
 
           if (isDateOpen) {
@@ -2241,8 +2242,7 @@ while ($row = $result->fetch_assoc()) {
           }
 
           dateEl.closest('.compact-date-group').querySelectorAll('.compact-project-header').forEach(projectEl => {
-            const projectRaw = projectEl.querySelector('span').textContent;
-            const projectKey = normalizeKey(projectRaw);
+            const projectKey = normalizeKey(projectEl.querySelector('span').textContent);
             const isProjectOpen = sessionStorage.getItem(`project-${clientKey}-${dateKey}-${projectKey}`) === 'true';
 
             if (isProjectOpen) {
@@ -2252,14 +2252,34 @@ while ($row = $result->fetch_assoc()) {
           });
         });
       });
+    });
 
-      // Restore scroll position
+    document.addEventListener("DOMContentLoaded", function() {      
+      const form = document.getElementById("jobOrderForm");
+      const storageKey = "jobOrderFormData";
+      const scrollKey = "scroll-y";
+      const ordersKey = "scroll-compact-orders";
+      const ordersContainer = document.querySelector(".compact-orders");
+
+      // ✅ Restore window scroll
       const scrollY = sessionStorage.getItem(scrollKey);
       if (scrollY !== null) {
-        window.scrollTo(0, parseInt(scrollY));
+        window.scrollTo(0, parseInt(scrollY, 10));
       }
 
-      // Save scroll position
+      // ✅ Restore compact-orders scroll
+      if (ordersContainer) {
+        const savedOrdersScroll = sessionStorage.getItem(ordersKey);
+        if (savedOrdersScroll !== null) {
+          ordersContainer.scrollTop = parseInt(savedOrdersScroll, 10);
+        }
+
+        ordersContainer.addEventListener("scroll", () => {
+          sessionStorage.setItem(ordersKey, ordersContainer.scrollTop);
+        });
+      }
+
+      // ✅ Save window scroll
       window.addEventListener("scroll", () => {
         sessionStorage.setItem(scrollKey, window.scrollY);
       });

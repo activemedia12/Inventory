@@ -1,227 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="../assets/css/style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <title>Job Order</title>
-  </head>
-  <body>
-    <div class="page">
-      <div class="header">
-        <div class="main-header">
-          <h1>ACTIVE MEDIA DESIGNS & PRINTING</h1>
-          <span>
-            30-C Lucero St., Fausta Rd., Mabolo, Malolos City Bulacan<br />
-            (044) 7964101 | 0998-791-6018 | activemediaprint@gmail.com
-          </span>
-        </div>
-        <div class="job-order-label">JOB ORDER</div>
-      </div>
-      <section>
-        <div class="container one">
-            <div>
-                Client/Company Name:
-                <input type="text" class="input client">
-            </div>
-            <div>
-                Address or Branch:
-                <input type="text" class="input address">
-            </div>
-            <div>
-                TIN:
-                <input type="text" class="input tin">
-                Contact Number:
-                <input type="text" class="input contact">
-            </div>
-            <div>
-                Client By:
-                <input type="text" class="input by">
-                Contact Person & Mobile:
-                <input type="text" class="input person">
-            </div>
-        </div>
-        <div class="container two">
-            <div>
-                Date:
-                <input type="text" class="input date">
-            </div>
-            <div>
-                P.O. Date:
-                <input type="text" class="input poDate">
-            </div>
-            <div>
-                P.0./Reference#:
-                <input type="text" class="input refNo">
-            </div>
-            <div>
-                Delivery Date:
-                <input type="text" class="input delDate">
-            </div>
-        </div>
-      </section>
-      <!-- <div class="table-title">PROJECT REQUESTED/ORDERED & SPECIFICATIONS</div>
-      <table>
-        <tr>
-          <th>PROJECT NAME</th>
-          <th>QUANTITY</th>
-          <th>SIZE</th>
-          <th>STARTING#</th>
-        </tr>
-        <tr>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-      </table>
+<head>
+  <meta charset="UTF-8">
+  <title>Toggle Test</title>
+  <style>
+    .compact-client-header { cursor: pointer; background: #ddd; padding: 10px; }
+    .compact-date-group { display: none; padding: 10px; background: #f0f0f0; }
+  </style>
+</head>
+<body>
 
-      <table>
-        <tr>
-          <th>Paper/Media Type</th>
-          <th># of Copies per set</th>
-          <th>Type of Binding</th>
-          <th colspan="6">COLOR OF PAPER (In-Proper Order)</th>
-        </tr>
-        <tr>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td colspan="6">
-            <div class="small-box"></div>
-            <div class="small-box"></div>
-            <div class="small-box"></div>
-            <div class="small-box"></div>
-            <div class="small-box"></div>
-            <div class="small-box"></div>
-          </td>
-        </tr>
-      </table>
+<div class="compact-client">
+  <div class="compact-client-header" data-client="juan-dela-cruz" onclick="toggleClient(this)">
+    <span class="compact-client-name">Juan Dela Cruz</span>
+  </div>
+  <div class="compact-date-group">
+    <p>Sample content for Juan.</p>
+  </div>
+</div>
 
-      <div class="section">
-        Other Special Instructions:
-        <textarea></textarea>
-      </div>
+<script>
+  console.log("Script is loaded!");
 
-      <div class="table-title">PRODUCTION SCHEDULE</div>
-      <table>
-        <tr>
-          <th rowspan="2">
-            Paper/Media Type<br />COLOR OF PAPER (In-Proper Order)
-          </th>
-          <th rowspan="2">ACTUAL QTY USED PER COLOR (PER REAM)</th>
-          <th colspan="2">PRINTING</th>
-          <th colspan="2">NUMBERING</th>
-          <th colspan="2">GATHERING</th>
-          <th colspan="2">FINISHING & CUTTING</th>
-        </tr>
-        <tr>
-          <td>START DATE/TIME</td>
-          <td>END DATE/TIME</td>
-          <td>START DATE/TIME</td>
-          <td>END DATE/TIME</td>
-          <td>START DATE/TIME</td>
-          <td>END DATE/TIME</td>
-          <td>START DATE/TIME</td>
-          <td>END DATE/TIME</td>
-        </tr>
-        <tr>
-          <td rowspan="2"></td>
-          <td>
-            <div class="small-box"></div>
-            <div class="small-box"></div>
-            <div class="small-box"></div>
-            <div class="small-box"></div>
-            <div class="small-box"></div>
-            <div class="small-box"></div>
-          </td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr>
-          <td colspan="9">
-            Other:
-            <span
-              class="input-box"
-              style="width: 120px; display: inline-block"
-            ></span>
-            &nbsp; START DATE/TIME:
-            <span
-              class="input-box"
-              style="width: 120px; display: inline-block"
-            ></span>
-            &nbsp; END DATE/TIME:
-            <span
-              class="input-box"
-              style="width: 120px; display: inline-block"
-            ></span>
-            <br />
-            ACTUAL STARTING & END#:
-            <span
-              class="input-box"
-              style="width: 180px; display: inline-block"
-            ></span>
-            &nbsp; Remarks:
-            <span
-              class="input-box"
-              style="width: 300px; display: inline-block"
-            ></span>
-          </td>
-        </tr>
-      </table>
+  function toggleClient(el) {
+    console.log("toggleClient() triggered!");
+    const container = el.nextElementSibling;
+    const isOpen = container.style.display !== 'none';
+    container.style.display = isOpen ? 'none' : 'block';
+  }
+</script>
 
-      <div class="table-title">PRODUCTION COST</div>
-      <table>
-        <tr>
-          <th>QUANTITY</th>
-          <th>UNIT PRICE</th>
-          <th>TOTAL COST</th>
-        </tr>
-        <tr>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-      </table>
-
-      <div class="footer-note">
-        A:\Active Media - Documents\AMDP Forms\2024\JOB ORDER 2024
-      </div>
-    </div> -->
-  </body>
+</body>
 </html>

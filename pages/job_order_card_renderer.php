@@ -2,7 +2,7 @@
   <div class="compact-orders">
     <?php foreach ($orders_to_show as $client => $dates): ?>
       <div class="compact-client">
-        <div class="compact-client-header" onclick="toggleClient(this)">
+        <div class="compact-client-header" data-client="<?= htmlspecialchars($client) ?>" onclick="toggleClient(this)">
           <span class="compact-client-name"><?= htmlspecialchars($client) ?></span>
           <span class="compact-client-count"><?= count($dates) ?> dates</span>
         </div>
@@ -10,7 +10,7 @@
         <div class="compact-date-group" style="display:none;">
           <?php foreach ($dates as $date => $projects): ?>
             <div>
-              <div class="compact-date-header" onclick="toggleDate(this)">
+              <div class="compact-date-header" data-client="<?= htmlspecialchars($client) ?>" data-date="<?= htmlspecialchars($date) ?>" onclick="toggleDate(this)">
                 <span class="compact-date-text">
                   <i class="fas fa-calendar-alt"></i>
                   <?= date("F j, Y", strtotime($date)) ?>
@@ -21,7 +21,7 @@
               <div class="compact-project-group" style="display:none;">
                 <?php foreach ($projects as $project_key => $project_data): ?>
                   <div>
-                    <div class="compact-project-header" onclick="toggleProject(this)">
+                    <div class="compact-project-header" data-client="<?= htmlspecialchars($client) ?>" data-date="<?= htmlspecialchars($date) ?>" data-project="<?= htmlspecialchars($project_key) ?>" onclick="toggleProject(this)">
                       <span>
                         <i class="fas fa-folder-open"></i>
                         <?= htmlspecialchars($project_data['display']) ?>
