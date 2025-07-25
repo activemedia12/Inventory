@@ -935,16 +935,6 @@ $stmt->close();
       document.getElementById('productModalBody').innerHTML = '';
     }
 
-    function toggleProductGroup(header) {
-      const content = header.nextElementSibling;
-      content.style.display = content.style.display === 'none' ? 'block' : 'none';
-
-      const icon = header.querySelector('i');
-      icon.classList.toggle('fa-chevron-down');
-      icon.classList.toggle('fa-chevron-right');
-    }
-
-
     const pageKey = '/products.php';
 
     // Restore scroll, dropdowns, and collapsibles
@@ -959,16 +949,26 @@ $stmt->close();
         if (savedValue !== null) {
           select.value = savedValue;
         }
+
+        // Save dropdown state on change
+        select.addEventListener('change', () => {
+          sessionStorage.setItem(`select-${pageKey}-${select.name}`, select.value);
+        });
       });
 
-      // Restore collapsible states
+      // Restore collapsible states (with default = closed)
       document.querySelectorAll('.collapsible-header').forEach(header => {
         const key = `collapse-${pageKey}-${header.textContent.trim()}`;
         const savedState = sessionStorage.getItem(key);
         const content = header.nextElementSibling;
-        if (savedState === 'closed') {
+        const icon = header.querySelector('i');
+
+        if (savedState === 'open') {
+          content.style.display = 'block';
+          icon.classList.replace('fa-chevron-right', 'fa-chevron-down');
+        } else {
           content.style.display = 'none';
-          header.querySelector('i').classList.replace('fa-chevron-down', 'fa-chevron-right');
+          icon.classList.replace('fa-chevron-down', 'fa-chevron-right');
         }
       });
     });
@@ -1001,6 +1001,7 @@ $stmt->close();
         icon.classList.replace('fa-chevron-down', 'fa-chevron-right');
       }
     }
+
     if (window.matchMedia("(max-width: 768px)").matches) {
       const sidebar = document.querySelector('.sidebar');
 
