@@ -6,6 +6,17 @@ if (!isset($_SESSION['user_id'])) {
 }
 require_once '../config/db.php';
 
+$prefill = [];
+
+if (isset($_GET['client_id'])) {
+    $stmt = $mysqli->prepare("SELECT * FROM clients WHERE id = ?");
+    $stmt->bind_param("i", $_GET['client_id']);
+    $stmt->execute();
+
+    $result = $stmt->get_result();
+    $prefill = $result->fetch_assoc();  // This returns associative array like PDO::FETCH_ASSOC
+}
+
 // Handle alert messages from redirect
 $message = $_SESSION['message'] ?? '';
 unset($_SESSION['message']);
@@ -159,8 +170,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   header("Location: job_orders.php");
   exit;
 }
-
-
 
 $pending_orders = [];
 $unpaid_orders = [];
@@ -1333,7 +1342,6 @@ while ($row = $result->fetch_assoc()) {
       color: #28a745;
       border-color: #28a745;
     }
-
   </style>
 </head>
 
@@ -1347,6 +1355,7 @@ while ($row = $result->fetch_assoc()) {
       <li><a href="products.php"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
       <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
       <li><a href="job_orders.php" class="active"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+      <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
       <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
     </ul>
   </div>
@@ -1399,29 +1408,30 @@ while ($row = $result->fetch_assoc()) {
             <div class="form-grid">
               <div class="form-group">
                 <label for="client_name">Company / Trade Name *</label>
-                <input type="text" id="client_name" name="client_name" required>
+                <input type="text" id="client_name" name="client_name" required value="<?= htmlspecialchars($prefill['client_name'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="taxpayer_name">Taxpayer Name *</label>
-                <input type="text" id="taxpayer_name" name="taxpayer_name" required>
+                <input type="text" id="taxpayer_name" name="taxpayer_name" required value="<?= htmlspecialchars($prefill['taxpayer_name'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="tin">TIN</label>
-                <input type="text" name="tin" id="tin" class="form-control" placeholder="e.g. 123-456-789-0000">
+                <input type="text" name="tin" id="tin" class="form-control" placeholder="e.g. 123-456-789-0000" value="<?= htmlspecialchars($prefill['tin'] ?? '') ?>">
               </div>
               <div class="vat-group">
                 <label>Tax Type *</label>
                 <div class="vatlabels">
-                  <label><input type="radio" name="tax_type" value="VAT" required> VAT</label>
-                  <label><input type="radio" name="tax_type" value="NONVAT"> NONVAT</label>
-                  <label><input type="radio" name="tax_type" value="VAT-EXEMPT"> VAT-EXEMPT</label>
-                  <label><input type="radio" name="tax_type" value="NON-VAT EXEMPT"> NON-VAT EXEMPT</label>
-                  <label><input type="radio" name="tax_type" value="EXEMPT"> EXEMPT</label>
+                  <?php $taxType = $prefill['tax_type'] ?? ''; ?>
+                  <label><input type="radio" name="tax_type" value="VAT" required <?= $taxType === 'VAT' ? 'checked' : '' ?>> VAT</label>
+                  <label><input type="radio" name="tax_type" value="NONVAT" <?= $taxType === 'NONVAT' ? 'checked' : '' ?>> NONVAT</label>
+                  <label><input type="radio" name="tax_type" value="VAT-EXEMPT" <?= $taxType === 'VAT-EXEMPT' ? 'checked' : '' ?>> VAT-EXEMPT</label>
+                  <label><input type="radio" name="tax_type" value="NON-VAT EXEMPT" <?= $taxType === 'NON-VAT EXEMPT' ? 'checked' : '' ?>> NON-VAT EXEMPT</label>
+                  <label><input type="radio" name="tax_type" value="EXEMPT" <?= $taxType === 'EXEMPT' ? 'checked' : '' ?>> EXEMPT</label>
                 </div>
               </div>
               <div class="form-group">
                 <label for="rdo_code">BIR RDO Code</label>
-                <input list="rdo_list" id="rdo_code" name="rdo_code" placeholder="Enter or select RDO code">
+                <input list="rdo_list" id="rdo_code" name="rdo_code" placeholder="Enter or select RDO code" value="<?= htmlspecialchars($prefill['rdo_code'] ?? '') ?>">
                 <datalist id="rdo_list">
                   <option value="001 - Laoag City, Ilocos Norte">
                   <option value="002 - Vigan, Ilocos Sur">
@@ -1555,63 +1565,48 @@ while ($row = $result->fetch_assoc()) {
                 <select id="province" name="province" required>
                   <option value="">Select Province</option>
                   <?php foreach ($provinces as $prov): ?>
-                    <option value="<?= htmlspecialchars($prov) ?>"><?= htmlspecialchars($prov) ?></option>
+                    <option value="<?= htmlspecialchars($prov) ?>" <?= (isset($prefill['province']) && $prefill['province'] === $prov) ? 'selected' : '' ?>><?= htmlspecialchars($prov) ?></option>
                   <?php endforeach; ?>
                 </select>
               </div>
               <div class="form-group">
                 <label for="city">City / Municipality *</label>
                 <select id="city" name="city" required>
-                  <option value="">Select City</option>
+                  <option value="<?= htmlspecialchars($prefill['city'] ?? '') ?>" selected><?= htmlspecialchars($prefill['city'] ?? 'Select City') ?></option>
                 </select>
               </div>
               <div class="form-group" style="position: relative;">
                 <label for="barangay">Barangay</label>
-                <span style="
-                  position: absolute;
-                  top: 70%;
-                  left: 12px;
-                  transform: translateY(-50%);
-                  color: #6c757d;
-                  pointer-events: none;
-                  font-size: 14px;
-                ">
-                  Brgy.
-                </span>
-                <input type="text"
-                  id="barangay"
-                  name="barangay"
-                  class="form-control"
-                  placeholder="e.g. San Isidro"
-                  style="padding-left: 60px;" pattern="[^,]*" title="Commas are not allowed" />
+                <span style="position: absolute; top: 70%; left: 12px; transform: translateY(-50%); color: #6c757d; pointer-events: none; font-size: 14px;">Brgy.</span>
+                <input type="text" id="barangay" name="barangay" class="form-control" placeholder="e.g. San Isidro" style="padding-left: 60px;" pattern="[^,]*" title="Commas are not allowed" value="<?= htmlspecialchars($prefill['barangay'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="street">Subdivision / Street</label>
-                <input type="text" id="street" name="street" placeholder="e.g. Rizal St." pattern="[^,]*" title="Commas are not allowed">
+                <input type="text" id="street" name="street" placeholder="e.g. Rizal St." pattern="[^,]*" title="Commas are not allowed" value="<?= htmlspecialchars($prefill['street'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="building_no">Building / House No.</label>
-                <input type="text" id="building_no" name="building_no" placeholder="e.g. Bldg 4, Lot 6" pattern="[^,]*" title="Commas are not allowed">
+                <input type="text" id="building_no" name="building_no" placeholder="e.g. Bldg 4, Lot 6" pattern="[^,]*" title="Commas are not allowed" value="<?= htmlspecialchars($prefill['building_no'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="floor_no">Floor / Room No.</label>
-                <input type="text" id="floor_no" name="floor_no" placeholder="e.g. 2F, Room 201" pattern="[^,]*" title="Commas are not allowed">
+                <input type="text" id="floor_no" name="floor_no" placeholder="e.g. 2F, Room 201" pattern="[^,]*" title="Commas are not allowed" value="<?= htmlspecialchars($prefill['floor_no'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="zip_code">ZIP Code</label>
-                <input type="text" id="zip_code" name="zip_code" placeholder="e.g. 3020" pattern="[^,]*" title="Commas are not allowed">
+                <input type="text" id="zip_code" name="zip_code" placeholder="e.g. 3020" pattern="[^,]*" title="Commas are not allowed" value="<?= htmlspecialchars($prefill['zip_code'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="contact_person">Contact Person *</label>
-                <input type="text" id="contact_person" name="contact_person" required>
+                <input type="text" id="contact_person" name="contact_person" required value="<?= htmlspecialchars($prefill['contact_person'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="contact_number">Contact Number *</label>
-                <input type="text" id="contact_number" name="contact_number" required>
+                <input type="text" id="contact_number" name="contact_number" required value="<?= htmlspecialchars($prefill['contact_number'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="client_by">Client By *</label>
-                <input type="text" name="client_by" id="client_by" class="form-control" required>
+                <input type="text" name="client_by" id="client_by" class="form-control" required value="<?= htmlspecialchars($prefill['client_by'] ?? '') ?>">
               </div>
             </div>
           </fieldset>
@@ -1783,6 +1778,20 @@ while ($row = $result->fetch_assoc()) {
 
 
   <script>
+    document.getElementById('jobOrderForm').addEventListener('submit', function (e) {
+      const address = [
+        document.getElementById('floor_no').value.trim(),
+        document.getElementById('building_no').value.trim(),
+        document.getElementById('street').value.trim(),
+        document.getElementById('barangay').value.trim() ? `Brgy. ${document.getElementById('barangay').value.trim()}` : '',
+        document.getElementById('city').value.trim(),
+        document.getElementById('province').value.trim(),
+        document.getElementById('zip_code').value.trim()
+      ].filter(Boolean).join(', ');
+
+      document.getElementById('client_address').value = address;
+    });
+
     document.addEventListener('DOMContentLoaded', () => {
       const inputs = document.querySelectorAll('#jobOrderForm input[type="text"], #jobOrderForm textarea');
 
@@ -1934,7 +1943,7 @@ while ($row = $result->fetch_assoc()) {
 
       const modal = document.getElementById('jobModal');
       const modalBody = document.getElementById('modal-body');
-      
+
       let html = `
     <div class="floating-window">
       <div class="window-header">
@@ -2178,7 +2187,7 @@ while ($row = $result->fetch_assoc()) {
     }
 
     // ✅ Toggle CLIENT
-    window.toggleClient = function (el) {
+    window.toggleClient = function(el) {
       const container = el.nextElementSibling;
       const isOpen = window.getComputedStyle(container).display !== 'none';
       container.style.display = isOpen ? 'none' : 'block';
@@ -2191,7 +2200,7 @@ while ($row = $result->fetch_assoc()) {
     };
 
     // ✅ Toggle DATE
-    window.toggleDate = function (el) {
+    window.toggleDate = function(el) {
       const container = el.nextElementSibling;
       const isOpen = window.getComputedStyle(container).display !== 'none';
       container.style.display = isOpen ? 'none' : 'block';
@@ -2205,7 +2214,7 @@ while ($row = $result->fetch_assoc()) {
     };
 
     // ✅ Toggle PROJECT
-    window.toggleProject = function (el) {
+    window.toggleProject = function(el) {
       const container = el.nextElementSibling;
       const isOpen = window.getComputedStyle(container).display !== 'none';
       container.style.display = isOpen ? 'none' : 'block';
@@ -2254,7 +2263,7 @@ while ($row = $result->fetch_assoc()) {
       });
     });
 
-    document.addEventListener("DOMContentLoaded", function() {      
+    document.addEventListener("DOMContentLoaded", function() {
       const form = document.getElementById("jobOrderForm");
       const storageKey = "jobOrderFormData";
       const scrollKey = "scroll-y";

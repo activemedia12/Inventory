@@ -702,6 +702,7 @@ $stmt->close();
       <li><a href="products.php" class="active"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
       <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
       <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+      <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
       <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
     </ul>
   </div>
