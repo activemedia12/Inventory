@@ -35,7 +35,7 @@ $query = "
         GROUP BY product_id
     ) d ON p.id = d.product_id
     LEFT JOIN (
-        SELECT product_id, SUM(used_sheets) AS total_used
+        SELECT product_id, SUM(used_sheets + COALESCE(spoilage_sheets, 0)) AS total_used
         FROM usage_logs
         GROUP BY product_id
     ) u ON p.id = u.product_id
