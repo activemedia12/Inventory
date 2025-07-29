@@ -45,7 +45,7 @@ $sheet->getStyle('A1:S1')->applyFromArray($headerStyle);
 $rowNum = 2;
 while ($row = $result->fetch_assoc()) {
     $sheet->fromArray([
-        $row['log_date'],
+        date('F j, Y', strtotime($row['log_date'])),
         '',
         $row['client_by'],
         $row['contact_person'],
@@ -91,7 +91,7 @@ try {
     $mail->SMTPSecure = 'tls';
     $mail->Port       = 587;
 
-    $mail->setFrom('reportsjoborder@gmail.com', 'Job Order Report');
+    $mail->setFrom('reportsjoborder@gmail.com', 'AMDP Inventory');
 
     // Multiple recipients (add as many as you like)
     $mail->addAddress('activemediaprint@gmail.com', 'Active Media');

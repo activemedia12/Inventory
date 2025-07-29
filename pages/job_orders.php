@@ -1161,34 +1161,48 @@ while ($row = $result->fetch_assoc()) {
     }
 
     @media (max-width: 768px) {
-      .sidebar {
-        position: fixed;
-        width: 50px;
-        overflow: hidden;
-        height: 200px;
-        bottom: 300px;
-        padding: 0;
-        left: 10px;
-        background-color: rgba(255, 255, 255, 0.3);
-        backdrop-filter: blur(2px);
-        box-shadow: 1px 1px 10px rgb(190, 190, 190);
-        border-radius: 100px;
-        cursor: grab;
-        transition: left 0.05s ease-in, top 0.05s ease-in;
-        touch-action: manipulation;
-        z-index: 9999;
-      }
+            .sidebar-con {
+                width: 100%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: fixed;
+            }
+            .sidebar {
+                position: fixed;
+                overflow: hidden;
+                height: auto;
+                width: auto;
+                bottom: 20px;
+                padding: 0;
+                background-color: rgba(255, 255, 255, 0.3);
+                backdrop-filter: blur(2px);
+                box-shadow: 1px 1px 10px rgb(190, 190, 190);
+                border-radius: 100px;
+                cursor: grab;
+                transition: left 0.05s ease-in, top 0.05s ease-in;
+                touch-action: manipulation;
+                z-index: 9999;
+                flex-direction: row;
+                border: 1px solid white;
+                justify-content: center;
+            }
 
-      .sidebar img,
-      .sidebar .brand,
-      .sidebar .brand li,
-      .sidebar .nav-menu li a span {
-        display: none;
-      }
+            .sidebar .nav-menu {
+                display: flex;
+                flex-direction: row;
+            }
 
-      .sidebar .nav-menu li a {
-        justify-content: center;
-      }
+            .sidebar img,
+            .sidebar .brand,
+            .sidebar .nav-menu li a span {
+                display: none;
+            }
+
+            .sidebar .nav-menu li a {
+                justify-content: center;
+                padding: 15px;
+            }
 
       .sidebar .nav-menu li a i {
         margin-right: 0;
@@ -1342,22 +1356,213 @@ while ($row = $result->fetch_assoc()) {
       color: #28a745;
       border-color: #28a745;
     }
+  /* Overlay */
+  .export-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(2px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    animation: exportFadeIn 0.3s ease-out;
+  }
+  
+  /* Container */
+  .export-modal-container {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 420px;
+    overflow: hidden;
+    margin: 20px;
+  }
+  
+  /* Header */
+  .export-modal-header {
+    padding: 18px 24px;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .export-modal-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  
+  .export-modal-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+  
+  /* Body */
+  .export-modal-body {
+    padding: 8px 24px 24px;
+  }
+  
+  /* Form Styles */
+  .export-form-group {
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+  
+  .export-form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #555;
+  }
+  
+  .export-input-wrapper {
+    position: relative;
+  }
+  
+  .export-form-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.3s;
+  }
+  
+  .export-form-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(74, 111, 220, 0.2);
+  }
+  
+  input[type="date"].export-form-input {
+    padding-right: 30px;
+  }
+  
+  /* Buttons */
+  .export-form-actions {
+    display: flex;
+    justify-content: flex-start;
+    gap: 12px;
+    margin-top: 24px;
+  }
+  
+  .export-btn {
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .export-btn-primary {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      background: rgba(67, 238, 76, 0.1);
+      color: #28a745;
+      border: 1px solid #28a745;
+      display: inline-flex;
+      align-items: center;
+      transition: all 0.2s;
+  }
+  
+  .export-btn-primary:hover {
+    background: rgba(40, 167, 69, 0.2);
+  }
+  
+  .export-btn-secondary {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      transition: all 0.2s;
+      background: rgba(244, 67, 54, 0.1);
+      color: #f44336;
+      border: 1px solid #f44336;
+  }
+  
+  .export-btn-secondary:hover {
+    background: rgba(244, 67, 54, 0.2);
+  }
+  
+  .export-btn-icon {
+    font-size: 16px;
+  }
+  
+  /* Animation */
+  @keyframes exportFadeIn {
+    from { opacity: 0;}
+    to { opacity: 1;}
+  }
+  
+  /* Responsive */
+  @media (max-width: 480px) {
+    .export-modal-container {
+      margin: 10px;
+    }
+    
+    .export-modal-body {
+      padding: 8px 20px 20px 20px;
+    }
+    
+    .export-form-actions {
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .export-btn {
+      width: 100%;
+    }
+  }
+
+  .export {
+    background-color: var(--card-bg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    width: 211.4px;
+  }
   </style>
 </head>
 
 <body>
-  <div class="sidebar">
-    <div class="brand">
-      <img src="../assets/images/plainlogo.png" alt="">
+  <div class="sidebar-con">
+    <div class="sidebar">
+      <div class="brand">
+        <img src="../assets/images/plainlogo.png" alt="">
+      </div>
+      <ul class="nav-menu">
+        <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
+        <li><a href="products.php"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
+        <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
+        <li><a href="job_orders.php" class="active"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+        <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
+        <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
+      </ul>
     </div>
-    <ul class="nav-menu">
-      <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
-      <li><a href="products.php"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
-      <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
-      <li><a href="job_orders.php" class="active"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
-      <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
-      <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
-    </ul>
   </div>
 
   <div class="main-content">
@@ -1395,7 +1600,12 @@ while ($row = $result->fetch_assoc()) {
       </form>
     </div>
 
-    <!-- Collapsible New Job Order Form -->
+    <div class="export">
+      <button onclick="document.getElementById('exportModal').style.display='flex'" class="btn">
+        Request J.O. Copies
+      </button>
+    </div>
+
     <div class="card">
       <div class="collapsible-form-header" onclick="toggleForm()">
         <span><i class="fas fa-plus-circle"></i> Create New Job Order</span>
@@ -1776,6 +1986,48 @@ while ($row = $result->fetch_assoc()) {
     </div>
   </div>
 
+  <div id="exportModal" class="export-modal-overlay">
+    <div class="export-modal-container">
+      <div class="export-modal-header">
+        <h3 class="export-modal-title">Request J.O. Copies</h3>
+        <button class="export-modal-close" onclick="document.getElementById('exportModal').style.display='none'">
+          &times;
+        </button>
+      </div>
+      
+      <div class="export-modal-body">
+        <span style="font-size: 80%; color: lightgray;">Request a copy by choosing a date range below.*</span>
+        <br>
+        <span style="font-size: 80%; color: lightgray;">Will be sent via email as an Excel (.xlsx) attachment.*</span>
+        <br>
+        <span style="font-size: 80%; color: lightgray;"><strong>For single day report, enter the same date in both fields.</strong>*</span>
+        <form action="../config/email_export_custom.php" method="GET" target="_blank" class="export-form">
+          <div class="export-form-group">
+            <label class="export-form-label">Job Orders From</label>
+            <div class="export-input-wrapper">
+              <input type="date" name="start_date" class="export-form-input" required>
+            </div>
+          </div>
+          
+          <div class="export-form-group">
+            <label class="export-form-label">To</label>
+            <div class="export-input-wrapper">
+              <input type="date" name="end_date" class="export-form-input" required>
+            </div>
+          </div>
+          
+          <div class="export-form-actions">
+            <button type="submit" class="export-btn export-btn-primary">
+              Request Now
+            </button>
+            <button type="button" class="export-btn export-btn-secondary" onclick="document.getElementById('exportModal').style.display='none'">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 
   <script>
     document.getElementById('jobOrderForm').addEventListener('submit', function (e) {
@@ -2783,87 +3035,6 @@ while ($row = $result->fetch_assoc()) {
           });
       });
     });
-    if (window.matchMedia("(max-width: 768px)").matches) {
-      const sidebar = document.querySelector('.sidebar');
-
-      let isDragging = false;
-      let offsetX = 0;
-      let offsetY = 0;
-      let startX = 0;
-      let startY = 0;
-      let dragged = false;
-
-      const DRAG_THRESHOLD = 5;
-
-      sidebar.addEventListener('touchstart', (e) => {
-        const touch = e.touches[0];
-        startX = touch.clientX;
-        startY = touch.clientY;
-
-        const rect = sidebar.getBoundingClientRect();
-        offsetX = touch.clientX - rect.left;
-        offsetY = touch.clientY - rect.top;
-
-        isDragging = true;
-        dragged = false;
-
-        document.addEventListener('touchmove', onTouchMove, {
-          passive: false
-        });
-        document.addEventListener('touchend', onTouchEnd);
-      });
-
-      function onTouchMove(e) {
-        if (!isDragging) return;
-
-        const touch = e.touches[0];
-        const dx = touch.clientX - startX;
-        const dy = touch.clientY - startY;
-
-        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
-          dragged = true;
-
-          const newLeft = touch.clientX - offsetX;
-          const newTop = touch.clientY - offsetY;
-
-          sidebar.style.left = `${newLeft}px`;
-          sidebar.style.top = `${newTop}px`;
-          sidebar.style.bottom = 'auto';
-
-          e.preventDefault(); // only prevent scrolling when dragging
-        }
-      }
-
-      function onTouchEnd(e) {
-        if (!isDragging) return;
-
-        if (dragged) {
-          const rect = sidebar.getBoundingClientRect();
-          const viewportWidth = window.innerWidth;
-          const snappedLeft = rect.left < viewportWidth / 2;
-
-          sidebar.style.left = snappedLeft ? '10px' : `${viewportWidth - rect.width - 10}px`;
-
-          const maxTop = window.innerHeight - rect.height - 10;
-          const top = Math.max(10, Math.min(rect.top, maxTop));
-          sidebar.style.top = `${top}px`;
-        }
-
-        isDragging = false;
-
-        document.removeEventListener('touchmove', onTouchMove);
-        document.removeEventListener('touchend', onTouchEnd);
-      }
-
-      // Prevent accidental clicks only if dragged
-      sidebar.addEventListener('click', function(e) {
-        if (dragged) {
-          e.stopImmediatePropagation();
-          e.preventDefault();
-          dragged = false;
-        }
-      });
-    }
   </script>
   <script src="../assets/js/print.js"></script>
 </body>
