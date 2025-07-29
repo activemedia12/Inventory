@@ -932,14 +932,20 @@ while ($row = $result->fetch_assoc()) {
         }
 
         @media (max-width: 768px) {
+            .sidebar-con {
+                width: 100%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: fixed;
+            }
             .sidebar {
                 position: fixed;
-                width: 50px;
                 overflow: hidden;
-                height: 200px;
-                bottom: 300px;
+                height: auto;
+                width: auto;
+                bottom: 20px;
                 padding: 0;
-                left: 10px;
                 background-color: rgba(255, 255, 255, 0.3);
                 backdrop-filter: blur(2px);
                 box-shadow: 1px 1px 10px rgb(190, 190, 190);
@@ -948,17 +954,25 @@ while ($row = $result->fetch_assoc()) {
                 transition: left 0.05s ease-in, top 0.05s ease-in;
                 touch-action: manipulation;
                 z-index: 9999;
+                flex-direction: row;
+                border: 1px solid white;
+                justify-content: center;
+            }
+
+            .sidebar .nav-menu {
+                display: flex;
+                flex-direction: row;
             }
 
             .sidebar img,
             .sidebar .brand,
-            .sidebar .brand li,
             .sidebar .nav-menu li a span {
                 display: none;
             }
 
             .sidebar .nav-menu li a {
                 justify-content: center;
+                padding: 15px;
             }
 
             .sidebar .nav-menu li a i {
@@ -1428,20 +1442,21 @@ while ($row = $result->fetch_assoc()) {
 </head>
 
 <body>
-    <div class="sidebar">
-        <div class="brand">
-            <img src="../assets/images/plainlogo.png" alt="">
+    <div class="sidebar-con">
+        <div class="sidebar">
+            <div class="brand">
+                <img src="../assets/images/plainlogo.png" alt="">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
+                <li><a href="products.php"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
+                <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
+                <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+                <li><a href="clients.php" class="active"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
+                <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
+            </ul>
         </div>
-        <ul class="nav-menu">
-            <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
-            <li><a href="products.php"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
-            <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
-            <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
-            <li><a href="clients.php" class="active"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
-            <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
-        </ul>
     </div>
-
     <div class="main-content">
         <header class="header">
             <h1>Client Information</h1>
@@ -2124,88 +2139,6 @@ while ($row = $result->fetch_assoc()) {
                 "Mati, Davao Oriental": "114",
                 "Digos, Davao del Sur": "115"
             };
-
-            if (window.matchMedia("(max-width: 768px)").matches) {
-                const sidebar = document.querySelector('.sidebar');
-
-                let isDragging = false;
-                let offsetX = 0;
-                let offsetY = 0;
-                let startX = 0;
-                let startY = 0;
-                let dragged = false;
-
-                const DRAG_THRESHOLD = 5;
-
-                sidebar.addEventListener('touchstart', (e) => {
-                    const touch = e.touches[0];
-                    startX = touch.clientX;
-                    startY = touch.clientY;
-
-                    const rect = sidebar.getBoundingClientRect();
-                    offsetX = touch.clientX - rect.left;
-                    offsetY = touch.clientY - rect.top;
-
-                    isDragging = true;
-                    dragged = false;
-
-                    document.addEventListener('touchmove', onTouchMove, {
-                        passive: false
-                    });
-                    document.addEventListener('touchend', onTouchEnd);
-                });
-
-                function onTouchMove(e) {
-                    if (!isDragging) return;
-
-                    const touch = e.touches[0];
-                    const dx = touch.clientX - startX;
-                    const dy = touch.clientY - startY;
-
-                    if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
-                        dragged = true;
-
-                        const newLeft = touch.clientX - offsetX;
-                        const newTop = touch.clientY - offsetY;
-
-                        sidebar.style.left = `${newLeft}px`;
-                        sidebar.style.top = `${newTop}px`;
-                        sidebar.style.bottom = 'auto';
-
-                        e.preventDefault(); // only prevent scrolling when dragging
-                    }
-                }
-
-                function onTouchEnd(e) {
-                    if (!isDragging) return;
-
-                    if (dragged) {
-                        const rect = sidebar.getBoundingClientRect();
-                        const viewportWidth = window.innerWidth;
-                        const snappedLeft = rect.left < viewportWidth / 2;
-
-                        sidebar.style.left = snappedLeft ? '10px' : `${viewportWidth - rect.width - 10}px`;
-
-                        const maxTop = window.innerHeight - rect.height - 10;
-                        const top = Math.max(10, Math.min(rect.top, maxTop));
-                        sidebar.style.top = `${top}px`;
-                    }
-
-                    isDragging = false;
-
-                    document.removeEventListener('touchmove', onTouchMove);
-                    document.removeEventListener('touchend', onTouchEnd);
-                }
-
-                // Prevent accidental clicks only if dragged
-                sidebar.addEventListener('click', function(e) {
-                    if (dragged) {
-                        e.stopImmediatePropagation();
-                        e.preventDefault();
-                        dragged = false;
-                    }
-                });
-            }
         </script>
     </div>
 </body>
