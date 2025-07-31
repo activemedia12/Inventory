@@ -6,7 +6,8 @@ if (!isset($_SESSION['user_id'])) {
 }
 require_once '../config/db.php';
 
-$prefill = [];
+$prefill = $_SESSION['form_data'] ?? [];
+unset($_SESSION['form_data']);
 
 if (isset($_GET['client_id'])) {
     $stmt = $mysqli->prepare("SELECT * FROM clients WHERE id = ?");
@@ -59,6 +60,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $ocn_number = trim($_POST['ocn_number'] ?? '');
   $date_issued = $_POST['date_issued'] ?? null;
   if (empty($date_issued)) $date_issued = null;
+  $province = $_POST['province'] ?? '';
+  $city = $_POST['city'] ?? '';
+  $barangay = $_POST['barangay'] ?? '';
+  $street = $_POST['street'] ?? '';
+  $building_no = $_POST['building_no'] ?? '';
+  $floor_no = $_POST['floor_no'] ?? '';
+  $zip_code = $_POST['zip_code'] ?? '';
 
   $cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, 'whole' => 1];
   $cut_size = $cut_size_map[$product_size] ?? 1;
@@ -93,32 +101,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($result && $result->num_rows > 0) {
       $row = $result->fetch_assoc();
       if ($row['available'] < $used_sheets) {
-        $insufficient[] = "❌ Not enough stock for <strong>$color</strong>. Available: {$row['available']} sheets, Required: $used_sheets sheets.";
+        $needed_sheets = $used_sheets - $row['available'];
+        $needed_reams = ceil($needed_sheets / 500);
+
+        $insufficient[] = "<i class='fas fa-exclamation-circle'></i> Not enough stock for <strong>$color</strong>. Available: {$row['available']} sheets, Required: $used_sheets sheets. You need to add at least <strong>{$needed_reams} ream(s)</strong>.";
+
       } else {
         $products_used[] = ['product_id' => $row['id'], 'color' => $color];
       }
     } else {
-      $insufficient[] = "❌ Product not found for <strong>$color</strong>.";
+      $insufficient[] = "<i class='fas fa-exclamation-circle'></i> Product not found for <strong>$color</strong>.";
     }
   }
 
   if (!empty($insufficient)) {
-    $_SESSION['message'] = "<div class='alert alert-danger'>" . implode("<br>", $insufficient) . "</div>";
+    $_SESSION['form_data'] = $_POST;
+
+    $messages = array_map(function($msg) {
+      return "<div class='alert alert-danger'>$msg</div>";
+    }, $insufficient);
+
+    $_SESSION['message'] = implode("", $messages);
     header("Location: job_orders.php");
     exit;
+  }
+
+
+  // Check if client already exists based on client_name and contact_number
+  $client_check = $mysqli->prepare("SELECT id FROM clients WHERE client_name = ? AND contact_number = ? LIMIT 1");
+  $client_check->bind_param("ss", $client_name, $contact_number);
+  $client_check->execute();
+  $client_check_result = $client_check->get_result();
+
+  if ($client_check_result->num_rows === 0) {
+    // INSERT new client
+    $insert_client = $mysqli->prepare("INSERT INTO clients (
+      client_name, taxpayer_name, tin, tax_type, rdo_code, client_address,
+      province, city, barangay, street, building_no, floor_no, zip_code,
+      contact_person, contact_number, client_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+    $insert_client->bind_param(
+      "ssssssssssssssss",
+      $client_name,
+      $taxpayer_name,
+      $tin,
+      $tax_type,
+      $rdo_code,
+      $client_address,
+      $province,
+      $city,
+      $barangay,
+      $street,
+      $building_no,
+      $floor_no,
+      $zip_code,
+      $contact_person,
+      $contact_number,
+      $client_by,
+    );
+
+    $insert_client->execute();
+    $insert_client->close();
   }
 
   $stmt = $mysqli->prepare("INSERT INTO job_orders (
     log_date, client_name, client_address, contact_person, contact_number, taxpayer_name, tax_type, rdo_code, tin, client_by,
     project_name, ocn_number, date_issued, quantity, number_of_sets, product_size, serial_range,
     paper_size, custom_paper_size, paper_type, copies_per_set, binding_type,
-    custom_binding, paper_sequence, special_instructions, created_by,
+    custom_binding, paper_sequence, special_instructions, created_by, province, city, barangay, street, building_no, floor_no, zip_code,
     status
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
 
   if ($stmt) {
     $stmt->bind_param(
-      "sssssssssssssiisssssissssi",
+      "sssssssssssssiisssssissssisssssss",
       $log_date,
       $client_name,
       $client_address,
@@ -144,7 +201,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $custom_binding,
       $paper_sequence_str,
       $special_instructions,
-      $created_by
+      $created_by,
+      $province,
+      $city,
+      $barangay,
+      $street,
+      $building_no,
+      $floor_no,
+      $zip_code,
     );
 
     if ($stmt->execute()) {
@@ -1795,12 +1859,12 @@ while ($row = $result->fetch_assoc()) {
                 <input type="text" id="street" name="street" placeholder="e.g. Rizal St." pattern="[^,]*" title="Commas are not allowed" value="<?= htmlspecialchars($prefill['street'] ?? '') ?>">
               </div>
               <div class="form-group">
-                <label for="building_no">Building / House No.</label>
-                <input type="text" id="building_no" name="building_no" placeholder="e.g. Bldg 4, Lot 6" pattern="[^,]*" title="Commas are not allowed" value="<?= htmlspecialchars($prefill['building_no'] ?? '') ?>">
+                <label for="building_no">Building / Block</label>
+                <input type="text" id="building_no" name="building_no" placeholder="e.g. Bldg 4 / Block 5" pattern="[^,]*" title="Commas are not allowed" value="<?= htmlspecialchars($prefill['building_no'] ?? '') ?>">
               </div>
               <div class="form-group">
-                <label for="floor_no">Floor / Room No.</label>
-                <input type="text" id="floor_no" name="floor_no" placeholder="e.g. 2F, Room 201" pattern="[^,]*" title="Commas are not allowed" value="<?= htmlspecialchars($prefill['floor_no'] ?? '') ?>">
+                <label for="floor_no">Lot / Room No.</label>
+                <input type="text" id="floor_no" name="floor_no" placeholder="e.g. Lot 6 and 7, Room 201" pattern="[^,]*" title="Commas are not allowed" value="<?= htmlspecialchars($prefill['floor_no'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="zip_code">ZIP Code</label>
@@ -1826,7 +1890,7 @@ while ($row = $result->fetch_assoc()) {
             <div class="form-grid">
               <div class="form-group">
                 <label for="project_name">Project Name *</label>
-                <input list="project_name_list" id="project_name" name="project_name" placeholder="e.g. Official Receipt" required>
+                <input list="project_name_list" id="project_name" name="project_name" placeholder="e.g. Official Receipt" required value="<?= htmlspecialchars($prefill['project_name'] ?? '') ?>">
                 <datalist id="project_name_list">
                   <?php while ($p = $project_names->fetch_assoc()): ?>
                     <option value="<?= htmlspecialchars($p['project_name']) ?>">
@@ -1835,19 +1899,19 @@ while ($row = $result->fetch_assoc()) {
               </div>
               <div class="form-group">
                 <label for="serial_range">Serial Range *</label>
-                <input type="text" id="serial_range" name="serial_range" placeholder="e.g. 3501 - 5500" required>
+                <input type="text" id="serial_range" name="serial_range" placeholder="e.g. 3501 - 5500" required value="<?= htmlspecialchars($prefill['serial_range'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="log_date">Order Date *</label>
-                <input type="date" id="log_date" name="log_date" value="<?= date('Y-m-d') ?>">
+                <input type="date" id="log_date" name="log_date" value="<?= date('Y-m-d') ?>" value="<?= htmlspecialchars($prefill['log_date'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="ocn_number">OCN Number</label>
-                <input type="text" name="ocn_number" id="ocn_number" class="form-control">
+                <input type="text" name="ocn_number" id="ocn_number" class="form-control" value="<?= htmlspecialchars($prefill['ocn_number'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="date_issued">Date Issued</label>
-                <input type="date" name="date_issued" id="date_issued" class="form-control">
+                <input type="date" name="date_issued" id="date_issued" class="form-control" value="<?= htmlspecialchars($prefill['date_issued'] ?? '') ?>">
               </div>
             </div>
           </fieldset>
@@ -1857,27 +1921,27 @@ while ($row = $result->fetch_assoc()) {
             <div class="form-grid">
               <div class="form-group">
                 <label for="quantity">Order Quantity *</label>
-                <input type="number" id="quantity" name="quantity" min="1" required>
+                <input type="number" id="quantity" name="quantity" min="1" required value="<?= htmlspecialchars($prefill['quantity'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="number_of_sets">Sets per Bind *</label>
-                <input type="number" id="number_of_sets" name="number_of_sets" min="1" required>
+                <input type="number" id="number_of_sets" name="number_of_sets" min="1" required value="<?= htmlspecialchars($prefill['number_of_sets'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="product_size">Cut Size *</label>
                 <select id="product_size" name="product_size" required>
                   <option value="">Select</option>
-                  <option value="whole">Whole</option>
-                  <option value="1/2">1/2</option>
-                  <option value="1/3">1/3</option>
-                  <option value="1/4">1/4</option>
-                  <option value="1/6">1/6</option>
-                  <option value="1/8">1/8</option>
+                  <option value="whole" <?= ($prefill['product_size'] ?? '') === 'whole' ? 'selected' : '' ?>>Whole</option>
+                  <option value="1/2" <?= ($prefill['product_size'] ?? '') === '1/2' ? 'selected' : '' ?>>1/2</option>
+                  <option value="1/3" <?= ($prefill['product_size'] ?? '') === '1/3' ? 'selected' : '' ?>>1/3</option>
+                  <option value="1/4" <?= ($prefill['product_size'] ?? '') === '1/4' ? 'selected' : '' ?>>1/4</option>
+                  <option value="1/6" <?= ($prefill['product_size'] ?? '') === '1/6' ? 'selected' : '' ?>>1/6</option>
+                  <option value="1/8" <?= ($prefill['product_size'] ?? '') === '1/8' ? 'selected' : '' ?>>1/8</option>
                 </select>
               </div>
               <div class="form-group">
                 <label for="paper_type">Paper / Media Type *</label>
-                <select id="paper_type" name="paper_type" required>
+                <select id="paper_type" name="paper_type" required value="<?= htmlspecialchars($prefill['paper_type'] ?? '') ?>">
                   <option value="">Select</option>
                   <?php
                   $product_types = $mysqli->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
@@ -1890,23 +1954,23 @@ while ($row = $result->fetch_assoc()) {
 
               <div class="form-group">
                 <label for="paper_size">Paper Size *</label>
-                <select id="paper_size" name="paper_size" required>
+                <select id="paper_size" name="paper_size" required value="<?= htmlspecialchars($prefill['paper_size'] ?? '') ?>">
                   <option value="">Select</option>
                 </select>
               </div>
               <div class="form-group">
                 <label for="copies_per_set">Number of Copies per Set *</label>
-                <input type="number" id="copies_per_set" name="copies_per_set" min="1" placeholder="e.g. 2, 3, 4" required>
+                <input type="number" id="copies_per_set" name="copies_per_set" min="1" placeholder="e.g. 2, 3, 4" required value="<?= htmlspecialchars($prefill['copies_per_set'] ?? '') ?>">
               </div>
               <div class="form-group">
                 <label for="binding_type">Type of Binding *</label>
-                <select id="binding_type" name="binding_type" required>
+                <select id="binding_type" name="binding_type" required value="<?= htmlspecialchars($prefill['binding_type'] ?? '') ?>">
                   <option value="">Select</option>
                   <option value="Booklet">Booklet</option>
                   <option value="Pad">Pad</option>
                   <option value="Custom">Custom</option>
                 </select>
-                <input type="text" id="custom_binding" name="custom_binding" placeholder="Enter custom binding" style="display: none; margin-top: 0.5rem;">
+                <input type="text" id="custom_binding" name="custom_binding" placeholder="Enter custom binding" style="display: none; margin-top: 0.5rem;" value="<?= htmlspecialchars($prefill['custom_binding'] ?? '') ?>">
               </div>
             </div>
 
@@ -1917,7 +1981,7 @@ while ($row = $result->fetch_assoc()) {
 
             <div class="form-group">
               <label for="special_instructions">Other Special Instructions</label>
-              <textarea id="special_instructions" name="special_instructions" rows="3"></textarea>
+              <textarea id="special_instructions" name="special_instructions" rows="3" value="<?= htmlspecialchars($prefill['special_instructions'] ?? '') ?>"></textarea>
             </div>
           </fieldset>
 
@@ -2098,31 +2162,22 @@ while ($row = $result->fetch_assoc()) {
         if (taxRadio) taxRadio.checked = true;
       }
 
-      // 🌐 Parse Address String (client_address)
-      const fullAddress = order.client_address || '';
-      document.getElementById('client_address').value = fullAddress;
+      document.getElementById('floor_no').value = order.floor_no || '';
+      document.getElementById('building_no').value = order.building_no || '';
+      document.getElementById('street').value = order.street || '';
+      document.getElementById('barangay').value = order.barangay || '';
+      document.getElementById('city').value = order.city || '';
+      document.getElementById('province').value = order.province || '';
+      document.getElementById('zip_code').value = order.zip_code || '';
 
-      const parts = fullAddress.split(',').map(p => p.trim());
-
-      // Example expected structure:
-      // ["2F Room 201", "Bldg 4 Lot 6", "Rizal St.", "Brgy. San Isidro", "Caloocan City", "Metro Manila", "1400"]
-      document.getElementById('floor_no').value = parts[0] || '';
-      document.getElementById('building_no').value = parts[1] || '';
-      document.getElementById('street').value = parts[2] || '';
-      document.getElementById('barangay').value = parts[3]?.replace(/^Brgy\.?\s*/i, '') || '';
-      document.getElementById('city').value = parts[4] || '';
-      document.getElementById('province').value = parts[5] || '';
-      document.getElementById('zip_code').value = parts[6] || '';
-
-      // Province and City (dependent dropdowns)
       const provinceSelect = document.getElementById('province');
       const citySelect = document.getElementById('city');
 
-      provinceSelect.value = parts[5] || '';
+      provinceSelect.value = order.province || '';
       provinceSelect.dispatchEvent(new Event('change'));
 
       setTimeout(() => {
-        citySelect.value = parts[4] || '';
+        citySelect.value = order.city || '';
         citySelect.dispatchEvent(new Event('change'));
       }, 300);
 
@@ -2522,12 +2577,6 @@ while ($row = $result->fetch_assoc()) {
       const ordersKey = "scroll-compact-orders";
       const ordersContainer = document.querySelector(".compact-orders");
 
-      // ✅ Restore window scroll
-      const scrollY = sessionStorage.getItem(scrollKey);
-      if (scrollY !== null) {
-        window.scrollTo(0, parseInt(scrollY, 10));
-      }
-
       // ✅ Restore compact-orders scroll
       if (ordersContainer) {
         const savedOrdersScroll = sessionStorage.getItem(ordersKey);
@@ -2540,7 +2589,20 @@ while ($row = $result->fetch_assoc()) {
         });
       }
 
-      // ✅ Save window scroll
+      // ✅ Scroll to alert if it exists
+      const alert = document.querySelector(".alert");
+      if (alert) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        sessionStorage.removeItem(scrollKey); // 👈 put it here to prevent restoring scroll next reload
+      } else {
+        // ✅ Restore window scroll only if there's no alert
+        const scrollY = sessionStorage.getItem(scrollKey);
+        if (scrollY !== null) {
+          window.scrollTo(0, parseInt(scrollY, 10));
+        }
+      }
+
+      // ✅ Save scroll
       window.addEventListener("scroll", () => {
         sessionStorage.setItem(scrollKey, window.scrollY);
       });
@@ -2774,6 +2836,15 @@ while ($row = $result->fetch_assoc()) {
     document.addEventListener('DOMContentLoaded', () => {
       const cityInput = document.getElementById('city');
       const rdoInput = document.getElementById('rdo_code');
+      const isOpen = sessionStorage.getItem('jobFormOpen') === 'true';
+      const form = document.getElementById('job-order-form');
+      const chevron = document.getElementById('form-chevron');
+
+      if (form && chevron) {
+        form.style.display = isOpen ? 'block' : 'none';
+        chevron.classList.toggle('fa-chevron-up', isOpen);
+        chevron.classList.toggle('fa-chevron-down', !isOpen);
+      }
 
       if (cityInput && rdoInput) {
         cityInput.addEventListener('change', () => {
@@ -2843,14 +2914,18 @@ while ($row = $result->fetch_assoc()) {
       const form = document.getElementById('job-order-form');
       const chevron = document.getElementById('form-chevron');
 
-      if (form.style.display === 'block') {
+      const isOpen = form.style.display === 'block';
+
+      if (isOpen) {
         form.style.display = 'none';
         chevron.classList.remove('fa-chevron-up');
         chevron.classList.add('fa-chevron-down');
+        sessionStorage.setItem('jobFormOpen', 'false');
       } else {
         form.style.display = 'block';
         chevron.classList.remove('fa-chevron-down');
         chevron.classList.add('fa-chevron-up');
+        sessionStorage.setItem('jobFormOpen', 'true');
       }
     }
 
