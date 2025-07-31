@@ -633,6 +633,196 @@ while ($log = $logs->fetch_assoc()) {
       padding: 0 10px;
       overflow: scroll;
     }
+
+    /* Overlay */
+    .export-modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(2px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      animation: exportFadeIn 0.3s ease-out;
+    }
+    
+    /* Container */
+    .export-modal-container {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      width: 100%;
+      max-width: 450px;
+      overflow: hidden;
+      margin: 20px;
+    }
+    
+    /* Header */
+    .export-modal-header {
+      padding: 18px 24px;
+      background: var(--primary);
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .export-modal-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    
+    .export-modal-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+    }
+    
+    /* Body */
+    .export-modal-body {
+      padding: 8px 24px 24px;
+    }
+    
+    /* Form Styles */
+    .export-form-group {
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .export-form-label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #555;
+    }
+    
+    .export-input-wrapper {
+      position: relative;
+    }
+    
+    .export-form-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+    
+    .export-form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(74, 111, 220, 0.2);
+    }
+    
+    input[type="date"].export-form-input {
+      padding-right: 30px;
+    }
+    
+    /* Buttons */
+    .export-form-actions {
+      display: flex;
+      justify-content: flex-start;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    
+    .export-btn {
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .export-btn-primary {
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        background: rgba(67, 238, 76, 0.1);
+        color: #28a745;
+        border: 1px solid #28a745;
+        display: inline-flex;
+        align-items: center;
+        transition: all 0.2s;
+    }
+    
+    .export-btn-primary:hover {
+      background: rgba(40, 167, 69, 0.2);
+    }
+    
+    .export-btn-secondary {
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        transition: all 0.2s;
+        background: rgba(244, 67, 54, 0.1);
+        color: #f44336;
+        border: 1px solid #f44336;
+    }
+    
+    .export-btn-secondary:hover {
+      background: rgba(244, 67, 54, 0.2);
+    }
+    
+    .export-btn-icon {
+      font-size: 16px;
+    }
+    
+    /* Animation */
+    @keyframes exportFadeIn {
+      from { opacity: 0;}
+      to { opacity: 1;}
+    }
+    
+    /* Responsive */
+    @media (max-width: 480px) {
+      .export-modal-container {
+        margin: 10px;
+      }
+      
+      .export-modal-body {
+        padding: 8px 20px 20px 20px;
+      }
+      
+      .export-form-actions {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .export-btn {
+        width: 100%;
+      }
+    }
+
+    .export {
+      background-color: var(--card-bg);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      width: 255.4px;
+    }
   </style>
 </head>
 
@@ -739,6 +929,12 @@ while ($log = $logs->fetch_assoc()) {
       </form>
     </div>
 
+    <div class="export">
+      <button onclick="document.getElementById('deliveryExportModal').style.display='flex'" class="btn">
+        Request Delivery Report
+      </button>
+    </div>
+
     <!-- Delivery History -->
     <div class="table-card">
       <div class="delivery-summary">
@@ -802,6 +998,48 @@ while ($log = $logs->fetch_assoc()) {
 
   <div id="productModal">
     <div id="productModalBody"></div>
+  </div>
+
+  <div id="deliveryExportModal" class="export-modal-overlay">
+    <div class="export-modal-container">
+      <div class="export-modal-header">
+        <h3 class="export-modal-title">Request Delivery Report</h3>
+        <button class="export-modal-close" onclick="document.getElementById('deliveryExportModal').style.display='none'">
+          &times;
+        </button>
+      </div>
+      
+      <div class="export-modal-body">
+        <span style="font-size: 80%; color: lightgray;">Request a delivery report by selecting a date range below.</span><br>
+        <span style="font-size: 80%; color: lightgray;">It will be sent via email as an Excel (.xlsx) attachment.</span><br>
+        <span style="font-size: 80%; color: lightgray;"><strong>To export a single day, enter the same date in both fields.</strong></span>
+        
+        <form action="../config/email_export_deliveries.php" method="GET" target="_blank" class="export-form">
+          <div class="export-form-group">
+            <label class="export-form-label">Deliveries From</label>
+            <div class="export-input-wrapper">
+              <input type="date" name="start_date" class="export-form-input" required>
+            </div>
+          </div>
+          
+          <div class="export-form-group">
+            <label class="export-form-label">To</label>
+            <div class="export-input-wrapper">
+              <input type="date" name="end_date" class="export-form-input" required>
+            </div>
+          </div>
+          
+          <div class="export-form-actions">
+            <button type="submit" class="export-btn export-btn-primary">
+              Request Report
+            </button>
+            <button type="button" class="export-btn export-btn-secondary" onclick="document.getElementById('deliveryExportModal').style.display='none'">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
