@@ -33,7 +33,7 @@ $sheet->setTitle("Job Orders");
 
 $headers = [
     'DATE', 'STATUS', 'CLIENT BY', 'CONTACT PERSON', 'CONTACT NUMBER', 'CUSTOMER', 'PROJECT NAME',
-    'ORDER QUANTITY', 'CUT SIZE', '# COPIES', 'PAPER', 'ORDER QUANTITY', 'BINDING TYPE', 'CUT SIZE', 'PROJECT NAME',
+    'ORDER QUANTITY', 'CUT SIZE', '# COPIES', 'PAPER', 'ORDER QUANTITY', 'BINDING TYPE', 'PAPER SIZE', 'PROJECT NAME',
     '# COPIES', 'COLOR SEQUENCE', 'PAPER', 'Special Instructions',
 ];
 $sheet->fromArray($headers, NULL, 'A1');
@@ -59,7 +59,7 @@ while ($row = $result->fetch_assoc()) {
         $row['paper_type'],
         $row['quantity'],
         $row['binding_type'],
-        $row['product_size'],
+        $row['paper_size'],
         $row['project_name'],
         $row['copies_per_set'],
         $row['paper_sequence'],

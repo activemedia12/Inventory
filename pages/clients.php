@@ -1147,6 +1147,7 @@ while ($row = $result->fetch_assoc()) {
             overflow: hidden;
             font-family: 'Segoe UI', Roboto, sans-serif;
             margin-bottom: 20px;
+            width: auto;
         }
 
         .card-header {
@@ -1165,7 +1166,7 @@ while ($row = $result->fetch_assoc()) {
         }
 
         .card-body {
-            padding: 0;
+            padding: 10px 20px;
         }
 
         .client-list {
@@ -1178,9 +1179,12 @@ while ($row = $result->fetch_assoc()) {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 5px 15px;
-            border-bottom: 1px solid #f0f0f0;
+            padding: 10px 15px;
             transition: background 0.2s;
+            background-color: #1c1c1c09;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            cursor: pointer;
         }
 
         .client-item:last-child {
@@ -1188,7 +1192,7 @@ while ($row = $result->fetch_assoc()) {
         }
 
         .client-item:hover {
-            background: #f9f9f9;
+            background: #00000020;
         }
 
         .client-name {
@@ -1222,7 +1226,7 @@ while ($row = $result->fetch_assoc()) {
         .search input {
             min-height: 40px;
             width: 40%;
-            margin: 10px;
+            margin: 10px 0;
             padding: 10px 12px;
             border: 1px solid var(--primary);
             border-radius: 6px;
@@ -1449,7 +1453,7 @@ while ($row = $result->fetch_assoc()) {
             </div>
             <ul class="nav-menu">
                 <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
-                <li><a href="products.php"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
+                <li><a href="products.php" onclick="goToLastProductPage()"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
                 <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
                 <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
                 <li><a href="clients.php" class="active"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
@@ -1808,6 +1812,15 @@ while ($row = $result->fetch_assoc()) {
         </div>
 
         <script>
+            function goToLastProductPage() {
+                const last = localStorage.getItem('lastProductPage');
+                if (last) {
+                    window.location.href = last;
+                } else {
+                    window.location.href = 'papers.php'; // fallback
+                }
+            }
+
             document.querySelectorAll('.client-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const client = JSON.parse(item.dataset.client);

@@ -335,7 +335,7 @@ $delivery_history = $delivery_stmt->get_result();
         <div class="window-header">
             <div class="window-title">
                 <i class="fas fa-box"></i>
-                Product Information
+                Paper Information
             </div>
             <button class="close-btn" onclick="closeModal()">
                 <i class="fas fa-times"></i>
@@ -346,17 +346,17 @@ $delivery_history = $delivery_stmt->get_result();
             <!-- Basic Product Info -->
             <div class="product-info-compact">
                 <div class="info-item-compact">
-                    <strong>Product Type</strong>
+                    <strong>Paper Type</strong>
                     <span><?= htmlspecialchars($product['product_type']) ?></span>
                 </div>
 
                 <div class="info-item-compact">
-                    <strong>Product Group</strong>
+                    <strong>Paper Group</strong>
                     <span><?= htmlspecialchars($product['product_group']) ?></span>
                 </div>
 
                 <div class="info-item-compact">
-                    <strong>Product Name</strong>
+                    <strong>Paper Name</strong>
                     <span><?= htmlspecialchars($product['product_name']) ?></span>
                 </div>
 
