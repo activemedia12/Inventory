@@ -11,43 +11,67 @@ $message = "";
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $product_id = intval($_POST['product_id']);
-  $delivered_reams = floatval($_POST['delivered_reams']);
-  $unit = $_POST['unit'] ?? '';
-  $delivery_note = $_POST['delivery_note'] ?? '';
-  $delivery_date = $_POST['delivery_date'] ?? date('Y-m-d');
-  $supplier_name = trim($_POST['supplier_name'] ?? '');
-  $amount_per_ream = floatval($_POST['amount_per_ream']);
+  $delivery_type = $_POST['delivery_type'] ?? 'paper';
   $created_by = $_SESSION['user_id'];
 
-  if ($product_id && $delivered_reams > 0 && $amount_per_ream > 0) {
-    $stmt = $mysqli->prepare("INSERT INTO delivery_logs 
-        (product_id, delivered_reams, unit, delivery_note, delivery_date, supplier_name, amount_per_ream, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("idssssdi", $product_id, $delivered_reams, $unit, $delivery_note, $delivery_date, $supplier_name, $amount_per_ream, $created_by);
+  if ($delivery_type === 'paper') {
+    // === Handle Paper Delivery ===
+    $product_id = intval($_POST['product_id']);
+    $delivered_reams = floatval($_POST['delivered_reams']);
+    $unit = $_POST['unit'] ?? '';
+    $delivery_note = $_POST['delivery_note'] ?? '';
+    $delivery_date = $_POST['delivery_date'] ?? date('Y-m-d');
+    $supplier_name = trim($_POST['supplier_name'] ?? '');
+    $amount_per_ream = floatval($_POST['amount_per_ream']);
 
-    if ($stmt->execute()) {
-      // Update unit price
+    if ($product_id && $delivered_reams > 0 && $amount_per_ream > 0) {
+      $stmt = $mysqli->prepare("INSERT INTO delivery_logs 
+          (product_id, delivered_reams, unit, delivery_note, delivery_date, supplier_name, amount_per_ream, created_by) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+      $stmt->bind_param("idssssdi", $product_id, $delivered_reams, $unit, $delivery_note, $delivery_date, $supplier_name, $amount_per_ream, $created_by);
+      $stmt->execute();
+      $stmt->close();
+
+      // Update unit price in products table
       $update = $mysqli->prepare("UPDATE products SET unit_price = ? WHERE id = ?");
       $update->bind_param("di", $amount_per_ream, $product_id);
       $update->execute();
       $update->close();
 
-      $_SESSION['success_message'] = "Delivery recorded and unit price updated.";
-      header("Location: " . $_SERVER['PHP_SELF']);
-      exit;
+      $_SESSION['success_message'] = "Paper delivery recorded.";
     } else {
-      $_SESSION['error_message'] = "Error: " . $stmt->error;
+      $_SESSION['warning_message'] = "Please fill out all required fields for paper delivery.";
     }
-    $stmt->close();
-  } else {
-    $_SESSION['warning_message'] = "Please fill out all required fields correctly.";
+
+  } elseif ($delivery_type === 'insuance') {
+    // === Handle Insuance Delivery ===
+    $insuance_name = trim($_POST['insuance_name'] ?? '');
+    $delivered_quantity = floatval($_POST['delivered_quantity']);
+    $unit = $_POST['insuance_unit'] ?? '';
+    $delivery_note = $_POST['insuance_note'] ?? '';
+    $delivery_date = $_POST['insuance_date'] ?? date('Y-m-d');
+    $supplier_name = trim($_POST['insuance_supplier'] ?? '');
+    $amount_per_unit = floatval($_POST['amount_per_unit']);
+
+    if ($insuance_name && $delivered_quantity > 0 && $amount_per_unit > 0) {
+      $stmt = $mysqli->prepare("INSERT INTO insuance_delivery_logs 
+          (insuance_name, delivered_quantity, unit, delivery_note, delivery_date, supplier_name, amount_per_unit, created_by) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+      $stmt->bind_param("sdssssdi", $insuance_name, $delivered_quantity, $unit, $delivery_note, $delivery_date, $supplier_name, $amount_per_unit, $created_by);
+      $stmt->execute();
+      $stmt->close();
+
+      $_SESSION['success_message'] = "Insuance delivery recorded.";
+    } else {
+      $_SESSION['warning_message'] = "Please fill out all required fields for insuance delivery.";
+    }
   }
 
-  // Redirect even if failed to avoid resubmission on refresh
+  // Redirect to avoid form resubmission
   header("Location: " . $_SERVER['PHP_SELF']);
   exit;
 }
+
 
 // Display messages from session
 if (isset($_SESSION['success_message'])) {
@@ -65,20 +89,38 @@ if (isset($_SESSION['success_message'])) {
 $products = $mysqli->query("SELECT id, product_type, product_group, product_name FROM products ORDER BY product_type, product_group, product_name");
 
 // Fetch delivery logs grouped by date
-$logs = $mysqli->query("
+// Fetch paper deliveries
+// 1. Fetch paper deliveries
+$product_logs = $mysqli->query("
   SELECT dl.*, p.product_type, p.product_group, p.product_name, u.username
   FROM delivery_logs dl
   JOIN products p ON dl.product_id = p.id
   LEFT JOIN users u ON dl.created_by = u.id
   ORDER BY dl.delivery_date DESC, dl.id DESC
-  LIMIT 50
 ");
 
-$grouped_logs = [];
-while ($log = $logs->fetch_assoc()) {
-  $date = date("F j, Y", strtotime($log['delivery_date']));
-  $grouped_logs[$date][] = $log;
+$grouped_product_logs = [];
+while ($log = $product_logs->fetch_assoc()) {
+  $date = $log['delivery_date']; // Keep as Y-m-d
+  $grouped_product_logs[$date][] = $log;
 }
+
+// 2. Fetch insuance deliveries
+$insuance_logs = $mysqli->query("
+  SELECT idl.*, u.username
+  FROM insuance_delivery_logs idl
+  LEFT JOIN users u ON idl.created_by = u.id
+  ORDER BY idl.delivery_date DESC, idl.id DESC
+");
+
+$grouped_insuance_logs = [];
+while ($log = $insuance_logs->fetch_assoc()) {
+  $date = $log['delivery_date'];
+  $grouped_insuance_logs[$date][] = $log;
+
+}
+
+$insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER BY item_name ASC")->fetch_all(MYSQLI_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -543,7 +585,7 @@ while ($log = $logs->fetch_assoc()) {
 
     /* Focus state */
     .select2-container .select2-search--dropdown .select2-search__field:focus {
-      border-color: #3b82f6;
+      border-color: var(--primary);
       /* Blue border on focus */
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
     }
@@ -578,8 +620,8 @@ while ($log = $logs->fetch_assoc()) {
     }
 
     .select2-results__option--highlighted[aria-selected] {
-      background-color: #e0f2fe;
-      color: #0369a1;
+      background-color: var(--primary);
+      color: var(--primary);
     }
 
     .select2-results__group {
@@ -860,67 +902,126 @@ while ($log = $logs->fetch_assoc()) {
     <!-- Delivery Form -->
     <div class="delivery-form">
       <h3><i class="fas fa-plus-circle"></i> Record New Delivery</h3>
+
       <form method="post">
         <div class="form-grid">
           <div class="form-group">
-            <label for="product_id">Product</label>
-            <select name="product_id" id="product_id" required>
-              <option value="">-- Select Product --</option>
-              <?php
-              $selected_id = $_POST['product_id'] ?? ($existing_job['product_id'] ?? '');
-
-              $organized = [];
-              while ($row = $products->fetch_assoc()) {
-                $type = $row['product_type'];
-                $group = $row['product_group'];
-                $organized[$type][$group][] = $row;
-              }
-
-              // Generate grouped options
-              foreach ($organized as $type => $groups) {
-                echo "<optgroup label=\"$type\">";
-                foreach ($groups as $group => $items) {
-                  foreach ($items as $item) {
-                    $id = $item['id'];
-                    $name = htmlspecialchars($item['product_name']);
-                    $selected = ($id == $selected_id) ? 'selected' : '';
-                    echo "<option value=\"$id\" $selected>$type - $group - $name</option>";
-                  }
-                }
-                echo "</optgroup>";
-              }
-              ?>
+            <label for="delivery_type">Delivery Type</label>
+            <select name="delivery_type" id="delivery_type" required onchange="toggleDeliveryForm()">
+              <option value="paper">Paper</option>
+              <option value="insuance">Insuance</option>
             </select>
-          </div>
-          <div class="form-group">
-            <label for="delivered_reams">Delivered Quantity</label>
-            <input type="number" name="delivered_reams" id="delivered_reams" min="0.01" step="0.01" required>
-          </div>
-
-          <div class="form-group">
-            <label for="unit">Unit</label>
-            <input type="text" name="unit" id="unit" class="form-control" placeholder="e.g., Ream, Per Piece" value="<?= htmlspecialchars($_POST['unit'] ?? '') ?>">
-          </div>
-
-          <div class="form-group">
-            <label for="amount_per_ream">Amount per Unit (₱)</label>
-            <input type="number" name="amount_per_ream" id="amount_per_ream" min="0.01" step="0.01" required>
-          </div>
-
-          <div class="form-group">
-            <label for="supplier_name">Supplier Name</label>
-            <input type="text" name="supplier_name" id="supplier_name" placeholder="e.g. Paper Supplier Inc." required>
-          </div>
-
-          <div class="form-group">
-            <label for="delivery_date">Delivery Date</label>
-            <input type="date" name="delivery_date" id="delivery_date" value="<?php echo date('Y-m-d'); ?>" required>
           </div>
         </div>
 
-        <div class="form-group">
-          <label for="delivery_note">Note (optional)</label>
-          <textarea name="delivery_note" id="delivery_note" rows="2"></textarea>
+        <!-- === Paper Delivery Form === -->
+        <div id="paper-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="product_id">Product</label>
+              <select name="product_id" id="product_id">
+                <option value="">Select Product</option>
+                <?php
+                $selected_id = $_POST['product_id'] ?? '';
+                $organized = [];
+                while ($row = $products->fetch_assoc()) {
+                  $type = $row['product_type'];
+                  $group = $row['product_group'];
+                  $organized[$type][$group][] = $row;
+                }
+                foreach ($organized as $type => $groups) {
+                  echo "<optgroup label=\"$type\">";
+                  foreach ($groups as $group => $items) {
+                    foreach ($items as $item) {
+                      $id = $item['id'];
+                      $name = htmlspecialchars($item['product_name']);
+                      $selected = ($id == $selected_id) ? 'selected' : '';
+                      echo "<option value=\"$id\" $selected>$type - $group - $name</option>";
+                    }
+                  }
+                  echo "</optgroup>";
+                }
+                ?>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="delivered_reams">Delivered Quantity</label>
+              <input type="number" name="delivered_reams" id="delivered_reams" min="0.01" step="0.01">
+            </div>
+
+            <div class="form-group">
+              <label for="unit">Unit</label>
+              <input type="text" name="unit" id="unit" placeholder="e.g., Ream">
+            </div>
+
+            <div class="form-group">
+              <label for="amount_per_ream">Amount per Unit (₱)</label>
+              <input type="number" name="amount_per_ream" id="amount_per_ream" min="0.01" step="0.01">
+            </div>
+
+            <div class="form-group">
+              <label for="supplier_name">Supplier Name</label>
+              <input type="text" name="supplier_name" id="supplier_name" placeholder="e.g. Paper Supplier Inc.">
+            </div>
+
+            <div class="form-group">
+              <label for="delivery_date">Delivery Date</label>
+              <input type="date" name="delivery_date" id="delivery_date" value="<?= date('Y-m-d') ?>">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="delivery_note">Note (optional)</label>
+            <textarea name="delivery_note" id="delivery_note" rows="2"></textarea>
+          </div>
+        </div>
+
+        <!-- === Insuance Delivery Form === -->
+        <div id="insuance-form" style="display: none;">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="insuance_name">Insuance Name</label>
+              <select name="insuance_name" id="insuance_name" required>
+                <option value="">Select Insuance</option>
+                <?php foreach ($insuance_names as $row): ?>
+                  <option value="<?= htmlspecialchars($row['item_name']) ?>">
+                    <?= htmlspecialchars($row['item_name']) ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="delivered_quantity">Delivered Quantity</label>
+              <input type="number" name="delivered_quantity" id="delivered_quantity" min="0" step="0">
+            </div>
+
+            <div class="form-group">
+              <label for="insuance_unit">Unit</label>
+              <input type="text" name="insuance_unit" id="insuance_unit" placeholder="e.g. Pieces, Box">
+            </div>
+
+            <div class="form-group">
+              <label for="amount_per_unit">Amount per Unit (₱)</label>
+              <input type="number" name="amount_per_unit" id="amount_per_unit" min="0.01" step="0.01">
+            </div>
+
+            <div class="form-group">
+              <label for="insuance_supplier">Supplier Name</label>
+              <input type="text" name="insuance_supplier" id="insuance_supplier" placeholder="e.g. Insuance Provider Inc.">
+            </div>
+
+            <div class="form-group">
+              <label for="insuance_date">Delivery Date</label>
+              <input type="date" name="insuance_date" id="insuance_date" value="<?= date('Y-m-d') ?>">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="insuance_note">Note (optional)</label>
+            <textarea name="insuance_note" id="insuance_note" rows="2"></textarea>
+          </div>
         </div>
 
         <button type="submit" class="btn">
@@ -941,48 +1042,95 @@ while ($log = $logs->fetch_assoc()) {
         <h3><i class="fas fa-history"></i> Delivery History</h3>
       </div>
 
-      <?php if (!empty($grouped_logs)): ?>
-        <?php foreach ($grouped_logs as $date => $logs_by_date): ?>
+      <?php if (!empty($grouped_product_logs) || !empty($grouped_insuance_logs)): ?>
+        <?php
+        // Merge date keys from both groups
+        $all_dates = array_unique(array_merge(array_keys($grouped_product_logs), array_keys($grouped_insuance_logs)));
+        rsort($all_dates); // sort latest to earliest
+        ?>
+
+        <?php foreach ($all_dates as $date): ?>
           <div class="delivery-group">
             <button class="toggle-btn" onclick="toggleGroup(this)">
-              <i class="fas fa-calendar-alt"></i> <?= $date ?>
+              <i class="fas fa-calendar-alt"></i> <?= date("F j, Y", strtotime($date)) ?>
             </button>
+
             <div class="group-content" style="display: none;">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th>Reams</th>
-                    <th>Unit</th>
-                    <th>Amount</th>
-                    <th>Supplier</th>
-                    <th>Note</th>
-                    <?php if ($_SESSION['role'] === 'admin'): ?>
-                      <th>Recorded By</th>
-                      <th>Actions</th>
-                    <?php endif; ?>
-                  </tr>
-                </thead>
-                <tbody>
-                  <?php foreach ($logs_by_date as $log): ?>
-                    <tr class="clickable-row" data-id="<?= $log['product_id'] ?>">
-                      <td><?= "{$log['product_type']} - {$log['product_group']} - {$log['product_name']}" ?></td>
-                      <td><?= number_format($log['delivered_reams'], 2) ?></td>
-                      <td><?= htmlspecialchars($log['unit'] ?? '---') ?></td>
-                      <td>₱<?= number_format($log['amount_per_ream'], 2) ?></td>
-                      <td><?= htmlspecialchars($log['supplier_name'] ?: '-') ?></td>
-                      <td><?= htmlspecialchars($log['delivery_note']) ?></td>
+
+              <?php if (isset($grouped_product_logs[$date])): ?>
+                <!-- Table 1: Paper Deliveries -->
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Paper</th>
+                      <th>Reams</th>
+                      <th>Unit</th>
+                      <th>Amount</th>
+                      <th>Supplier</th>
+                      <th>Note</th>
                       <?php if ($_SESSION['role'] === 'admin'): ?>
-                        <td><?= htmlspecialchars($log['username'] ?? 'Unknown') ?></td>
-                        <td class="action-cell">
-                          <a href="edit_delivery.php?id=<?= $log['id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>
-                          <a href="delete_delivery.php?id=<?= $log['id'] ?>" title="Delete"><i class="fas fa-trash"></i></a>
-                        </td>
+                        <th>Recorded By</th>
+                        <th>Actions</th>
                       <?php endif; ?>
                     </tr>
-                  <?php endforeach; ?>
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    <?php foreach (array_reverse($grouped_product_logs[$date]) as $log): ?>
+                      <tr class="clickable-row" data-id="<?= $log['product_id'] ?>">
+                        <td><?= "{$log['product_type']} - {$log['product_group']} - {$log['product_name']}" ?></td>
+                        <td><?= number_format($log['delivered_reams'], 2) ?></td>
+                        <td><?= htmlspecialchars($log['unit'] ?? '---') ?></td>
+                        <td>₱<?= number_format($log['amount_per_ream'], 2) ?></td>
+                        <td><?= htmlspecialchars($log['supplier_name'] ?: '-') ?></td>
+                        <td><?= htmlspecialchars($log['delivery_note']) ?></td>
+                        <?php if ($_SESSION['role'] === 'admin'): ?>
+                          <td><?= htmlspecialchars($log['username'] ?? 'Unknown') ?></td>
+                          <td class="action-cell">
+                            <a href="edit_delivery.php?id=<?= $log['id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>
+                            <a href="delete_delivery.php?id=<?= $log['id'] ?>" title="Delete"><i class="fas fa-trash"></i></a>
+                          </td>
+                        <?php endif; ?>
+                      </tr>
+                    <?php endforeach; ?>
+                  </tbody>
+                </table>
+              <?php endif; ?>
+
+              <?php if (isset($grouped_insuance_logs[$date])): ?>
+                <!-- Table 2: Insuance Deliveries -->
+                <div style="margin-top: 20px;"></div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Insuance</th>
+                      <th>Quantity</th>
+                      <th>Unit</th>
+                      <th>Amount/Unit</th>
+                      <th>Supplier</th>
+                      <th>Note</th>
+                      <?php if ($_SESSION['role'] === 'admin'): ?>
+                        <th>Recorded By</th>
+                      <?php endif; ?>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <?php foreach (array_reverse($grouped_insuance_logs[$date]) as $log): ?>
+                      <tr>
+                        <td><?= htmlspecialchars($log['insuance_name']) ?></td>
+                        <td><?= number_format($log['delivered_quantity'], 2) ?></td>
+                        <td><?= htmlspecialchars($log['unit'] ?? '-') ?></td>
+                        <td>₱<?= number_format($log['amount_per_unit'], 2) ?></td>
+                        <td><?= htmlspecialchars($log['supplier_name'] ?: '-') ?></td>
+                        <td><?= htmlspecialchars($log['delivery_note'] ?? '-') ?></td>
+                        <?php if ($_SESSION['role'] === 'admin'): ?>
+                          <td><?= htmlspecialchars($log['username'] ?? 'Unknown') ?></td>
+                        <?php endif; ?>
+                      </tr>
+                    <?php endforeach; ?>
+                  </tbody>
+                </table>
+              <?php endif; ?>
+
             </div>
           </div>
         <?php endforeach; ?>
@@ -991,8 +1139,6 @@ while ($log = $logs->fetch_assoc()) {
           <p>No deliveries recorded yet</p>
         </div>
       <?php endif; ?>
-
-
     </div>
   </div>
 
@@ -1045,6 +1191,44 @@ while ($log = $logs->fetch_assoc()) {
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script>
+    function toggleDeliveryForm() {
+      const type = document.getElementById('delivery_type').value;
+
+      // Toggle visibility
+      document.getElementById('paper-form').style.display = type === 'paper' ? 'block' : 'none';
+      document.getElementById('insuance-form').style.display = type === 'insuance' ? 'block' : 'none';
+
+      // Disable required fields in the hidden form
+      document.querySelectorAll('#paper-form input, #paper-form select').forEach(el => {
+        if (type === 'paper') {
+          el.removeAttribute('disabled');
+          el.setAttribute('required', el.dataset.required || '');
+        } else {
+          if (el.hasAttribute('required')) {
+            el.dataset.required = 'required';
+          }
+          el.removeAttribute('required');
+          el.setAttribute('disabled', 'true');
+        }
+      });
+
+      document.querySelectorAll('#insuance-form input, #insuance-form select').forEach(el => {
+        if (type === 'insuance') {
+          el.removeAttribute('disabled');
+          el.setAttribute('required', el.dataset.required || '');
+        } else {
+          if (el.hasAttribute('required')) {
+            el.dataset.required = 'required';
+          }
+          el.removeAttribute('required');
+          el.setAttribute('disabled', 'true');
+        }
+      });
+    }
+
+    // Preserve selection on reload
+    window.addEventListener('DOMContentLoaded', toggleDeliveryForm);
+
     function toggleGroup(button) {
       const content = button.nextElementSibling;
       content.style.display = content.style.display === 'none' ? 'block' : 'none';
@@ -1083,7 +1267,7 @@ while ($log = $logs->fetch_assoc()) {
 
     $(document).ready(function() {
       $('#product_id').select2({
-        placeholder: "-- Select Product --",
+        placeholder: "Select Product",
         width: '100%',
       });
 

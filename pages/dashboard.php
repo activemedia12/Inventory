@@ -812,7 +812,7 @@ while ($row = $stock_data->fetch_assoc()) {
             </div>
             <ul class="nav-menu">
                 <li><a href="#" class="active"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
-                <li><a href="products.php"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
+                <li><a href="products.php" onclick="goToLastProductPage()"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
                 <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
                 <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
                 <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
@@ -1012,6 +1012,15 @@ while ($row = $stock_data->fetch_assoc()) {
     </div>
 
     <script>
+        function goToLastProductPage() {
+            const last = localStorage.getItem('lastProductPage');
+            if (last) {
+                window.location.href = last;
+            } else {
+                window.location.href = 'papers.php'; // fallback
+            }
+        }
+        
         function showLowStockItems() {
             const modal = document.getElementById('lowStockModal');
             const content = document.getElementById('lowStockItems');

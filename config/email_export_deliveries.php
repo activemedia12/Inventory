@@ -10,12 +10,30 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
+// === Validate input ===
 $start_date = $_GET['start_date'] ?? null;
 $end_date   = $_GET['end_date'] ?? null;
 
 if (!$start_date || !$end_date) {
     die("❌ Please provide both start and end dates.");
 }
+
+// === Create Spreadsheet ===
+$spreadsheet = new Spreadsheet();
+
+// === Sheet 1: Paper Deliveries ===
+$paperSheet = $spreadsheet->getActiveSheet();
+$paperSheet->setTitle("Paper Deliveries");
+
+$paperHeaders = [
+  'Delivery Date', 'Product Type', 'Product Group', 'Color', 'Reams Delivered',
+  'Unit', 'Amount per Ream', 'Supplier', 'Note'
+];
+$paperSheet->fromArray($paperHeaders, NULL, 'A1');
+$paperSheet->getStyle('A1:I1')->applyFromArray([
+  'font' => ['bold' => true],
+  'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '90EE90']],
+]);
 
 $query = "
   SELECT dl.*, p.product_type, p.product_group, p.product_name, u.username
@@ -30,48 +48,74 @@ $stmt->bind_param("ss", $start_date, $end_date);
 $stmt->execute();
 $result = $stmt->get_result();
 
-// Create Spreadsheet
-$spreadsheet = new Spreadsheet();
-$sheet = $spreadsheet->getActiveSheet();
-$sheet->setTitle("Deliveries");
+$row = 2;
+while ($r = $result->fetch_assoc()) {
+  $paperSheet->fromArray([
+    date('F j, Y', strtotime($r['delivery_date'])),
+    $r['product_type'],
+    $r['product_group'],
+    $r['product_name'],
+    $r['delivered_reams'],
+    $r['unit'],
+    $r['amount_per_ream'],
+    $r['supplier_name'],
+    $r['delivery_note']
+  ], null, 'A' . $row++);
+}
+foreach (range('A', 'I') as $col) {
+  $paperSheet->getColumnDimension($col)->setAutoSize(true);
+}
 
-$headers = [
-  'Delivery Date', 'Product Type', 'Product Group', 'Color', 'Reams Delivered',
-  'Unit', 'Amount per Ream', 'Supplier', 'Note'
+// === Sheet 2: Insuance Deliveries ===
+$insuanceSheet = $spreadsheet->createSheet();
+$insuanceSheet->setTitle("Insuance Deliveries");
+
+$insuanceHeaders = [
+  'Delivery Date', 'Insuance Item', 'Quantity Delivered',
+  'Unit', 'Amount per Unit', 'Supplier', 'Note'
 ];
-$sheet->fromArray($headers, NULL, 'A1');
-
-$sheet->getStyle('A1:I1')->applyFromArray([
-  'font' => ['bold' => true, 'color' => ['rgb' => '000000']],
-  'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '90EE90']],
+$insuanceSheet->fromArray($insuanceHeaders, NULL, 'A1');
+$insuanceSheet->getStyle('A1:G1')->applyFromArray([
+  'font' => ['bold' => true],
+  'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFD700']],
 ]);
 
-$rowNum = 2;
-while ($row = $result->fetch_assoc()) {
-  $sheet->fromArray([
-    date('F j, Y', strtotime($row['delivery_date'])),
-    $row['product_type'],
-    $row['product_group'],
-    $row['product_name'],
-    $row['delivered_reams'],
-    $row['unit'],
-    $row['amount_per_ream'],
-    $row['supplier_name'],
-    $row['delivery_note'],
-  ], NULL, 'A' . $rowNum++);
+$iq = "
+  SELECT idl.*, u.username
+  FROM insuance_delivery_logs idl
+  LEFT JOIN users u ON idl.created_by = u.id
+  WHERE DATE(idl.delivery_date) BETWEEN ? AND ?
+  ORDER BY idl.delivery_date ASC
+";
+$istmt = $mysqli->prepare($iq);
+$istmt->bind_param("ss", $start_date, $end_date);
+$istmt->execute();
+$insResult = $istmt->get_result();
+
+$row = 2;
+while ($r = $insResult->fetch_assoc()) {
+  $insuanceSheet->fromArray([
+    date('F j, Y', strtotime($r['delivery_date'])),
+    $r['insuance_name'],
+    $r['delivered_quantity'],
+    $r['unit'],
+    $r['amount_per_unit'],
+    $r['supplier_name'],
+    $r['delivery_note']
+  ], null, 'A' . $row++);
+}
+foreach (range('A', 'G') as $col) {
+  $insuanceSheet->getColumnDimension($col)->setAutoSize(true);
 }
 
-foreach (range('A', 'I') as $col) {
-  $sheet->getColumnDimension($col)->setAutoSize(true);
-}
-
+// === Save file to temp path ===
 $filename = "Delivery_Report_" . date('Ymd_His') . ".xlsx";
 $tempPath = sys_get_temp_dir() . '/' . $filename;
 
 $writer = new Xlsx($spreadsheet);
 $writer->save($tempPath);
 
-// Email Setup
+// === Send Email ===
 $mail = new PHPMailer(true);
 $startFormatted = (new DateTime($start_date))->format('F j, Y');
 $endFormatted   = (new DateTime($end_date))->format('F j, Y');
@@ -81,7 +125,7 @@ try {
   $mail->Host       = 'smtp.gmail.com';
   $mail->SMTPAuth   = true;
   $mail->Username   = 'reportsjoborder@gmail.com';
-  $mail->Password   = 'kjyj krfm rkbk qmst'; // App Password
+  $mail->Password   = 'kjyj krfm rkbk qmst'; // Consider storing securely
   $mail->SMTPSecure = 'tls';
   $mail->Port       = 587;
 
@@ -92,7 +136,7 @@ try {
 
   $mail->isHTML(true);
   $mail->Subject = "Requested Delivery Report from $startFormatted to $endFormatted";
-  $mail->Body    = "Good day!<br><br>Attached is the requested delivery report based on your selected dates.<br><br>Regards,<br>AMDP Inventory System";
+  $mail->Body    = "Good day!<br><br>Attached is the requested <b>Delivery Report</b> (including Paper and Insuance Deliveries).<br><br>Regards,<br>AMDP Inventory System";
 
   $mail->send();
   unlink($tempPath);

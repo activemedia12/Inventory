@@ -1607,7 +1607,7 @@ while ($row = $result->fetch_assoc()) {
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 20px;
-    width: 211.4px;
+    width: 216.3px;
   }
   </style>
 </head>
@@ -1666,7 +1666,7 @@ while ($row = $result->fetch_assoc()) {
 
     <div class="export">
       <button onclick="document.getElementById('exportModal').style.display='flex'" class="btn">
-        Request J.O. Copies
+        Request J.O. Reports
       </button>
     </div>
 
