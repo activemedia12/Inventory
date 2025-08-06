@@ -24,7 +24,12 @@ $item_name = $item['item_name'];
 
 // Fetch usage history
 $usage_stmt = $mysqli->prepare("
-    SELECT u.date_issued, u.quantity_used, u.description, usr.username
+    SELECT 
+        u.date_issued,
+        u.quantity_used,
+        u.description,
+        u.used_by_name AS issued_to,
+        usr.username AS issued_by
     FROM insuance_usages u
     LEFT JOIN users usr ON u.issued_by = usr.id
     WHERE u.item_id = ?

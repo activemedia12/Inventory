@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_type'], $_POS
 // Show alert messages
 $message = "";
 if (isset($_SESSION['success_message'])) {
-  $message = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> " . $_SESSION['success_message'] . "</div>";
+  $message = "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> " . $_SESSION['success_message'] . "</div>";
   unset($_SESSION['success_message']);
 } elseif (isset($_SESSION['error_message'])) {
   $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle'></i> " . $_SESSION['error_message'] . "</div>";
@@ -777,7 +777,7 @@ $stmt->close();
           </a>
           <ul class="submenu">
             <li><a href="papers.php" class="<?= $currentPage == 'papers.php' ? 'activate' : '' ?>">Papers</a></li>
-            <li><a href="insuances.php" class="<?= $currentPage == 'insuances.php' ? 'activate' : '' ?>">Insuances</a></li>
+            <li><a href="insuances.php" class="<?= $currentPage == 'insuances.php' ? 'activate' : '' ?>">Consumables</a></li>
           </ul>
         </li>
         <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
@@ -1017,6 +1017,14 @@ $stmt->close();
             });
         });
       });
+      const flash = document.getElementById('flash-message');
+      if (flash) {
+        setTimeout(() => {
+          flash.style.transition = 'opacity 0.5s ease';
+          flash.style.opacity = '0';
+          setTimeout(() => flash.remove(), 500);
+        }, 3000);
+      }
     });
 
     function closeModal() {

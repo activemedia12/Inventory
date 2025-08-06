@@ -38,8 +38,7 @@ $stock_result = $mysqli->query("
             FROM insuance_usages u
             WHERE u.item_id = ins.id
         ) AS used_quantity,
-        COALESCE(SUM(d.delivered_quantity), 0) -
-        (
+        COALESCE(SUM(d.delivered_quantity), 0) - (
             SELECT COALESCE(SUM(u.quantity_used), 0)
             FROM insuance_usages u
             WHERE u.item_id = ins.id
@@ -57,13 +56,20 @@ $stock_result = $mysqli->query("
             WHERE u.item_id = ins.id
         ) AS latest_used_date,
         (
+            SELECT u.used_by_name
+            FROM insuance_usages u
+            WHERE u.item_id = ins.id AND u.used_by_name IS NOT NULL AND u.used_by_name != ''
+            ORDER BY u.date_issued DESC, u.id DESC
+            LIMIT 1
+        ) AS latest_used_to,
+        (
             SELECT usr.username
             FROM insuance_usages u
             LEFT JOIN users usr ON u.issued_by = usr.id
             WHERE u.item_id = ins.id
             ORDER BY u.date_issued DESC, u.id DESC
             LIMIT 1
-        ) AS latest_used_by
+        ) AS latest_issued_by
     FROM insuances ins
     LEFT JOIN insuance_delivery_logs d ON d.insuance_name = ins.item_name
     GROUP BY ins.id
@@ -76,15 +82,13 @@ $total_insuances = count($insuance_stock);
 $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'] <= 0));
 ?>
 
-
-
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Insuance Management</title>
+    <title>Consumables Management</title>
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -935,7 +939,7 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                     </a>
                     <ul class="submenu">
                         <li><a href="papers.php" class="<?= $currentPage == 'papers.php' ? 'activate' : '' ?>">Papers</a></li>
-                        <li><a href="insuances.php" class="<?= $currentPage == 'insuances.php' ? 'activate' : '' ?>">Insuances</a></li>
+                        <li><a href="insuances.php" class="<?= $currentPage == 'insuances.php' ? 'activate' : '' ?>">Consumables</a></li>
                     </ul>
                 </li>
                 <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
@@ -947,7 +951,7 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
     </div>
     <div class="main-content">
         <header class="header">
-            <h1>Insuances Management (BETA)</h1>
+            <h1>Consumables Management (BETA)</h1>
             <div class="user-info">
                 <img src="https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['username']) ?>&background=random" alt="User">
                 <div class="user-details">
@@ -959,7 +963,7 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
 
         <?php if (!empty($message)) echo $message; ?>
         <?php if (isset($_GET['msg'])): ?>
-            <div class="alert alert-success"><i class="fas fa-check-circle"></i> <?= htmlspecialchars($_GET['msg']) ?></div>
+            <div id="flash-message" class="alert alert-success"><i class="fas fa-check-circle"></i> <?= htmlspecialchars($_GET['msg']) ?></div>
         <?php endif; ?>
 
         <!-- Quick Stats -->
@@ -967,7 +971,7 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
             <div class="stat-card">
                 <div class="card-header">
                     <div>
-                        <p>Total Insuances</p>
+                        <p>Total Consumables</p>
                         <h3><?= $total_insuances ?></h3>
                     </div>
                     <div class="card-icon">
@@ -991,15 +995,16 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
 
         <!-- Add Insuance Form -->
         <div class="form-card">
-            <h3><i class="fas fa-plus-circle"></i> Add New Insuance</h3>
+            <h3><i class="fas fa-plus-circle"></i>Add New Consumable</h3>
+            <p style="font-size: 80%; color: lightgray; margin-bottom: 10px;"><strong>DO NOT</strong> USE <strong>DESCRIPTION</strong> TO SPECIFY THE TYPE OF ITEM. *</p>
             <form method="POST">
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="item_name">Item Name</label>
-                        <input type="text" id="item_name" name="item_name" required>
+                        <input type="text" id="item_name" name="item_name" required placeholder="e.g., Staples - 10.65mm">
                     </div>
                     <div class="form-group">
-                        <label for="description">Description</label>
+                        <label for="description">Description (optional)</label>
                         <input type="text" id="description" name="description">
                     </div>
                 </div>
@@ -1007,11 +1012,18 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
             </form>
         </div>
 
+        <div class="form-card">
+            <div class="form-group">
+                <h3><i class="fas fa-search"></i>Search Consumables</h3>
+                <input type="text" id="searchInput" placeholder="Search item name or description">
+            </div>
+        </div>
+
         <!-- Insuances Table -->
         <div class="table-card">
-            <h3><i class="fas fa-list"></i> Insuances Inventory</h3>
+            <h3><i class="fas fa-list"></i>Consumables Inventory</h3>
             <div class="product-content">
-                <table>
+                <table id="insuanceTable">
                     <thead>
                         <tr>
                             <th>Item Name</th>
@@ -1021,7 +1033,7 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                             <th>Latest Amount (₱)</th>
                             <th>Last Issued</th>
                             <?php if ($_SESSION['role'] === 'admin'): ?>
-                                <th>Issued By</th>
+                                <th>Issued To</th>
                                 <th>Actions</th>
                             <?php endif; ?>
                         </tr>
@@ -1041,7 +1053,7 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                                     <td>₱<?= number_format(floatval($item['latest_amount']), 2) ?></td>
                                     <td><?= $item['latest_used_date'] ? date('M j, Y', strtotime($item['latest_used_date'])) : '-' ?></td>
                                     <?php if ($_SESSION['role'] === 'admin'): ?>
-                                        <td><?= htmlspecialchars($item['latest_used_by'] ?? '-') ?></td>
+                                        <td><?= htmlspecialchars($item['latest_used_to'] ?? '-') ?></td>
                                         <td class="action-cell">
                                             <a href="edit_insuance.php?id=<?= $item['item_id'] ?>" class="fas fa-edit"></a>
                                             <a href="delete_insuance.php?id=<?= $item['item_id'] ?>" class="fas fa-trash" onclick="return confirm('Are you sure you want to delete this item?');"></a>
@@ -1077,11 +1089,22 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                     <div class="form-grid">
                         <div class="form-group">
                             <label for="quantity_used">Quantity Used</label>
-                            <input type="number" name="quantity_used" id="quantity_used" min="0" step="0" required>
+                            <input type="number" name="quantity_used" id="quantity_used" placeholder="e.g. 1, 2, 3" min="0" step="0" required>
                         </div>
                         <div class="form-group">
+                            <label for="used_by">Issued To</label>
+                            <input type="text" name="used_by" id="used_by" placeholder="e.g. Tolits" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="date_issued">Date Issued</label>
+                            <input type="date" name="date_issued" id="date_issued" 
+                                max="<?= date('Y-m-d') ?>" 
+                                value="<?= date('Y-m-d') ?>">
+                        </div>
+
+                        <div class="form-group">
                             <label for="description">Usage Notes</label>
-                            <input name="description" id="description" rows="2" placeholder="Optional notes...">
+                            <input name="description" id="description" placeholder="Optional notes...">
                         </div>
                     </div>
                     <button type="submit" class="btn" style="margin: 20px 0 20px 0;">
@@ -1133,6 +1156,17 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
 
 
     <script>
+        const scrollKey = `scroll-position-/insuances.php`;
+        window.addEventListener('DOMContentLoaded', () => {
+            const scrollY = sessionStorage.getItem(scrollKey);
+            if (scrollY !== null) {
+                window.scrollTo(0, parseInt(scrollY));
+            }
+        });
+        window.addEventListener('scroll', () => {
+            sessionStorage.setItem(scrollKey, window.scrollY);
+        });
+        
         function formatDate(dateStr) {
             if (!dateStr) return '-';
             const date = new Date(dateStr);
@@ -1155,11 +1189,12 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                     // Usage history
                     const usageContainer = document.getElementById('usage_history_container');
                     if (data.usage_history.length > 0) {
-                        let html = '<table class="compact-table"><thead><tr><th>Date</th><th>Used By</th><th>Quantity</th><th>Notes</th></tr></thead><tbody>';
+                        let html = '<table class="compact-table"><thead><tr><th>Date</th><th>Issued By</th><th>Issued To</th><th>Quantity</th><th>Notes</th></tr></thead><tbody>';
                         data.usage_history.forEach(row => {
                             html += `<tr>
                                 <td>${formatDate(row.date_issued)}</td>
-                                <td>${row.username ?? 'N/A'}</td>
+                                <td>${row.issued_by ?? 'N/A'}</td>
+                                <td>${row.issued_to || '-'}</td>
                                 <td>${parseFloat(row.quantity_used).toFixed(2)}</td>
                                 <td>${row.description ?? '-'}</td>
                             </tr>`;
@@ -1173,7 +1208,8 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                     // Delivery history
                     const deliveryContainer = document.getElementById('delivery_history_container');
                     if (data.delivery_history.length > 0) {
-                        let html = '<table class="compact-table"><thead><tr><th>Date</th><th>Supplier</th><th>Quantity</th><th>Unit</th><th>Price/Unit</th></tr></thead><tbody>';
+                        let html = 
+                        '<table class="compact-table"><thead><tr><th>Date</th><th>Supplier</th><th>Quantity</th><th>Unit</th><th>Price/Unit</th></tr></thead><tbody>';
                         data.delivery_history.forEach(row => {
                             html += `<tr>
                                 <td>${formatDate(row.delivery_date)}</td>
@@ -1199,6 +1235,29 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
         }
 
         document.cookie = "lastProductPage=" + window.location.pathname + "; path=/";
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('searchInput').addEventListener('keyup', function () {
+                const filter = this.value.toLowerCase();
+                const rows = document.querySelectorAll('#insuanceTable tbody tr');
+
+                rows.forEach(row => {
+                    const itemName = row.cells[0].textContent.toLowerCase();
+                    const description = row.cells[1].textContent.toLowerCase();
+                    const match = itemName.includes(filter) || description.includes(filter);
+                    row.style.display = match ? '' : 'none';
+                });
+            });
+
+            const flash = document.getElementById('flash-message');
+            if (flash) {
+            setTimeout(() => {
+                flash.style.transition = 'opacity 0.5s ease';
+                flash.style.opacity = '0';
+                setTimeout(() => flash.remove(), 500);
+            }, 3000);
+            }
+        });
     </script>
 </body>
 
