@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Display messages from session
 if (isset($_SESSION['success_message'])) {
-  $message = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> " . $_SESSION['success_message'] . "</div>";
+  $message = "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> " . $_SESSION['success_message'] . "</div>";
   unset($_SESSION['success_message']);
 } elseif (isset($_SESSION['error_message'])) {
   $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle'></i> " . $_SESSION['error_message'] . "</div>";
@@ -909,7 +909,7 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
             <label for="delivery_type">Delivery Type</label>
             <select name="delivery_type" id="delivery_type" required onchange="toggleDeliveryForm()">
               <option value="paper">Paper</option>
-              <option value="insuance">Insuance</option>
+              <option value="insuance">Consumables</option>
             </select>
           </div>
         </div>
@@ -946,18 +946,18 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
             </div>
 
             <div class="form-group">
-              <label for="delivered_reams">Delivered Quantity</label>
-              <input type="number" name="delivered_reams" id="delivered_reams" min="0.01" step="0.01">
+              <label for="delivered_reams">Delivered Reams</label>
+              <input type="number" name="delivered_reams" id="delivered_reams" min="0.01" step="0.01" placeholder="e.g., 2, 3, 4">
             </div>
 
             <div class="form-group">
               <label for="unit">Unit</label>
-              <input type="text" name="unit" id="unit" placeholder="e.g., Ream">
+              <input type="text" name="unit" id="unit" value="Reams">
             </div>
 
             <div class="form-group">
               <label for="amount_per_ream">Amount per Unit (₱)</label>
-              <input type="number" name="amount_per_ream" id="amount_per_ream" min="0.01" step="0.01">
+              <input type="number" name="amount_per_ream" id="amount_per_ream" min="0.01" step="0.01" placeholder="0.00">
             </div>
 
             <div class="form-group">
@@ -981,9 +981,9 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
         <div id="insuance-form" style="display: none;">
           <div class="form-grid">
             <div class="form-group">
-              <label for="insuance_name">Insuance Name</label>
+              <label for="insuance_name">Item Name</label>
               <select name="insuance_name" id="insuance_name" required>
-                <option value="">Select Insuance</option>
+                <option value="">Select Consumables</option>
                 <?php foreach ($insuance_names as $row): ?>
                   <option value="<?= htmlspecialchars($row['item_name']) ?>">
                     <?= htmlspecialchars($row['item_name']) ?>
@@ -993,8 +993,8 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
             </div>
 
             <div class="form-group">
-              <label for="delivered_quantity">Delivered Quantity</label>
-              <input type="number" name="delivered_quantity" id="delivered_quantity" min="0" step="0">
+              <label for="delivered_quantity">Total Delivered Items</label>
+              <input type="number" name="delivered_quantity" id="delivered_quantity" min="0" step="0" required placeholder="e.g., 1, 2, 3">
             </div>
 
             <div class="form-group">
@@ -1004,7 +1004,7 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
 
             <div class="form-group">
               <label for="amount_per_unit">Amount per Unit (₱)</label>
-              <input type="number" name="amount_per_unit" id="amount_per_unit" min="0.01" step="0.01">
+              <input type="number" name="amount_per_unit" id="amount_per_unit" min="0.01" step="0.01" placeholder="0.00">
             </div>
 
             <div class="form-group">
@@ -1258,6 +1258,15 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
             });
         });
       });
+
+      const flash = document.getElementById('flash-message');
+      if (flash) {
+        setTimeout(() => {
+          flash.style.transition = 'opacity 0.5s ease';
+          flash.style.opacity = '0';
+          setTimeout(() => flash.remove(), 500);
+        }, 3000);
+      }
     });
 
     function closeModal() {

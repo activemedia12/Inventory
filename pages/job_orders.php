@@ -221,7 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $usage_stmt->close();
       }
 
-      $_SESSION['message'] = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> Job order saved. Reams used per product: " . number_format($reams, 2) . "</div>";
+      $_SESSION['message'] = "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> Job order saved. Reams used per product: " . number_format($reams, 2) . "</div>";
     } else {
       $_SESSION['message'] = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle'></i> Error saving job order: " . $stmt->error . "</div>";
     }
@@ -2132,6 +2132,15 @@ while ($row = $result->fetch_assoc()) {
           quickFillUp(order);
         });
       });
+
+      const flash = document.getElementById('flash-message');
+      if (flash) {
+        setTimeout(() => {
+          flash.style.transition = 'opacity 0.5s ease';
+          flash.style.opacity = '0';
+          setTimeout(() => flash.remove(), 500);
+        }, 3000);
+      }
     });
 
     function quickFillUp(order) {
