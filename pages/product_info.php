@@ -323,6 +323,24 @@ $delivery_history = $delivery_stmt->get_result();
                 grid-template-columns: 1fr;
             }
         }
+        .see-more-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        .see-more-btn:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 
@@ -394,69 +412,84 @@ $delivery_history = $delivery_stmt->get_result();
                 Usage History
             </div>
             <div class="container">
-            <?php if ($usage_history->num_rows > 0): ?>
-                <table class="compact-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Client</th>
-                            <th>Project</th>
-                            <th>Sheets</th>
-                            <th>Reams</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php while ($row = $usage_history->fetch_assoc()): ?>
+                <?php if ($usage_history->num_rows > 0): ?>
+                    <table class="compact-table" id="usage-table">
+                        <thead>
                             <tr>
-                                <td><?= date("M j, Y", strtotime($row['log_date'])) ?></td>
-                                <td><?= htmlspecialchars($row['client_name'] ?? 'N/A') ?></td>
-                                <td><?= htmlspecialchars($row['project_name'] ?? 'N/A') ?></td>
-                                <td><?= number_format($row['used_sheets']) ?></td>
-                                <td><?= number_format($row['used_sheets'] / 500, 2) ?></td>
+                                <th>Date</th>
+                                <th>Client</th>
+                                <th>Project</th>
+                                <th>Sheets</th>
+                                <th>Reams</th>
                             </tr>
-                        <?php endwhile; ?>
-                    </tbody>
-                </table>
-            <?php else: ?>
-                <div class="empty-state">
-                    <p><i class="fas fa-info-circle"></i> No usage history found for this product</p>
-                </div>
-            <?php endif; ?>
+                        </thead>
+                        <tbody>
+                            <?php 
+                            $usage_rows = $usage_history->fetch_all(MYSQLI_ASSOC);
+                            $usage_count = count($usage_rows);
+                            $display_usage = min(10, $usage_count);
+                            
+                            for ($i = 0; $i < $display_usage; $i++): 
+                                $row = $usage_rows[$i];
+                            ?>
+                                <tr>
+                                    <td><?= date("M j, Y", strtotime($row['log_date'])) ?></td>
+                                    <td><?= htmlspecialchars($row['client_name'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars($row['project_name'] ?? 'N/A') ?></td>
+                                    <td><?= number_format($row['used_sheets']) ?></td>
+                                    <td><?= number_format($row['used_sheets'] / 500, 2) ?></td>
+                                </tr>
+                            <?php endfor; ?>
+                        </tbody>
+                    </table>
+                <?php else: ?>
+                    <div class="empty-state">
+                        <p><i class="fas fa-info-circle"></i> No usage history found for this product</p>
+                    </div>
+                <?php endif; ?>
             </div>
+
             <!-- Delivery History Section -->
             <div class="section-header">
                 <i class="fas fa-truck"></i>
                 Delivery History
             </div>
             <div class="container">
-            <?php if ($delivery_history->num_rows > 0): ?>
-                <table class="compact-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Supplier</th>
-                            <th>Reams</th>
-                            <th>Price/Ream</th>
-                            <th>Sheets</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php while ($row = $delivery_history->fetch_assoc()): ?>
+                <?php if ($delivery_history->num_rows > 0): ?>
+                    <table class="compact-table" id="delivery-table">
+                        <thead>
                             <tr>
-                                <td><?= date("M j, Y", strtotime($row['delivery_date'])) ?></td>
-                                <td><?= htmlspecialchars($row['supplier_name']) ?></td>
-                                <td><?= number_format($row['delivered_reams'], 2) ?></td>
-                                <td>₱<?= number_format($row['amount_per_ream'], 2) ?></td>
-                                <td><?= number_format($row['delivered_reams'] * 500) ?></td>
+                                <th>Date</th>
+                                <th>Supplier</th>
+                                <th>Reams</th>
+                                <th>Price/Ream</th>
+                                <th>Sheets</th>
                             </tr>
-                        <?php endwhile; ?>
-                    </tbody>
-                </table>
-            <?php else: ?>
-                <div class="empty-state">
-                    <p><i class="fas fa-info-circle"></i> No delivery history found for this product</p>
-                </div>
-            <?php endif; ?>
+                        </thead>
+                        <tbody>
+                            <?php 
+                            $delivery_rows = $delivery_history->fetch_all(MYSQLI_ASSOC);
+                            $delivery_count = count($delivery_rows);
+                            $display_delivery = min(10, $delivery_count);
+                            
+                            for ($i = 0; $i < $display_delivery; $i++): 
+                                $row = $delivery_rows[$i];
+                            ?>
+                                <tr>
+                                    <td><?= date("M j, Y", strtotime($row['delivery_date'])) ?></td>
+                                    <td><?= htmlspecialchars($row['supplier_name']) ?></td>
+                                    <td><?= number_format($row['delivered_reams'], 2) ?></td>
+                                    <td>₱<?= number_format($row['amount_per_ream'], 2) ?></td>
+                                    <td><?= number_format($row['delivered_reams'] * 500) ?></td>
+                                </tr>
+                            <?php endfor; ?>
+                        </tbody>
+                    </table>
+                <?php else: ?>
+                    <div class="empty-state">
+                        <p><i class="fas fa-info-circle"></i> No delivery history found for this product</p>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -464,7 +497,6 @@ $delivery_history = $delivery_stmt->get_result();
 
 </html>
 <?php
-// Close statements if they're still open
 if (isset($usage_stmt)) $usage_stmt->close();
 if (isset($delivery_stmt)) $delivery_stmt->close();
 $mysqli->close();

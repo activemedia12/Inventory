@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $floor_no = $_POST['floor_no'] ?? '';
   $zip_code = $_POST['zip_code'] ?? '';
 
-  $cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, 'whole' => 1];
+  $cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, '1/10' => 10, '1/12' => 12, '1/14' => 14, '1/16' => 16, '1/18' => 18, '1/20' => 20, 'whole' => 1];
   $cut_size = $cut_size_map[$product_size] ?? 1;
   $total_sheets = $number_of_sets * $quantity;
   $cut_sheets = $total_sheets / $cut_size;
@@ -221,7 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $usage_stmt->close();
       }
 
-      $_SESSION['message'] = "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> Job order saved. Reams used per product: " . number_format($reams, 2) . "</div>";
+      $_SESSION['message'] = "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> Job order saved. Reams used per paper: " . number_format($reams, 2) . "</div>";
     } else {
       $_SESSION['message'] = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle'></i> Error saving job order: " . $stmt->error . "</div>";
     }
@@ -330,7 +330,7 @@ while ($row = $result->fetch_assoc()) {
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Job Orders</title>
   <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -338,16 +338,15 @@ while ($row = $result->fetch_assoc()) {
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-    ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
-    }
+        ::-webkit-scrollbar {
+            width: 7px;
+            height: 10px;
+        }
 
-    ::-webkit-scrollbar-thumb {
-      background: rgb(140, 140, 140);
-      border-radius: 10px;
-      cursor: pointer;
-    }
+        ::-webkit-scrollbar-thumb {
+            background: #1876f299;
+            border-radius: 10px;
+        }
 
     :root {
       --primary: #1877f2;
@@ -1213,17 +1212,6 @@ while ($row = $result->fetch_assoc()) {
       display: inline;
     }
 
-    /* Scrollbar Styling */
-    ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: rgb(140, 140, 140);
-      border-radius: 10px;
-    }
-
     @media (max-width: 768px) {
             .sidebar-con {
                 width: 100%;
@@ -1680,6 +1668,7 @@ while ($row = $result->fetch_assoc()) {
           <fieldset class="form-section">
             <legend><i class="fas fa-user"></i> Client Details</legend>
             <div class="form-grid">
+              <input type="hidden" name="client_id" id="client_id" value="<?= htmlspecialchars($prefill['id'] ?? '') ?>">
               <div class="form-group">
                 <label for="client_name">Company / Trade Name *</label>
                 <input type="text" id="client_name" name="client_name" required value="<?= htmlspecialchars($prefill['client_name'] ?? '') ?>">
@@ -1937,6 +1926,12 @@ while ($row = $result->fetch_assoc()) {
                   <option value="1/4" <?= ($prefill['product_size'] ?? '') === '1/4' ? 'selected' : '' ?>>1/4</option>
                   <option value="1/6" <?= ($prefill['product_size'] ?? '') === '1/6' ? 'selected' : '' ?>>1/6</option>
                   <option value="1/8" <?= ($prefill['product_size'] ?? '') === '1/8' ? 'selected' : '' ?>>1/8</option>
+                  <option value="1/10" <?= ($prefill['product_size'] ?? '') === '1/10' ? 'selected' : '' ?>>1/10</option>
+                  <option value="1/12" <?= ($prefill['product_size'] ?? '') === '1/12' ? 'selected' : '' ?>>1/12</option>
+                  <option value="1/14" <?= ($prefill['product_size'] ?? '') === '1/14' ? 'selected' : '' ?>>1/14</option>
+                  <option value="1/16" <?= ($prefill['product_size'] ?? '') === '1/16' ? 'selected' : '' ?>>1/16</option>
+                  <option value="1/18" <?= ($prefill['product_size'] ?? '') === '1/18' ? 'selected' : '' ?>>1/18</option>
+                  <option value="1/20" <?= ($prefill['product_size'] ?? '') === '1/20' ? 'selected' : '' ?>>1/20</option>
                 </select>
               </div>
               <div class="form-group">
@@ -2141,6 +2136,29 @@ while ($row = $result->fetch_assoc()) {
           setTimeout(() => flash.remove(), 500);
         }, 3000);
       }
+
+      console.log("JS loaded");
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const clientId = urlParams.get('client_id');
+      console.log("client_id:", clientId);
+
+      // Delay to allow other sessionStorage or toggle state scripts to finish first
+      setTimeout(() => {
+        if (clientId) {
+          const form = document.getElementById('job-order-form');
+          console.log("form:", form);
+          if (form) {
+            form.style.display = 'block';
+
+            // Smooth scroll to form
+            window.scrollTo({
+              top: form.offsetTop - 100,
+              behavior: 'smooth'
+            });
+          }
+        }
+      }, 300); // Adjust delay as needed if you still notice conflicts
     });
 
     function quickFillUp(order) {
@@ -2229,9 +2247,12 @@ while ($row = $result->fetch_assoc()) {
         }, 300);
       }, 300);
 
+      const Tform = document.getElementById('job-order-form');
+      Tform.style.display = 'block';
+
       // Scroll to form
       window.scrollTo({
-        top: form.offsetTop - 40,
+        top: Tform.offsetTop - 100,
         behavior: 'smooth'
       });
     }

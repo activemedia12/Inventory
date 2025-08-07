@@ -135,7 +135,7 @@ $stmt->close();
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Papers Management</title>
   <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -143,16 +143,15 @@ $stmt->close();
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-    ::-webkit-scrollbar {
-      /* width: 5px;
-      height: 5px; */
-      display: none;
-    }
+        ::-webkit-scrollbar {
+            width: 7px;
+            height: 5px;
+        }
 
-    ::-webkit-scrollbar-thumb {
-      background: rgb(140, 140, 140);
-      border-radius: 10px;
-    }
+        ::-webkit-scrollbar-thumb {
+            background: #1876f299;
+            border-radius: 10px;
+        }
 
     :root {
       --primary: #1877f2;

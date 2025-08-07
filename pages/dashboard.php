@@ -93,7 +93,7 @@ while ($row = $stock_data->fetch_assoc()) {
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>Dashboard</title>
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -102,13 +102,12 @@ while ($row = $stock_data->fetch_assoc()) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <style>
         ::-webkit-scrollbar {
-            /* width: 5px;
-            height: 5px; */
-            display: none;
+            width: 7px;
+            height: 5px;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: rgb(140, 140, 140);
+            background: #1876f299;
             border-radius: 10px;
         }
 
