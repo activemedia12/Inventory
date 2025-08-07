@@ -39,7 +39,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Login</title>
   <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -81,6 +81,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       background-color: #fff;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.1);
       overflow: hidden;
+      border-radius: 28px;
     }
 
     .header {
@@ -191,6 +192,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     @media (max-width: 768px) {
+      .login-container {
+        scale: 0.8;
+      }
       .content {
         flex-direction: column;
       }
@@ -202,6 +206,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
       .logo-container img {
         max-width: 200px;
+      }
+    }
+
+    @media (max-width: 578px) {
+      .header h1 {
+        font-size: 20px;
+      }
+
+      .logo-container img {
+        max-width: 150px;
+      }
+
+      .login-container {
+        scale: 0.7;
+      }
+
+      .login-box {
+        padding: 12px;
+        border-top: none;
       }
     }
   </style>

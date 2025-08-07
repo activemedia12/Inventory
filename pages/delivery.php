@@ -24,6 +24,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $supplier_name = trim($_POST['supplier_name'] ?? '');
     $amount_per_ream = floatval($_POST['amount_per_ream']);
 
+    if (strtolower($unit) === 'sheets') {
+      $delivered_reams = $delivered_reams / 500;
+    }
+
     if ($product_id && $delivered_reams > 0 && $amount_per_ream > 0) {
       $stmt = $mysqli->prepare("INSERT INTO delivery_logs 
           (product_id, delivered_reams, unit, delivery_note, delivery_date, supplier_name, amount_per_ream, created_by) 
@@ -128,7 +132,7 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Delivery Logs</title>
   <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -137,15 +141,15 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
   <style>
-    ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
-    }
+        ::-webkit-scrollbar {
+            width: 7px;
+            height: 5px;
+        }
 
-    ::-webkit-scrollbar-thumb {
-      background: rgb(140, 140, 140);
-      border-radius: 10px;
-    }
+        ::-webkit-scrollbar-thumb {
+            background: #1876f299;
+            border-radius: 10px;
+        }
 
     :root {
       --primary: #1877f2;
@@ -946,13 +950,17 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
             </div>
 
             <div class="form-group">
-              <label for="delivered_reams">Delivered Reams</label>
-              <input type="number" name="delivered_reams" id="delivered_reams" min="0.01" step="0.01" placeholder="e.g., 2, 3, 4">
+              <label for="unit">Unit</label>
+              <input type="text" name="unit" id="unit" placeholder="Reams or Sheets" list="unit-options">
+              <datalist id="unit-options">
+                <option value="Reams">
+                <option value="Sheets">
+              </datalist>
             </div>
 
             <div class="form-group">
-              <label for="unit">Unit</label>
-              <input type="text" name="unit" id="unit" value="Reams">
+              <label for="delivered_reams">Delivered Quantity</label>
+              <input type="number" name="delivered_reams" id="delivered_reams" min="0.01" step="0.01" placeholder="e.g., 2, 3, 4">
             </div>
 
             <div class="form-group">

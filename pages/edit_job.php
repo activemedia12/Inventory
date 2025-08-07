@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $paper_sequence_str = implode(',', $new_sequence);
 
     // Recalculate used sheets
-    $cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, 'whole' => 1];
+    $cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, '1/10' => 10, '1/12' => 12, '1/14' => 14, '1/16' => 16, '1/18' => 18, '1/20' => 20, 'whole' => 1];
     $cut_size = $cut_size_map[$product_size] ?? 1;
     $total_sets = $quantity * $number_of_sets;
     $used_sheets_per_product = $total_sets / $cut_size;
@@ -750,7 +750,7 @@ unset($_SESSION['message']);
                             <div class="form-group">
                                 <label for="product_size">Product Size *</label>
                                 <select id="product_size" name="product_size" class="form-control" required>
-                                    <?php foreach (['whole', '1/2', '1/3', '1/4', '1/6', '1/8'] as $size): ?>
+                                    <?php foreach (['whole', '1/2', '1/3', '1/4', '1/6', '1/8', '1/10', '1/12', '1/14', '1/16', '1/18', '1/20'] as $size): ?>
                                         <option value="<?= $size ?>" <?= $job['product_size'] == $size ? 'selected' : '' ?>>
                                             <?= $size ?>
                                         </option>

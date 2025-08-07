@@ -23,8 +23,8 @@ while ($row = $result->fetch_assoc()) {
 }
 
 // Fetch all saved clients
-$result = $mysqli->query("SELECT * FROM clients ORDER BY created_at DESC");
-$clients = $result->fetch_all(MYSQLI_ASSOC);
+// $result = $mysqli->query("SELECT * FROM clients ORDER BY created_at DESC");
+// $clients = $result->fetch_all(MYSQLI_ASSOC);
 $provinces = [];
 $result = $mysqli->query("SELECT DISTINCT province FROM locations ORDER BY province ASC");
 while ($row = $result->fetch_assoc()) {
@@ -37,7 +37,7 @@ while ($row = $result->fetch_assoc()) {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Client Information</title>
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46,13 +46,13 @@ while ($row = $result->fetch_assoc()) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         ::-webkit-scrollbar {
-            display: none;
+            width: 7px;
+            height: 10px;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: rgb(140, 140, 140);
+            background: #1876f299;
             border-radius: 10px;
-            cursor: pointer;
         }
 
         :root {
@@ -347,7 +347,7 @@ while ($row = $result->fetch_assoc()) {
         }
 
         .client-name {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
             color: var(--dark);
             margin-bottom: 15px;
@@ -918,17 +918,6 @@ while ($row = $result->fetch_assoc()) {
         /* Form Elements */
         .status-form {
             display: inline;
-        }
-
-        /* Scrollbar Styling */
-        ::-webkit-scrollbar {
-            width: 5px;
-            height: 5px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: rgb(140, 140, 140);
-            border-radius: 10px;
         }
 
         @media (max-width: 768px) {
