@@ -386,6 +386,7 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       padding: 12px 15px;
       text-align: left;
       border-bottom: 1px solid var(--light-gray);
+      font-size: 14px;
     }
 
     th {
@@ -582,7 +583,7 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       cursor: pointer;
       border-radius: 5px;
       margin-top: 10px;
-      font-size: 100%;
+      font-size: 90%;
     }
 
     .group-content {
@@ -1112,7 +1113,7 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
                 <table>
                   <thead>
                     <tr>
-                      <th>Insuance</th>
+                      <th>Consumables</th>
                       <th>Quantity</th>
                       <th>Unit</th>
                       <th>Amount/Unit</th>
