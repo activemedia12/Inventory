@@ -340,7 +340,7 @@ while ($row = $result->fetch_assoc()) {
   <style>
         ::-webkit-scrollbar {
             width: 7px;
-            height: 10px;
+            height: 5px;
         }
 
         ::-webkit-scrollbar-thumb {
@@ -910,9 +910,10 @@ while ($row = $result->fetch_assoc()) {
     .order-details-table td {
       transition: 0.3s;
       padding: 8px 12px;
-      text-align: left;
+      text-align: center;
       border-bottom: 1px solid rgb(0, 0, 0, 0.05);
-      vertical-align: top;
+      vertical-align: center;
+      border-right: 1px solid rgb(0, 0, 0, 0.05);
     }
 
     .order-details-table th {
@@ -920,6 +921,7 @@ while ($row = $result->fetch_assoc()) {
       color: var(--dark);
       font-weight: 500;
       white-space: nowrap;
+      text-align: center;
     }
 
     .order-details-table tr:hover td {
@@ -2261,6 +2263,7 @@ while ($row = $result->fetch_assoc()) {
       row.addEventListener('click', function() {
         const orderData = JSON.parse(this.dataset.order);
         const userRole = this.dataset.role;
+        console.log(userRole);
         openModal(orderData, userRole);
       });
     });

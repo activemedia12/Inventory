@@ -139,7 +139,6 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
   <style>
         ::-webkit-scrollbar {
             width: 7px;
@@ -574,94 +573,6 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
     .action-cell a:hover {
       color: var(--primary);
     }
-
-    /* Search field input */
-    .select2-container .select2-search--dropdown .select2-search__field {
-      width: 100%;
-      padding: 10px 12px;
-      font-size: 85%;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      outline: none;
-      color: #111827;
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    /* Focus state */
-    .select2-container .select2-search--dropdown .select2-search__field:focus {
-      border-color: var(--primary);
-      /* Blue border on focus */
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-    }
-
-    /* Placeholder (uses actual HTML placeholder attribute) */
-    .select2-container .select2-search--dropdown .select2-search__field::placeholder {
-      color: #9ca3af;
-      font-style: italic;
-    }
-
-    .select2-container .select2-dropdown {
-      background-color: #ffffff;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
-      overflow: hidden;
-    }
-
-    .select2-results__options {
-
-      max-height: 300px;
-      overflow-y: auto;
-      padding: 0.25rem 0;
-    }
-
-    .select2-results__option {
-      padding: 10px 16px;
-      font-size: 90%;
-      color: #1f2937;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-    }
-
-    .select2-results__option--highlighted[aria-selected] {
-      background-color: var(--primary);
-      color: var(--primary);
-    }
-
-    .select2-results__group {
-      padding: 8px 16px;
-      font-weight: 600;
-      font-size: 90%;
-      color: #6b7280;
-      background-color: #f9fafb;
-      border-top: 1px solid #f3f4f6;
-    }
-
-    .select2-selection__arrow {
-      margin: 10px 10px 0 0;
-    }
-
-    .select2-search__field {
-      border-radius: 10px;
-    }
-
-    .select2-container--default .select2-selection--single {
-      min-height: 45px;
-      display: flex;
-      align-items: center;
-      width: 100%;
-      border: 1px solid var(--light-gray);
-      border-radius: 6px;
-      font-family: inherit;
-      transition: border-color 0.3s;
-      font-size: 85%;
-    }
-
-    .select2-container--default .select2-selection--single:focus {
-      border-color: var(--primary);
-      outline: none;
-    }
-
     .toggle-btn {
       width: 100%;
       padding: 10px 15px;
@@ -869,6 +780,73 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       margin-bottom: 20px;
       width: 255.4px;
     }
+
+    .product-selector {
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 5px;
+      font-size: 12px
+    }
+    
+    .product-type, .product-group {
+      margin-bottom: 5px;
+    }
+    
+    .type-header, .group-header {
+      padding: 8px 10px;
+      background-color: #f5f5f5;
+      border-radius: 3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      transition: background-color 0.2s;
+    }
+    
+    .type-header:hover, .group-header:hover {
+      background-color: #e9e9e9;
+    }
+    
+    .type-header {
+      font-size: 1.1em;
+      background-color: #e0e0e0;
+    }
+    
+    .toggle-icon {
+      margin-right: 8px;
+      width: 15px;
+      display: inline-block;
+      text-align: center;
+    }
+    
+    .type-groups {
+      margin-left: 15px;
+      margin-top: 5px;
+    }
+    
+    .group-items {
+      margin-left: 15px;
+    }
+    
+    .product-item {
+      padding: 6px 10px 6px 25px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    
+    .product-item:hover {
+      background-color: #e6f7ff;
+    }
+    
+    .product-item.selected {
+      background-color: #d4edff;
+      font-weight: bold;
+    }
+    
+    .form-label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
   </style>
 </head>
 
@@ -922,31 +900,55 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
         <div id="paper-form">
           <div class="form-grid">
             <div class="form-group">
-              <label for="product_id">Product</label>
-              <select name="product_id" id="product_id">
-                <option value="">Select Product</option>
+              <label for="product-selector" class="form-label">Select Paper</label>
+              <div class="product-selector" id="product-selector">
                 <?php
                 $selected_id = $_POST['product_id'] ?? '';
                 $organized = [];
+                
+                // Organize products hierarchically
                 while ($row = $products->fetch_assoc()) {
                   $type = $row['product_type'];
                   $group = $row['product_group'];
                   $organized[$type][$group][] = $row;
                 }
+                
+                // Sort alphabetically
+                ksort($organized);
+                
                 foreach ($organized as $type => $groups) {
-                  echo "<optgroup label=\"$type\">";
-                  foreach ($groups as $group => $items) {
-                    foreach ($items as $item) {
-                      $id = $item['id'];
-                      $name = htmlspecialchars($item['product_name']);
-                      $selected = ($id == $selected_id) ? 'selected' : '';
-                      echo "<option value=\"$id\" $selected>$type - $group - $name</option>";
-                    }
-                  }
-                  echo "</optgroup>";
-                }
-                ?>
-              </select>
+                  ksort($groups);
+                  ?>
+                  <div class="product-type">
+                    <div class="type-header" onclick="toggleSection(this)">
+                      <span class="toggle-icon">+</span>
+                      <strong><?= htmlspecialchars($type) ?></strong>
+                    </div>
+                    <div class="type-groups" style="display: none;">
+                      <?php foreach ($groups as $group => $items) { ?>
+                        <div class="product-group">
+                          <div class="group-header" onclick="toggleSection(this)">
+                            <span class="toggle-icon">+</span>
+                            <?= htmlspecialchars($group) ?>
+                          </div>
+                          <div class="group-items" style="display: none;">
+                            <?php foreach ($items as $item) { 
+                              $selected = ($item['id'] == $selected_id) ? 'selected' : '';
+                              ?>
+                              <div class="product-item <?= $selected ?>" 
+                                  data-value="<?= $item['id'] ?>"
+                                  onclick="selectItem(this)">
+                                <?= htmlspecialchars($item['product_name']) ?>
+                              </div>
+                            <?php } ?>
+                          </div>
+                        </div>
+                      <?php } ?>
+                    </div>
+                  </div>
+                <?php } ?>
+              </div>
+              <input type="hidden" name="product_id" id="product_id" value="<?= $selected_id ?>">
             </div>
 
             <div class="form-group">
@@ -1197,8 +1199,53 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
   </div>
 
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const selectedItem = document.querySelector('.product-item.selected');
+      if (selectedItem) {
+        // Expand all parent sections
+        let current = selectedItem;
+        while (current) {
+          if (current.classList.contains('group-items')) {
+            current.previousElementSibling.querySelector('.toggle-icon').textContent = '-';
+            current.style.display = 'block';
+          }
+          if (current.classList.contains('type-groups')) {
+            current.previousElementSibling.querySelector('.toggle-icon').textContent = '-';
+            current.style.display = 'block';
+          }
+          current = current.parentElement;
+        }
+      }
+    });
+
+    function toggleSection(element) {
+      const parent = element.parentElement;
+      const content = element.nextElementSibling;
+      const icon = element.querySelector('.toggle-icon');
+      
+      if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.textContent = '-';
+      } else {
+        content.style.display = 'none';
+        icon.textContent = '+';
+      }
+    }
+    
+    function selectItem(element) {
+      // Remove previous selection
+      document.querySelectorAll('.product-item.selected').forEach(el => {
+        el.classList.remove('selected');
+      });
+      
+      // Add new selection
+      element.classList.add('selected');
+      
+      // Update hidden input
+      document.getElementById('product_id').value = element.dataset.value;
+    }
+
     function toggleDeliveryForm() {
       const type = document.getElementById('delivery_type').value;
 
@@ -1281,18 +1328,6 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       document.getElementById('productModal').style.display = 'none';
       document.getElementById('productModalBody').innerHTML = '';
     }
-
-    $(document).ready(function() {
-      $('#product_id').select2({
-        placeholder: "Select Product",
-        width: '100%',
-      });
-
-      $('#product_id').on('select2:open', function() {
-        $('.select2-search__field').attr('placeholder', 'Search product...');
-      });
-    });
-
 
     const pageKey = 'delivery.php';
 
