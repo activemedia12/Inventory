@@ -132,6 +132,12 @@ if (isset($_GET['confirm']) && $_GET['confirm'] === 'true') {
             margin-right: 8px;
         }
 
+        @media (max-width: 768px) {
+            .logout-container {
+                scale: 0.8;
+            }
+        }
+
         @media (max-width: 480px) {
             .logout-container {
                 padding: 20px;

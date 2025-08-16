@@ -330,6 +330,7 @@ while ($row = $stock_data->fetch_assoc()) {
 
         .recent-tables td {
             cursor: pointer;
+            font-size: 14px;
         }
 
         .table-card {

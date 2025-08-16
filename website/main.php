@@ -272,6 +272,30 @@
                 font-size: 1.5rem;
             }
         }
+
+        .nav-menu {
+            list-style: none;
+            z-index: 1000;
+            left: 0;
+            margin-top: 20px;
+        }
+
+        .nav-menu li a {
+            padding: 12px 20px;
+            color: var(--dark);
+            text-decoration: none;
+            transition: background-color 0.3s;
+        }
+
+        .nav-menu li a:hover,
+        .nav-menu li a.active {
+            background-color: var(--light-gray);
+        }
+
+        .nav-menu li a i {
+            margin-right: 10px;
+            color: var(--gray);
+        }
     </style>
 </head>
 <body>
@@ -313,6 +337,10 @@
             <a href="https://web.whatsapp.com/" aria-label="Whatsapp"><i class="fab fa-whatsapp"></i></a>
             <a href="https://www.viber.com/en/" aria-label="Viber"><i class="fab fa-viber"></i></a>
             <a href="https://www.linkedin.com/login" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+        </div>
+
+        <div class="nav-menu">
+            <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i><span>Logout</span></a></li>
         </div>
     </div>
 
