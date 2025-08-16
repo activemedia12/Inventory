@@ -233,7 +233,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <body>
   <div class="login-container">
     <div class="header">
-      <h1>Active Media Designs & Printing Inventory System</h1>
+      <h1>Welcome to Active Media Designs & Printing</h1>
     </div>
 
     <div class="content">
@@ -259,7 +259,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
           <button type="submit" class="login-btn">Log In</button>
 
-          <p class="footer-text">Don't have an account? Contact Admin</p>
+          <p class="footer-text">Don't have an account? <a href="customer.php">Sign in</a></p>
         </form>
       </div>
     </div>

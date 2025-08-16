@@ -44,23 +44,16 @@
                               <th>Binding</th>
                               <th>Color Sequence</th>
                               <th>Special Instructions</th>
-                              <th>Client Address</th>
-                              <th>Contact Person</th>
-                              <th>Contact Number</th>
-                              <th>BIR RDO Code</th>
-                              <th>Tax Type</th>
-                              <th>TIN</th>
-                              <th>Client By</th>
-                              <th>Tax Payer Name</th>
+                              <!-- <th>Tax Payer Name</th>
                               <th>OCN Number</th>
-                              <th>Date Issued</th>
+                              <th>Date Issued</th> -->
                               <?php if ($_SESSION['role'] === 'admin'): ?>
                                 <th>Recorded By</th>
                               <?php endif; ?>
                               <?php if ($status_title === 'Completed'): ?>
                                 <th>Date Completed</th>
                               <?php endif; ?>
-                              <th></th>
+                              <th>Actions</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -86,16 +79,9 @@
                                   <?php endforeach; ?>
                                 </td>
                                 <td><?= nl2br(htmlspecialchars($order['special_instructions'])) ?></td>
-                                <td><?= htmlspecialchars($order['client_address']) ?></td>
-                                <td><?= htmlspecialchars($order['contact_person']) ?></td>
-                                <td><?= htmlspecialchars($order['contact_number']) ?></td>
-                                <td><?= htmlspecialchars($order['rdo_code']) ?></td>
-                                <td><?= htmlspecialchars($order['tax_type']) ?></td>
-                                <td><?= htmlspecialchars($order['tin']) ?></td>
-                                <td><?= htmlspecialchars($order['client_by']) ?></td>
-                                <td><?= htmlspecialchars($order['taxpayer_name']) ?></td>
+                                <!-- <td><?= htmlspecialchars($order['taxpayer_name']) ?></td>
                                 <td><?= htmlspecialchars($order['ocn_number']) ?></td>
-                                <td><?= $order['date_issued'] ? date("F j, Y", strtotime($order['date_issued'])) : 'Pending' ?></td>
+                                <td><?= $order['date_issued'] ? date("F j, Y", strtotime($order['date_issued'])) : 'Pending' ?></td> -->
                                 <?php if ($_SESSION['role'] === 'admin'): ?>
                                   <td><?= htmlspecialchars($order['username'] ?? 'Unknown') ?></td>
                                 <?php endif; ?>
