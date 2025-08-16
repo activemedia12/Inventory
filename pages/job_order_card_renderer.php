@@ -4,29 +4,47 @@
       <div class="compact-client">
         <div class="compact-client-header" data-client="<?= htmlspecialchars($client) ?>" onclick="toggleClient(this)">
           <span class="compact-client-name"><?= htmlspecialchars($client) ?></span>
-          <span class="compact-client-count"><?= count($dates) ?> dates</span>
+          <span class="compact-client-count"><?= count($dates) ?> projects</span>
         </div>
 
-        <div class="compact-date-group" style="display:none;">
-          <?php foreach ($dates as $date => $projects): ?>
+        <div class="compact-project-group" style="display:none;">
+          <?php
+          // First collect all projects across all dates for this client
+          $all_projects = [];
+          foreach ($dates as $date => $projects) {
+            foreach ($projects as $project_key => $project_data) {
+              if (!isset($all_projects[$project_key])) {
+                $all_projects[$project_key] = [
+                  'display' => $project_data['display'],
+                  'dates' => []
+                ];
+              }
+              $all_projects[$project_key]['dates'][$date] = $project_data['records'];
+            }
+          }
+          ?>
+
+          <?php foreach ($all_projects as $project_key => $project_data): ?>
             <div>
-              <div class="compact-date-header" data-client="<?= htmlspecialchars($client) ?>" data-date="<?= htmlspecialchars($date) ?>" onclick="toggleDate(this)">
-                <span class="compact-date-text">
-                  <i class="fas fa-calendar-alt"></i>
-                  <?= date("F j, Y", strtotime($date)) ?>
+              <div class="compact-project-header" data-client="<?= htmlspecialchars($client) ?>" data-project="<?= htmlspecialchars($project_key) ?>" onclick="toggleProject(this)">
+                <span>
+                  <i class="fas fa-folder-open"></i>
+                  <?= htmlspecialchars($project_data['display']) ?>
                 </span>
-                <span class="compact-client-count"><?= count($projects) ?> projects</span>
+                <span class="compact-client-count">
+                  <?= array_sum(array_map('count', $project_data['dates'])) ?> dates
+                </span>
               </div>
 
-              <div class="compact-project-group" style="display:none;">
-                <?php foreach ($projects as $project_key => $project_data): ?>
+              <div class="compact-date-group" style="display:none;">
+                <?php foreach ($project_data['dates'] as $date => $records): ?>
                   <div>
-                    <div class="compact-project-header" data-client="<?= htmlspecialchars($client) ?>" data-date="<?= htmlspecialchars($date) ?>" data-project="<?= htmlspecialchars($project_key) ?>" onclick="toggleProject(this)">
-                      <span>
-                        <i class="fas fa-folder-open"></i>
-                        <?= htmlspecialchars($project_data['display']) ?>
+                    <div class="compact-date-header" data-client="<?= htmlspecialchars($client) ?>" data-project="<?= htmlspecialchars($project_key) ?>" data-date="<?= htmlspecialchars($date) ?>" onclick="toggleDate(this)">
+                      <span class="compact-date-text">
+                        <i class="fas fa-calendar-alt"></i>
+                        <?= date("F j, Y", strtotime($date)) ?>
                       </span>
-                      <span class="compact-client-count"><?= count($project_data['records']) ?> orders</span>
+                      <span class="compact-client-count"><?= count($records) ?> orders</span>
                     </div>
 
                     <div class="compact-order-item" style="display:none;">
@@ -57,14 +75,14 @@
                             </tr>
                           </thead>
                           <tbody>
-                            <?php foreach ($project_data['records'] as $order): ?>
+                            <?php foreach ($records as $order): ?>
                               <?php
-                                $order_with_date = $order;
-                                $order_with_date['job_order_date'] = $date;
+                              $order_with_date = $order;
+                              $order_with_date['job_order_date'] = $date;
                               ?>
-                              <tr class="clickable-row" 
-                                  data-order='<?= htmlspecialchars(json_encode($order_with_date), ENT_QUOTES, 'UTF-8') ?>' 
-                                  data-role="<?= htmlspecialchars($_SESSION['role']) ?>">
+                              <tr class="clickable-row"
+                                data-order='<?= htmlspecialchars(json_encode($order_with_date), ENT_QUOTES, 'UTF-8') ?>'
+                                data-role="<?= htmlspecialchars($_SESSION['role']) ?>">
                                 <td><?= $order['quantity'] ?></td>
                                 <td><?= $order['number_of_sets'] ?></td>
                                 <td><?= htmlspecialchars($order['product_size']) ?></td>

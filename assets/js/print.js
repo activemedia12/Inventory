@@ -64,7 +64,7 @@
             .copies-per-set { top: 397px; left: 270px; font-size: 12px; }
             .binding-type   { top: 337px; left: 483px; }
 
-            .color-seq      { top: 370px; left: 610px; font-size: 12px; white-space: nowrap; max-width: 320px }
+            .color-seq      { top: 366px; left: 610px; font-size: 13px; white-space: nowrap; max-width: 320px }
             .special-notes  { top: 455px; left: 70px; width: 800px; font-size: 13px; }
           </style>
         </head>
@@ -104,15 +104,15 @@
             </div>
             <div class="field binding-type">${bindingType}</div>
 
-            <div class="field color-seq">${paperSequence.join(',<wbr> ')}</div>
+            <div class="field color-seq">${paperSequence.join('<br>')}</div>
             <div class="field special-notes">${(order.special_instructions || '').replace(/\n/g, '<br>')}</div>
           </div>
 
           <script>
-            // window.onload = function () {
-            //   window.print();
-            //   setTimeout(function() { window.close(); }, 500);
-            // };
+            window.onload = function () {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
           </script>
         </body>
         </html>
