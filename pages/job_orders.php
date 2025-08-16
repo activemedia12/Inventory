@@ -10,12 +10,12 @@ $prefill = $_SESSION['form_data'] ?? [];
 unset($_SESSION['form_data']);
 
 if (isset($_GET['client_id'])) {
-    $stmt = $mysqli->prepare("SELECT * FROM clients WHERE id = ?");
-    $stmt->bind_param("i", $_GET['client_id']);
-    $stmt->execute();
+  $stmt = $mysqli->prepare("SELECT * FROM clients WHERE id = ?");
+  $stmt->bind_param("i", $_GET['client_id']);
+  $stmt->execute();
 
-    $result = $stmt->get_result();
-    $prefill = $result->fetch_assoc();  // This returns associative array like PDO::FETCH_ASSOC
+  $result = $stmt->get_result();
+  $prefill = $result->fetch_assoc();  // This returns associative array like PDO::FETCH_ASSOC
 }
 
 // Handle alert messages from redirect
@@ -105,7 +105,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $needed_reams = ceil($needed_sheets / 500);
 
         $insufficient[] = "<i class='fas fa-exclamation-circle'></i> Not enough stock for <strong>$color</strong>. Available: {$row['available']} sheets, Required: $used_sheets sheets. You need to add at least <strong>{$needed_reams} ream(s)</strong>.";
-
       } else {
         $products_used[] = ['product_id' => $row['id'], 'color' => $color];
       }
@@ -117,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (!empty($insufficient)) {
     $_SESSION['form_data'] = $_POST;
 
-    $messages = array_map(function($msg) {
+    $messages = array_map(function ($msg) {
       return "<div class='alert alert-danger'>$msg</div>";
     }, $insufficient);
 
@@ -338,15 +337,15 @@ while ($row = $result->fetch_assoc()) {
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-        ::-webkit-scrollbar {
-            width: 7px;
-            height: 5px;
-        }
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 5px;
+    }
 
-        ::-webkit-scrollbar-thumb {
-            background: #1876f299;
-            border-radius: 10px;
-        }
+    ::-webkit-scrollbar-thumb {
+      background: #1876f299;
+      border-radius: 10px;
+    }
 
     :root {
       --primary: #1877f2;
@@ -1215,48 +1214,49 @@ while ($row = $result->fetch_assoc()) {
     }
 
     @media (max-width: 768px) {
-            .sidebar-con {
-                width: 100%;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                position: fixed;
-            }
-            .sidebar {
-                position: fixed;
-                overflow: hidden;
-                height: auto;
-                width: auto;
-                bottom: 20px;
-                padding: 0;
-                background-color: rgba(255, 255, 255, 0.3);
-                backdrop-filter: blur(2px);
-                box-shadow: 1px 1px 10px rgb(190, 190, 190);
-                border-radius: 100px;
-                cursor: grab;
-                transition: left 0.05s ease-in, top 0.05s ease-in;
-                touch-action: manipulation;
-                z-index: 9999;
-                flex-direction: row;
-                border: 1px solid white;
-                justify-content: center;
-            }
+      .sidebar-con {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: fixed;
+      }
 
-            .sidebar .nav-menu {
-                display: flex;
-                flex-direction: row;
-            }
+      .sidebar {
+        position: fixed;
+        overflow: hidden;
+        height: auto;
+        width: auto;
+        bottom: 20px;
+        padding: 0;
+        background-color: rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(2px);
+        box-shadow: 1px 1px 10px rgb(190, 190, 190);
+        border-radius: 100px;
+        cursor: grab;
+        transition: left 0.05s ease-in, top 0.05s ease-in;
+        touch-action: manipulation;
+        z-index: 9999;
+        flex-direction: row;
+        border: 1px solid white;
+        justify-content: center;
+      }
 
-            .sidebar img,
-            .sidebar .brand,
-            .sidebar .nav-menu li a span {
-                display: none;
-            }
+      .sidebar .nav-menu {
+        display: flex;
+        flex-direction: row;
+      }
 
-            .sidebar .nav-menu li a {
-                justify-content: center;
-                padding: 15px;
-            }
+      .sidebar img,
+      .sidebar .brand,
+      .sidebar .nav-menu li a span {
+        display: none;
+      }
+
+      .sidebar .nav-menu li a {
+        justify-content: center;
+        padding: 15px;
+      }
 
       .sidebar .nav-menu li a i {
         margin-right: 0;
@@ -1410,123 +1410,124 @@ while ($row = $result->fetch_assoc()) {
       color: #28a745;
       border-color: #28a745;
     }
-  /* Overlay */
-  .export-modal-overlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(2px);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-    animation: exportFadeIn 0.3s ease-out;
-  }
-  
-  /* Container */
-  .export-modal-container {
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-    width: 100%;
-    max-width: 420px;
-    overflow: hidden;
-    margin: 20px;
-  }
-  
-  /* Header */
-  .export-modal-header {
-    padding: 18px 24px;
-    background: var(--primary);
-    color: white;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  .export-modal-title {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-  }
-  
-  .export-modal-close {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 24px;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-  }
-  
-  /* Body */
-  .export-modal-body {
-    padding: 8px 24px 24px;
-  }
-  
-  /* Form Styles */
-  .export-form-group {
-    margin-top: 20px;
-    margin-bottom: 20px;
-  }
-  
-  .export-form-label {
-    display: block;
-    margin-bottom: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    color: #555;
-  }
-  
-  .export-input-wrapper {
-    position: relative;
-  }
-  
-  .export-form-input {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 14px;
-    transition: all 0.3s;
-  }
-  
-  .export-form-input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(74, 111, 220, 0.2);
-  }
-  
-  input[type="date"].export-form-input {
-    padding-right: 30px;
-  }
-  
-  /* Buttons */
-  .export-form-actions {
-    display: flex;
-    justify-content: flex-start;
-    gap: 12px;
-    margin-top: 24px;
-  }
-  
-  .export-btn {
-    padding: 10px 16px;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s;
-    border: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .export-btn-primary {
+
+    /* Overlay */
+    .export-modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(2px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      animation: exportFadeIn 0.3s ease-out;
+    }
+
+    /* Container */
+    .export-modal-container {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      width: 100%;
+      max-width: 420px;
+      overflow: hidden;
+      margin: 20px;
+    }
+
+    /* Header */
+    .export-modal-header {
+      padding: 18px 24px;
+      background: var(--primary);
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .export-modal-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .export-modal-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+    }
+
+    /* Body */
+    .export-modal-body {
+      padding: 8px 24px 24px;
+    }
+
+    /* Form Styles */
+    .export-form-group {
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+
+    .export-form-label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #555;
+    }
+
+    .export-input-wrapper {
+      position: relative;
+    }
+
+    .export-form-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .export-form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(74, 111, 220, 0.2);
+    }
+
+    input[type="date"].export-form-input {
+      padding-right: 30px;
+    }
+
+    /* Buttons */
+    .export-form-actions {
+      display: flex;
+      justify-content: flex-start;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .export-btn {
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .export-btn-primary {
       padding: 0.5rem 1rem;
       border-radius: 6px;
       font-size: 0.85rem;
@@ -1537,13 +1538,13 @@ while ($row = $result->fetch_assoc()) {
       display: inline-flex;
       align-items: center;
       transition: all 0.2s;
-  }
-  
-  .export-btn-primary:hover {
-    background: rgba(40, 167, 69, 0.2);
-  }
-  
-  .export-btn-secondary {
+    }
+
+    .export-btn-primary:hover {
+      background: rgba(40, 167, 69, 0.2);
+    }
+
+    .export-btn-secondary {
       padding: 0.5rem 1rem;
       border-radius: 6px;
       font-size: 0.85rem;
@@ -1555,50 +1556,55 @@ while ($row = $result->fetch_assoc()) {
       background: rgba(244, 67, 54, 0.1);
       color: #f44336;
       border: 1px solid #f44336;
-  }
-  
-  .export-btn-secondary:hover {
-    background: rgba(244, 67, 54, 0.2);
-  }
-  
-  .export-btn-icon {
-    font-size: 16px;
-  }
-  
-  /* Animation */
-  @keyframes exportFadeIn {
-    from { opacity: 0;}
-    to { opacity: 1;}
-  }
-  
-  /* Responsive */
-  @media (max-width: 480px) {
-    .export-modal-container {
-      margin: 10px;
     }
-    
-    .export-modal-body {
-      padding: 8px 20px 20px 20px;
-    }
-    
-    .export-form-actions {
-      flex-direction: column;
-      gap: 10px;
-    }
-    
-    .export-btn {
-      width: 100%;
-    }
-  }
 
-  .export {
-    background-color: var(--card-bg);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
-    width: 216.3px;
-  }
+    .export-btn-secondary:hover {
+      background: rgba(244, 67, 54, 0.2);
+    }
+
+    .export-btn-icon {
+      font-size: 16px;
+    }
+
+    /* Animation */
+    @keyframes exportFadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      .export-modal-container {
+        margin: 10px;
+      }
+
+      .export-modal-body {
+        padding: 8px 20px 20px 20px;
+      }
+
+      .export-form-actions {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .export-btn {
+        width: 100%;
+      }
+    }
+
+    .export {
+      background-color: var(--card-bg);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      width: 216.3px;
+    }
   </style>
 </head>
 
@@ -2055,7 +2061,7 @@ while ($row = $result->fetch_assoc()) {
           &times;
         </button>
       </div>
-      
+
       <div class="export-modal-body">
         <span style="font-size: 80%; color: lightgray;">Request a copy by choosing a date range below.*</span>
         <br>
@@ -2069,14 +2075,14 @@ while ($row = $result->fetch_assoc()) {
               <input type="date" name="start_date" class="export-form-input" required>
             </div>
           </div>
-          
+
           <div class="export-form-group">
             <label class="export-form-label">To</label>
             <div class="export-input-wrapper">
               <input type="date" name="end_date" class="export-form-input" required>
             </div>
           </div>
-          
+
           <div class="export-form-actions">
             <button type="submit" class="export-btn export-btn-primary">
               Request Now
@@ -2091,7 +2097,7 @@ while ($row = $result->fetch_assoc()) {
   </div>
 
   <script>
-    document.getElementById('jobOrderForm').addEventListener('submit', function (e) {
+    document.getElementById('jobOrderForm').addEventListener('submit', function(e) {
       const address = [
         document.getElementById('floor_no').value.trim(),
         document.getElementById('building_no').value.trim(),
@@ -2526,7 +2532,7 @@ while ($row = $result->fetch_assoc()) {
       return text.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
     }
 
-    // ✅ Toggle CLIENT
+    // ✅ Toggle CLIENT (unchanged)
     window.toggleClient = function(el) {
       const container = el.nextElementSibling;
       const isOpen = window.getComputedStyle(container).display !== 'none';
@@ -2539,66 +2545,64 @@ while ($row = $result->fetch_assoc()) {
       sessionStorage.setItem(`client-${clientKey}`, !isOpen);
     };
 
-    // ✅ Toggle DATE
-    window.toggleDate = function(el) {
-      const container = el.nextElementSibling;
-      const isOpen = window.getComputedStyle(container).display !== 'none';
-      container.style.display = isOpen ? 'none' : 'block';
-
-      const client = el.closest('.compact-client').querySelector('.compact-client-name').textContent;
-      const date = el.querySelector('.compact-date-text').textContent;
-      const clientKey = normalizeKey(client);
-      const dateKey = normalizeKey(date);
-
-      sessionStorage.setItem(`date-${clientKey}-${dateKey}`, !isOpen);
-    };
-
-    // ✅ Toggle PROJECT
+    // ✅ Toggle PROJECT (updated)
     window.toggleProject = function(el) {
       const container = el.nextElementSibling;
       const isOpen = window.getComputedStyle(container).display !== 'none';
       container.style.display = isOpen ? 'none' : 'block';
 
       const client = el.closest('.compact-client').querySelector('.compact-client-name').textContent;
-      const date = el.closest('.compact-date-group').querySelector('.compact-date-text').textContent;
-      const project = el.querySelector('span').textContent;
+      const project = el.querySelector('span').textContent; // Project name is in the first span
       const clientKey = normalizeKey(client);
-      const dateKey = normalizeKey(date);
       const projectKey = normalizeKey(project);
 
-      sessionStorage.setItem(`project-${clientKey}-${dateKey}-${projectKey}`, !isOpen);
+      sessionStorage.setItem(`project-${clientKey}-${projectKey}`, !isOpen);
     };
 
-    // ✅ Restore all states on load
+    // ✅ Toggle DATE (updated)
+    window.toggleDate = function(el) {
+      const container = el.nextElementSibling;
+      const isOpen = window.getComputedStyle(container).display !== 'none';
+      container.style.display = isOpen ? 'none' : 'block';
+
+      const client = el.closest('.compact-client').querySelector('.compact-client-name').textContent;
+      const project = el.closest('.compact-project-group').querySelector('.compact-project-header span').textContent;
+      const date = el.querySelector('.compact-date-text').textContent;
+      const clientKey = normalizeKey(client);
+      const projectKey = normalizeKey(project);
+      const dateKey = normalizeKey(date);
+
+      sessionStorage.setItem(`date-${clientKey}-${projectKey}-${dateKey}`, !isOpen);
+    };
+
+    // ✅ Restore all states on load (updated)
     document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.compact-client').forEach(clientEl => {
         const clientKey = normalizeKey(clientEl.querySelector('.compact-client-name').textContent);
         const isClientOpen = sessionStorage.getItem(`client-${clientKey}`) === 'true';
 
         if (isClientOpen) {
-          clientEl.querySelectorAll('.compact-date-group').forEach(group => {
-            group.style.display = 'block';
-          });
+          clientEl.querySelector('.compact-project-group').style.display = 'block';
         }
 
-        clientEl.querySelectorAll('.compact-date-header').forEach(dateEl => {
-          const dateKey = normalizeKey(dateEl.querySelector('.compact-date-text').textContent);
-          const isDateOpen = sessionStorage.getItem(`date-${clientKey}-${dateKey}`) === 'true';
+        clientEl.querySelectorAll('.compact-project-header').forEach(projectEl => {
+          const projectKey = normalizeKey(projectEl.querySelector('span').textContent);
+          const isProjectOpen = sessionStorage.getItem(`project-${clientKey}-${projectKey}`) === 'true';
 
-          if (isDateOpen) {
-            const dateContent = dateEl.nextElementSibling;
-            if (dateContent) dateContent.style.display = 'block';
+          if (isProjectOpen) {
+            const projectContent = projectEl.nextElementSibling;
+            if (projectContent) projectContent.style.display = 'block';
+
+            projectContent.querySelectorAll('.compact-date-header').forEach(dateEl => {
+              const dateKey = normalizeKey(dateEl.querySelector('.compact-date-text').textContent);
+              const isDateOpen = sessionStorage.getItem(`date-${clientKey}-${projectKey}-${dateKey}`) === 'true';
+
+              if (isDateOpen) {
+                const dateContent = dateEl.nextElementSibling;
+                if (dateContent) dateContent.style.display = 'block';
+              }
+            });
           }
-
-          dateEl.closest('.compact-date-group').querySelectorAll('.compact-project-header').forEach(projectEl => {
-            const projectKey = normalizeKey(projectEl.querySelector('span').textContent);
-            const isProjectOpen = sessionStorage.getItem(`project-${clientKey}-${dateKey}-${projectKey}`) === 'true';
-
-            if (isProjectOpen) {
-              const projectContent = projectEl.nextElementSibling;
-              if (projectContent) projectContent.style.display = 'block';
-            }
-          });
         });
       });
     });
@@ -2625,7 +2629,10 @@ while ($row = $result->fetch_assoc()) {
       // ✅ Scroll to alert if it exists
       const alert = document.querySelector(".alert");
       if (alert) {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
         sessionStorage.removeItem(scrollKey); // 👈 put it here to prevent restoring scroll next reload
       } else {
         // ✅ Restore window scroll only if there's no alert
