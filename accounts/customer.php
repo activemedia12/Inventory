@@ -111,103 +111,104 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   }
 
   if (empty($errors)) {
-    // Check if username already exists
+    // Hash the password
+    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+
+    // Check if username exists
     $check_stmt = $mysqli->prepare("SELECT id FROM users WHERE username = ?");
     $check_stmt->bind_param("s", $username);
     $check_stmt->execute();
     $check_stmt->store_result();
+
     if ($check_stmt->num_rows > 0) {
       $errors[] = "That email is already registered. Please choose another.";
     }
     $check_stmt->close();
-  }
 
-  if (empty($errors)) {
-    $plain_password = $password;
+    if (empty($errors)) {
+      // Insert with hashed password
+      $stmt = $mysqli->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
+      $stmt->bind_param("sss", $username, $hashed_password, $role);
 
-    // Insert into users
-    $stmt = $mysqli->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $username, $plain_password, $role);
+      if ($stmt->execute()) {
+        $user_id = $stmt->insert_id;
+        $stmt->close();
 
-    if ($stmt->execute()) {
-      $user_id = $stmt->insert_id;
-      $stmt->close();
-
-      if ($customer_type === 'personal') {
-        $insert = $mysqli->prepare("INSERT INTO personal_customers 
+        if ($customer_type === 'personal') {
+          $insert = $mysqli->prepare("INSERT INTO personal_customers 
                     (user_id, first_name, middle_name, last_name, age, gender, birthdate, contact_number, address_line1, city, province, zip_code)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $bind_age = $age === null ? null : $age;
-        $bind_birthdate = $birthdate === '' ? null : $birthdate;
-        $insert->bind_param(
-          "isssisssssss",
-          $user_id,
-          $first_name,
-          $middle_name,
-          $last_name,
-          $bind_age,
-          $gender,
-          $bind_birthdate,
-          $personal_contact,
-          $address_line1,
-          $p_city,
-          $p_province,
-          $p_zip
-        );
-        if ($insert->execute()) {
-          $success = true;
-          $message = "Personal customer account created successfully. Redirecting to login...";
-          // Clear form data from session on success
-          unset($_SESSION['form_data']);
-          $_SESSION['display_message'] = $message;
-          $_SESSION['is_success'] = true;
-
+          $bind_age = $age === null ? null : $age;
+          $bind_birthdate = $birthdate === '' ? null : $birthdate;
+          $insert->bind_param(
+            "isssisssssss",
+            $user_id,
+            $first_name,
+            $middle_name,
+            $last_name,
+            $bind_age,
+            $gender,
+            $bind_birthdate,
+            $personal_contact,
+            $address_line1,
+            $p_city,
+            $p_province,
+            $p_zip
+          );
+          if ($insert->execute()) {
+            $success = true;
+            $message = "Personal customer account created successfully.";
+            // Clear form data from session on success
+            unset($_SESSION['form_data']);
+            $_SESSION['display_message'] = $message;
+            $_SESSION['is_success'] = true;
+          } else {
+            $errors[] = "Error saving personal customer: " . $insert->error;
+            $message = implode("<br>", $errors);
+          }
+          $insert->close();
         } else {
-          $errors[] = "Error saving personal customer: " . $insert->error;
-          $message = implode("<br>", $errors);
-        }
-        $insert->close();
-      } else {
-        $insert = $mysqli->prepare("INSERT INTO company_customers
+          $insert = $mysqli->prepare("INSERT INTO company_customers
                     (user_id, company_name, taxpayer_name, contact_person, contact_number, province, city, barangay, subd_or_street, building_or_block, lot_or_room_no, zip_code)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $insert->bind_param(
-          "isssssssssss",
-          $user_id,
-          $company_name,
-          $taxpayer_name,
-          $contact_person,
-          $company_contact,
-          $c_province,
-          $c_city,
-          $c_barangay,
-          $c_street,
-          $c_building,
-          $c_lotroom,
-          $c_zip
-        );
-        if ($insert->execute()) {
-          $success = true;
-          $message = "Company customer account created successfully. Redirecting to login...";
-          // Clear form data from session on success
-          unset($_SESSION['form_data']);
-          $_SESSION['display_message'] = $message;
-          $_SESSION['is_success'] = true;
-        } else {
-          $errors[] = "Error saving company customer: " . $insert->error;
-          $message = implode("<br>", $errors);
+          $insert->bind_param(
+            "isssssssssss",
+            $user_id,
+            $company_name,
+            $taxpayer_name,
+            $contact_person,
+            $company_contact,
+            $c_province,
+            $c_city,
+            $c_barangay,
+            $c_street,
+            $c_building,
+            $c_lotroom,
+            $c_zip
+          );
+          if ($insert->execute()) {
+            $success = true;
+            $message = "Company customer account created successfully.";
+            // Clear form data from session on success
+            unset($_SESSION['form_data']);
+            $_SESSION['display_message'] = $message;
+            $_SESSION['is_success'] = true;
+          } else {
+            $errors[] = "Error saving company customer: " . $insert->error;
+            $message = implode("<br>", $errors);
+          }
+          $insert->close();
         }
-        $insert->close();
+      } else {
+        $errors[] = "Error creating user account: " . $stmt->error;
+        $stmt->close();
       }
-    } else {
-      $errors[] = "Error creating user account: " . $stmt->error;
-      $stmt->close();
     }
-  }
 
-  if (!empty($errors)) {
-    $message = implode("<br>", $errors);
-    $_SESSION['form_data'] = $_POST;
+    if (!empty($errors)) {
+      $message = implode("<br>", $errors);
+      $_SESSION['form_data'] = $_POST;
+    }
   }
 }
 ?>
@@ -216,7 +217,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
   <title>Register Customer</title>
   <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -363,8 +364,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     .footer-text {
       text-align: center;
       margin-top: 20px;
-      color: #1c1e21;
-      font-size: 14px;
+      color: #1c1c1c;
+    }
+
+    .footer-text a {
+      text-decoration: none;
+      font-weight: 800;
+      color: #1c1c1c;
+    }
+
+    .footer-text a:hover {
+      text-decoration: underline;
     }
 
     .step {
@@ -452,7 +462,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <body>
   <div class="signup-container">
     <div class="header">
-      <h1>Customer Registration</h1>
+      <h1>CUSTOMER REGISTRATION</h1>
     </div>
 
     <div class="content">
@@ -463,32 +473,32 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       <div class="signup-box">
         <?php
         if (isset($_SESSION['display_message'])) {
-            $message = $_SESSION['display_message'];
-            $success = $_SESSION['is_success'];
-            unset($_SESSION['display_message']);
-            unset($_SESSION['is_success']);
+          $message = $_SESSION['display_message'];
+          $success = $_SESSION['is_success'];
+          unset($_SESSION['display_message']);
+          unset($_SESSION['is_success']);
         }
         ?>
 
         <?php if (!empty($message)): ?>
-            <div class="<?php echo $success ? 'success-message' : 'error-message'; ?>">
-                <i class="fas <?php echo $success ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
-                <?php echo $message; ?>
-            </div>
-            
-            <?php if ($success): ?>
-                <script>
-                    setTimeout(function() {
-                        window.location.href = "login.php";
-                    }, 3000);
-                </script>
-            <?php endif; ?>
+          <div class="<?php echo $success ? 'success-message' : 'error-message'; ?>">
+            <i class="fas <?php echo $success ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
+            <?php echo $message; ?>
+          </div>
+
+          <?php if ($success): ?>
+            <script>
+              setTimeout(function() {
+                window.location.href = "login.php";
+              }, 3000);
+            </script>
+          <?php endif; ?>
         <?php endif; ?>
 
         <form method="post" class="signup-form" id="wizardForm">
           <!-- STEP 1: Account Type -->
           <div class="step active" id="step1">
-            <div class="step-title">Step 1: Select account type</div>
+            <div class="step-title">SELECT AN ACCOUNT TYPE</div>
             <input type="hidden" name="customer_type" id="customer_type" required value="<?php echo htmlspecialchars($customer_type); ?>">
             <div class="stepcon" style="display: flex; gap: 10px; margin-top: 15px;">
               <button type="button" class="btn <?php echo $customer_type === 'personal' ? 'active-btn' : ''; ?>" onclick="selectType('personal')">Personal</button>
@@ -498,7 +508,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
           <!-- STEP 2: Customer Info -->
           <div class="step" id="step2">
-            <div class="step-title">Step 2: Customer information</div>
+            <div class="step-title">FILL UP YOUR INFORMATION</div>
             <div id="personal_fields" style="display:none;">
               <input type="text" name="first_name" placeholder="First Name *" value="<?php echo htmlspecialchars($first_name); ?>" class="<?php echo empty($first_name) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>">
               <?php if (empty($first_name) && isset($_POST['customer_type'])): ?>
@@ -520,7 +530,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <option value="Female" <?php echo $gender === 'Female' ? 'selected' : ''; ?>>Female</option>
                 <option value="Other" <?php echo $gender === 'Other' ? 'selected' : ''; ?>>Other</option>
               </select>
-
+              
+              <label style="font-size: 12px; opacity: 0.5;">Enter your birth date:</label>
               <input type="date" name="birthdate" placeholder="Birthdate" value="<?php echo htmlspecialchars($birthdate); ?>">
 
               <input type="text" name="personal_contact" placeholder="Contact Number *" value="<?php echo htmlspecialchars($personal_contact); ?>" class="<?php echo empty($personal_contact) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>">
@@ -556,7 +567,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
           <!-- STEP 3: Address -->
           <div class="step" id="step3">
-            <div class="step-title">Step 3: Address</div>
+            <div class="step-title">FILL UP ADDRESS</div>
             <div id="personal_address" style="display:none;">
               <input type="text" name="address_line1" placeholder="Address Line 1 (optional)" value="<?php echo htmlspecialchars($address_line1); ?>">
               <input type="text" name="p_city" placeholder="City" value="<?php echo htmlspecialchars($p_city); ?>">
@@ -582,8 +593,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
           <!-- STEP 4: Account Login -->
           <div class="step" id="step4">
-            <div class="step-title">Step 4: Account login</div>
-            <input type="email" name="username" placeholder="Email (will be your username) *" value="<?php echo htmlspecialchars($username); ?>" class="<?php echo empty($username) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>" required>
+            <div class="step-title">LOGIN CREDENTIALS</div>
+            <input type="email" name="username" placeholder="Email (will be your username for login) *" value="<?php echo htmlspecialchars($username); ?>" class="<?php echo empty($username) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>" required>
             <?php if (empty($username) && isset($_POST['customer_type'])): ?>
               <div class="error-text">Email is required</div>
             <?php endif; ?>

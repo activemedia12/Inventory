@@ -22,7 +22,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       $_SESSION['user_id'] = $id;
       $_SESSION['username'] = $username;
       $_SESSION['role'] = $role;
-      header("Location: ../pages/dashboard.php");
+      
+      if ($role === 'customer') {
+        header("Location: ../website/main.php");
+      } else {
+        header("Location: ../pages/dashboard.php");
+      }
       exit;
     } else {
       $error = "Incorrect password.";
@@ -187,8 +192,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     .footer-text {
       text-align: center;
       margin-top: 20px;
-      color: #1c1e21;
-      font-size: 14px;
+      color: #1c1c1c;
+    }
+
+    .footer-text a {
+      text-decoration: none;
+      font-weight: 800;
+      color: #1c1c1c;
+    }
+
+    .footer-text a:hover {
+      text-decoration: underline;
     }
 
     @media (max-width: 768px) {
@@ -227,6 +241,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         border-top: none;
       }
     }
+
+    .fp-btn a {
+      text-decoration: none;
+      color: #1c1c1c;
+    }
+
+    .fp-btn a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 
@@ -258,8 +281,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           </div>
 
           <button type="submit" class="login-btn">Log In</button>
+          <div class="fp-btn" style="text-align: center;">
+              <a href="forgot-password.php">Forgot Password?</a>
+          </div>
 
-          <p class="footer-text">Don't have an account? <a href="customer.php">Sign in</a></p>
+          <p class="footer-text">Don't have an account yet? <a href="customer.php">Sign Up</a></p>
         </form>
       </div>
     </div>

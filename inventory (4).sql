@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.2.2
+-- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Host: 127.0.0.1:3306
--- Generation Time: Aug 06, 2025 at 10:18 AM
--- Server version: 10.11.10-MariaDB-log
--- PHP Version: 7.2.34
+-- Host: 127.0.0.1
+-- Generation Time: Aug 16, 2025 at 08:40 AM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `u382513771_inventory`
+-- Database: `inventory`
 --
 
 -- --------------------------------------------------------
@@ -184,6 +184,35 @@ INSERT INTO `clients` (`id`, `client_name`, `taxpayer_name`, `tin`, `tax_type`, 
 (130, 'Hukl Consultants OPC', 'Hukl Consultants OPC', '637-139-578-00000', 'VAT', '25A - Plaridel, Bulacan (now RDO West Bulacan)', '4F, Cabanas N4 Bldg., KMS 44-45 Mc Arthur Highway, Brgy. Longos, Malolos City, Bulacan, 3000', 'Bulacan', 'Malolos City', 'Longos', 'KMS 44-45 Mc Arthur Highway', 'Cabanas N4 Bldg. ', '4F', '3000', '.', '.', 'Walk-In', '2025-08-06 07:27:22'),
 (131, 'Bulacan Provincial Hospital (BMC) Multi Purpose Coop', 'Bulacan Provincial Hospital (BMC) Multi Purpose Coop', '005-314-464-00000', 'NONVAT', '25A - Plaridel, Bulacan (now RDO West Bulacan)', 'Malolos City, Bulacan, 3000', 'Bulacan', 'Malolos City', '', '', '', '', '3000', 'Anthony Dan Villegas', '9673682820 ', 'AMDP', '2025-08-06 07:31:34'),
 (132, 'Holy Trinity Funeral Services', 'Maria Avegale C. Flores', '903-329-903-00000', 'NONVAT', '25A - Plaridel, Bulacan (now RDO West Bulacan)', '248, Lucero St., Brgy. Mabolo, Malolos City, Bulacan, 3000', 'Bulacan', 'Malolos City', 'Mabolo', 'Lucero St.', '248', '', '3000', '.', '.', 'Online', '2025-08-06 07:42:09');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `company_customers`
+--
+
+CREATE TABLE `company_customers` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `company_name` varchar(100) NOT NULL,
+  `taxpayer_name` varchar(100) DEFAULT NULL,
+  `contact_person` varchar(100) DEFAULT NULL,
+  `contact_number` varchar(20) DEFAULT NULL,
+  `province` varchar(50) DEFAULT NULL,
+  `city` varchar(50) DEFAULT NULL,
+  `barangay` varchar(50) DEFAULT NULL,
+  `subd_or_street` varchar(100) DEFAULT NULL,
+  `building_or_block` varchar(100) DEFAULT NULL,
+  `lot_or_room_no` varchar(50) DEFAULT NULL,
+  `zip_code` varchar(10) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `company_customers`
+--
+
+INSERT INTO `company_customers` (`id`, `user_id`, `company_name`, `taxpayer_name`, `contact_person`, `contact_number`, `province`, `city`, `barangay`, `subd_or_street`, `building_or_block`, `lot_or_room_no`, `zip_code`) VALUES
+(1, 20, 'Erine Enterprises', '', 'WIZERMINA MENDOZA CRUZ', '09987916018', 'Bulacan', 'Malolos City', '', '30 Fausta Rd., Lucero St, Mabolo', '', '', '3000');
 
 -- --------------------------------------------------------
 
@@ -387,11 +416,11 @@ INSERT INTO `insuance_usages` (`id`, `item_id`, `quantity_used`, `description`, 
 CREATE TABLE `job_orders` (
   `id` int(11) NOT NULL,
   `log_date` date DEFAULT curdate(),
-  `client_name` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
+  `client_name` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci DEFAULT NULL,
   `client_address` text NOT NULL,
   `contact_person` varchar(100) NOT NULL,
   `contact_number` varchar(50) NOT NULL,
-  `project_name` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
+  `project_name` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci DEFAULT NULL,
   `quantity` int(11) NOT NULL,
   `number_of_sets` int(11) DEFAULT NULL,
   `product_size` varchar(10) DEFAULT NULL,
@@ -561,7 +590,8 @@ INSERT INTO `job_orders` (`id`, `log_date`, `client_name`, `client_address`, `co
 (260, '2025-08-04', 'Seadragon Outdoor Products Trading', 'Blas Ople Road, Brgy. Bulihan, Malolos City, Bulacan, 3000', 'Rosemarie M. Palacio', '0448167243', 'Sales Invoice', 10, 50, '1/4', 'LONG', '', 'Carbonless', 2, '001-500', 'Booklet', '', 'Top White, Bottom Yellow', 'None', 15, '2025-08-04 01:53:07', NULL, 'pending', NULL, 'Rosemarie M. Palacio', '25A - Plaridel, Bulacan (now RDO West Bulacan)', '749-298-412-00000', 'Mhel', 'NON-VAT EXEMPT', '25AAU20250000009612', '2025-07-30', 'Bulacan', 'Malolos City', 'Bulihan', 'Blas Ople Road', '', '', '3000'),
 (261, '2025-08-04', 'Sta. Isabel Trading', 'Purok 6, Brgy. Sillawit, Cauayan, Isabela, 3305', 'Maam Hannah', '09923318932', 'S.O.A.', 100, 50, '1/2', 'SHORT', '', 'Carbonless', 4, '45801-50800', 'Pad', '', 'Top White,Middle Green,Middle Blue,Bottom Pink', 'None', 13, '2025-08-04 05:48:20', NULL, 'pending', NULL, 'Ivan Nikolai C. Reyes', '015 - Naguilian, Isabela', '403-062-433-00000', 'Online', 'NONVAT', '', NULL, 'Isabela', 'Cauayan', 'Sillawit', 'Purok 6', '', '', '3305'),
 (263, '2025-08-06', 'V.B. COLUMNA CONSTRUCTION CORPORATION', '33 VBC Bldg., Violeta Village Azucena St., Brgy. Sta.Cruz, Guiguinto, Bulacan, 3015', 'Mica', '+639470220693', 'Delivery Receipt ', 5, 50, 'whole', 'F4/LONG (8.5X14)', '', 'Ordinary Paper', 3, '23751 - 24000', 'Pad', '', 'White - Bond Paper Gn050, Blue - Star Onion Skin, Yellow - Star Onion Skin', 'None', 11, '2025-08-06 06:50:18', NULL, 'pending', NULL, 'V.B. COLUMNA CONSTRUCTION CORPORATION', '25A - Plaridel, Bulacan (now RDO West Bulacan)', '', 'AMDP', 'VAT', '', NULL, 'Bulacan', 'Guiguinto', 'Sta.Cruz', 'Violeta Village Azucena St.', '33 VBC Bldg.', '', '3015'),
-(264, '2025-08-06', 'Bulacan Provincial Hospital (BMC) Multi Purpose Coop', 'BMC, Brgy. Mojon, Malolos City, Bulacan, 3000', 'Anthony Dan Villegas', '9673682820 ', 'Loan Ledger', 100, 1, '1/6', '22.5X28.5', '8.25X5.5', 'Special Paper', 1, '0', 'Custom', 'bind by 100', 'Imp Bristol 120#', 'None', 11, '2025-08-06 08:12:06', NULL, 'pending', NULL, 'Bulacan Provincial Hospital (BMC) Multi Purpose Coop', '25A - Plaridel, Bulacan (now RDO West Bulacan)', '005-314-464-000', 'AMDP', 'NONVAT', '', NULL, 'Bulacan', 'Malolos City', 'Mojon', '', 'BMC', '', '3000');
+(264, '2025-08-06', 'Bulacan Provincial Hospital (BMC) Multi Purpose Coop', 'BMC, Brgy. Mojon, Malolos City, Bulacan, 3000', 'Anthony Dan Villegas', '9673682820 ', 'Loan Ledger', 100, 1, '1/6', '22.5X28.5', '8.25X5.5', 'Special Paper', 1, '0', 'Custom', 'bind by 100', 'Imp Bristol 120#', 'None', 11, '2025-08-06 08:12:06', NULL, 'pending', NULL, 'Bulacan Provincial Hospital (BMC) Multi Purpose Coop', '25A - Plaridel, Bulacan (now RDO West Bulacan)', '005-314-464-000', 'AMDP', 'NONVAT', '', NULL, 'Bulacan', 'Malolos City', 'Mojon', '', 'BMC', '', '3000'),
+(265, '2025-08-06', 'V.B. COLUMNA CONSTRUCTION CORPORATION', '33 VBC Bldg., Violeta Village Azucena St., Brgy. Sta.Cruz, Guiguinto, Bulacan, 3015', 'Mica', '+639470220693', 'Delivery Receipt ', 5, 50, 'whole', 'F4/LONG (8.5X14)', '', 'Ordinary Paper', 3, '23751 - 24000', 'Pad', '', 'White - Bond Paper Gn050, Blue - Star Onion Skin, Yellow - Star Onion Skin', 'None', 16, '2025-08-16 01:57:06', NULL, 'pending', NULL, 'V.B. COLUMNA CONSTRUCTION CORPORATION', '25A - Plaridel, Bulacan (now RDO West Bulacan)', '', 'AMDP', 'VAT', '', NULL, 'Bulacan', 'Guiguinto', 'Sta.Cruz', 'Violeta Village Azucena St.', '33 VBC Bldg.', '', '3015');
 
 -- --------------------------------------------------------
 
@@ -736,6 +766,59 @@ INSERT INTO `locations` (`id`, `province`, `city`) VALUES
 (159, 'Bulacan', 'San Miguel'),
 (160, 'Bulacan', 'San Rafael'),
 (161, 'Bulacan', 'Santa Maria');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `password_resets`
+--
+
+CREATE TABLE `password_resets` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `token` varchar(255) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `used` tinyint(1) DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `password_resets`
+--
+
+INSERT INTO `password_resets` (`id`, `user_id`, `token`, `expires_at`, `created_at`, `used`) VALUES
+(16, 20, 'd39b93bda943f6a498685ef97e409e577a3d0faeb4568c8a2ff87d7c3d4df827', '2025-08-16 15:18:45', '2025-08-16 06:18:45', 0),
+(23, 19, '8a207e3c93f2f28ea91fa65e80778cae8c9b6aee36e216f06eab8d0ed138fc29', '2025-08-16 15:35:01', '2025-08-16 06:35:01', 0);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `personal_customers`
+--
+
+CREATE TABLE `personal_customers` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `first_name` varchar(50) NOT NULL,
+  `middle_name` varchar(50) DEFAULT NULL,
+  `last_name` varchar(50) NOT NULL,
+  `age` int(11) DEFAULT NULL,
+  `gender` enum('Male','Female','Other') DEFAULT NULL,
+  `birthdate` date DEFAULT NULL,
+  `contact_number` varchar(20) DEFAULT NULL,
+  `address_line1` varchar(100) DEFAULT NULL,
+  `city` varchar(50) DEFAULT NULL,
+  `province` varchar(50) DEFAULT NULL,
+  `zip_code` varchar(10) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `personal_customers`
+--
+
+INSERT INTO `personal_customers` (`id`, `user_id`, `first_name`, `middle_name`, `last_name`, `age`, `gender`, `birthdate`, `contact_number`, `address_line1`, `city`, `province`, `zip_code`) VALUES
+(2, 18, 'Erine George', 'C.', 'Lumbad', 21, 'Male', '2003-10-23', '09281248185', 'PHASE 2 BLK 95 LOT 6 METROPOLIS AVENUE', 'CALUMPIT', 'BULACAN', '3003'),
+(3, 19, 'Asha', '', 'Lumbad', 21, 'Female', '2004-06-20', '09281248185', '', 'Malolos', 'Bulacan', '');
 
 -- --------------------------------------------------------
 
@@ -1177,7 +1260,10 @@ INSERT INTO `usage_logs` (`id`, `product_id`, `log_date`, `used_sheets`, `used_r
 (553, 124, '2025-08-06', 250.00, NULL, 'Auto-deducted from job order for V.B. COLUMNA CONSTRUCTION CORPORATION', 263, 0),
 (554, 63, '2025-08-06', 250.00, NULL, 'Auto-deducted from job order for V.B. COLUMNA CONSTRUCTION CORPORATION', 263, 0),
 (555, 60, '2025-08-06', 250.00, NULL, 'Auto-deducted from job order for V.B. COLUMNA CONSTRUCTION CORPORATION', 263, 0),
-(557, 106, '2025-08-06', 16.00, NULL, 'Updated job order for Bulacan Provincial Hospital (BMC) Multi Purpose Coop', 264, 0);
+(557, 106, '2025-08-06', 16.00, NULL, 'Updated job order for Bulacan Provincial Hospital (BMC) Multi Purpose Coop', 264, 0),
+(558, 124, '2025-08-06', 250.00, NULL, 'Auto-deducted from job order for V.B. COLUMNA CONSTRUCTION CORPORATION', 265, 0),
+(559, 63, '2025-08-06', 250.00, NULL, 'Auto-deducted from job order for V.B. COLUMNA CONSTRUCTION CORPORATION', 265, 0),
+(560, 60, '2025-08-06', 250.00, NULL, 'Auto-deducted from job order for V.B. COLUMNA CONSTRUCTION CORPORATION', 265, 0);
 
 -- --------------------------------------------------------
 
@@ -1189,7 +1275,7 @@ CREATE TABLE `users` (
   `id` int(11) NOT NULL,
   `username` varchar(50) NOT NULL,
   `password` varchar(255) NOT NULL,
-  `role` enum('admin','employee') NOT NULL DEFAULT 'employee'
+  `role` enum('admin','employee','customer') NOT NULL DEFAULT 'employee'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -1202,7 +1288,11 @@ INSERT INTO `users` (`id`, `username`, `password`, `role`) VALUES
 (12, 'Renren', '$2y$10$a9fZW8pu2Zck9P8aKXrAmeDEcPQXEGeAf26RlsCv9UXhiejb45dYK', 'admin'),
 (13, 'Alyssa', '$2y$10$WEwvndsntwsXGltKDdGCeuXY6pFy6ajEPtUuonvQtzMe5ywIbh5c.', 'employee'),
 (14, 'alicia', '$2y$10$pMhXz88yJeAvBxoFvIy7PeUY7XK8e1iEUS7wAAfqZhqZ/0hqqH0gq', 'employee'),
-(15, 'margie', '$2y$10$ersJBM.HyMWj3urYLRTbIOxeCb3KafyG9CEKfuXva5HRI41cWAc4u', 'admin');
+(15, 'margie', '$2y$10$ersJBM.HyMWj3urYLRTbIOxeCb3KafyG9CEKfuXva5HRI41cWAc4u', 'admin'),
+(16, 'admin', '$2y$10$Gi.rcdf3bZypZq6UasEomOrpMMzgqEL14qTIYKfKQS81/vM2rO5aO', 'admin'),
+(18, 'uppercasbone@gmail.com', '$2y$10$Psh5Ygugu259AVgQtTLbLeba3MGCby7lwIkNZ0wz3r/23p6hee9CG', 'customer'),
+(19, 'lumbaderinegeorgec@gmail.com', '$2y$10$ijacImzrQdzR/SkJqtsQDOTrhLfpCoC39MhU0APqUVkuNw8/FA53S', 'customer'),
+(20, 'activemediaprint@gmail.com', '$2y$10$tvTcAuBktNIn6SdqGyOT7urFfZNB7p3PtTtquxQTiOcmIWozy/t12', 'customer');
 
 --
 -- Indexes for dumped tables
@@ -1213,6 +1303,13 @@ INSERT INTO `users` (`id`, `username`, `password`, `role`) VALUES
 --
 ALTER TABLE `clients`
   ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `company_customers`
+--
+ALTER TABLE `company_customers`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `user_id` (`user_id`);
 
 --
 -- Indexes for table `delivery_logs`
@@ -1257,6 +1354,20 @@ ALTER TABLE `locations`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Indexes for table `password_resets`
+--
+ALTER TABLE `password_resets`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `user_id` (`user_id`);
+
+--
+-- Indexes for table `personal_customers`
+--
+ALTER TABLE `personal_customers`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `user_id` (`user_id`);
+
+--
 -- Indexes for table `products`
 --
 ALTER TABLE `products`
@@ -1289,6 +1400,12 @@ ALTER TABLE `clients`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=133;
 
 --
+-- AUTO_INCREMENT for table `company_customers`
+--
+ALTER TABLE `company_customers`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
 -- AUTO_INCREMENT for table `delivery_logs`
 --
 ALTER TABLE `delivery_logs`
@@ -1316,13 +1433,25 @@ ALTER TABLE `insuance_usages`
 -- AUTO_INCREMENT for table `job_orders`
 --
 ALTER TABLE `job_orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=265;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=266;
 
 --
 -- AUTO_INCREMENT for table `locations`
 --
 ALTER TABLE `locations`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=162;
+
+--
+-- AUTO_INCREMENT for table `password_resets`
+--
+ALTER TABLE `password_resets`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
+
+--
+-- AUTO_INCREMENT for table `personal_customers`
+--
+ALTER TABLE `personal_customers`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `products`
@@ -1334,17 +1463,23 @@ ALTER TABLE `products`
 -- AUTO_INCREMENT for table `usage_logs`
 --
 ALTER TABLE `usage_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=558;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=561;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
 -- Constraints for dumped tables
 --
+
+--
+-- Constraints for table `company_customers`
+--
+ALTER TABLE `company_customers`
+  ADD CONSTRAINT `company_customers_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `delivery_logs`
@@ -1367,6 +1502,18 @@ ALTER TABLE `job_orders`
   ADD CONSTRAINT `fk_job_orders_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
   ADD CONSTRAINT `fk_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
   ADD CONSTRAINT `job_orders_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`);
+
+--
+-- Constraints for table `password_resets`
+--
+ALTER TABLE `password_resets`
+  ADD CONSTRAINT `password_resets_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `personal_customers`
+--
+ALTER TABLE `personal_customers`
+  ADD CONSTRAINT `personal_customers_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `products`
