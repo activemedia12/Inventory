@@ -22,8 +22,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       $_SESSION['user_id'] = $id;
       $_SESSION['username'] = $username;
       $_SESSION['role'] = $role;
-      
+
       if ($role === 'customer') {
+        $stmt2 = $mysqli->prepare("SELECT id FROM personal_customers WHERE user_id = ?");
+        $stmt2->bind_param("i", $id);
+        $stmt2->execute();
+        $res2 = $stmt2->get_result();
+        if ($row2 = $res2->fetch_assoc()) {
+          $_SESSION['customer_table'] = 'personal_customers';
+          $_SESSION['customer_id'] = $row2['id'];
+        } else {
+          $stmt3 = $mysqli->prepare("SELECT id FROM company_customers WHERE user_id = ?");
+          $stmt3->bind_param("i", $id);
+          $stmt3->execute();
+          $res3 = $stmt3->get_result();
+          if ($row3 = $res3->fetch_assoc()) {
+            $_SESSION['customer_table'] = 'company_customers';
+            $_SESSION['customer_id'] = $row3['id'];
+          }
+        }
         header("Location: ../website/main.php");
       } else {
         header("Location: ../pages/dashboard.php");
@@ -39,6 +56,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   $stmt->close();
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 

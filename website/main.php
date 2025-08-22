@@ -54,6 +54,7 @@
                     rgba(255, 255, 0, 1),
                     rgba(176, 0, 176, 1));
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
         }
