@@ -113,6 +113,10 @@
                                   <button class="quick-fill-btn" onclick="printJobOrder(this)">
                                     Print Job Order
                                   </button>
+                                  <button class="quick-fill-btn" 
+                                    onclick="window.location.href='paper_cost.php?id=<?= $order['id'] ?>'">
+                                    Compute Paper Cost
+                                  </button>
                                 </td>
                               </tr>
                             <?php endforeach; ?>
