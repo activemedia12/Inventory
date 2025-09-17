@@ -146,7 +146,7 @@ $cut_prices = $mysqli->query("SELECT * FROM paper_cut_prices ORDER BY effective_
   <?php foreach ($cut_prices as $row): ?>
     <tr>
       <td><?= $row['id'] ?></td>
-      <td><?= $row['paper_color'] ?></td>
+      <td><?= $row['paper_type'] ?></td>
       <td><?= $row['short_price'] ?></td>
       <td><?= $row['long_price'] ?></td>
       <td><?= $row['cutting_cost'] ?></td>
