@@ -35,7 +35,7 @@ CREATE TABLE paper_cut_prices (
 
 -- Main paper prices (TOP, MIDDLE, BOTTOM)
 INSERT INTO paper_prices 
-(paper_type, orig_price, disc_price, price_10_outs, price_8_outs, cutting_cost, effective_date)
+(paper_type, orig_price, disc_price, short_price, long_price, cutting_cost, effective_date)
 VALUES
 ('TOP WHITE', 2425.00, 2098.00, 215.60, 269.50, 58.00, '2025-05-15'),
 ('MIDDLE',    2525.00, 2238.00, 229.60, 287.00, 58.00, '2025-05-15'),
