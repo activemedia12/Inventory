@@ -1,49 +1,21 @@
-CREATE TABLE manpower_rates (
+CREATE TABLE printing_types (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    task_name VARCHAR(100) NOT NULL,
-    daily_rate DECIMAL(10,2) NOT NULL,
-    hourly_rate DECIMAL(10,2) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    name VARCHAR(50) NOT NULL UNIQUE,   -- e.g., 'CTP', 'Digital', 'Riso'
+    base_cost DECIMAL(10,2) DEFAULT 0, -- fixed amount added (like 300 for CTP, 15 for Riso)
+    per_sheet_cost DECIMAL(10,4) DEFAULT 0, -- per sheet per layer
+    apply_to_paper_cost TINYINT(1) DEFAULT 0, -- if it modifies paper cost (like Riso +15)
+    effective_date DATE DEFAULT CURRENT_DATE
 );
 
--- Insert values
-INSERT INTO manpower_rates (task_name, daily_rate, hourly_rate) VALUES
-('Printing', 800, 100),
-('Numbering', 650, 81.25),
-('Gathering', 550, 68.75),
-('Finishing', 650, 81.25);
-
-CREATE TABLE paper_prices (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    paper_type ENUM('TOP WHITE', 'MIDDLE', 'BOTTOM') NOT NULL,
-    orig_price DECIMAL(10,2) NOT NULL,
-    disc_price DECIMAL(10,2) NOT NULL,
-    short_price DECIMAL(10,2) NOT NULL,
-    long_price DECIMAL(10,2) NOT NULL,
-    cutting_cost DECIMAL(10,2) NOT NULL,
-    effective_date DATE NOT NULL
-);
-
-CREATE TABLE paper_cut_prices (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    paper_type ENUM('WHITE','COLORED') NOT NULL,
-    short_price DECIMAL(10,2) NOT NULL,
-    long_price DECIMAL(10,2) NOT NULL,
-    cutting_cost DECIMAL(10,2) NOT NULL,
-    effective_date DATE NOT NULL
-);
-
--- Main paper prices (TOP, MIDDLE, BOTTOM)
-INSERT INTO paper_prices 
-(paper_type, orig_price, disc_price, short_price, long_price, cutting_cost, effective_date)
+INSERT INTO printing_types (name, base_cost, per_sheet_cost, apply_to_paper_cost)
 VALUES
-('TOP WHITE', 2425.00, 2098.00, 215.60, 269.50, 58.00, '2025-05-15'),
-('MIDDLE',    2525.00, 2238.00, 229.60, 287.00, 58.00, '2025-05-15'),
-('BOTTOM',    2375.00, 2088.00, 214.60, 268.25, 58.00, '2025-05-15');
+('CTP', 300.00, 0.00, 0),
+('Digital', 0.00, 0.56, 0),
+('Riso', 15.00, 0.20, 1);
 
--- Short/Long cut papers
-INSERT INTO paper_cut_prices 
-(paper_type, short_price, long_price, cutting_cost, effective_date)
-VALUES
-('WHITE',   150.80, 170.80, 58.00, '2025-05-15'),
-('COLORED', 139.80, 178.80, 58.00, '2025-05-15');
+
+ALTER TABLE job_orders 
+ADD COLUMN printing_type VARCHAR(50) DEFAULT NULL,
+ADD COLUMN printing_cost DECIMAL(10,2) DEFAULT 0,
+ADD COLUMN other_expenses TINYINT(1) DEFAULT 0,
+ADD COLUMN paper_spoilage TINYINT(1) DEFAULT 0;

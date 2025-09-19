@@ -52,6 +52,7 @@
                         <table class="order-details-table">
                           <thead>
                             <tr>
+                              <th>Actions</th>
                               <th>Quantity</th>
                               <th>Sets per bind</th>
                               <th>Cut Size</th>
@@ -62,6 +63,7 @@
                               <th>Binding</th>
                               <th>Color Sequence</th>
                               <th>Special Instructions</th>
+                              <th>Total Expenses</th>
                               <!-- <th>Tax Payer Name</th>
                               <th>OCN Number</th>
                               <th>Date Issued</th> -->
@@ -71,7 +73,6 @@
                               <?php if ($status_title === 'Completed'): ?>
                                 <th>Date Completed</th>
                               <?php endif; ?>
-                              <th>Actions</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -83,6 +84,18 @@
                               <tr class="clickable-row"
                                 data-order='<?= htmlspecialchars(json_encode($order_with_date), ENT_QUOTES, 'UTF-8') ?>'
                                 data-role="<?= htmlspecialchars($_SESSION['role']) ?>">
+                                <td>
+                                  <button class="quick-fill-btn" data-order='<?= htmlspecialchars(json_encode($order), ENT_QUOTES, "UTF-8") ?>'>
+                                    Load to Form
+                                  </button>
+                                  <button class="quick-fill-btn" onclick="printJobOrder(this)">
+                                    Print Job Order
+                                  </button>
+                                  <button class="quick-fill-btn" 
+                                    onclick="window.location.href='paper_cost.php?id=<?= $order['id'] ?>'">
+                                    Show Expenses
+                                  </button>
+                                </td>
                                 <td><?= $order['quantity'] ?></td>
                                 <td><?= $order['number_of_sets'] ?></td>
                                 <td><?= htmlspecialchars($order['product_size']) ?></td>
@@ -97,6 +110,15 @@
                                   <?php endforeach; ?>
                                 </td>
                                 <td><?= nl2br(htmlspecialchars($order['special_instructions'])) ?></td>
+                                <td>
+                                <?php 
+                                    if (empty($order['grand_total']) || $order['grand_total'] == 0.00) {
+                                        echo "Not Computed";
+                                    } else {
+                                        echo "₱ " . number_format($order['grand_total'], 2);
+                                    }
+                                ?>
+                                </td>
                                 <!-- <td><?= htmlspecialchars($order['taxpayer_name']) ?></td>
                                 <td><?= htmlspecialchars($order['ocn_number']) ?></td>
                                 <td><?= $order['date_issued'] ? date("F j, Y", strtotime($order['date_issued'])) : 'Pending' ?></td> -->
@@ -106,18 +128,6 @@
                                 <?php if ($status_title === 'Completed'): ?>
                                   <td><?= $order['completed_date'] ? date("F j, Y - g:i A", strtotime($order['completed_date'])) : '-' ?></td>
                                 <?php endif; ?>
-                                <td>
-                                  <button class="quick-fill-btn" data-order='<?= htmlspecialchars(json_encode($order), ENT_QUOTES, "UTF-8") ?>'>
-                                    Load to Form
-                                  </button>
-                                  <button class="quick-fill-btn" onclick="printJobOrder(this)">
-                                    Print Job Order
-                                  </button>
-                                  <button class="quick-fill-btn" 
-                                    onclick="window.location.href='paper_cost.php?id=<?= $order['id'] ?>'">
-                                    Compute Paper Cost
-                                  </button>
-                                </td>
                               </tr>
                             <?php endforeach; ?>
                           </tbody>
