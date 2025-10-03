@@ -865,7 +865,7 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                     <?php 
                                     // Show uploaded original files
                                     if ($uploadType === 'single' && !empty($uploadedFile)): 
-                                        $uploadedFilePath = "../assets/uploads/" . $uploadedFile;
+                                        $uploadedFilePath = "../../assets/uploads/" . $uploadedFile;
                                         $uploadedFileExists = file_exists($uploadedFilePath);
                                         ?>
                                         <div class="design-preview">
@@ -887,7 +887,7 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                     
                                     <?php if ($uploadType === 'separate'): ?>
                                         <?php if (!empty($frontUploadedFile)): 
-                                            $frontUploadedFilePath = "../assets/uploads/" . $frontUploadedFile;
+                                            $frontUploadedFilePath = "../../assets/uploads/" . $frontUploadedFile;
                                             $frontUploadedFileExists = file_exists($frontUploadedFilePath);
                                             ?>
                                             <div class="design-preview">
@@ -908,7 +908,7 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                         <?php endif; ?>
                                         
                                         <?php if (!empty($backUploadedFile)): 
-                                            $backUploadedFilePath = "../assets/uploads/" . $backUploadedFile;
+                                            $backUploadedFilePath = "../../assets/uploads/" . $backUploadedFile;
                                             $backUploadedFileExists = file_exists($backUploadedFilePath);
                                             ?>
                                             <div class="design-preview">
@@ -933,7 +933,7 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                     <?php 
                                     // Front mockup
                                     if (!empty($frontMockup)): 
-                                        $frontMockupPath = "../assets/uploads/" . $frontMockup;
+                                        $frontMockupPath = "../../assets/uploads/" . $frontMockup;
                                         $frontMockupExists = file_exists($frontMockupPath);
                                         ?>
                                         <div class="design-preview">
@@ -956,7 +956,7 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                     <?php 
                                     // Back mockup
                                     if (!empty($backMockup)): 
-                                        $backMockupPath = "../assets/uploads/" . $backMockup;
+                                        $backMockupPath = "../../assets/uploads/" . $backMockup;
                                         $backMockupExists = file_exists($backMockupPath);
                                         ?>
                                         <div class="design-preview">

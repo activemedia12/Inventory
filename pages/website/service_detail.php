@@ -1,11 +1,38 @@
 <?php
 session_start();
 if (!isset($_SESSION['user_id'])) {
-    header("Location: ../accounts/login.php");
+    header("Location: ../../accounts/login.php");
     exit;
 }
 
 require_once '../../config/db.php';
+
+// Fetch user info (personal or company)
+$userQuery = "SELECT 
+                u.id,
+                pc.first_name, pc.last_name,
+                cc.company_name
+              FROM users u
+              LEFT JOIN personal_customers pc ON u.id = pc.user_id
+              LEFT JOIN company_customers cc ON u.id = cc.user_id
+              WHERE u.id = ?
+              LIMIT 1";
+
+$userStmt = $inventory->prepare($userQuery);
+$userStmt->bind_param("i", $_SESSION['user_id']);
+$userStmt->execute();
+$userResult = $userStmt->get_result();
+$user_data = $userResult->fetch_assoc();
+
+// Set display name for session if not set
+if (!empty($user_data['first_name'])) {
+    $_SESSION['username'] = $user_data['first_name'];
+} elseif (!empty($user_data['company_name'])) {
+    $_SESSION['username'] = $user_data['company_name'];
+} else {
+    $_SESSION['username'] = 'User';
+}
+
 
 // Display success/error messages
 if (isset($_GET['success'])) {
@@ -74,7 +101,7 @@ if (isset($_GET['error'])) {
 $product_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
 if ($product_id === 0) {
-    header("Location: main.php");
+    header("Location: ../../website/main.php");
     exit;
 }
 
@@ -161,7 +188,7 @@ $result = $stmt->get_result();
 $product = $result->fetch_assoc();
 
 if (!$product) {
-    header("Location: main.php");
+    header("Location: ../../website/main.php");
     exit;
 }
 
@@ -262,7 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_to_cart'])) {
     $user_layout_files = [];
     if (isset($_FILES['user_layout_upload']) && $_FILES['user_layout_upload']['error'][0] == 0) {
         $user_id = $_SESSION['user_id'];
-        $upload_dir = '../assets/uploads/user_layouts/' . $user_id . '/';
+        $upload_dir = '../../assets/uploads/user_layouts/' . $user_id . '/';
         if (!is_dir($upload_dir)) {
             mkdir($upload_dir, 0777, true);
         }
@@ -316,15 +343,15 @@ if (isset($_SESSION['user_id'])) {
 }
 
 // Get base image paths instead of product images
-$base_image_path = "../assets/images/base/base-" . $product['id'] . ".jpg";
+$base_image_path = "../../assets/images/base/base-" . $product['id'] . ".jpg";
 $base_image_url = file_exists($base_image_path) ? $base_image_path : "https://via.placeholder.com/500x500/007bff/ffffff?text=Base+Image";
-$back_base_image_path = "../assets/images/base/base-" . $product['id'] . "-1.jpg";
+$back_base_image_path = "../../assets/images/base/base-" . $product['id'] . "-1.jpg";
 $back_base_image_url = file_exists($back_base_image_path) ? $back_base_image_path : "";
 
 // Get product images for gallery display
-$product_image_path = "../assets/images/services/service-" . $product['id'] . ".jpg";
+$product_image_path = "../../assets/images/services/service-" . $product['id'] . ".jpg";
 $product_image_url = file_exists($product_image_path) ? $product_image_path : "https://via.placeholder.com/500x500/007bff/ffffff?text=Product+Image";
-$product_back_image_path = "../assets/images/services/service-" . $product['id'] . "-1.jpg";
+$product_back_image_path = "../../assets/images/services/service-" . $product['id'] . "-1.jpg";
 $product_back_image_url = file_exists($product_back_image_path) ? $product_back_image_path : "";
 ?>
 
@@ -938,7 +965,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
     <header>
         <div class="container">
             <nav class="navbar">
-                <a href="../website/main.php" class="logo">
+                <a href="../../website/main.php" class="logo">
                     <i class="fas fa-print"></i>
                     Active Media
                 </a>
@@ -952,7 +979,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                         <i class="fas fa-user"></i>
                         <?php echo $_SESSION['username'] ?? 'User'; ?>
                     </a>
-                    <a href="../accounts/logout.php">
+                    <a href="../../accounts/logout.php">
                         <i class="fas fa-sign-out-alt"></i>
                     </a>
                 </div>
@@ -980,7 +1007,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                             <img src="<?php echo $product_back_image_url; ?>"
                                 alt="Thumbnail 2" class="thumbnail" onclick="changeImage(this, 'back')">
                         <?php endif; ?>
-                        <img src="../assets/images/services/service-<?php echo $product['id']; ?>-2.jpg"
+                        <img src="../../assets/images/services/service-<?php echo $product['id']; ?>-2.jpg"
                             alt="Thumbnail 3" class="thumbnail" onclick="changeImage(this, 'front')">
                     </div>
                 </div>

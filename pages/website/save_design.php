@@ -5,7 +5,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_SESSION['user_id'])) {
     $user_id = $_SESSION['user_id'];
     
     // Create user-specific upload directory
-    $uploadDir = "../assets/uploads/save_design/{$user_id}/";
+    $uploadDir = "../../assets/uploads/save_design/{$user_id}/";
     if (!file_exists($uploadDir)) {
         mkdir($uploadDir, 0777, true);
     }
