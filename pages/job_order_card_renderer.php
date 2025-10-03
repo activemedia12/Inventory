@@ -1,7 +1,7 @@
 <?php if (!empty($orders_to_show)): ?>
   <div class="compact-orders">
     <?php foreach ($orders_to_show as $client => $dates): ?>
-      <div class="compact-client">
+      <div class="compact-client hide">
         <div class="compact-client-header" data-client="<?= htmlspecialchars($client) ?>" onclick="toggleClient(this)">
           <span class="compact-client-name"><?= htmlspecialchars($client) ?></span>
           <span class="compact-client-count"><?= count($dates) ?> projects</span>

@@ -6,7 +6,7 @@
 require_once '../config/db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $stmt = $mysqli->prepare("INSERT INTO clients (
+    $stmt = $inventory->prepare("INSERT INTO clients (
         client_name, taxpayer_name, tin, tax_type, rdo_code, client_address,
         province, city, barangay, street, building_no, floor_no, zip_code,
         contact_person, contact_number, client_by

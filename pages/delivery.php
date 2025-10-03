@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($product_id && $delivered_reams > 0 && $amount_per_ream > 0) {
-      $stmt = $mysqli->prepare("INSERT INTO delivery_logs 
+      $stmt = $inventory->prepare("INSERT INTO delivery_logs 
           (product_id, delivered_reams, unit, delivery_note, delivery_date, supplier_name, amount_per_ream, created_by) 
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
       $stmt->bind_param("idssssdi", $product_id, $delivered_reams, $unit, $delivery_note, $delivery_date, $supplier_name, $amount_per_ream, $created_by);
@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $stmt->close();
 
       // Update unit price in products table
-      $update = $mysqli->prepare("UPDATE products SET unit_price = ? WHERE id = ?");
+      $update = $inventory->prepare("UPDATE products SET unit_price = ? WHERE id = ?");
       $update->bind_param("di", $amount_per_ream, $product_id);
       $update->execute();
       $update->close();
@@ -46,7 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
       $_SESSION['warning_message'] = "Please fill out all required fields for paper delivery.";
     }
-
   } elseif ($delivery_type === 'insuance') {
     // === Handle Insuance Delivery ===
     $insuance_name = trim($_POST['insuance_name'] ?? '');
@@ -58,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $amount_per_unit = floatval($_POST['amount_per_unit']);
 
     if ($insuance_name && $delivered_quantity > 0 && $amount_per_unit > 0) {
-      $stmt = $mysqli->prepare("INSERT INTO insuance_delivery_logs 
+      $stmt = $inventory->prepare("INSERT INTO insuance_delivery_logs 
           (insuance_name, delivered_quantity, unit, delivery_note, delivery_date, supplier_name, amount_per_unit, created_by) 
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
       $stmt->bind_param("sdssssdi", $insuance_name, $delivered_quantity, $unit, $delivery_note, $delivery_date, $supplier_name, $amount_per_unit, $created_by);
@@ -90,12 +89,12 @@ if (isset($_SESSION['success_message'])) {
 }
 
 // Fetch dropdown products
-$products = $mysqli->query("SELECT id, product_type, product_group, product_name FROM products ORDER BY product_type, product_group, product_name");
+$products = $inventory->query("SELECT id, product_type, product_group, product_name FROM products ORDER BY product_type, product_group, product_name");
 
 // Fetch delivery logs grouped by date
 // Fetch paper deliveries
 // 1. Fetch paper deliveries
-$product_logs = $mysqli->query("
+$product_logs = $inventory->query("
   SELECT dl.*, p.product_type, p.product_group, p.product_name, u.username
   FROM delivery_logs dl
   JOIN products p ON dl.product_id = p.id
@@ -110,7 +109,7 @@ while ($log = $product_logs->fetch_assoc()) {
 }
 
 // 2. Fetch insuance deliveries
-$insuance_logs = $mysqli->query("
+$insuance_logs = $inventory->query("
   SELECT idl.*, u.username
   FROM insuance_delivery_logs idl
   LEFT JOIN users u ON idl.created_by = u.id
@@ -121,10 +120,9 @@ $grouped_insuance_logs = [];
 while ($log = $insuance_logs->fetch_assoc()) {
   $date = $log['delivery_date'];
   $grouped_insuance_logs[$date][] = $log;
-
 }
 
-$insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER BY item_name ASC")->fetch_all(MYSQLI_ASSOC);
+$insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances ORDER BY item_name ASC")->fetch_all(MYSQLI_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -140,15 +138,34 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-        ::-webkit-scrollbar {
-            width: 7px;
-            height: 5px;
-        }
+    .hide {
+      opacity: 0;
+      filter: blur(5px);
+      transform: translateY(100%);
+      transition: all 0.5s;
+    }
 
-        ::-webkit-scrollbar-thumb {
-            background: #1876f299;
-            border-radius: 10px;
-        }
+    .show {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0);
+    }
+
+    @media (prefers-reduced-motion) {
+      .hide {
+        transition: none;
+      }
+    }
+
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #1876f299;
+      border-radius: 10px;
+    }
 
     :root {
       --primary: #1877f2;
@@ -574,6 +591,7 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
     .action-cell a:hover {
       color: var(--primary);
     }
+
     .toggle-btn {
       width: 100%;
       padding: 10px 15px;
@@ -607,7 +625,7 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       justify-content: center;
       animation: exportFadeIn 0.3s ease-out;
     }
-    
+
     /* Container */
     .export-modal-container {
       background: #fff;
@@ -618,7 +636,7 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       overflow: hidden;
       margin: 20px;
     }
-    
+
     /* Header */
     .export-modal-header {
       padding: 18px 24px;
@@ -628,13 +646,13 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       justify-content: space-between;
       align-items: center;
     }
-    
+
     .export-modal-title {
       margin: 0;
       font-size: 18px;
       font-weight: 600;
     }
-    
+
     .export-modal-close {
       background: none;
       border: none;
@@ -644,18 +662,18 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       padding: 0;
       line-height: 1;
     }
-    
+
     /* Body */
     .export-modal-body {
       padding: 8px 24px 24px;
     }
-    
+
     /* Form Styles */
     .export-form-group {
       margin-top: 20px;
       margin-bottom: 20px;
     }
-    
+
     .export-form-label {
       display: block;
       margin-bottom: 8px;
@@ -663,11 +681,11 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       font-weight: 500;
       color: #555;
     }
-    
+
     .export-input-wrapper {
       position: relative;
     }
-    
+
     .export-form-input {
       width: 100%;
       padding: 10px 12px;
@@ -676,17 +694,17 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       font-size: 14px;
       transition: all 0.3s;
     }
-    
+
     .export-form-input:focus {
       outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(74, 111, 220, 0.2);
     }
-    
+
     input[type="date"].export-form-input {
       padding-right: 30px;
     }
-    
+
     /* Buttons */
     .export-form-actions {
       display: flex;
@@ -694,7 +712,7 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       gap: 12px;
       margin-top: 24px;
     }
-    
+
     .export-btn {
       padding: 10px 16px;
       border-radius: 6px;
@@ -707,67 +725,72 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       align-items: center;
       gap: 8px;
     }
-    
+
     .export-btn-primary {
-        padding: 0.5rem 1rem;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        cursor: pointer;
-        background: rgba(67, 238, 76, 0.1);
-        color: #28a745;
-        border: 1px solid #28a745;
-        display: inline-flex;
-        align-items: center;
-        transition: all 0.2s;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      background: rgba(67, 238, 76, 0.1);
+      color: #28a745;
+      border: 1px solid #28a745;
+      display: inline-flex;
+      align-items: center;
+      transition: all 0.2s;
     }
-    
+
     .export-btn-primary:hover {
       background: rgba(40, 167, 69, 0.2);
     }
-    
+
     .export-btn-secondary {
-        padding: 0.5rem 1rem;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        transition: all 0.2s;
-        background: rgba(244, 67, 54, 0.1);
-        color: #f44336;
-        border: 1px solid #f44336;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      transition: all 0.2s;
+      background: rgba(244, 67, 54, 0.1);
+      color: #f44336;
+      border: 1px solid #f44336;
     }
-    
+
     .export-btn-secondary:hover {
       background: rgba(244, 67, 54, 0.2);
     }
-    
+
     .export-btn-icon {
       font-size: 16px;
     }
-    
+
     /* Animation */
     @keyframes exportFadeIn {
-      from { opacity: 0;}
-      to { opacity: 1;}
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
     }
-    
+
     /* Responsive */
     @media (max-width: 480px) {
       .export-modal-container {
         margin: 10px;
       }
-      
+
       .export-modal-body {
         padding: 8px 20px 20px 20px;
       }
-      
+
       .export-form-actions {
         flex-direction: column;
         gap: 10px;
       }
-      
+
       .export-btn {
         width: 100%;
       }
@@ -788,12 +811,14 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       padding: 5px;
       font-size: 12px
     }
-    
-    .product-type, .product-group {
+
+    .product-type,
+    .product-group {
       margin-bottom: 5px;
     }
-    
-    .type-header, .group-header {
+
+    .type-header,
+    .group-header {
       padding: 8px 10px;
       background-color: #f5f5f5;
       border-radius: 3px;
@@ -802,47 +827,48 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       align-items: center;
       transition: background-color 0.2s;
     }
-    
-    .type-header:hover, .group-header:hover {
+
+    .type-header:hover,
+    .group-header:hover {
       background-color: #e9e9e9;
     }
-    
+
     .type-header {
       font-size: 1.1em;
       background-color: #e0e0e0;
     }
-    
+
     .toggle-icon {
       margin-right: 8px;
       width: 15px;
       display: inline-block;
       text-align: center;
     }
-    
+
     .type-groups {
       margin-left: 15px;
       margin-top: 5px;
     }
-    
+
     .group-items {
       margin-left: 15px;
     }
-    
+
     .product-item {
       padding: 6px 10px 6px 25px;
       cursor: pointer;
       border-radius: 3px;
     }
-    
+
     .product-item:hover {
       background-color: #e6f7ff;
     }
-    
+
     .product-item.selected {
       background-color: #d4edff;
       font-weight: bold;
     }
-    
+
     .form-label {
       display: block;
       margin-bottom: 8px;
@@ -863,6 +889,7 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
         <li><a href="delivery.php" class="active"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
         <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
         <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
+        <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
         <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
       </ul>
     </div>
@@ -906,20 +933,20 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
                 <?php
                 $selected_id = $_POST['product_id'] ?? '';
                 $organized = [];
-                
+
                 // Organize products hierarchically
                 while ($row = $products->fetch_assoc()) {
                   $type = $row['product_type'];
                   $group = $row['product_group'];
                   $organized[$type][$group][] = $row;
                 }
-                
+
                 // Sort alphabetically
                 ksort($organized);
-                
+
                 foreach ($organized as $type => $groups) {
                   ksort($groups);
-                  ?>
+                ?>
                   <div class="product-type">
                     <div class="type-header" onclick="toggleSection(this)">
                       <span class="toggle-icon">+</span>
@@ -933,12 +960,12 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
                             <?= htmlspecialchars($group) ?>
                           </div>
                           <div class="group-items" style="display: none;">
-                            <?php foreach ($items as $item) { 
+                            <?php foreach ($items as $item) {
                               $selected = ($item['id'] == $selected_id) ? 'selected' : '';
-                              ?>
-                              <div class="product-item <?= $selected ?>" 
-                                  data-value="<?= $item['id'] ?>"
-                                  onclick="selectItem(this)">
+                            ?>
+                              <div class="product-item <?= $selected ?>"
+                                data-value="<?= $item['id'] ?>"
+                                onclick="selectItem(this)">
                                 <?= htmlspecialchars($item['product_name']) ?>
                               </div>
                             <?php } ?>
@@ -1061,7 +1088,7 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
         ?>
 
         <?php foreach ($all_dates as $date): ?>
-          <div class="delivery-group">
+          <div class="delivery-group hide">
             <button class="toggle-btn" onclick="toggleGroup(this)">
               <i class="fas fa-calendar-alt"></i> <?= date("F j, Y", strtotime($date)) ?>
             </button>
@@ -1165,12 +1192,12 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
           &times;
         </button>
       </div>
-      
+
       <div class="export-modal-body">
         <span style="font-size: 80%; color: lightgray;">Request a delivery report by selecting a date range below.</span><br>
         <span style="font-size: 80%; color: lightgray;">It will be sent via email as an Excel (.xlsx) attachment.</span><br>
         <span style="font-size: 80%; color: lightgray;"><strong>To export a single day, enter the same date in both fields.</strong></span>
-        
+
         <form action="../config/email_export_deliveries.php" method="GET" target="_blank" class="export-form">
           <div class="export-form-group">
             <label class="export-form-label">Deliveries From</label>
@@ -1178,14 +1205,14 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
               <input type="date" name="start_date" class="export-form-input" required>
             </div>
           </div>
-          
+
           <div class="export-form-group">
             <label class="export-form-label">To</label>
             <div class="export-input-wrapper">
               <input type="date" name="end_date" class="export-form-input" required>
             </div>
           </div>
-          
+
           <div class="export-form-actions">
             <button type="submit" class="export-btn export-btn-primary">
               Request Report
@@ -1201,6 +1228,20 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
 
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script>
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        console.log(entry)
+        if (entry.isIntersecting) {
+          entry.target.classList.add('show');
+        } else {
+          entry.target.classList.remove('show');
+        }
+      });
+    });
+
+    const hiddenElements = document.querySelectorAll('.hide');
+    hiddenElements.forEach((el) => observer.observe(el));
+
     document.addEventListener('DOMContentLoaded', function() {
       const selectedItem = document.querySelector('.product-item.selected');
       if (selectedItem) {
@@ -1224,7 +1265,7 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
       const parent = element.parentElement;
       const content = element.nextElementSibling;
       const icon = element.querySelector('.toggle-icon');
-      
+
       if (content.style.display === 'none') {
         content.style.display = 'block';
         icon.textContent = '-';
@@ -1233,16 +1274,16 @@ $insuance_names = $mysqli->query("SELECT DISTINCT item_name FROM insuances ORDER
         icon.textContent = '+';
       }
     }
-    
+
     function selectItem(element) {
       // Remove previous selection
       document.querySelectorAll('.product-item.selected').forEach(el => {
         el.classList.remove('selected');
       });
-      
+
       // Add new selection
       element.classList.add('selected');
-      
+
       // Update hidden input
       document.getElementById('product_id').value = element.dataset.value;
     }

@@ -15,7 +15,7 @@ if ($product_id <= 0) {
 }
 
 // Fetch existing product with additional details
-$stmt = $mysqli->prepare("
+$stmt = $inventory->prepare("
     SELECT p.*, 
            (IFNULL(SUM(d.delivered_reams), 0) * 500 - IFNULL(SUM(u.used_sheets), 0)) AS remaining_sheets
     FROM products p
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($new_type) || empty($new_group) || empty($new_name) || $new_price <= 0) {
         $message = "❌ All fields are required, and price must be greater than zero.";
     } else {
-        $update = $mysqli->prepare("UPDATE products SET product_type = ?, product_group = ?, product_name = ?, unit_price = ? WHERE id = ?");
+        $update = $inventory->prepare("UPDATE products SET product_type = ?, product_group = ?, product_name = ?, unit_price = ? WHERE id = ?");
         $update->bind_param("sssdi", $new_type, $new_group, $new_name, $new_price, $product_id);
 
         if ($update->execute()) {
@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header("Location: products.php?id=$product_id&tab=products");
             exit;
         } else {
-            $message = "❌ Update failed: " . $mysqli->error;
+            $message = "❌ Update failed: " . $inventory->error;
         }
         $update->close();
     }

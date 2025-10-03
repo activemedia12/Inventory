@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $issued_by = $_SESSION['user_id'];
 
     if ($item_name !== '') {
-        $stmt = $mysqli->prepare("INSERT INTO insuances (item_name, description, issued_by, date_issued) VALUES (?, ?, ?, NOW())");
+        $stmt = $inventory->prepare("INSERT INTO insuances (item_name, description, issued_by, date_issued) VALUES (?, ?, ?, NOW())");
         $stmt->bind_param("ssi", $item_name, $description, $issued_by);
         if ($stmt->execute()) {
             header("Location: insuances.php?msg=Insuance+added+successfully");
@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Fetch current stock = total delivered - total used
-$stock_result = $mysqli->query("
+$stock_result = $inventory->query("
     SELECT
         ins.id AS item_id,
         ins.item_name AS insuance_name,
@@ -945,13 +945,14 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                 <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
                 <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
                 <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
+                <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
                 <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
             </ul>
         </div>
     </div>
     <div class="main-content">
         <header class="header">
-            <h1>Consumables Management (BETA)</h1>
+            <h1>Consumables Management</h1>
             <div class="user-info">
                 <img src="https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['username']) ?>&background=random" alt="User">
                 <div class="user-details">

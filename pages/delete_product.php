@@ -15,7 +15,7 @@ if ($product_id <= 0) {
 }
 
 // Fetch product details for confirmation page
-$product_stmt = $mysqli->prepare("
+$product_stmt = $inventory->prepare("
     SELECT p.*, 
            (IFNULL(SUM(d.delivered_reams), 0) * 500 - IFNULL(SUM(u.used_sheets), 0)) AS remaining_sheets
     FROM products p
@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Check references again
-    $ref_stmt = $mysqli->prepare("
+    $ref_stmt = $inventory->prepare("
         SELECT COUNT(*) AS total_refs FROM (
             SELECT product_id FROM delivery_logs WHERE product_id = ?
             UNION ALL
@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Proceed with deletion
-    $delete_stmt = $mysqli->prepare("DELETE FROM products WHERE id = ?");
+    $delete_stmt = $inventory->prepare("DELETE FROM products WHERE id = ?");
     $delete_stmt->bind_param("i", $product_id);
 
     if ($delete_stmt->execute()) {

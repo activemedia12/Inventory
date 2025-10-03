@@ -3,10 +3,9 @@
 $host = 'localhost';
 $user = 'root';
 $password = '';
-$database = 'inventory';
 
-$mysqli = new mysqli($host, $user, $password, $database);
+$inventory = new mysqli($host, $user, $password, 'inventory');
 
-if ($mysqli->connect_error) {
-    die('Connection failed: ' . $mysqli->connect_error);
+if ($inventory->connect_error) {
+    die('Connection failed');
 }

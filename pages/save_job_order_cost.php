@@ -15,24 +15,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     // 1. Save grand total + printing + expenses
-    $stmt = $mysqli->prepare("
+    $stmt = $inventory->prepare("
         UPDATE job_orders 
         SET grand_total = ?, printing_type = ?, printing_cost = ?, other_expenses = ?, paper_spoilage = ?
         WHERE id = ?
     ");
     if (!$stmt) {
-        die("❌ Prepare failed: " . $mysqli->error);
+        die("❌ Prepare failed: " . $inventory->error);
     }
     $stmt->bind_param("dsdiii", $grand_total, $printing_type, $printing_cost, $other_expenses, $paper_spoilage, $job_id);
     $stmt->execute();
     $stmt->close();
 
     // 2. Wipe old sessions
-    $mysqli->query("DELETE FROM job_sessions WHERE job_id = " . intval($job_id));
+    $inventory->query("DELETE FROM job_sessions WHERE job_id = " . intval($job_id));
 
     // 3. Insert new sessions
     if (!empty($sessions)) {
-        $stmt2 = $mysqli->prepare("
+        $stmt2 = $inventory->prepare("
             INSERT INTO job_sessions (job_id, task_name, start_time, end_time, break_minutes, hours, cost)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
@@ -52,7 +52,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         if ($hours < 0) $hours = 0;
 
                         // get rate for this task
-                        $rateRes = $mysqli->prepare("SELECT hourly_rate FROM manpower_rates WHERE task_name = ?");
+                        $rateRes = $inventory->prepare("SELECT hourly_rate FROM manpower_rates WHERE task_name = ?");
                         $rateRes->bind_param("s", $task_name);
                         $rateRes->execute();
                         $rateRow = $rateRes->get_result()->fetch_assoc();

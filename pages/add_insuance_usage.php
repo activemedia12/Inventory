@@ -18,7 +18,7 @@ $issued_by = $_SESSION['user_id'];
 $date_issued = $date_issued_input !== '' ? $date_issued_input : date('Y-m-d');
 
 if ($item_id > 0 && $quantity_used > 0) {
-  $stmt = $mysqli->prepare("INSERT INTO insuance_usages (item_id, quantity_used, description, issued_by, used_by_name, date_issued) VALUES (?, ?, ?, ?, ?, ?)");
+  $stmt = $inventory->prepare("INSERT INTO insuance_usages (item_id, quantity_used, description, issued_by, used_by_name, date_issued) VALUES (?, ?, ?, ?, ?, ?)");
   $stmt->bind_param("idssss", $item_id, $quantity_used, $description, $issued_by, $used_by_name, $date_issued);
 
   if ($stmt->execute()) {

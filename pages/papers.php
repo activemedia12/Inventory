@@ -8,8 +8,8 @@ if (!isset($_SESSION['user_id'])) {
 require_once '../config/db.php';
 
 // Quick Stats
-$total_products = $mysqli->query("SELECT COUNT(*) AS total FROM products")->fetch_assoc()['total'];
-$out_of_stock = $mysqli->query("
+$total_products = $inventory->query("SELECT COUNT(*) AS total FROM products")->fetch_assoc()['total'];
+$out_of_stock = $inventory->query("
     SELECT COUNT(*) AS total FROM products p
     LEFT JOIN (
         SELECT d.product_id,
@@ -23,8 +23,8 @@ $out_of_stock = $mysqli->query("
 ")->fetch_assoc()['total'];
 
 // Fetch filters
-$product_types = $mysqli->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
-$product_groups = $mysqli->query("SELECT DISTINCT product_group FROM products ORDER BY product_group");
+$product_types = $inventory->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
+$product_groups = $inventory->query("SELECT DISTINCT product_group FROM products ORDER BY product_group");
 
 // Handle Add Product
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_type'], $_POST['product_group'], $_POST['product_name'], $_POST['unit_price'])) {
@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_type'], $_POS
 
   if ($type && $group && $name && $price > 0) {
     $created_by = $_SESSION['user_id'];
-    $stmt = $mysqli->prepare("INSERT INTO products (product_type, product_group, product_name, unit_price, created_by) VALUES (?, ?, ?, ?, ?)");
+    $stmt = $inventory->prepare("INSERT INTO products (product_type, product_group, product_name, unit_price, created_by) VALUES (?, ?, ?, ?, ?)");
     $stmt->bind_param("sssdi", $type, $group, $name, $price, $created_by);
 
     if ($stmt->execute()) {
@@ -116,7 +116,7 @@ if ($name_filter) {
 }
 $sql .= " ORDER BY p.product_type, p.product_group, p.product_name";
 
-$stmt = $mysqli->prepare($sql);
+$stmt = $inventory->prepare($sql);
 if ($types) {
   $stmt->bind_param($types, ...$params);
 }
@@ -783,6 +783,7 @@ $stmt->close();
         <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
         <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
         <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
+        <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
         <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
       </ul>
     </div>

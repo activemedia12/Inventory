@@ -10,7 +10,7 @@ $prefill = $_SESSION['form_data'] ?? [];
 unset($_SESSION['form_data']);
 
 if (isset($_GET['client_id'])) {
-  $stmt = $mysqli->prepare("SELECT * FROM clients WHERE id = ?");
+  $stmt = $inventory->prepare("SELECT * FROM clients WHERE id = ?");
   $stmt->bind_param("i", $_GET['client_id']);
   $stmt->execute();
 
@@ -23,10 +23,10 @@ $message = $_SESSION['message'] ?? '';
 unset($_SESSION['message']);
 
 // FETCH Dropdowns
-$product_types = $mysqli->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
-$product_sizes = $mysqli->query("SELECT DISTINCT product_group FROM products ORDER BY product_group");
-$product_names = $mysqli->query("SELECT DISTINCT product_name FROM products ORDER BY product_name");
-$project_names = $mysqli->query("SELECT DISTINCT project_name FROM job_orders ORDER BY project_name");
+$product_types = $inventory->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
+$product_sizes = $inventory->query("SELECT DISTINCT product_group FROM products ORDER BY product_group");
+$product_names = $inventory->query("SELECT DISTINCT product_name FROM products ORDER BY product_name");
+$project_names = $inventory->query("SELECT DISTINCT project_name FROM job_orders ORDER BY project_name");
 
 $search_client = strtolower(trim($_GET['search_client'] ?? ''));
 $search_project = strtolower(trim($_GET['search_project'] ?? ''));
@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   foreach ($paper_sequence as $color) {
     $color = trim($color);
-    $result = $mysqli->query("
+    $result = $inventory->query("
       SELECT p.id, (
         (
           SELECT IFNULL(SUM(delivered_reams), 0)
@@ -127,14 +127,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
   // Check if client already exists based on client_name and contact_number
-  $client_check = $mysqli->prepare("SELECT id FROM clients WHERE client_name = ? AND contact_number = ? LIMIT 1");
+  $client_check = $inventory->prepare("SELECT id FROM clients WHERE client_name = ? AND contact_number = ? LIMIT 1");
   $client_check->bind_param("ss", $client_name, $contact_number);
   $client_check->execute();
   $client_check_result = $client_check->get_result();
 
   if ($client_check_result->num_rows === 0) {
     // INSERT new client
-    $insert_client = $mysqli->prepare("INSERT INTO clients (
+    $insert_client = $inventory->prepare("INSERT INTO clients (
       client_name, taxpayer_name, tin, tax_type, rdo_code, client_address,
       province, city, barangay, street, building_no, floor_no, zip_code,
       contact_person, contact_number, client_by
@@ -164,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $insert_client->close();
   }
 
-  $stmt = $mysqli->prepare("INSERT INTO job_orders (
+  $stmt = $inventory->prepare("INSERT INTO job_orders (
     log_date, client_name, client_address, contact_person, contact_number, taxpayer_name, tax_type, rdo_code, tin, client_by,
     project_name, ocn_number, date_issued, quantity, number_of_sets, product_size, serial_range,
     paper_size, custom_paper_size, paper_type, copies_per_set, binding_type,
@@ -211,9 +211,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
 
     if ($stmt->execute()) {
-      $job_order_id = $mysqli->insert_id;
+      $job_order_id = $inventory->insert_id;
       foreach ($products_used as $prod) {
-        $usage_stmt = $mysqli->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
+        $usage_stmt = $inventory->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
         $note = "Auto-deducted from job order for $client_name";
         $usage_stmt->bind_param("iisds", $prod['product_id'], $used_sheets, $log_date, $job_order_id, $note);
         $usage_stmt->execute();
@@ -261,7 +261,7 @@ if (!empty($search_project)) {
 }
 
 $query .= " ORDER BY j.client_name, j.log_date DESC, j.project_name";
-$stmt = $mysqli->prepare($query);
+$stmt = $inventory->prepare($query);
 if ($params) {
   $stmt->bind_param($types, ...$params);
 }
@@ -300,7 +300,7 @@ while ($row = $result->fetch_assoc()) {
   $$target[$client][$date][$project_key]['records'][] = $row;
 }
 
-$product_query = $mysqli->query("
+$product_query = $inventory->query("
   SELECT 
     p.id, p.product_type, p.product_group, p.product_name,
     ((
@@ -317,7 +317,7 @@ $product_query = $mysqli->query("
 ");
 
 $provinces = [];
-$result = $mysqli->query("SELECT DISTINCT province FROM locations ORDER BY province ASC");
+$result = $inventory->query("SELECT DISTINCT province FROM locations ORDER BY province ASC");
 while ($row = $result->fetch_assoc()) {
   $provinces[] = $row['province'];
 }
@@ -336,7 +336,27 @@ while ($row = $result->fetch_assoc()) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
   <style>
+    .hide {
+      opacity: 0;
+      filter: blur(5px);
+      transform: translateY(100%);
+      transition: all 0.5s;
+    }
+
+    .show {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0);
+    }
+
+    @media (prefers-reduced-motion) {
+      .hide {
+          transition: none;
+      }
+    }
+
     ::-webkit-scrollbar {
       width: 7px;
       height: 5px;
@@ -1620,6 +1640,7 @@ while ($row = $result->fetch_assoc()) {
         <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
         <li><a href="job_orders.php" class="active"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
         <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
+        <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
         <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
       </ul>
     </div>
@@ -1947,7 +1968,7 @@ while ($row = $result->fetch_assoc()) {
                 <select id="paper_type" name="paper_type" required value="<?= htmlspecialchars($prefill['paper_type'] ?? '') ?>">
                   <option value="">Select</option>
                   <?php
-                  $product_types = $mysqli->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
+                  $product_types = $inventory->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
                   while ($type = $product_types->fetch_assoc()):
                   ?>
                     <option value="<?= htmlspecialchars($type['product_type']) ?>"><?= htmlspecialchars($type['product_type']) ?></option>
@@ -2097,6 +2118,20 @@ while ($row = $result->fetch_assoc()) {
   </div>
 
   <script>
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          console.log(entry)
+          if (entry.isIntersecting) {
+            entry.target.classList.add('show');
+          } else {
+            entry.target.classList.remove('show');
+          }
+        });
+      });
+      
+    const hiddenElements = document.querySelectorAll('.hide');
+    hiddenElements.forEach((el) => observer.observe(el));
+
     document.getElementById('jobOrderForm').addEventListener('submit', function(e) {
       const address = [
         document.getElementById('floor_no').value.trim(),

@@ -115,7 +115,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
     // Check if username exists
-    $check_stmt = $mysqli->prepare("SELECT id FROM users WHERE username = ?");
+    $check_stmt = $inventory->prepare("SELECT id FROM users WHERE username = ?");
     $check_stmt->bind_param("s", $username);
     $check_stmt->execute();
     $check_stmt->store_result();
@@ -127,7 +127,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if (empty($errors)) {
       // Insert with hashed password
-      $stmt = $mysqli->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
+      $stmt = $inventory->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
       $stmt->bind_param("sss", $username, $hashed_password, $role);
 
       if ($stmt->execute()) {
@@ -135,7 +135,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $stmt->close();
 
         if ($customer_type === 'personal') {
-          $insert = $mysqli->prepare("INSERT INTO personal_customers 
+          $insert = $inventory->prepare("INSERT INTO personal_customers 
                     (user_id, first_name, middle_name, last_name, age, gender, birthdate, contact_number, address_line1, city, province, zip_code)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
           $bind_age = $age === null ? null : $age;
@@ -168,7 +168,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           }
           $insert->close();
         } else {
-          $insert = $mysqli->prepare("INSERT INTO company_customers
+          $insert = $inventory->prepare("INSERT INTO company_customers
                     (user_id, company_name, taxpayer_name, contact_person, contact_number, province, city, barangay, subd_or_street, building_or_block, lot_or_room_no, zip_code)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
           $insert->bind_param(

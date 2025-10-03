@@ -16,7 +16,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       $message = "Passwords do not match.";
     } else {
       // Check if username exists
-      $check_stmt = $mysqli->prepare("SELECT id FROM users WHERE username = ?");
+      $check_stmt = $inventory->prepare("SELECT id FROM users WHERE username = ?");
       $check_stmt->bind_param("s", $username);
       $check_stmt->execute();
       $check_stmt->store_result();
@@ -26,7 +26,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       } else {
         $hashed = password_hash($password, PASSWORD_DEFAULT);
 
-        $stmt = $mysqli->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
+        $stmt = $inventory->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
         $stmt->bind_param("sss", $username, $hashed, $role);
 
         if ($stmt->execute()) {

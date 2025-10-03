@@ -8,7 +8,7 @@ if (!$job_id) {
 
 // ========== FETCH MANPOWER RATES ==========
 $rates = [];
-$res = $mysqli->query("SELECT task_name, hourly_rate FROM manpower_rates");
+$res = $inventory->query("SELECT task_name, hourly_rate FROM manpower_rates");
 while ($row = $res->fetch_assoc()) {
     $rates[$row['task_name']] = $row['hourly_rate'];
 }
@@ -17,7 +17,7 @@ $tasks = array_keys($rates);
 // ========== FETCH JOB ORDER DATA ==========
 $sql = "SELECT log_date, client_name, project_name, quantity, number_of_sets, product_size, paper_size, paper_type, paper_sequence, printing_type, other_expenses, paper_spoilage 
         FROM job_orders WHERE id = ?";
-$stmt = $mysqli->prepare($sql);
+$stmt = $inventory->prepare($sql);
 $stmt->bind_param("i", $job_id);
 $stmt->execute();
 $order = $stmt->get_result()->fetch_assoc();
@@ -29,7 +29,7 @@ if (!$order) {
 
 // ========== FETCH EXISTING JOB SESSIONS ==========
 $sessions_by_task = [];
-$res2 = $mysqli->prepare("SELECT * FROM job_sessions WHERE job_id = ? ORDER BY id ASC");
+$res2 = $inventory->prepare("SELECT * FROM job_sessions WHERE job_id = ? ORDER BY id ASC");
 $res2->bind_param("i", $job_id);
 $res2->execute();
 $result2 = $res2->get_result();
@@ -73,7 +73,7 @@ $table = ($paper_type === 'carbonless') ? "paper_prices" : "paper_cut_prices";
 
 // ========== FETCH PRINTING TYPES ==========
 $printing_types = [];
-$res3 = $mysqli->query("SELECT * FROM printing_types ORDER BY name ASC");
+$res3 = $inventory->query("SELECT * FROM printing_types ORDER BY name ASC");
 while ($row = $res3->fetch_assoc()) {
     $printing_types[$row['name']] = $row;
 }
@@ -99,7 +99,7 @@ $layer_details = [];
 foreach ($paper_sequence as $color) {
     $mappedType = mapPaperType($color, $paper_type);
 
-    $stmt2 = $mysqli->prepare("SELECT short_price, long_price 
+    $stmt2 = $inventory->prepare("SELECT short_price, long_price 
                                FROM $table 
                                WHERE paper_type = ? 
                                ORDER BY effective_date DESC LIMIT 1");

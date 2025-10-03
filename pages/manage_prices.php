@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $daily_rate = $row['daily_rate'];
       $hourly_rate = $row['hourly_rate'];
 
-      $stmt = $mysqli->prepare("UPDATE manpower_rates SET daily_rate=?, hourly_rate=? WHERE id=?");
+      $stmt = $inventory->prepare("UPDATE manpower_rates SET daily_rate=?, hourly_rate=? WHERE id=?");
       $stmt->bind_param("ddi", $daily_rate, $hourly_rate, $id);
       $stmt->execute();
     }
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $cutting_cost = $row['cutting_cost'];
       $effective_date = $row['effective_date'];
 
-      $stmt = $mysqli->prepare("UPDATE paper_prices 
+      $stmt = $inventory->prepare("UPDATE paper_prices 
                 SET paper_type=?, orig_price=?, disc_price=?, short_price=?, long_price=?, cutting_cost=?, effective_date=? 
                 WHERE id=?");
       $stmt->bind_param("sdddddsi", $paper_type, $orig_price, $disc_price, $short_price, $long_price, $cutting_cost, $effective_date, $id);
@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $cutting_cost = $row['cutting_cost'];
       $effective_date = $row['effective_date'];
 
-      $stmt = $mysqli->prepare("UPDATE paper_cut_prices 
+      $stmt = $inventory->prepare("UPDATE paper_cut_prices 
                 SET paper_type=?, short_price=?, long_price=?, cutting_cost=?, effective_date=? 
                 WHERE id=?");
       $stmt->bind_param("sdddsi", $paper_type, $short_price, $long_price, $cutting_cost, $effective_date, $id);
@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $apply_to_paper_cost = isset($row['apply_to_paper_cost']) ? 1 : 0;
       $effective_date = $row['effective_date'];
 
-      $stmt = $mysqli->prepare("UPDATE printing_types 
+      $stmt = $inventory->prepare("UPDATE printing_types 
                 SET base_cost=?, per_sheet_cost=?, apply_to_paper_cost=?, effective_date=? 
                 WHERE id=?");
       $stmt->bind_param("dddsi", $base_cost, $per_sheet_cost, $apply_to_paper_cost, $effective_date, $id);
@@ -84,10 +84,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Fetch all records
-$manpower_rates = $mysqli->query("SELECT * FROM manpower_rates")->fetch_all(MYSQLI_ASSOC);
-$paper_prices = $mysqli->query("SELECT * FROM paper_prices ORDER BY effective_date DESC")->fetch_all(MYSQLI_ASSOC);
-$cut_prices = $mysqli->query("SELECT * FROM paper_cut_prices ORDER BY effective_date DESC")->fetch_all(MYSQLI_ASSOC);
-$printing_types = $mysqli->query("SELECT * FROM printing_types ORDER BY effective_date DESC")->fetch_all(MYSQLI_ASSOC);
+$manpower_rates = $inventory->query("SELECT * FROM manpower_rates")->fetch_all(MYSQLI_ASSOC);
+$paper_prices = $inventory->query("SELECT * FROM paper_prices ORDER BY effective_date DESC")->fetch_all(MYSQLI_ASSOC);
+$cut_prices = $inventory->query("SELECT * FROM paper_cut_prices ORDER BY effective_date DESC")->fetch_all(MYSQLI_ASSOC);
+$printing_types = $inventory->query("SELECT * FROM printing_types ORDER BY effective_date DESC")->fetch_all(MYSQLI_ASSOC);
 ?>
 
 <!DOCTYPE html>

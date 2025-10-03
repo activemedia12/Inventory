@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $item_name = trim($_POST['item_name']);
     $description = trim($_POST['description']);
 
-    $stmt = $mysqli->prepare("UPDATE insuances SET item_name = ?, description = ? WHERE id = ?");
+    $stmt = $inventory->prepare("UPDATE insuances SET item_name = ?, description = ? WHERE id = ?");
     $stmt->bind_param("ssi", $item_name, $description, $id);
     
     if ($stmt->execute()) {
@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Fetch current data
-$stmt = $mysqli->prepare("SELECT item_name, description FROM insuances WHERE id = ?");
+$stmt = $inventory->prepare("SELECT item_name, description FROM insuances WHERE id = ?");
 $stmt->bind_param("i", $id);
 $stmt->execute();
 $result = $stmt->get_result();

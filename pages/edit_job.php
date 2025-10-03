@@ -14,7 +14,7 @@ if ($job_id <= 0) {
 }
 
 // Fetch existing job order
-$stmt = $mysqli->prepare("SELECT * FROM job_orders WHERE id = ?");
+$stmt = $inventory->prepare("SELECT * FROM job_orders WHERE id = ?");
 $stmt->bind_param("i", $job_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $used_sheets_per_product = $total_sets / $cut_size;
 
     // Update job order details
-    $stmt = $mysqli->prepare("UPDATE job_orders SET
+    $stmt = $inventory->prepare("UPDATE job_orders SET
         log_date = ?, client_name = ?, client_address = ?, contact_person = ?, contact_number = ?,
         project_name = ?, quantity = ?, number_of_sets = ?, product_size = ?, serial_range = ?,
         paper_size = ?, custom_paper_size = ?, paper_type = ?, copies_per_set = ?, binding_type = ?,
@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $spoil = isset($spoilage[$i]) ? intval($spoilage[$i]) : 0;
 
             // Fetch product ID
-            $product_res = $mysqli->prepare("SELECT id FROM products WHERE product_type = ? AND product_group = ? AND product_name = ? LIMIT 1");
+            $product_res = $inventory->prepare("SELECT id FROM products WHERE product_type = ? AND product_group = ? AND product_name = ? LIMIT 1");
             $product_res->bind_param("sss", $paper_type, $paper_size, $color);
             $product_res->execute();
             $product_result = $product_res->get_result();
@@ -119,11 +119,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $product_id = $prod['id'];
 
                 // Get delivered sheets
-                $delivered_res = $mysqli->query("SELECT IFNULL(SUM(delivered_reams), 0) AS total FROM delivery_logs WHERE product_id = $product_id");
+                $delivered_res = $inventory->query("SELECT IFNULL(SUM(delivered_reams), 0) AS total FROM delivery_logs WHERE product_id = $product_id");
                 $delivered_sheets = $delivered_res->fetch_assoc()['total'] * 500;
 
                 // Get used sheets EXCLUDING current job
-                $used_res = $mysqli->query("SELECT IFNULL(SUM(used_sheets + spoilage_sheets), 0) AS total FROM usage_logs WHERE product_id = $product_id AND job_order_id != $job_id");
+                $used_res = $inventory->query("SELECT IFNULL(SUM(used_sheets + spoilage_sheets), 0) AS total FROM usage_logs WHERE product_id = $product_id AND job_order_id != $job_id");
                 $used_sheets = $used_res->fetch_assoc()['total'];
 
                 $available_stock = $delivered_sheets - $used_sheets;
@@ -139,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Step 2: Safe to delete old usage logs
-        $old_logs = $mysqli->query("SELECT product_id, used_sheets, spoilage_sheets FROM usage_logs WHERE job_order_id = $job_id");
+        $old_logs = $inventory->query("SELECT product_id, used_sheets, spoilage_sheets FROM usage_logs WHERE job_order_id = $job_id");
 
         while ($log = $old_logs->fetch_assoc()) {
             $product_id = $log['product_id'];
@@ -147,14 +147,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $spoil = $log['spoilage_sheets'];
         }
 
-        $mysqli->query("DELETE FROM usage_logs WHERE job_order_id = $job_id");
+        $inventory->query("DELETE FROM usage_logs WHERE job_order_id = $job_id");
 
         // Step 3: Insert updated usage logs with spoilage
         foreach ($new_sequence as $i => $color) {
             $color = trim($color);
             $spoil = isset($spoilage[$i]) ? intval($spoilage[$i]) : 0;
 
-            $product_res = $mysqli->prepare("SELECT id FROM products WHERE product_type = ? AND product_group = ? AND product_name = ? LIMIT 1");
+            $product_res = $inventory->prepare("SELECT id FROM products WHERE product_type = ? AND product_group = ? AND product_name = ? LIMIT 1");
             $product_res->bind_param("sss", $paper_type, $paper_size, $color);
             $product_res->execute();
             $product_result = $product_res->get_result();
@@ -164,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $product_id = $prod['id'];
                 $note = "Updated job order for $client_name";
 
-                $log_stmt = $mysqli->prepare("
+                $log_stmt = $inventory->prepare("
                     INSERT INTO usage_logs (product_id, used_sheets, spoilage_sheets, log_date, job_order_id, usage_note)
                     VALUES (?, ?, ?, ?, ?, ?)
                 ");
@@ -762,7 +762,7 @@ unset($_SESSION['message']);
                                 <select id="paper_type" name="paper_type" class="form-control" required>
                                     <option value="">Select</option>
                                     <?php
-                                    $types = $mysqli->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
+                                    $types = $inventory->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
                                     while ($row = $types->fetch_assoc()):
                                     ?>
                                         <option value="<?= htmlspecialchars($row['product_type']) ?>" <?= $job['paper_type'] === $row['product_type'] ? 'selected' : '' ?>>
@@ -837,7 +837,7 @@ unset($_SESSION['message']);
     <?php
     $spoilage_map = [];
 
-    $spoilage_query = $mysqli->prepare("
+    $spoilage_query = $inventory->prepare("
         SELECT p.product_name, u.spoilage_sheets
         FROM usage_logs u
         JOIN products p ON u.product_id = p.id
@@ -852,7 +852,7 @@ unset($_SESSION['message']);
     }
     $spoilage_query->close();
 
-    $product_query = $mysqli->query("
+    $product_query = $inventory->query("
   SELECT 
     p.id,
     p.product_name,
