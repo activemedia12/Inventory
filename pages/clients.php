@@ -9,13 +9,13 @@ $search = $_GET['search_client'] ?? '';
 $clients = [];
 
 if (!empty($search)) {
-    $stmt = $mysqli->prepare("SELECT * FROM clients WHERE client_name LIKE ? ORDER BY client_name ASC");
+    $stmt = $inventory->prepare("SELECT * FROM clients WHERE client_name LIKE ? ORDER BY client_name ASC");
     $like = '%' . $search . '%';
     $stmt->bind_param("s", $like);
     $stmt->execute();
     $result = $stmt->get_result();
 } else {
-    $result = $mysqli->query("SELECT * FROM clients ORDER BY client_name ASC");
+    $result = $inventory->query("SELECT * FROM clients ORDER BY client_name ASC");
 }
 
 while ($row = $result->fetch_assoc()) {
@@ -23,10 +23,10 @@ while ($row = $result->fetch_assoc()) {
 }
 
 // Fetch all saved clients
-// $result = $mysqli->query("SELECT * FROM clients ORDER BY created_at DESC");
-// $clients = $result->fetch_all(MYSQLI_ASSOC);
+// $result = $inventory->query("SELECT * FROM clients ORDER BY created_at DESC");
+// $clients = $result->fetch_all(inventory_ASSOC);
 $provinces = [];
-$result = $mysqli->query("SELECT DISTINCT province FROM locations ORDER BY province ASC");
+$result = $inventory->query("SELECT DISTINCT province FROM locations ORDER BY province ASC");
 while ($row = $result->fetch_assoc()) {
     $provinces[] = $row['province'];
 }
@@ -1446,6 +1446,7 @@ while ($row = $result->fetch_assoc()) {
                 <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
                 <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
                 <li><a href="clients.php" class="active"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
+                <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
                 <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
             </ul>
         </div>

@@ -6,7 +6,7 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once '../config/db.php';
 
-$low_stock_items = $mysqli->query("
+$low_stock_items = $inventory->query("
     SELECT 
         p.id,
         p.product_type,

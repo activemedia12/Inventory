@@ -8,7 +8,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   $username = trim($_POST['username']);
   $password = $_POST['password'];
 
-  $stmt = $mysqli->prepare("SELECT id, password, role FROM users WHERE username = ?");
+  $stmt = $inventory->prepare("SELECT id, password, role FROM users WHERE username = ?");
   $stmt->bind_param("s", $username);
   $stmt->execute();
   $stmt->store_result();
@@ -24,7 +24,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       $_SESSION['role'] = $role;
 
       if ($role === 'customer') {
-        $stmt2 = $mysqli->prepare("SELECT id FROM personal_customers WHERE user_id = ?");
+        $stmt2 = $inventory->prepare("SELECT id FROM personal_customers WHERE user_id = ?");
         $stmt2->bind_param("i", $id);
         $stmt2->execute();
         $res2 = $stmt2->get_result();
@@ -32,7 +32,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           $_SESSION['customer_table'] = 'personal_customers';
           $_SESSION['customer_id'] = $row2['id'];
         } else {
-          $stmt3 = $mysqli->prepare("SELECT id FROM company_customers WHERE user_id = ?");
+          $stmt3 = $inventory->prepare("SELECT id FROM company_customers WHERE user_id = ?");
           $stmt3->bind_param("i", $id);
           $stmt3->execute();
           $res3 = $stmt3->get_result();

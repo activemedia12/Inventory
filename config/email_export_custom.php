@@ -21,7 +21,7 @@ if (!$start_date || !$end_date) {
 }
 
 $query = "SELECT * FROM job_orders WHERE DATE(log_date) BETWEEN ? AND ? ORDER BY log_date ASC";
-$stmt = $mysqli->prepare($query);
+$stmt = $inventory->prepare($query);
 $stmt->bind_param("ss", $start_date, $end_date);
 $stmt->execute();
 $result = $stmt->get_result();

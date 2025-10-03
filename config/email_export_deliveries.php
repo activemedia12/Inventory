@@ -43,7 +43,7 @@ $query = "
   WHERE DATE(dl.delivery_date) BETWEEN ? AND ?
   ORDER BY dl.delivery_date ASC
 ";
-$stmt = $mysqli->prepare($query);
+$stmt = $inventory->prepare($query);
 $stmt->bind_param("ss", $start_date, $end_date);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -87,7 +87,7 @@ $iq = "
   WHERE DATE(idl.delivery_date) BETWEEN ? AND ?
   ORDER BY idl.delivery_date ASC
 ";
-$istmt = $mysqli->prepare($iq);
+$istmt = $inventory->prepare($iq);
 $istmt->bind_param("ss", $start_date, $end_date);
 $istmt->execute();
 $insResult = $istmt->get_result();

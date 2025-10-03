@@ -14,7 +14,7 @@ if ($delivery_id <= 0) {
 }
 
 // Fetch the delivery log
-$stmt = $mysqli->prepare("SELECT dl.*, p.product_type, p.product_group, p.product_name 
+$stmt = $inventory->prepare("SELECT dl.*, p.product_type, p.product_group, p.product_name 
                          FROM delivery_logs dl
                          JOIN products p ON dl.product_id = p.id
                          WHERE dl.id = ?");
@@ -34,14 +34,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Calculate stock before deletion
     $reams_to_delete = floatval($delivery['delivered_reams']);
 
-    $delivered_result = $mysqli->query("
+    $delivered_result = $inventory->query("
         SELECT SUM(delivered_reams) AS total_delivered 
         FROM delivery_logs 
         WHERE product_id = $product_id AND id != $delivery_id
     ");
     $total_delivered = floatval($delivered_result->fetch_assoc()['total_delivered'] ?? 0);
 
-    $used_result = $mysqli->query("
+    $used_result = $inventory->query("
         SELECT SUM(used_sheets) AS total_used_sheets 
         FROM usage_logs 
         WHERE product_id = $product_id
@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Proceed with deletion
-    $delete_stmt = $mysqli->prepare("DELETE FROM delivery_logs WHERE id = ?");
+    $delete_stmt = $inventory->prepare("DELETE FROM delivery_logs WHERE id = ?");
     $delete_stmt->bind_param("i", $delivery_id);
     $delete_stmt->execute();
 

@@ -11,7 +11,7 @@ if (!$item_id) {
 }
 
 // Get item name
-$item_stmt = $mysqli->prepare("SELECT item_name FROM insuances WHERE id = ?");
+$item_stmt = $inventory->prepare("SELECT item_name FROM insuances WHERE id = ?");
 $item_stmt->bind_param("i", $item_id);
 $item_stmt->execute();
 $item_result = $item_stmt->get_result();
@@ -23,7 +23,7 @@ $item = $item_result->fetch_assoc();
 $item_name = $item['item_name'];
 
 // Fetch usage history
-$usage_stmt = $mysqli->prepare("
+$usage_stmt = $inventory->prepare("
     SELECT 
         u.date_issued,
         u.quantity_used,
@@ -40,7 +40,7 @@ $usage_stmt->execute();
 $usage_result = $usage_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 // Fetch delivery history
-$delivery_stmt = $mysqli->prepare("
+$delivery_stmt = $inventory->prepare("
     SELECT delivery_date, supplier_name, delivered_quantity, unit, amount_per_unit
     FROM insuance_delivery_logs
     WHERE insuance_name = ?
@@ -51,7 +51,7 @@ $delivery_stmt->execute();
 $delivery_result = $delivery_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 // Stock summary
-$summary_stmt = $mysqli->prepare("
+$summary_stmt = $inventory->prepare("
     SELECT
         COALESCE(SUM(d.delivered_quantity), 0) AS delivered_quantity,
         (

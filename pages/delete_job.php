@@ -15,7 +15,7 @@ if ($job_id <= 0) {
 }
 
 // Fetch job order
-$stmt = $mysqli->prepare("SELECT * FROM job_orders WHERE id = ?");
+$stmt = $inventory->prepare("SELECT * FROM job_orders WHERE id = ?");
 $stmt->bind_param("i", $job_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -429,7 +429,7 @@ if ($restore_stock) {
     foreach ($paper_sequence as $color) {
         $color = trim($color);
 
-        $product = $mysqli->query("
+        $product = $inventory->query("
             SELECT id FROM products
             WHERE product_type = '$paper_type'
               AND product_group = '$paper_size'
@@ -442,7 +442,7 @@ if ($restore_stock) {
             $product_id = $prod['id'];
 
             $note = "Stock restored after deleting job order ID #$job_id";
-            $stmt_restore = $mysqli->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
+            $stmt_restore = $inventory->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
             $negative_sheets = -$used_sheets;
             $stmt_restore->bind_param("iisds", $product_id, $negative_sheets, $log_date, $job_id, $note);
             $stmt_restore->execute();
@@ -452,9 +452,9 @@ if ($restore_stock) {
 }
 
 // Delete usage logs and job order
-$mysqli->query("DELETE FROM usage_logs WHERE job_order_id = $job_id");
+$inventory->query("DELETE FROM usage_logs WHERE job_order_id = $job_id");
 
-$stmt = $mysqli->prepare("DELETE FROM job_orders WHERE id = ?");
+$stmt = $inventory->prepare("DELETE FROM job_orders WHERE id = ?");
 $stmt->bind_param("i", $job_id);
 if ($stmt->execute()) {
     $msg = "Job Order deleted successfully";

@@ -19,7 +19,7 @@ if ($job_id <= 0 || !in_array($new_status, $valid_statuses)) {
 }
 
 // Check current status
-$current = $mysqli->query("SELECT status FROM job_orders WHERE id = $job_id")->fetch_assoc();
+$current = $inventory->query("SELECT status FROM job_orders WHERE id = $job_id")->fetch_assoc();
 if (!$current) {
   http_response_code(404);
   echo "Job order not found.";
@@ -33,9 +33,9 @@ if ($current['status'] === $new_status) {
 
 // Update status
 if ($new_status === 'completed') {
-  $stmt = $mysqli->prepare("UPDATE job_orders SET status = ?, completed_date = NOW() WHERE id = ?");
+  $stmt = $inventory->prepare("UPDATE job_orders SET status = ?, completed_date = NOW() WHERE id = ?");
 } else {
-  $stmt = $mysqli->prepare("UPDATE job_orders SET status = ?, completed_date = NULL WHERE id = ?");
+  $stmt = $inventory->prepare("UPDATE job_orders SET status = ?, completed_date = NULL WHERE id = ?");
 }
 
 $stmt->bind_param("si", $new_status, $job_id);

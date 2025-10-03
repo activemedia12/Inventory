@@ -9,7 +9,7 @@ require_once '../config/db.php';
 
 if (isset($_GET['id'])) {
     $id = intval($_GET['id']);
-    $stmt = $mysqli->prepare("DELETE FROM insuances WHERE id = ?");
+    $stmt = $inventory->prepare("DELETE FROM insuances WHERE id = ?");
     $stmt->bind_param("i", $id);
 
     if ($stmt->execute()) {

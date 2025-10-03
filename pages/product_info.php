@@ -43,9 +43,9 @@ $query = "
     LIMIT 1
 ";
 
-$stmt = $mysqli->prepare($query);
+$stmt = $inventory->prepare($query);
 if (!$stmt) {
-    die("Error in product query: " . $mysqli->error);
+    die("Error in product query: " . $inventory->error);
 }
 $stmt->bind_param("i", $product_id);
 $stmt->execute();
@@ -70,9 +70,9 @@ $usage_query = "
     WHERE ul.product_id = ?
     ORDER BY ul.log_date DESC
 ";
-$usage_stmt = $mysqli->prepare($usage_query);
+$usage_stmt = $inventory->prepare($usage_query);
 if (!$usage_stmt) {
-    die("Error in usage history query: " . $mysqli->error);
+    die("Error in usage history query: " . $inventory->error);
 }
 $usage_stmt->bind_param("i", $product_id);
 $usage_stmt->execute();
@@ -85,9 +85,9 @@ $delivery_query = "
     WHERE product_id = ?
     ORDER BY delivery_date DESC
 ";
-$delivery_stmt = $mysqli->prepare($delivery_query);
+$delivery_stmt = $inventory->prepare($delivery_query);
 if (!$delivery_stmt) {
-    die("Error in delivery history query: " . $mysqli->error);
+    die("Error in delivery history query: " . $inventory->error);
 }
 $delivery_stmt->bind_param("i", $product_id);
 $delivery_stmt->execute();
@@ -499,5 +499,5 @@ $delivery_history = $delivery_stmt->get_result();
 <?php
 if (isset($usage_stmt)) $usage_stmt->close();
 if (isset($delivery_stmt)) $delivery_stmt->close();
-$mysqli->close();
+$inventory->close();
 ?>

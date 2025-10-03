@@ -23,7 +23,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $error = "Please enter a valid email address";
     } else {
         // Check if user exists
-        $stmt = $mysqli->prepare("SELECT id FROM users WHERE username = ?");
+        $stmt = $inventory->prepare("SELECT id FROM users WHERE username = ?");
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $stmt->store_result();
@@ -37,12 +37,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
             
             // Delete any existing tokens for this user
-            $delete_stmt = $mysqli->prepare("DELETE FROM password_resets WHERE user_id = ?");
+            $delete_stmt = $inventory->prepare("DELETE FROM password_resets WHERE user_id = ?");
             $delete_stmt->bind_param("i", $user_id);
             $delete_stmt->execute();
             
             // Store new token
-            $insert_stmt = $mysqli->prepare("INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)");
+            $insert_stmt = $inventory->prepare("INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)");
             $insert_stmt->bind_param("iss", $user_id, $token, $expires);
             $insert_stmt->execute();
             
@@ -62,7 +62,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $mail->SMTPSecure = 'tls';
                 $mail->Port       = 587;
 
-                $mail->setFrom('reportsjoborder@gmail.com', 'AMDP Inventory');
+                $mail->setFrom('reportsjoborder@gmail.com', 'Active Media');
                 $mail->addAddress($email); // Send to the user's email
                 
                 $mail->isHTML(true);
@@ -74,7 +74,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     <p><a href='$reset_link'>$reset_link</a></p>
                     <p>If you didn't request this, please ignore this email.</p>
                     <br>
-                    <p>Regards,<br>AMDP Inventory System</p>
+                    <p>Regards,<br>Active Media Designs and Printing</p>
                 ";
                 
                 $mail->send();

@@ -14,7 +14,7 @@ if ($delivery_id <= 0) {
 }
 
 // Fetch delivery record with product details
-$stmt = $mysqli->prepare("SELECT dl.*, p.product_type, p.product_group, p.product_name 
+$stmt = $inventory->prepare("SELECT dl.*, p.product_type, p.product_group, p.product_name 
                          FROM delivery_logs dl
                          JOIN products p ON dl.product_id = p.id
                          WHERE dl.id = ?");
@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$delivery_date || $delivered_reams <= 0 || !$supplier_name || $amount_per_ream <= 0) {
         echo "<script>alert('Please fill in all required fields.');</script>";
     } else {
-        $update_stmt = $mysqli->prepare("
+        $update_stmt = $inventory->prepare("
             UPDATE delivery_logs 
             SET delivery_date = ?, delivered_reams = ?, supplier_name = ?, amount_per_ream = ?, unit = ?, delivery_note = ?
             WHERE id = ?
@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header("Location: delivery.php?id=$product_id&tab=delivery");
             exit;
         } else {
-            echo "<script>alert('Error updating delivery: " . addslashes($mysqli->error) . "');</script>";
+            echo "<script>alert('Error updating delivery: " . addslashes($inventory->error) . "');</script>";
         }
     }
 }

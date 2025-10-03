@@ -15,7 +15,7 @@ use PHPMailer\PHPMailer\Exception;
 
 // Step 1: Fetch today's job orders
 $today = date('Y-m-d');
-$stmt = $mysqli->prepare("SELECT * FROM job_orders WHERE DATE(log_date) = ?");
+$stmt = $inventory->prepare("SELECT * FROM job_orders WHERE DATE(log_date) = ?");
 $stmt->bind_param("s", $today);
 $stmt->execute();
 $result = $stmt->get_result();

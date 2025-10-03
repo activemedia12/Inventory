@@ -14,7 +14,7 @@ $token = $_GET['token'] ?? '';
 
 if (!empty($token)) {
     // Validate token
-    $stmt = $mysqli->prepare("
+    $stmt = $inventory->prepare("
         SELECT user_id 
         FROM password_resets 
         WHERE token = ? AND expires_at > NOW()
@@ -44,12 +44,12 @@ if (!empty($token)) {
             } else {
                 // Update password
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                $update_stmt = $mysqli->prepare("UPDATE users SET password = ? WHERE id = ?");
+                $update_stmt = $inventory->prepare("UPDATE users SET password = ? WHERE id = ?");
                 $update_stmt->bind_param("si", $hashed_password, $user_id);
                 $update_stmt->execute();
 
                 // Mark token as used
-                $delete_stmt = $mysqli->prepare("DELETE FROM password_resets WHERE token = ?");
+                $delete_stmt = $inventory->prepare("DELETE FROM password_resets WHERE token = ?");
                 $delete_stmt->bind_param("s", $token);
                 $delete_stmt->execute();
 

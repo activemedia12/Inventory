@@ -12,7 +12,7 @@ $message = "";
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $stmt = $mysqli->prepare("UPDATE clients SET 
+    $stmt = $inventory->prepare("UPDATE clients SET 
         client_name = ?, 
         taxpayer_name = ?, 
         tin = ?, 
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Fetch current client data
-$stmt = $mysqli->prepare("SELECT * FROM clients WHERE id = ?");
+$stmt = $inventory->prepare("SELECT * FROM clients WHERE id = ?");
 $stmt->bind_param("i", $client_id);
 $stmt->execute();
 $result = $stmt->get_result();
