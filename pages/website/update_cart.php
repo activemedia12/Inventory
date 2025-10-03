@@ -264,9 +264,9 @@ function deleteDesignFiles($design_image, $user_id) {
                 
                 // Try alternative paths
                 $alternative_paths = [
-                    "../assets/uploads/" . $file_path,
+                    "../../assets/uploads/" . $file_path,
                     $file_path,
-                    str_replace('save_design/', '../assets/uploads/save_design/', $file_path)
+                    str_replace('save_design/', '../../assets/uploads/save_design/', $file_path)
                 ];
                 
                 foreach ($alternative_paths as $alt_path) {
@@ -328,23 +328,23 @@ function deleteDesignFiles($design_image, $user_id) {
  */
 function convertToActualPath($stored_path) {
     // If it's already a full path, return as-is
-    if (strpos($stored_path, '../assets/uploads/') === 0) {
+    if (strpos($stored_path, '../../assets/uploads/') === 0) {
         return $stored_path;
     }
     
     // If it starts with assets/uploads/, add ../
-    if (strpos($stored_path, 'assets/uploads/') === 0) {
+    if (strpos($stored_path, '../../assets/uploads/') === 0) {
         return '../' . $stored_path;
     }
     
     // If it's in the format "save_design/21/filename.png" (from your save_design.php)
     if (preg_match('/^save_design\/\d+\/.+\.(png|jpg|jpeg|gif|svg)$/i', $stored_path)) {
-        return '../assets/uploads/' . $stored_path;
+        return '../../assets/uploads/' . $stored_path;
     }
     
     // If it's in the format "user_layouts/21/filename.png"
     if (preg_match('/^user_layouts\/\d+\/.+\.(png|jpg|jpeg|gif|svg)$/i', $stored_path)) {
-        return '../assets/uploads/' . $stored_path;
+        return '../../assets/uploads/' . $stored_path;
     }
     
     // Return as-is if no pattern matches
@@ -390,9 +390,9 @@ function deleteUserLayoutFiles($user_layout_files_json, $user_id) {
                 
                 // Try alternative paths
                 $alternative_paths = [
-                    "../assets/uploads/" . $layout_file,
+                    "../../assets/uploads/" . $layout_file,
                     $layout_file,
-                    str_replace('../assets/uploads/', '', $layout_file)
+                    str_replace('../../assets/uploads/', '', $layout_file)
                 ];
                 
                 foreach ($alternative_paths as $alt_path) {
@@ -443,19 +443,19 @@ function deleteUserLayoutFiles($user_layout_files_json, $user_id) {
  */
 function convertDbPathToFilePath($db_path) {
     // If path already starts with ../assets/uploads/, return as-is
-    if (strpos($db_path, '../assets/uploads/') === 0) {
+    if (strpos($db_path, '../../assets/uploads/') === 0) {
         return $db_path;
     }
     
     // If path starts with assets/uploads/, add ../
-    if (strpos($db_path, 'assets/uploads/') === 0) {
+    if (strpos($db_path, '../../assets/uploads/') === 0) {
         return '../' . $db_path;
     }
     
     // If it's a relative path like "save_design/21/filename.png"
     // or "user_layouts/21/filename.png", prepend the base path
     if (strpos($db_path, 'save_design/') === 0 || strpos($db_path, 'user_layouts/') === 0) {
-        return '../assets/uploads/' . $db_path;
+        return '../../assets/uploads/' . $db_path;
     }
     
     // Return as-is if none of the above
@@ -469,8 +469,8 @@ function cleanupUserDirectories($user_id) {
     error_log("=== CLEANUP DIRECTORIES DEBUG ===");
     
     $base_dirs = [
-        "../assets/uploads/save_design/",
-        "../assets/uploads/user_layouts/"
+        "../../assets/uploads/save_design/",
+        "../../assets/uploads/user_layouts/"
     ];
     
     foreach ($base_dirs as $base_dir) {
