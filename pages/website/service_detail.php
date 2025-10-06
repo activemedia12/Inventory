@@ -922,6 +922,48 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             background-color: #f8d7da !important;
         }
 
+        /* Button-based option styles */
+        .option-button {
+            padding: 12px 20px;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            color: #495057;
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        .option-button:hover {
+            background: #e9ecef;
+            border-color: #adb5bd;
+            transform: translateY(-2px);
+        }
+
+        .option-button.selected {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        }
+
+        .option-button.custom-option {
+            border: 2px dashed #6c757d;
+        }
+
+        .option-button.custom-option.selected {
+            border: 2px solid #007bff;
+        }
+
+        .button-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
         @media (max-width: 768px) {
             .product-detail {
                 flex-direction: column;
@@ -956,6 +998,16 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
             .positioning-container {
                 height: 300px;
+            }
+
+            .option-button {
+                min-width: 100px;
+                padding: 10px 15px;
+                font-size: 0.9em;
+            }
+            
+            .button-options {
+                gap: 8px;
             }
         }
     </style>
@@ -1026,18 +1078,23 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                                 <h3 class="section-title required-field"><i class="fas fa-ruler-combined"></i> Size</h3>
                                 <?php if (!empty($size_options)): ?>
                                     <div class="option-group" style="margin-bottom: 20px;">
-                                        <select name="size_option" id="sizeOption" class="form-control" style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%;" onchange="handleSizeOptionChange()">
-                                            <?php foreach ($size_options as $size):
+                                        <div class="button-options">
+                                            <?php foreach ($size_options as $size): 
                                                 $display_name = isset($size['dimensions']) ? $size['size_name'] . ' (' . $size['dimensions'] . ')' : $size['size_name'];
                                             ?>
-                                                <option value="<?php echo $size['id']; ?>" data-custom="<?php echo $size['is_custom']; ?>">
+                                                <button type="button" 
+                                                        class="option-button <?php echo $size['is_custom'] ? 'custom-option' : ''; ?>" 
+                                                        data-value="<?php echo $size['id']; ?>" 
+                                                        data-custom="<?php echo $size['is_custom']; ?>"
+                                                        onclick="selectOption(this, 'size')">
                                                     <?php echo $display_name; ?>
-                                                </option>
+                                                </button>
                                             <?php endforeach; ?>
-                                        </select>
+                                        </div>
+                                        <input type="hidden" name="size_option" id="sizeOption" value="">
                                         <div id="customSizeContainer" style="margin-top: 10px; display: none;">
-                                            <input type="text" name="custom_size" placeholder="Please specify your custom size"
-                                                style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%;">
+                                            <input type="text" name="custom_size" placeholder="Please specify your custom size" 
+                                                   style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%;">
                                         </div>
                                     </div>
                                 <?php endif; ?>
@@ -1047,24 +1104,30 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                                 <h3 class="section-title required-field"><i class="fas fa-palette"></i> Color</h3>
                                 <?php if (!empty($color_options)): ?>
                                     <div class="option-group" style="margin-bottom: 20px;">
-                                        <select name="color_option" id="colorOption" class="form-control" style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%;" onchange="handleColorOptionChange()">
+                                        <div class="button-options">
                                             <?php foreach ($color_options as $color): ?>
-                                                <option value="<?php echo $color['id']; ?>" data-custom="<?php echo $color['is_custom']; ?>">
+                                                <button type="button" 
+                                                        class="option-button <?php echo $color['is_custom'] ? 'custom-option' : ''; ?>" 
+                                                        data-value="<?php echo $color['id']; ?>" 
+                                                        data-custom="<?php echo $color['is_custom']; ?>"
+                                                        onclick="selectOption(this, 'color')">
                                                     <?php echo $color['color_name']; ?>
-                                                </option>
+                                                </button>
                                             <?php endforeach; ?>
-                                        </select>
+                                        </div>
+                                        <input type="hidden" name="color_option" id="colorOption" value="">
                                         <div id="customColorContainer" style="margin-top: 10px; display: none;">
-                                            <input type="text" name="custom_color" placeholder="Please specify your custom color"
-                                                style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%;">
+                                            <input type="text" name="custom_color" placeholder="Please specify your custom color" 
+                                                   style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%;">
                                         </div>
                                     </div>
                                 <?php endif; ?>
 
                                 <?php if ($product_id == 20): ?>
                                     <div class="option-group" style="margin-bottom: 20px;">
-                                        <input type="text" value="Brown (Standard)" readonly
-                                            style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%; background: #f8f9fa;">
+                                        <button type="button" class="option-button selected" data-value="brown" onclick="selectOption(this, 'color')">
+                                            Brown (Standard)
+                                        </button>
                                         <input type="hidden" name="color_option" value="brown">
                                     </div>
                                 <?php endif; ?>
@@ -1084,11 +1147,14 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                                 <?php if ($customization['has_paper_option'] && !empty($paper_options)): ?>
                                     <div class="option-group" style="margin-bottom: 20px;">
                                         <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Paper Type:</label>
-                                        <select name="paper_option" class="form-control" style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%;">
+                                        <div class="button-options">
                                             <?php foreach ($paper_options as $paper): ?>
-                                                <option value="<?php echo $paper['id']; ?>"><?php echo $paper['option_name']; ?></option>
+                                                <button type="button" class="option-button" data-value="<?php echo $paper['id']; ?>" onclick="selectOption(this, 'paper')">
+                                                    <?php echo $paper['option_name']; ?>
+                                                </button>
                                             <?php endforeach; ?>
-                                        </select>
+                                        </div>
+                                        <input type="hidden" name="paper_option" id="paperOption" value="">
                                     </div>
                                 <?php endif; ?>
 
@@ -1108,23 +1174,29 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                                 <?php if ($customization['has_finish_option'] && !empty($finish_options)): ?>
                                     <div class="option-group" style="margin-bottom: 20px;">
                                         <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Finish:</label>
-                                        <select name="finish_option" class="form-control" style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%;">
+                                        <div class="button-options">
                                             <?php foreach ($finish_options as $finish): ?>
-                                                <option value="<?php echo $finish['id']; ?>"><?php echo $finish['option_name']; ?></option>
+                                                <button type="button" class="option-button" data-value="<?php echo $finish['id']; ?>" onclick="selectOption(this, 'finish')">
+                                                    <?php echo $finish['option_name']; ?>
+                                                </button>
                                             <?php endforeach; ?>
-                                        </select>
+                                        </div>
+                                        <input type="hidden" name="finish_option" id="finishOption" value="">
                                     </div>
                                 <?php endif; ?>
 
                                 <?php if ($customization['has_layout_option'] && !empty($layout_options)): ?>
                                     <div class="option-group" style="margin-bottom: 20px;">
                                         <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Layout Option:</label>
-                                        <select name="layout_option" id="layoutOption" class="form-control" style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%;" onchange="handleLayoutOptionChange()">
+                                        <div class="button-options">
                                             <?php foreach ($layout_options as $layout): ?>
-                                                <option value="<?php echo $layout['id']; ?>"><?php echo $layout['option_name']; ?></option>
+                                                <button type="button" class="option-button" data-value="<?php echo $layout['id']; ?>" onclick="selectLayoutOption(this)">
+                                                    <?php echo $layout['option_name']; ?>
+                                                </button>
                                             <?php endforeach; ?>
-                                        </select>
-
+                                        </div>
+                                        <input type="hidden" name="layout_option" id="layoutOption" value="">
+                                        
                                         <div id="layoutInputContainer" style="margin-top: 10px; display: none;">
                                             <!-- Content will be populated by JavaScript based on selection -->
                                         </div>
@@ -1134,11 +1206,14 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                                 <?php if ($customization['has_binding_option'] && !empty($binding_options)): ?>
                                     <div class="option-group" style="margin-bottom: 20px;">
                                         <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Binding:</label>
-                                        <select name="binding_option" class="form-control" style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%;">
+                                        <div class="button-options">
                                             <?php foreach ($binding_options as $binding): ?>
-                                                <option value="<?php echo $binding['id']; ?>"><?php echo $binding['option_name']; ?></option>
+                                                <button type="button" class="option-button" data-value="<?php echo $binding['id']; ?>" onclick="selectOption(this, 'binding')">
+                                                    <?php echo $binding['option_name']; ?>
+                                                </button>
                                             <?php endforeach; ?>
-                                        </select>
+                                        </div>
+                                        <input type="hidden" name="binding_option" id="bindingOption" value="">
                                     </div>
                                 <?php endif; ?>
 
@@ -1407,7 +1482,101 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
             // Initialize upload type
             document.getElementById('uploadTypeInput').value = currentUploadType;
+
+            // Auto-select first option for each button group
+            setTimeout(() => {
+                autoSelectFirstOptions();
+            }, 100);
         });
+
+        // Auto-select first option for each button group
+        function autoSelectFirstOptions() {
+            // Size options
+            const sizeButtons = document.querySelectorAll('.option-button[data-value][onclick*="size"]');
+            if (sizeButtons.length > 0 && !document.querySelector('.option-button.selected[onclick*="size"]')) {
+                selectOption(sizeButtons[0], 'size');
+            }
+
+            // Color options
+            const colorButtons = document.querySelectorAll('.option-button[data-value][onclick*="color"]');
+            if (colorButtons.length > 0 && !document.querySelector('.option-button.selected[onclick*="color"]')) {
+                selectOption(colorButtons[0], 'color');
+            }
+
+            // Paper options
+            const paperButtons = document.querySelectorAll('.option-button[data-value][onclick*="paper"]');
+            if (paperButtons.length > 0 && !document.querySelector('.option-button.selected[onclick*="paper"]')) {
+                selectOption(paperButtons[0], 'paper');
+            }
+
+            // Finish options
+            const finishButtons = document.querySelectorAll('.option-button[data-value][onclick*="finish"]');
+            if (finishButtons.length > 0 && !document.querySelector('.option-button.selected[onclick*="finish"]')) {
+                selectOption(finishButtons[0], 'finish');
+            }
+
+            // Layout options
+            const layoutButtons = document.querySelectorAll('.option-button[data-value][onclick*="selectLayoutOption"]');
+            if (layoutButtons.length > 0 && !document.querySelector('.option-button.selected[onclick*="selectLayoutOption"]')) {
+                selectLayoutOption(layoutButtons[0]);
+            }
+
+            // Binding options
+            const bindingButtons = document.querySelectorAll('.option-button[data-value][onclick*="binding"]');
+            if (bindingButtons.length > 0 && !document.querySelector('.option-button.selected[onclick*="binding"]')) {
+                selectOption(bindingButtons[0], 'binding');
+            }
+        }
+
+        // Handle option selection for buttons
+        function selectOption(button, type) {
+            // Remove selected class from all buttons in the same group
+            const buttonGroup = button.closest('.option-group');
+            if (buttonGroup) {
+                buttonGroup.querySelectorAll('.option-button').forEach(btn => {
+                    btn.classList.remove('selected');
+                });
+            }
+            
+            // Add selected class to clicked button
+            button.classList.add('selected');
+            
+            // Update the hidden input value
+            const value = button.getAttribute('data-value');
+            const hiddenInput = document.getElementById(type + 'Option');
+            if (hiddenInput) {
+                hiddenInput.value = value;
+            }
+            
+            // Handle custom options
+            const isCustom = button.getAttribute('data-custom') === '1';
+            if (type === 'size') {
+                document.getElementById('customSizeContainer').style.display = isCustom ? 'block' : 'none';
+            } else if (type === 'color') {
+                document.getElementById('customColorContainer').style.display = isCustom ? 'block' : 'none';
+            }
+        }
+
+        // Handle layout option selection
+        function selectLayoutOption(button) {
+            // Remove selected class from all layout buttons
+            const buttonGroup = button.closest('.option-group');
+            if (buttonGroup) {
+                buttonGroup.querySelectorAll('.option-button').forEach(btn => {
+                    btn.classList.remove('selected');
+                });
+            }
+            
+            // Add selected class to clicked button
+            button.classList.add('selected');
+            
+            // Update the hidden input value
+            const value = button.getAttribute('data-value');
+            document.getElementById('layoutOption').value = value;
+            
+            // Handle layout-specific inputs
+            handleLayoutOptionChange();
+        }
 
         // Handle upload type change
         function handleUploadTypeChange() {
@@ -1431,7 +1600,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             }
         }
 
-        // Handle single design upload
+        // Handle single design upload with quality preservation
         function handleSingleDesignUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -1440,20 +1609,23 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             reader.onload = function(event) {
                 document.getElementById('uploadedImage').src = event.target.result;
                 document.getElementById('uploadPreview').style.display = 'block';
-
-                // Initialize the design overlay with the uploaded image
-                initDesignOverlay(event.target.result);
-
+                
+                // Create a high-quality image object
                 userDesign = new Image();
-                userDesign.src = event.target.result;
                 userDesign.onload = function() {
+                    console.log('Original image dimensions:', userDesign.width, 'x', userDesign.height);
+                    
+                    // Initialize the design overlay with the uploaded image
+                    initDesignOverlay(event.target.result);
+                    
                     document.getElementById('previewText').style.display = 'none';
                     document.getElementById('mockupPreview').style.display = 'block';
                     document.getElementById('mockupPreview').src = event.target.result;
-
+                    
                     // Calculate the image boundary after the image is loaded
                     calculateImageBoundary();
                 };
+                userDesign.src = event.target.result;
             };
             reader.readAsDataURL(file);
         }
@@ -1599,38 +1771,46 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             setTimeout(calculateImageBoundary, 100);
         }
 
-        // Calculate the actual image boundary within the container
+        // Calculate the actual image boundary within the container with better precision
         function calculateImageBoundary() {
-            const container = document.querySelector('.product-base-image');
+            const container = document.querySelector('.positioning-container');
             const img = document.getElementById('baseImage');
-
+            
+            if (!img.complete) {
+                // If image isn't loaded yet, wait for it
+                img.onload = calculateImageBoundary;
+                return;
+            }
+            
             // Get the natural dimensions of the image
             const naturalWidth = img.naturalWidth;
             const naturalHeight = img.naturalHeight;
-
+            
             // Get the displayed dimensions
-            const displayedWidth = img.width;
-            const displayedHeight = img.height;
-
+            const displayedWidth = img.offsetWidth;
+            const displayedHeight = img.offsetHeight;
+            
             // Calculate the aspect ratios
             const containerAspect = container.offsetWidth / container.offsetHeight;
             const imageAspect = naturalWidth / naturalHeight;
-
+            
             // Calculate the actual displayed image area (not including any whitespace)
             if (imageAspect > containerAspect) {
-                // Image is wider than container
+                // Image is wider than container - image fills width, centered vertically
                 imageBoundary.width = container.offsetWidth;
                 imageBoundary.height = container.offsetWidth / imageAspect;
                 imageBoundary.x = 0;
                 imageBoundary.y = (container.offsetHeight - imageBoundary.height) / 2;
             } else {
-                // Image is taller than container
+                // Image is taller than container - image fills height, centered horizontally
                 imageBoundary.height = container.offsetHeight;
                 imageBoundary.width = container.offsetHeight * imageAspect;
                 imageBoundary.y = 0;
                 imageBoundary.x = (container.offsetWidth - imageBoundary.width) / 2;
             }
-
+            
+            console.log('Image Boundary:', imageBoundary); // Debug info
+            
             // Update boundary indicator if shown
             if (showBoundary) {
                 updateBoundaryIndicator();
@@ -1729,34 +1909,38 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             }
         }
 
-        // Initialize design overlay
+        // Initialize design overlay with better positioning
         function initDesignOverlay(imageSrc) {
             const overlay = document.getElementById('designOverlay');
             overlay.innerHTML = '';
-
+            
             // Get the current design position for the active view
             const designPosition = currentView === 'front' ? frontDesignPosition : backDesignPosition;
-
+            
+            // Create design element with high-quality rendering
             const designElement = document.createElement('div');
             designElement.className = 'draggable-design';
             designElement.style.backgroundImage = `url(${imageSrc})`;
+            designElement.style.backgroundSize = 'contain';
+            designElement.style.backgroundRepeat = 'no-repeat';
+            designElement.style.backgroundPosition = 'center';
             designElement.style.width = `${designPosition.width}px`;
             designElement.style.height = `${designPosition.height}px`;
             designElement.style.left = `${designPosition.x}px`;
             designElement.style.top = `${designPosition.y}px`;
-
+            
             // Add resize handle
             const resizeHandle = document.createElement('div');
             resizeHandle.className = 'resize-handle';
             designElement.appendChild(resizeHandle);
-
+            
             // Add event listeners for dragging
             designElement.addEventListener('mousedown', startDrag);
             resizeHandle.addEventListener('mousedown', startResize);
-
+            
             overlay.appendChild(designElement);
             currentDesign = designElement;
-
+            
             // Enable dragging by default when design is loaded
             isDraggingEnabled = true;
             document.getElementById('dragBtn').style.background = '#007bff';
@@ -2026,7 +2210,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             document.getElementById('mockupPopup').style.display = 'flex';
         }
 
-        // Generate single mockup by embedding design onto product template
+        // Generate single mockup by embedding design onto product template WITHOUT compression
         function generateSingleMockup(designImage, templatePath, outputId, containerId, position) {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -2034,34 +2218,48 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
             productTemplate.src = templatePath;
             productTemplate.onload = function() {
+                // Set canvas to high resolution
                 canvas.width = productTemplate.width;
                 canvas.height = productTemplate.height;
+                
+                // Use high-quality image rendering
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
 
                 // Draw product template first (as background)
-                ctx.drawImage(productTemplate, 0, 0);
+                ctx.drawImage(productTemplate, 0, 0, canvas.width, canvas.height);
 
-                // Calculate position and size relative to canvas
+                // Calculate scale factors based on actual image dimensions, not container
+                const container = document.querySelector('.positioning-container');
                 const baseImg = document.getElementById('baseImage');
-                const scaleX = productTemplate.width / baseImg.offsetWidth;
-                const scaleY = productTemplate.height / baseImg.offsetHeight;
-
-                const x = position.x * scaleX;
-                const y = position.y * scaleY;
+                
+                // Get the actual displayed image dimensions within the boundary
+                const scaleX = productTemplate.width / imageBoundary.width;
+                const scaleY = productTemplate.height / imageBoundary.height;
+                
+                // Calculate position relative to the actual image boundary
+                const x = (position.x - imageBoundary.x) * scaleX;
+                const y = (position.y - imageBoundary.y) * scaleY;
                 const width = position.width * scaleX;
                 const height = position.height * scaleY;
 
-                // Draw user's design on top of the product template
+                // Draw user's design on top of the product template with high quality
+                ctx.save();
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(designImage, x, y, width, height);
+                ctx.restore();
 
                 // Output the combined image to the mockup preview
-                document.getElementById(outputId).src = canvas.toDataURL('image/png');
+                const finalImage = canvas.toDataURL('image/png', 1.0); // Maximum quality
+                document.getElementById(outputId).src = finalImage;
                 document.getElementById(containerId).style.display = 'block';
-
+                
                 // Store mockup
                 if (outputId === 'mockupFront') {
-                    currentMockup = canvas.toDataURL('image/png');
+                    currentMockup = finalImage;
                 } else if (outputId === 'mockupBack') {
-                    backMockup = canvas.toDataURL('image/png');
+                    backMockup = finalImage;
                 }
             };
         }
@@ -2198,13 +2396,13 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         }
 
         function handleLayoutOptionChange() {
-            const layoutOption = document.getElementById('layoutOption');
+            const layoutValue = document.getElementById('layoutOption').value;
             const layoutInputContainer = document.getElementById('layoutInputContainer');
 
             // Clear previous content
             layoutInputContainer.innerHTML = '';
 
-            if (layoutOption.value == 1) { // Assuming 1 is the ID for "User Layout"
+            if (layoutValue == 1) { // Assuming 1 is the ID for "User Layout"
                 layoutInputContainer.innerHTML = `
                     <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Upload Your Design Files:</label>
                     <input type="file" id="userLayoutUpload" name="user_layout_upload[]" multiple accept="image/*,.pdf,.ai,.psd" style="margin-bottom: 10px;">
@@ -2236,7 +2434,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                     }
                 }, 100);
 
-            } else if (layoutOption.value == 2) { // Assuming 2 is the ID for "Store Layout"
+            } else if (layoutValue == 2) { // Assuming 2 is the ID for "Store Layout"
                 layoutInputContainer.innerHTML = `
                     <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Design Specifications:</label>
                     <textarea name="layout_details" placeholder="Please describe your design preferences, colors, text, images, and any specific requirements..." 
@@ -2257,53 +2455,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
-        function handleUserLayoutUpload(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    // You can process the uploaded image here
-                    console.log("User layout image uploaded:", e.target.result);
-                    // You might want to display a preview or store the image data
-                };
-                reader.readAsDataURL(file);
-            }
-        }
-
-        function handleSizeOptionChange() {
-            const sizeSelect = document.getElementById('sizeOption');
-            const customContainer = document.getElementById('customSizeContainer');
-            if (sizeSelect) {
-                const selectedOption = sizeSelect.options[sizeSelect.selectedIndex];
-                const isCustom = selectedOption.getAttribute('data-custom') === '1';
-                customContainer.style.display = isCustom ? 'block' : 'none';
-            }
-        }
-
-        function handleColorOptionChange() {
-            const colorSelect = document.getElementById('colorOption');
-            const customContainer = document.getElementById('customColorContainer');
-            if (colorSelect) {
-                const selectedOption = colorSelect.options[colorSelect.selectedIndex];
-                const isCustom = selectedOption.getAttribute('data-custom') === '1';
-                customContainer.style.display = isCustom ? 'block' : 'none';
-            }
-        }
-
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            if (document.getElementById('sizeOption')) {
-                handleSizeOptionChange();
-            }
-            if (document.getElementById('colorOption')) {
-                handleColorOptionChange();
-            }
-            if (document.getElementById('layoutOption')) {
-                handleLayoutOptionChange();
-            }
-        });
-
-
         // Form validation before submitting to cart
         document.getElementById('cartForm').addEventListener('submit', function(e) {
             if (!validateForm()) {
@@ -2322,30 +2473,40 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
                 // Validate size options for Other Services (IDs 18-21)
                 <?php if (in_array($product_id, [18, 19, 20, 21])): ?>
-                    const sizeOption = document.querySelector('select[name="size_option"]');
-                    if (sizeOption) {
-                        const selectedSize = sizeOption.options[sizeOption.selectedIndex];
-                        const isCustomSize = selectedSize.getAttribute('data-custom') === '1';
-                        const customSizeInput = document.querySelector('input[name="custom_size"]');
-
-                        if (isCustomSize && (!customSizeInput || !customSizeInput.value.trim())) {
-                            isValid = false;
-                            errorMessage += '• Please specify your custom size\n';
+                    const sizeOption = document.getElementById('sizeOption');
+                    if (sizeOption && !sizeOption.value) {
+                        isValid = false;
+                        errorMessage += '• Please select a size option\n';
+                    } else if (sizeOption && sizeOption.value) {
+                        const selectedButton = document.querySelector('.option-button.selected[onclick*="size"]');
+                        if (selectedButton) {
+                            const isCustomSize = selectedButton.getAttribute('data-custom') === '1';
+                            const customSizeInput = document.querySelector('input[name="custom_size"]');
+                            
+                            if (isCustomSize && (!customSizeInput || !customSizeInput.value.trim())) {
+                                isValid = false;
+                                errorMessage += '• Please specify your custom size\n';
+                            }
                         }
                     }
                 <?php endif; ?>
 
                 // Validate color options for Other Services (IDs 18-21)
                 <?php if (in_array($product_id, [18, 19, 21])): ?>
-                    const colorOption = document.querySelector('select[name="color_option"]');
-                    if (colorOption) {
-                        const selectedColor = colorOption.options[colorOption.selectedIndex];
-                        const isCustomColor = selectedColor.getAttribute('data-custom') === '1';
-                        const customColorInput = document.querySelector('input[name="custom_color"]');
-
-                        if (isCustomColor && (!customColorInput || !customColorInput.value.trim())) {
-                            isValid = false;
-                            errorMessage += '• Please specify your custom color\n';
+                    const colorOption = document.getElementById('colorOption');
+                    if (colorOption && !colorOption.value) {
+                        isValid = false;
+                        errorMessage += '• Please select a color option\n';
+                    } else if (colorOption && colorOption.value) {
+                        const selectedButton = document.querySelector('.option-button.selected[onclick*="color"]');
+                        if (selectedButton) {
+                            const isCustomColor = selectedButton.getAttribute('data-custom') === '1';
+                            const customColorInput = document.querySelector('input[name="custom_color"]');
+                            
+                            if (isCustomColor && (!customColorInput || !customColorInput.value.trim())) {
+                                isValid = false;
+                                errorMessage += '• Please specify your custom color\n';
+                            }
                         }
                     }
                 <?php endif; ?>
@@ -2355,7 +2516,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
                     // Validate paper option
                     <?php if ($customization['has_paper_option'] && !empty($paper_options)): ?>
-                        const paperOption = document.querySelector('select[name="paper_option"]');
+                        const paperOption = document.getElementById('paperOption');
                         if (paperOption && !paperOption.value) {
                             isValid = false;
                             errorMessage += '• Please select a paper type\n';
@@ -2373,7 +2534,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
                     // Validate finish option
                     <?php if ($customization['has_finish_option'] && !empty($finish_options)): ?>
-                        const finishOption = document.querySelector('select[name="finish_option"]');
+                        const finishOption = document.getElementById('finishOption');
                         if (finishOption && !finishOption.value) {
                             isValid = false;
                             errorMessage += '• Please select a finish option\n';
@@ -2382,7 +2543,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
                     // Validate layout option
                     <?php if ($customization['has_layout_option'] && !empty($layout_options)): ?>
-                        const layoutOption = document.querySelector('select[name="layout_option"]');
+                        const layoutOption = document.getElementById('layoutOption');
                         if (layoutOption && !layoutOption.value) {
                             isValid = false;
                             errorMessage += '• Please select a layout option\n';
@@ -2390,19 +2551,22 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
                         // Validate layout details based on selection
                         if (layoutOption && layoutOption.value) {
-                            const selectedLayout = layoutOption.options[layoutOption.selectedIndex].text;
-
-                            if (selectedLayout.includes('User Layout')) {
-                                const userLayoutUpload = document.getElementById('userLayoutUpload');
-                                if (!userLayoutUpload || !userLayoutUpload.files.length) {
-                                    isValid = false;
-                                    errorMessage += '• Please upload your design files for User Layout\n';
-                                }
-                            } else if (selectedLayout.includes('Store Layout')) {
-                                const layoutDetails = document.querySelector('textarea[name="layout_details"]');
-                                if (!layoutDetails || !layoutDetails.value.trim()) {
-                                    isValid = false;
-                                    errorMessage += '• Please provide design specifications for Store Layout\n';
+                            const selectedButton = document.querySelector('.option-button.selected[onclick*="selectLayoutOption"]');
+                            if (selectedButton) {
+                                const selectedText = selectedButton.textContent;
+                                
+                                if (selectedText.includes('User Layout')) {
+                                    const userLayoutUpload = document.getElementById('userLayoutUpload');
+                                    if (!userLayoutUpload || !userLayoutUpload.files.length) {
+                                        isValid = false;
+                                        errorMessage += '• Please upload your design files for User Layout\n';
+                                    }
+                                } else if (selectedText.includes('Store Layout')) {
+                                    const layoutDetails = document.querySelector('textarea[name="layout_details"]');
+                                    if (!layoutDetails || !layoutDetails.value.trim()) {
+                                        isValid = false;
+                                        errorMessage += '• Please provide design specifications for Store Layout\n';
+                                    }
                                 }
                             }
                         }
@@ -2410,7 +2574,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
                     // Validate binding option
                     <?php if ($customization['has_binding_option'] && !empty($binding_options)): ?>
-                        const bindingOption = document.querySelector('select[name="binding_option"]');
+                        const bindingOption = document.getElementById('bindingOption');
                         if (bindingOption && !bindingOption.value) {
                             isValid = false;
                             errorMessage += '• Please select a binding option\n';
@@ -2503,6 +2667,216 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
             return true;
         }
+        // Check for AI-generated design on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if we have an AI design in sessionStorage
+            const aiDesign = sessionStorage.getItem('aiGeneratedDesign');
+            const aiProductId = sessionStorage.getItem('aiDesignProductId');
+            const aiPlacement = sessionStorage.getItem('aiDesignPlacement');
+            const currentProductId = <?php echo $product_id; ?>;
+            const urlParams = new URLSearchParams(window.location.search);
+            const aiDesignParam = urlParams.get('ai_design');
+            
+            if (aiDesign && aiProductId && aiProductId == currentProductId && aiDesignParam === '1') {
+                // Auto-populate the design upload with placement
+                autoPopulateAIDesign(aiDesign);
+                
+                // Clear the session storage
+                sessionStorage.removeItem('aiGeneratedDesign');
+                sessionStorage.removeItem('aiDesignProductId');
+                sessionStorage.removeItem('aiDesignPlacement');
+                sessionStorage.removeItem('aiDesignTimestamp');
+            }
+
+            if (window.HTMLCanvasElement) {
+                const originalGetContext = HTMLCanvasElement.prototype.getContext;
+                HTMLCanvasElement.prototype.getContext = function() {
+                    const context = originalGetContext.apply(this, arguments);
+                    if (context && context.imageSmoothingEnabled !== undefined) {
+                        context.imageSmoothingEnabled = true;
+                        context.imageSmoothingQuality = 'high';
+                    }
+                    return context;
+                };
+            }
+        });
+
+        function autoPopulateAIDesign(imageData) {
+        // Get placement from session storage
+        const placement = sessionStorage.getItem('aiDesignPlacement') || 'single';
+        const currentProductId = <?php echo $product_id; ?>;
+        
+        // Define which products support front/back
+        const productsWithFrontBack = [18, 19]; // T-Shirt (18), Tote Bag (19)
+        const supportsFrontBack = productsWithFrontBack.includes(currentProductId);
+        
+        // If product doesn't support front/back but placement was set to front/back, default to single
+        const effectivePlacement = supportsFrontBack ? placement : 'single';
+        
+        console.log('AI Design Placement:', effectivePlacement, 'Product ID:', currentProductId, 'Supports Front/Back:', supportsFrontBack);
+
+        // Convert base64 to blob
+        fetch(imageData)
+            .then(res => res.blob())
+            .then(blob => {
+                // Create a file from the blob
+                const file = new File([blob], `ai-design-${Date.now()}.png`, { type: 'image/png' });
+                
+                // Set upload type based on placement and product capabilities
+                if (effectivePlacement === 'both' && supportsFrontBack) {
+                    // Single upload for both sides
+                    document.querySelector('input[name="upload_type"][value="single"]').checked = true;
+                    handleUploadTypeChange();
+                    
+                    // Set the file to single upload after a short delay
+                    setTimeout(() => {
+                        const designUpload = document.getElementById('designUpload');
+                        if (designUpload) {
+                            const dataTransfer = new DataTransfer();
+                            dataTransfer.items.add(file);
+                            designUpload.files = dataTransfer.files;
+                            
+                            // Manually trigger the image preview
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                document.getElementById('uploadedImage').src = e.target.result;
+                                document.getElementById('uploadPreview').style.display = 'block';
+                                
+                                // Initialize design overlay
+                                initDesignOverlay(e.target.result);
+                                document.getElementById('previewText').style.display = 'none';
+                                document.getElementById('mockupPreview').style.display = 'block';
+                                document.getElementById('mockupPreview').src = e.target.result;
+                            };
+                            reader.readAsDataURL(file);
+                        }
+                    }, 300);
+                    
+                } else if ((effectivePlacement === 'front' || effectivePlacement === 'back') && supportsFrontBack) {
+                    // Separate upload for front/back
+                    document.querySelector('input[name="upload_type"][value="separate"]').checked = true;
+                    handleUploadTypeChange();
+                    
+                    setTimeout(() => {
+                        if (effectivePlacement === 'front') {
+                            const frontDesignUpload = document.getElementById('frontDesignUpload');
+                            if (frontDesignUpload) {
+                                const dataTransfer = new DataTransfer();
+                                dataTransfer.items.add(file);
+                                frontDesignUpload.files = dataTransfer.files;
+                                
+                                // Manually trigger front image preview
+                                const reader = new FileReader();
+                                reader.onload = function(e) {
+                                    document.getElementById('frontUploadedImage').src = e.target.result;
+                                    document.getElementById('frontUploadPreview').style.display = 'block';
+                                    
+                                    // Initialize design overlay for front
+                                    frontUserDesign = new Image();
+                                    frontUserDesign.src = e.target.result;
+                                    frontUserDesign.onload = function() {
+                                        if (currentView === 'front') {
+                                            initDesignOverlay(e.target.result);
+                                        }
+                                        calculateImageBoundary();
+                                        updatePreviewForSeparateDesigns();
+                                    };
+                                };
+                                reader.readAsDataURL(file);
+                            }
+                        } else if (effectivePlacement === 'back') {
+                            const backDesignUpload = document.getElementById('backDesignUpload');
+                            if (backDesignUpload) {
+                                const dataTransfer = new DataTransfer();
+                                dataTransfer.items.add(file);
+                                backDesignUpload.files = dataTransfer.files;
+                                
+                                // Manually trigger back image preview
+                                const reader = new FileReader();
+                                reader.onload = function(e) {
+                                    document.getElementById('backUploadedImage').src = e.target.result;
+                                    document.getElementById('backUploadPreview').style.display = 'block';
+                                    
+                                    // Initialize design overlay for back
+                                    backUserDesign = new Image();
+                                    backUserDesign.src = e.target.result;
+                                    backUserDesign.onload = function() {
+                                        if (currentView === 'back') {
+                                            initDesignOverlay(e.target.result);
+                                        }
+                                        calculateImageBoundary();
+                                        updatePreviewForSeparateDesigns();
+                                    };
+                                };
+                                reader.readAsDataURL(file);
+                            }
+                        }
+                    }, 300);
+                    
+                } else {
+                    // Single upload for other products
+                    document.querySelector('input[name="upload_type"][value="single"]').checked = true;
+                    handleUploadTypeChange();
+                    
+                    setTimeout(() => {
+                        const designUpload = document.getElementById('designUpload');
+                        if (designUpload) {
+                            const dataTransfer = new DataTransfer();
+                            dataTransfer.items.add(file);
+                            designUpload.files = dataTransfer.files;
+                            
+                            // Manually trigger the image preview
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                document.getElementById('uploadedImage').src = e.target.result;
+                                document.getElementById('uploadPreview').style.display = 'block';
+                                
+                                // Initialize design overlay
+                                initDesignOverlay(e.target.result);
+                                document.getElementById('previewText').style.display = 'none';
+                                document.getElementById('mockupPreview').style.display = 'block';
+                                document.getElementById('mockupPreview').src = e.target.result;
+                            };
+                            reader.readAsDataURL(file);
+                        }
+                    }, 300);
+                }
+                
+                // Switch to the appropriate view for products that support front/back
+                if (supportsFrontBack) {
+                    setTimeout(() => {
+                        if (effectivePlacement === 'back') {
+                            switchView('back');
+                        } else {
+                            switchView('front');
+                        }
+                    }, 500);
+                }
+                
+                // Show success message with placement info
+                setTimeout(() => {
+                    let placementMessage = 'AI-generated design loaded successfully! ';
+                    
+                    if (!supportsFrontBack) {
+                        placementMessage += 'Design applied.';
+                    } else if (effectivePlacement === 'front') {
+                        placementMessage += 'Design applied to front only.';
+                    } else if (effectivePlacement === 'back') {
+                        placementMessage += 'Design applied to back only.';
+                    } else if (effectivePlacement === 'both') {
+                        placementMessage += 'Design applied to both sides.';
+                    } else {
+                        placementMessage += 'Design applied.';
+                    }
+                    
+                    alert(placementMessage);
+                }, 1000);
+            })
+            .catch(error => {
+                console.error('Error loading AI design:', error);
+                alert('Error loading AI design. Please upload manually.');
+            });
+    }
     </script>
 </body>
 
