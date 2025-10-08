@@ -88,487 +88,28 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Active Media</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background-color: #f8f9fa;
-            color: #333;
-            line-height: 1.6;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 15px;
-        }
-        
-        header {
-            background-color: #fff;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        
-        .navbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 0;
-        }
-        
-        .logo {
-            font-size: 24px;
-            font-weight: bold;
-            color: #4a4a4a;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-        }
-        
-        .logo i {
-            margin-right: 10px;
-            color: #007bff;
-        }
-        
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .user-info a {
-            color: #4a4a4a;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .user-info a:hover {
-            color: #007bff;
-        }
-        
-        .nav-links {
-            display: flex;
-            list-style: none;
-        }
-        
-        .nav-links li {
-            margin-left: 25px;
-        }
-        
-        .nav-links a {
-            text-decoration: none;
-            color: #4a4a4a;
-            font-weight: 500;
-            transition: color 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .nav-links a:hover {
-            color: #007bff;
-        }
-        
-        .cart-icon {
-            position: relative;
-        }
-        
-        .cart-count {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            background-color: #007bff;
-            color: white;
-            border-radius: 50%;
-            width: 18px;
-            height: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-        }
-        
-        .hero {
-            background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('../assets/images/hero-bg.jpg');
-            background-size: cover;
-            background-position: center;
-            height: 400px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            color: #fff;
-            margin-bottom: 40px;
-            border-radius: 10px;
-            margin-top: 20px;
-        }
-        
-        .hero-content h1 {
-            font-size: 48px;
-            margin-bottom: 20px;
-        }
-        
-        .hero-content p {
-            font-size: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .btn {
-            display: inline-block;
-            background: #007bff;
-            color: #fff;
-            padding: 12px 24px;
-            border-radius: 5px;
-            text-decoration: none;
-            font-weight: 500;
-            transition: background 0.3s;
-        }
-        
-        .btn:hover {
-            background: #0056b3;
-        }
-        
-        .featured-section {
-            padding: 40px 0;
-        }
-        
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-        
-        .section-title {
-            font-size: 2em;
-            color: #2c3e50;
-            position: relative;
-            padding-bottom: 10px;
-        }
-        
-        .section-title:after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 60px;
-            height: 4px;
-            background: #007bff;
-            border-radius: 2px;
-        }
-        
-        .view-all {
-            color: #007bff;
-            text-decoration: none;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            transition: color 0.3s ease;
-        }
-        
-        .view-all:hover {
-            color: #0056b3;
-        }
-        
-        .category-badge {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: #007bff;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.8em;
-            font-weight: bold;
-            z-index: 2;
-        }
-        
-        .products-section {
-            padding: 40px 0;
-        }
-        
-        .products-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 30px;
-        }
-        
-        .product-card {
-            background: #fff;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s, box-shadow 0.3s;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
-        
-        .product-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        }
-        
-        .product-image {
-            height: 200px;
-            background-color: #f5f5f5;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            position: relative;
-        }
-        
-        .product-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.5s;
-        }
-        
-        .product-card:hover .product-image img {
-            transform: scale(1.05);
-        }
-        
-        .product-info {
-            padding: 20px;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .product-name {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: #333;
-        }
-        
-        .product-name a {
-            color: inherit;
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-        
-        .product-name a:hover {
-            color: #007bff;
-        }
-        
-        .product-category {
-            font-size: 14px;
-            color: #777;
-            margin-bottom: 10px;
-            background: #f1f8ff;
-            padding: 4px 8px;
-            border-radius: 4px;
-            display: inline-block;
-        }
-
-        .product-price {
-            font-size: 18px;
-            font-weight: bold;
-            color: #007bff;
-            margin-top: 10px;
-        }
-                
-        .filter-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            background: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        
-        .filter-options {
-            display: flex;
-            gap: 15px;
-        }
-        
-        .filter-select {
-            padding: 8px 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background: white;
-        }
-        
-        .search-box {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .search-input {
-            padding: 8px 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            width: 250px;
-        }
-        
-        .search-btn {
-            padding: 8px 15px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        
-        footer {
-            background: #333;
-            color: #fff;
-            padding: 40px 0;
-            margin-top: 60px;
-        }
-        
-        .footer-content {
-            display: flex;
-            justify-content: space-between;
-            flex-wrap: wrap;
-        }
-        
-        .footer-section {
-            flex: 1;
-            min-width: 200px;
-            margin-bottom: 20px;
-        }
-        
-        .footer-section h3 {
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-        
-        .footer-section ul {
-            list-style: none;
-        }
-        
-        .footer-section ul li {
-            margin-bottom: 10px;
-        }
-        
-        .footer-section a {
-            color: #ddd;
-            text-decoration: none;
-            transition: color 0.3s;
-        }
-        
-        .footer-section a:hover {
-            color: #fff;
-        }
-        
-        .social-icons {
-            display: flex;
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        .social-icons a {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            background: #444;
-            border-radius: 50%;
-            transition: background 0.3s;
-        }
-        
-        .social-icons a:hover {
-            background: #007bff;
-        }
-        
-        .copyright {
-            text-align: center;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #555;
-        }
-        
-        @media (max-width: 768px) {
-            .navbar {
-                flex-direction: column;
-                gap: 15px;
-            }
-            
-            .nav-links {
-                width: 100%;
-                justify-content: center;
-                margin-top: 15px;
-            }
-            
-            .nav-links li {
-                margin: 0 10px;
-            }
-            
-            .hero-content h1 {
-                font-size: 36px;
-            }
-            
-            .hero-content p {
-                font-size: 18px;
-            }
-            
-            .filter-bar {
-                flex-direction: column;
-                gap: 15px;
-            }
-            
-            .filter-options {
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-            
-            .search-box {
-                width: 100%;
-                justify-content: center;
-            }
-            
-            .search-input {
-                width: 100%;
-            }
-            
-            .products-grid {
-                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            }
-            
-            .footer-content {
-                flex-direction: column;
-                gap: 30px;
-            }
-            
-            .section-header {
-                flex-direction: column;
-                gap: 15px;
-                text-align: center;
-            }
-        }
-    </style>
+    <title>Active Media Designs & Printing</title>
+    <link rel="icon" type="image/png" href="../assets/images/plainlogo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+    <link rel="stylesheet" href="../assets/css/main.css">
 </head>
 <body>
-    <header>
+    <!-- Header -->
+    <header class="header">
         <div class="container">
             <nav class="navbar">
                 <a href="#" class="logo">
-                    <i class="fas fa-print"></i>
-                    Active Media
+                    <img src="../assets/images/plainlogo.png" alt="Active Media" class="logo-image">
+                    <span>Active Media Designs & Printing</span>
                 </a>
                 
                 <ul class="nav-links">
-                    <li><a href="#"><i class="fas fa-home"></i> Home</a></li>
-                    <li><a href="ai_image.php"><i class="fas fa-box"></i> AI</a></li>
+                    <li><a href="#" class="active"><i class="fas fa-home"></i> Home</a></li>
+                    <li><a href="ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
                     <li><a href="#"><i class="fas fa-info-circle"></i> About</a></li>
                     <li><a href="#"><i class="fas fa-phone"></i> Contact</a></li>
                 </ul>
@@ -578,40 +119,104 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                         <i class="fas fa-shopping-cart"></i>
                         <span class="cart-count"><?php echo $cart_count; ?></span>
                     </a>
-                    <a href="../pages/website/profile.php">
+                    <a href="../pages/website/profile.php" class="user-profile">
                         <i class="fas fa-user"></i>
-                        <?php 
-                            if (!empty($user_data['first_name'])) {
-                                echo htmlspecialchars($user_data['first_name']);
-                            } elseif (!empty($user_data['company_name'])) {
-                                echo htmlspecialchars($user_data['company_name']);
-                            } else {
-                                echo 'User';
-                            }
-                        ?>
+                        <span class="user-name">
+                            <?php 
+                                if (!empty($user_data['first_name'])) {
+                                    echo htmlspecialchars($user_data['first_name']);
+                                } elseif (!empty($user_data['company_name'])) {
+                                    echo htmlspecialchars($user_data['company_name']);
+                                } else {
+                                    echo 'User';
+                                }
+                            ?>
+                        </span>
                     </a>
-                    <a href="../accounts/logout.php">
+                    <a href="../accounts/logout.php" class="logout-btn">
                         <i class="fas fa-sign-out-alt"></i>
                     </a>
+                </div>
+                
+                <div class="mobile-menu-toggle">
+                    <i class="fas fa-bars"></i>
                 </div>
             </nav>
         </div>
     </header>
 
-    <div class="container">
-        <section class="hero">
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-background">
+            <div class="hero-overlay"></div>
+        </div>
+        <div class="container animate__animated animate__fadeInDown">
             <div class="hero-content">
-                <h1>Professional Printing Services</h1>
-                <p>High-quality printing solutions for all your needs</p>
-                <a href="#services" class="btn">Explore Services</a>
+                <h1 class="hero-title">Premium Printing Solutions</h1>
+                <p class="hero-subtitle">High-quality offset, digital, and RISO printing for all your business needs</p>
+                <div class="hero-actions">
+                    <a href="#services" class="btn btn-primary">Explore Services</a>
+                    <a href="#" class="btn btn-secondary">Request Quote</a>
+                </div>
             </div>
-        </section>
+        </div>
+    </section>
 
-        <!-- Offset Printing Section -->
-        <?php if ($offset_result && $offset_result->num_rows > 0): ?>
-        <section id="services" class="featured-section">
+    <!-- Services Overview -->
+    <section class="services-overview">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Our Printing Services</h2>
+                <p class="section-subtitle">Professional printing solutions tailored to your specific requirements</p>
+            </div>
+            
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="service-icon">
+                        <i class="fas fa-industry"></i>
+                    </div>
+                    <h3>Offset Printing</h3>
+                    <p>High-volume, cost-effective printing for large quantities with consistent quality.</p>
+                    <a href="#offset" class="service-link">View Services <i class="fas fa-arrow-right"></i></a>
+                </div>
+                
+                <div class="service-card">
+                    <div class="service-icon">
+                        <i class="fas fa-print"></i>
+                    </div>
+                    <h3>Digital Printing</h3>
+                    <p>Fast turnaround printing for short runs with excellent color accuracy and detail.</p>
+                    <a href="#digital" class="service-link">View Services <i class="fas fa-arrow-right"></i></a>
+                </div>
+                
+                <div class="service-card">
+                    <div class="service-icon">
+                        <i class="fas fa-tint"></i>
+                    </div>
+                    <h3>RISO Printing</h3>
+                    <p>Eco-friendly printing with vibrant colors and unique texture for artistic projects.</p>
+                    <a href="#riso" class="service-link">View Services <i class="fas fa-arrow-right"></i></a>
+                </div>
+                
+                <div class="service-card">
+                    <div class="service-icon">
+                        <i class="fas fa-cogs"></i>
+                    </div>
+                    <h3>Other Services</h3>
+                    <p>Additional services including binding, finishing, and custom solutions.</p>
+                    <a href="#other" class="service-link">View Services <i class="fas fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Offset Printing Section -->
+    <?php if ($offset_result && $offset_result->num_rows > 0): ?>
+    <section id="offset" class="printing-section">
+        <div class="container">
             <div class="section-header">
                 <h2 class="section-title">Offset Printing</h2>
+                <p class="section-subtitle">Ideal for large volume printing with consistent quality</p>
                 <a href="#all-services" class="view-all" data-category="Offset Printing">
                     View All <i class="fas fa-arrow-right"></i>
                 </a>
@@ -625,10 +230,13 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                             <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>">
                                 <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
                             </a>
+                            <div class="product-overlay">
+                                <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
+                            </div>
                         </div>
                         <div class="product-info">
                             <h3 class="product-name">
-                                <a href="../pages/service_detail.php?id=<?php echo $row['id']; ?>">
+                                <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>">
                                     <?php echo $row["product_name"]; ?>
                                 </a>
                             </h3>
@@ -637,14 +245,17 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     </div>
                 <?php endwhile; ?>
             </div>
-        </section>
-        <?php endif; ?>
+        </div>
+    </section>
+    <?php endif; ?>
 
-        <!-- Digital Printing Section -->
-        <?php if ($digital_result && $digital_result->num_rows > 0): ?>
-        <section id="services" class="featured-section">
+    <!-- Digital Printing Section -->
+    <?php if ($digital_result && $digital_result->num_rows > 0): ?>
+    <section id="digital" class="printing-section">
+        <div class="container">
             <div class="section-header">
                 <h2 class="section-title">Digital Printing</h2>
+                <p class="section-subtitle">Fast, high-quality printing for short to medium runs</p>
                 <a href="#all-services" class="view-all" data-category="Digital Printing">
                     View All <i class="fas fa-arrow-right"></i>
                 </a>
@@ -658,6 +269,9 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                             <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>">
                                 <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
                             </a>
+                            <div class="product-overlay">
+                                <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
+                            </div>
                         </div>
                         <div class="product-info">
                             <h3 class="product-name">
@@ -665,20 +279,22 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                                     <?php echo $row["product_name"]; ?>
                                 </a>
                             </h3>
-                            <!-- <span class="product-category"><?php echo $row["category"]; ?></span> -->
                             <div class="product-price">₱<?php echo number_format($row["price"], 2); ?></div>
                         </div>
                     </div>
                 <?php endwhile; ?>
             </div>
-        </section>
-        <?php endif; ?>
+        </div>
+    </section>
+    <?php endif; ?>
 
-        <!-- RISO Printing Section -->
-        <?php if ($riso_result && $riso_result->num_rows > 0): ?>
-        <section id="services" class="featured-section">
+    <!-- RISO Printing Section -->
+    <?php if ($riso_result && $riso_result->num_rows > 0): ?>
+    <section id="riso" class="printing-section">
+        <div class="container">
             <div class="section-header">
                 <h2 class="section-title">RISO Printing</h2>
+                <p class="section-subtitle">Eco-friendly printing with vibrant, unique results</p>
                 <a href="#all-services" class="view-all" data-category="RISO Printing">
                     View All <i class="fas fa-arrow-right"></i>
                 </a>
@@ -692,6 +308,9 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                             <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>">
                                 <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
                             </a>
+                            <div class="product-overlay">
+                                <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
+                            </div>
                         </div>
                         <div class="product-info">
                             <h3 class="product-name">
@@ -699,20 +318,22 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                                     <?php echo $row["product_name"]; ?>
                                 </a>
                             </h3>
-                            <!-- <span class="product-category"><?php echo $row["category"]; ?></span> -->
                             <div class="product-price">₱<?php echo number_format($row["price"], 2); ?></div>
                         </div>
                     </div>
                 <?php endwhile; ?>
             </div>
-        </section>
-        <?php endif; ?>
+        </div>
+    </section>
+    <?php endif; ?>
 
-        <!-- Other Services Section -->
-        <?php if ($other_result && $other_result->num_rows > 0): ?>
-        <section id="services" class="featured-section">
+    <!-- Other Services Section -->
+    <?php if ($other_result && $other_result->num_rows > 0): ?>
+    <section id="other" class="printing-section">
+        <div class="container">
             <div class="section-header">
                 <h2 class="section-title">Other Services</h2>
+                <p class="section-subtitle">Additional printing and finishing services</p>
                 <a href="#all-services" class="view-all" data-category="Other Services">
                     View All <i class="fas fa-arrow-right"></i>
                 </a>
@@ -726,6 +347,9 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                             <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>">
                                 <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
                             </a>
+                            <div class="product-overlay">
+                                <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
+                            </div>
                         </div>
                         <div class="product-info">
                             <h3 class="product-name">
@@ -733,38 +357,54 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                                     <?php echo $row["product_name"]; ?>
                                 </a>
                             </h3>
-                            <!-- <span class="product-category"><?php echo $row["category"]; ?></span> -->
                             <div class="product-price">₱<?php echo number_format($row["price"], 2); ?></div>
                         </div>
                     </div>
                 <?php endwhile; ?>
             </div>
-        </section>
-        <?php endif; ?>
+        </div>
+    </section>
+    <?php endif; ?>
 
-        <section id="all-services" class="products-section">
-            <h2 class="section-title">All Services</h2>
+    <!-- All Services Section -->
+    <section id="all-services" class="all-services-section">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">All Printing Services</h2>
+                <p class="section-subtitle">Browse our complete catalog of printing services</p>
+            </div>
             
             <div class="filter-bar">
                 <div class="filter-options">
-                    <select class="filter-select">
-                        <option>All Categories</option>
-                        <option>Offset Printing</option>
-                        <option>Digital Printing</option>
-                        <option>RISO Printing</option>
-                        <option>Other Services</option>
-                    </select>
-                    <select class="filter-select">
-                        <option>Sort by Name</option>
-                        <option>Sort by Category</option>
-                        <option>Sort by Price: Low to High</option>
-                        <option>Sort by Price: High to Low</option>
-                    </select>
+                    <div class="filter-group">
+                        <label for="category-filter">Category</label>
+                        <select id="category-filter" class="filter-select">
+                            <option value="all">All Categories</option>
+                            <option value="Offset Printing">Offset Printing</option>
+                            <option value="Digital Printing">Digital Printing</option>
+                            <option value="RISO Printing">RISO Printing</option>
+                            <option value="Other Services">Other Services</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="sort-filter">Sort By</label>
+                        <select id="sort-filter" class="filter-select">
+                            <option value="name">Name (A-Z)</option>
+                            <option value="category">Category</option>
+                            <option value="price-low">Price: Low to High</option>
+                            <option value="price-high">Price: High to Low</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <div class="search-box">
-                    <input type="text" class="search-input" placeholder="Search services...">
-                    <button class="search-btn">Search</button>
+                    <div class="search-input-wrapper">
+                        <input type="text" id="search-input" class="search-input" placeholder="Search services...">
+                        <button id="search-btn" class="search-btn">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
             
@@ -772,202 +412,115 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 <?php
                 if ($result->num_rows > 0) {
                     while($row = $result->fetch_assoc()) {
-                        echo '<div class="product-card">';
+                        echo '<div class="product-card" data-category="' . $row["category"] . '">';
                         echo '  <div class="product-image">';
                         echo '    <a href="../pages/website/service_detail.php?id=' . $row['id'] . '">';
                         echo '      <img src="../assets/images/services/service-' . $row['id'] . '.jpg" alt="' . $row["product_name"] . '">';
                         echo '    </a>';
+                        echo '    <div class="product-overlay">';
+                        echo '      <a href="../pages/website/service_detail.php?id=' . $row['id'] . '" class="btn btn-outline">View Details</a>';
+                        echo '    </div>';
                         echo '  </div>';
                         echo '  <div class="product-info">';
-                        echo '    <h3 class="product-name"><a href="service_detail.php?id=' . $row['id'] . '" style="text-decoration: none; color: inherit;">' . $row["product_name"] . '</a></h3>';
+                        echo '    <h3 class="product-name"><a href="../pages/website/service_detail.php?id=' . $row['id'] . '">' . $row["product_name"] . '</a></h3>';
                         echo '    <span class="product-category">' . $row["category"] . '</span>';
                         echo '    <div class="product-price">₱' . number_format($row["price"], 2) . '</div>';
                         echo '  </div>';
                         echo '</div>';
                     }
                 } else {
-                    echo "<p>No services found in the database.</p>";
+                    echo "<p class='no-results'>No services found in the database.</p>";
                 }
 
                 // Close connection AFTER processing all results
                 $inventory->close();
                 ?>
             </div>
-        </section>
-    </div>
+        </div>
+    </section>
 
-    <footer>
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <div class="cta-content">
+                <h2>Ready to Start Your Printing Project?</h2>
+                <p>Contact us today for a free quote and consultation</p>
+                <div class="cta-actions">
+                    <a href="#" class="btn btn-primary">Get Quote</a>
+                    <a href="#" class="btn btn-outline">Contact Us</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">
-                    <h3>Services</h3>
-                    <ul>
-                        <li><a href="#">All Services</a></li>
-                        <li><a href="#">Offset Printing</a></li>
-                        <li><a href="#">Digital Printing</a></li>
-                        <li><a href="#">RISO Printing</a></li>
-                    </ul>
-                </div>
-                <div class="footer-section">
-                    <h3>Company</h3>
-                    <ul>
-                        <li><a href="#">About Us</a></li>
-                        <li><a href="#">Careers</a></li>
-                        <li><a href="#">Privacy Policy</a></li>
-                        <li><a href="#">Terms of Service</a></li>
-                    </ul>
-                </div>
-                <div class="footer-section">
-                    <h3>Contact</h3>
-                    <ul>
-                        <li><a href="#">Support</a></li>
-                        <li><a href="#">Email</a></li>
-                        <li><a href="#">Live Chat</a></li>
-                        <li><a href="#">Feedback</a></li>
-                    </ul>
+                    <h3>Active Media</h3>
+                    <p>Professional printing services with quality, speed, and precision for all your business needs.</p>
                     <div class="social-icons">
                         <a href="#"><i class="fab fa-facebook-f"></i></a>
                         <a href="#"><i class="fab fa-twitter"></i></a>
                         <a href="#"><i class="fab fa-instagram"></i></a>
-                        <a href="#"><i class="fab fa-pinterest"></i></a>
+                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
                     </div>
                 </div>
+                
+                <div class="footer-section">
+                    <h3>Services</h3>
+                    <ul>
+                        <li><a href="#offset">Offset Printing</a></li>
+                        <li><a href="#digital">Digital Printing</a></li>
+                        <li><a href="#riso">RISO Printing</a></li>
+                        <li><a href="#other">Other Services</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h3>Company</h3>
+                    <ul>
+                        <li><a href="#">About Us</a></li>
+                        <li><a href="#">Our Team</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Testimonials</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h3>Support</h3>
+                    <ul>
+                        <li><a href="#">Contact Us</a></li>
+                        <li><a href="#">FAQ</a></li>
+                        <li><a href="#">Shipping Info</a></li>
+                        <li><a href="#">Returns</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h3>Contact Info</h3>
+                    <ul class="contact-info">
+                        <li><i class="fas fa-map-marker-alt"></i> 123 Print Street, City, State 12345</li>
+                        <li><i class="fas fa-phone"></i> (123) 456-7890</li>
+                        <li><i class="fas fa-envelope"></i> info@activemedia.com</li>
+                    </ul>
+                </div>
             </div>
-            <div class="copyright">
-                <p>&copy; 2023 Active Media. All rights reserved.</p>
+            
+            <div class="footer-bottom">
+                <div class="copyright">
+                    <p>&copy; 2023 Active Media. All rights reserved.</p>
+                </div>
+                <div class="footer-links">
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                    <a href="#">Cookie Policy</a>
+                </div>
             </div>
         </div>
     </footer>
 
-    <script>
-    // Simple filtering functionality - Only affects the All Services section
-    document.addEventListener('DOMContentLoaded', function() {
-        const filterSelect = document.querySelectorAll('.filter-select');
-        const searchInput = document.querySelector('.search-input');
-        const searchBtn = document.querySelector('.search-btn');
-        // Select only product cards in the All Services section
-        const productCards = document.querySelectorAll('.products-section .products-grid .product-card');
-        
-        // Add event listeners for filtering
-        filterSelect.forEach(select => {
-            select.addEventListener('change', filterProducts);
-        });
-        
-        searchBtn.addEventListener('click', filterProducts);
-        
-        // Allow Enter key to trigger search
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                filterProducts();
-            }
-        });
-
-        // Handle View All clicks
-        const viewAllLinks = document.querySelectorAll('.view-all[data-category]');
-        
-        viewAllLinks.forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                
-                const category = this.getAttribute('data-category');
-                const allServicesSection = document.getElementById('all-services');
-                
-                // Scroll to the All Services section
-                allServicesSection.scrollIntoView({ behavior: 'smooth' });
-                
-                // Set the category filter
-                const categorySelect = document.querySelector('.filter-select');
-                categorySelect.value = category;
-                
-                // Trigger filtering
-                filterProducts();
-            });
-        });
-        
-        function filterProducts() {
-            const categoryFilter = document.querySelector('.filter-select').value;
-            const sortBy = document.querySelectorAll('.filter-select')[1].value;
-            const searchTerm = searchInput.value.toLowerCase();
-            
-            // First filter by category and search term
-            let visibleCards = [];
-            
-            productCards.forEach(card => {
-                const category = card.querySelector('.product-category').textContent;
-                const name = card.querySelector('.product-name').textContent.toLowerCase();
-                
-                let categoryMatch = categoryFilter === 'All Categories' || category === categoryFilter;
-                let searchMatch = name.includes(searchTerm);
-                
-                if (categoryMatch && searchMatch) {
-                    card.style.display = 'flex';
-                    visibleCards.push(card);
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-            
-            // Then sort if needed
-            if (sortBy === 'Sort by Name') {
-                sortByName(visibleCards);
-            } else if (sortBy === 'Sort by Category') {
-                sortByCategory(visibleCards);
-            } else if (sortBy === 'Sort by Price: Low to High') {
-                sortByPrice(visibleCards, 'asc');
-            } else if (sortBy === 'Sort by Price: High to Low') {
-                sortByPrice(visibleCards, 'desc');
-            }
-        }
-        
-        function sortByName(cards) {
-            const container = document.querySelector('.products-section .products-grid');
-            
-            // Sort cards by name
-            cards.sort((a, b) => {
-                const nameA = a.querySelector('.product-name').textContent;
-                const nameB = b.querySelector('.product-name').textContent;
-                return nameA.localeCompare(nameB);
-            });
-            
-            // Reattach sorted cards
-            cards.forEach(card => {
-                container.appendChild(card);
-            });
-        }
-        
-        function sortByCategory(cards) {
-            const container = document.querySelector('.products-section .products-grid');
-            
-            // Sort cards by category
-            cards.sort((a, b) => {
-                const categoryA = a.querySelector('.product-category').textContent;
-                const categoryB = b.querySelector('.product-category').textContent;
-                return categoryA.localeCompare(categoryB);
-            });
-            
-            // Reattach sorted cards
-            cards.forEach(card => {
-                container.appendChild(card);
-            });
-        }
-        
-        function sortByPrice(cards, order) {
-            const container = document.querySelector('.products-section .products-grid');
-            
-            // Sort cards by price
-            cards.sort((a, b) => {
-                const priceA = parseFloat(a.querySelector('.product-price').textContent.replace('₱', '').replace(',', ''));
-                const priceB = parseFloat(b.querySelector('.product-price').textContent.replace('₱', '').replace(',', ''));
-                
-                return order === 'asc' ? priceA - priceB : priceB - priceA;
-            });
-            
-            // Reattach sorted cards
-            cards.forEach(card => {
-                container.appendChild(card);
-            });
-        }
-    });
-    </script>
+    <script src="../assets/js/main.js"></script>
 </body>
 </html>

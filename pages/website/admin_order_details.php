@@ -769,8 +769,8 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                         if (is_array($layout_files)) {
                             foreach ($layout_files as $file_path) {
                                 // Clean up the file path (remove ../ if present)
-                                $clean_path = str_replace('../', '', $file_path);
-                                $full_path = "../" . $clean_path;
+                                $clean_path = str_replace('../../', '', $file_path);
+                                $full_path = "../../" . $clean_path;
                                 $file_exists = file_exists($full_path);
                                 ?>
                                 <div class="user-layout-file">

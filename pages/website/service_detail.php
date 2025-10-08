@@ -357,136 +357,62 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $product['product_name']; ?> - Product Details</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="../../assets/images/plainlogo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+    <link rel="stylesheet" href="../../assets/css/main.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        /* Product Detail specific styles that extend the main style.css */
+        .product-detail-page {
+            padding: 40px 0;
+            background-color: var(--bg-light);
         }
-
-        body {
-            background-color: #f8f9fa;
-            color: #333;
-            line-height: 1.6;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 15px;
-        }
-
-        header {
-            background-color: #fff;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            margin-bottom: 30px;
-        }
-
-        .navbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 0;
-        }
-
-        .logo {
-            font-size: 24px;
-            font-weight: bold;
-            color: #4a4a4a;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-        }
-
-        .logo i {
-            margin-right: 10px;
-            color: #007bff;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .user-info a {
-            color: #4a4a4a;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .user-info a:hover {
-            color: #007bff;
-        }
-
-        .cart-icon {
-            position: relative;
-        }
-
-        .cart-count {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            background-color: #007bff;
-            color: white;
-            border-radius: 50%;
-            width: 18px;
-            height: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-        }
-
+        
         .product-detail-container {
-            background: white;
+            background: var(--bg-white);
             border-radius: 15px;
             padding: 40px;
-            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--shadow);
             margin-bottom: 40px;
+            border: 1px solid var(--border-color);
         }
-
+        
         .product-detail {
             display: flex;
             gap: 50px;
             align-items: flex-start;
         }
-
+        
         .product-gallery {
             flex: 1;
             max-width: 500px;
         }
-
+        
         .main-image {
             width: 100%;
             height: 450px;
             object-fit: contain;
             border-radius: 12px;
             margin-bottom: 20px;
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
+            background: var(--bg-light);
+            border: 2px solid var(--border-color);
             padding: 20px;
         }
-
+        
         .thumbnail-container {
             display: flex;
             gap: 15px;
             margin-bottom: 25px;
             flex-wrap: wrap;
         }
-
+        
         .thumbnail {
             width: 80px;
             height: 80px;
@@ -494,30 +420,30 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             border-radius: 8px;
             cursor: pointer;
             border: 3px solid transparent;
-            transition: all 0.3s ease;
-            background: #f8f9fa;
+            transition: var(--transition);
+            background: var(--bg-light);
             padding: 5px;
         }
-
+        
         .thumbnail:hover,
         .thumbnail.active {
-            border-color: #007bff;
+            border-color: var(--primary-color);
             transform: scale(1.05);
         }
-
+        
         .product-info {
             flex: 1;
         }
-
+        
         .product-title {
             font-size: 2.2em;
             margin-bottom: 15px;
-            color: #2c3e50;
+            color: var(--text-dark);
             font-weight: 700;
         }
-
+        
         .product-category {
-            background: linear-gradient(135deg, #007bff, #0056b3);
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
             color: white;
             padding: 8px 16px;
             border-radius: 25px;
@@ -526,128 +452,129 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             margin-bottom: 20px;
             font-weight: 500;
         }
-
+        
         .product-price {
             font-size: 2em;
-            color: #e74c3c;
+            color: var(--accent-color);
             margin-bottom: 25px;
             font-weight: bold;
         }
-
+        
         .customization-section {
             margin-bottom: 30px;
             padding: 25px;
-            background: #f8f9fa;
+            background: var(--bg-light);
             border-radius: 12px;
-            border: 1px solid #e9ecef;
+            border: 1px solid var(--border-color);
         }
-
+        
         .section-title {
             font-size: 1.3em;
             margin-bottom: 20px;
-            color: #2c3e50;
+            color: var(--text-dark);
             font-weight: 600;
             padding-bottom: 10px;
-            border-bottom: 2px solid #dee2e6;
+            border-bottom: 2px solid var(--border-color);
             display: flex;
             align-items: center;
             gap: 10px;
         }
-
+        
         .section-title i {
-            color: #007bff;
+            color: var(--primary-color);
         }
-
+        
         .quantity-selector {
             display: flex;
             align-items: center;
             gap: 15px;
             margin-bottom: 25px;
         }
-
+        
         .quantity-btn {
             width: 45px;
             height: 45px;
-            background: white;
-            border: 2px solid #dee2e6;
+            background: var(--bg-white);
+            border: 2px solid var(--border-color);
             border-radius: 8px;
             font-size: 1.3em;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: var(--transition);
             display: flex;
             align-items: center;
             justify-content: center;
         }
-
+        
         .quantity-btn:hover {
-            background: #007bff;
+            background: var(--primary-color);
             color: white;
-            border-color: #007bff;
+            border-color: var(--primary-color);
         }
-
+        
         .quantity-input {
             width: 80px;
             height: 45px;
             text-align: center;
-            border: 2px solid #dee2e6;
+            border: 2px solid var(--border-color);
             border-radius: 8px;
             font-size: 1.2em;
             font-weight: 600;
+            background: var(--bg-white);
         }
-
+        
         .image-upload-section {
             margin-bottom: 25px;
         }
-
+        
         .upload-btn {
             display: inline-flex;
             align-items: center;
             gap: 8px;
             padding: 14px 24px;
-            background: #6c757d;
+            background: var(--text-light);
             color: white;
             border-radius: 8px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: var(--transition);
             font-weight: 500;
         }
-
+        
         .upload-btn:hover {
             background: #5a6268;
             transform: translateY(-2px);
         }
-
+        
         .upload-preview {
             margin-top: 20px;
             display: none;
             text-align: center;
             padding: 15px;
-            background: white;
+            background: var(--bg-white);
             border-radius: 8px;
-            border: 2px dashed #dee2e6;
+            border: 2px dashed var(--border-color);
         }
-
+        
         .uploaded-image {
             max-width: 220px;
             max-height: 180px;
             border-radius: 8px;
-            border: 2px solid #007bff;
+            border: 2px solid var(--primary-color);
             margin-bottom: 15px;
         }
-
+        
         .preview-section {
             margin-bottom: 30px;
             padding: 25px;
-            background: white;
+            background: var(--bg-white);
             border-radius: 12px;
-            border: 1px solid #e9ecef;
+            border: 1px solid var(--border-color);
         }
-
+        
         .preview-container {
             width: 100%;
             height: 220px;
-            background: #f8f9fa;
-            border: 2px dashed #dee2e6;
+            background: var(--bg-light);
+            border: 2px dashed var(--border-color);
             border-radius: 10px;
             display: flex;
             align-items: center;
@@ -655,58 +582,20 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             margin-bottom: 20px;
             overflow: hidden;
         }
-
+        
         .mockup-preview {
             max-width: 100%;
             max-height: 200px;
             display: none;
             border-radius: 6px;
         }
-
+        
         .action-buttons {
             display: flex;
             gap: 20px;
             margin-top: 30px;
         }
-
-        .btn {
-            padding: 18px 30px;
-            border: none;
-            border-radius: 10px;
-            font-size: 1.1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            flex: 1;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #007bff, #0056b3);
-            color: white;
-            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
-        }
-
-        .btn-secondary:hover {
-            background: #5a6268;
-            transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
-        }
-
+        
         /* Draggable Design Styles */
         .positioning-tools {
             display: flex;
@@ -714,47 +603,47 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             margin-bottom: 15px;
             flex-wrap: wrap;
         }
-
+        
         .tool-btn {
             padding: 10px 15px;
-            background: #6c757d;
+            background: var(--text-light);
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: var(--transition);
             display: flex;
             align-items: center;
             gap: 5px;
             font-size: 0.9em;
         }
-
+        
         .tool-btn:hover {
             background: #5a6268;
         }
-
+        
         .positioning-container {
             width: 100%;
             height: 400px;
-            border: 2px dashed #dee2e6;
+            border: 2px dashed var(--border-color);
             border-radius: 10px;
             margin-bottom: 20px;
             position: relative;
             overflow: hidden;
         }
-
+        
         .product-base-image {
             width: 100%;
             height: 100%;
             position: relative;
         }
-
+        
         #baseImage {
             width: 100%;
             height: 100%;
             object-fit: contain;
         }
-
+        
         .design-overlay {
             position: absolute;
             top: 0;
@@ -763,62 +652,62 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             height: 100%;
             pointer-events: none;
         }
-
+        
         .draggable-design {
             position: absolute;
             cursor: move;
-            border: 2px dashed #007bff;
+            border: 2px dashed var(--primary-color);
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
             box-sizing: border-box;
         }
-
+        
         .resize-handle {
             position: absolute;
             width: 12px;
             height: 12px;
-            background: #007bff;
+            background: var(--primary-color);
             border-radius: 50%;
             bottom: -6px;
             right: -6px;
             cursor: nwse-resize;
         }
-
+        
         /* Visual boundary indicator */
         .design-boundary {
             position: absolute;
-            border: 2px dashed rgba(0, 123, 255, 0.3);
-            background-color: rgba(0, 123, 255, 0.1);
+            border: 2px dashed rgba(44, 90, 160, 0.3);
+            background-color: rgba(44, 90, 160, 0.1);
             pointer-events: none;
             display: none;
         }
-
+        
         /* Mockup view selector */
         .view-selector {
             display: flex;
             gap: 10px;
             margin-bottom: 15px;
         }
-
+        
         .view-btn {
             padding: 10px 15px;
-            background: #6c757d;
+            background: var(--text-light);
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: var(--transition);
         }
-
+        
         .view-btn.active {
-            background: #007bff;
+            background: var(--primary-color);
         }
-
+        
         .view-btn:hover {
-            background: #0056b3;
+            background: var(--primary-dark);
         }
-
+        
         /* Mockup Popup Styles */
         .mockup-popup {
             display: none;
@@ -833,9 +722,9 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             align-items: center;
             backdrop-filter: blur(5px);
         }
-
+        
         .mockup-container {
-            background: white;
+            background: var(--bg-white);
             padding: 40px;
             border-radius: 15px;
             max-width: 90%;
@@ -844,7 +733,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             position: relative;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
         }
-
+        
         .close-popup {
             position: absolute;
             top: 20px;
@@ -853,14 +742,14 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             background: none;
             border: none;
             cursor: pointer;
-            color: #6c757d;
-            transition: color 0.3s ease;
+            color: var(--text-light);
+            transition: var(--transition);
         }
-
+        
         .close-popup:hover {
             color: #000;
         }
-
+        
         .mockup-images {
             display: flex;
             gap: 30px;
@@ -868,20 +757,20 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             justify-content: center;
             margin: 30px 0;
         }
-
+        
         .mockup-image {
             text-align: center;
             display: none;
         }
-
+        
         .mockup-image img {
             max-width: 320px;
             max-height: 420px;
-            border: 2px solid #e9ecef;
+            border: 2px solid var(--border-color);
             border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--shadow);
         }
-
+        
         .download-btn {
             margin-top: 15px;
             padding: 10px 20px;
@@ -890,116 +779,136 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: var(--transition);
             display: inline-flex;
             align-items: center;
             gap: 8px;
         }
-
+        
         .download-btn:hover {
             background: #218838;
             transform: translateY(-2px);
         }
-
+        
         .form-control:invalid {
-            border-color: #dc3545 !important;
+            border-color: var(--accent-color) !important;
         }
-
+        
         .required-field::after {
             content: " *";
-            color: #dc3545;
+            color: var(--accent-color);
         }
-
+        
         .validation-error {
-            color: #dc3545;
+            color: var(--accent-color);
             font-size: 0.875em;
             margin-top: 5px;
             display: none;
         }
-
+        
         .section-with-error {
-            border: 2px solid #dc3545 !important;
+            border: 2px solid var(--accent-color) !important;
             background-color: #f8d7da !important;
         }
-
+        
         /* Button-based option styles */
         .option-button {
             padding: 12px 20px;
-            background: #f8f9fa;
-            border: 2px solid #dee2e6;
+            background: var(--bg-light);
+            border: 2px solid var(--border-color);
             border-radius: 8px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: var(--transition);
             font-weight: 500;
-            color: #495057;
+            color: var(--text-dark);
             flex: 1;
             min-width: 120px;
             text-align: center;
         }
-
+        
         .option-button:hover {
             background: #e9ecef;
             border-color: #adb5bd;
             transform: translateY(-2px);
         }
-
+        
         .option-button.selected {
-            background: #007bff;
+            background: var(--primary-color);
             color: white;
-            border-color: #007bff;
-            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+            border-color: var(--primary-color);
+            box-shadow: 0 4px 12px rgba(44, 90, 160, 0.3);
         }
-
+        
         .option-button.custom-option {
-            border: 2px dashed #6c757d;
+            border: 2px dashed var(--text-light);
         }
-
+        
         .option-button.custom-option.selected {
-            border: 2px solid #007bff;
+            border: 2px solid var(--primary-color);
         }
-
+        
         .button-options {
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
         }
 
+        .upload-type-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .upload-type-buttons label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 10px 15px;
+            background: var(--bg-light);
+            border-radius: 8px;
+            transition: var(--transition);
+        }
+
+        .upload-type-buttons label:hover {
+            background: #e9ecef;
+        }
+
+        .upload-type-buttons input[type="radio"] {
+            accent-color: var(--primary-color);
+        }
+
         @media (max-width: 768px) {
             .product-detail {
                 flex-direction: column;
             }
-
+            
             .product-gallery {
                 max-width: 100%;
             }
-
+            
             .main-image {
                 height: 350px;
             }
-
+            
             .action-buttons {
                 flex-direction: column;
             }
-
+            
             .mockup-container {
                 padding: 25px;
                 width: 95%;
             }
-
+            
             .mockup-images {
                 flex-direction: column;
                 gap: 20px;
             }
-
-            .navbar {
-                flex-direction: column;
-                gap: 15px;
-            }
-
+            
             .positioning-container {
                 height: 300px;
             }
-
+            
             .option-button {
                 min-width: 100px;
                 padding: 10px 15px;
@@ -1009,393 +918,442 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             .button-options {
                 gap: 8px;
             }
+
+            .upload-type-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .product-detail-container {
+                padding: 25px;
+            }
+            
+            .product-title {
+                font-size: 1.8em;
+            }
+            
+            .product-price {
+                font-size: 1.6em;
+            }
+            
+            .customization-section {
+                padding: 20px;
+            }
+            
+            .main-image {
+                height: 280px;
+            }
+            
+            .thumbnail {
+                width: 60px;
+                height: 60px;
+            }
         }
     </style>
 </head>
 
 <body>
-    <header>
+    <!-- Header -->
+    <header class="header">
         <div class="container">
             <nav class="navbar">
-                <a href="../../website/main.php" class="logo">
-                    <i class="fas fa-print"></i>
-                    Active Media
+                <a href="#" class="logo">
+                    <img src="../../assets/images/plainlogo.png" alt="Active Media" class="logo-image">
+                    <span>Active Media Designs & Printing</span>
                 </a>
-
+                
+                <ul class="nav-links">
+                    <li><a href="../../website/main.php"><i class="fas fa-home"></i> Home</a></li>
+                    <li><a href="../../website/ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
+                    <li><a href="#"><i class="fas fa-info-circle"></i> About</a></li>
+                    <li><a href="#"><i class="fas fa-phone"></i> Contact</a></li>
+                </ul>
+                
                 <div class="user-info">
                     <a href="../../website/view_cart.php" class="cart-icon">
                         <i class="fas fa-shopping-cart"></i>
                         <span class="cart-count"><?php echo $cart_count; ?></span>
                     </a>
-                    <a href="profile.php">
+                    <a href="../website/profile.php" class="user-profile">
                         <i class="fas fa-user"></i>
-                        <?php echo $_SESSION['username'] ?? 'User'; ?>
+                        <span class="user-name">
+                            <?php echo $_SESSION['username'] ?? 'User'; ?>
+                        </span>
                     </a>
-                    <a href="../../accounts/logout.php">
+                    <a href="../../accounts/logout.php" class="logout-btn">
                         <i class="fas fa-sign-out-alt"></i>
                     </a>
+                </div>
+                
+                <div class="mobile-menu-toggle">
+                    <i class="fas fa-bars"></i>
                 </div>
             </nav>
         </div>
     </header>
 
-    <div class="container">
-        <div class="product-detail-container">
-            <div class="product-detail">
-                <div class="product-gallery">
-                    <!-- Show product images in gallery -->
-                    <?php
-                    $product_image_path = "../../assets/images/services/service-" . $product['id'] . ".jpg";
-                    $product_image_url = file_exists($product_image_path) ? $product_image_path : "https://via.placeholder.com/500x500/007bff/ffffff?text=Product+Image";
-                    $product_back_image_path = "../../assets/images/services/service-" . $product['id'] . "-1.jpg";
-                    $product_back_image_url = file_exists($product_back_image_path) ? $product_back_image_path : "";
-                    ?>
-                    <img src="<?php echo $product_image_url; ?>" alt="<?php echo $product['product_name']; ?>" class="main-image" id="mainImage">
-
-                    <div class="thumbnail-container">
-                        <img src="<?php echo $product_image_url; ?>"
-                            alt="Thumbnail 1" class="thumbnail active" onclick="changeImage(this, 'front')">
-                        <?php if (!empty($product_back_image_url)): ?>
-                            <img src="<?php echo $product_back_image_url; ?>"
-                                alt="Thumbnail 2" class="thumbnail" onclick="changeImage(this, 'back')">
-                        <?php endif; ?>
-                        <img src="../../assets/images/services/service-<?php echo $product['id']; ?>-2.jpg"
-                            alt="Thumbnail 3" class="thumbnail" onclick="changeImage(this, 'front')">
-                    </div>
-                </div>
-
-                <div class="product-info">
-                    <h1 class="product-title"><?php echo $product['product_name']; ?></h1>
-                    <span class="product-category"><?php echo $product['category']; ?></span>
-
-                    <div class="product-price">₱<?php echo number_format($product['price'], 2); ?></div>
-
-                    <form method="post" id="cartForm" action="" enctype="multipart/form-data">
-                        <input type="hidden" name="add_to_cart" value="1">
-
-                        <?php if ($customization && in_array($product_id, [18, 19, 20, 21])): ?>
-                            <div class="customization-section">
-                                <h3 class="section-title required-field"><i class="fas fa-ruler-combined"></i> Size</h3>
-                                <?php if (!empty($size_options)): ?>
-                                    <div class="option-group" style="margin-bottom: 20px;">
-                                        <div class="button-options">
-                                            <?php foreach ($size_options as $size): 
-                                                $display_name = isset($size['dimensions']) ? $size['size_name'] . ' (' . $size['dimensions'] . ')' : $size['size_name'];
-                                            ?>
-                                                <button type="button" 
-                                                        class="option-button <?php echo $size['is_custom'] ? 'custom-option' : ''; ?>" 
-                                                        data-value="<?php echo $size['id']; ?>" 
-                                                        data-custom="<?php echo $size['is_custom']; ?>"
-                                                        onclick="selectOption(this, 'size')">
-                                                    <?php echo $display_name; ?>
-                                                </button>
-                                            <?php endforeach; ?>
-                                        </div>
-                                        <input type="hidden" name="size_option" id="sizeOption" value="">
-                                        <div id="customSizeContainer" style="margin-top: 10px; display: none;">
-                                            <input type="text" name="custom_size" placeholder="Please specify your custom size" 
-                                                   style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%;">
-                                        </div>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-
-                            <div class="customization-section">
-                                <h3 class="section-title required-field"><i class="fas fa-palette"></i> Color</h3>
-                                <?php if (!empty($color_options)): ?>
-                                    <div class="option-group" style="margin-bottom: 20px;">
-                                        <div class="button-options">
-                                            <?php foreach ($color_options as $color): ?>
-                                                <button type="button" 
-                                                        class="option-button <?php echo $color['is_custom'] ? 'custom-option' : ''; ?>" 
-                                                        data-value="<?php echo $color['id']; ?>" 
-                                                        data-custom="<?php echo $color['is_custom']; ?>"
-                                                        onclick="selectOption(this, 'color')">
-                                                    <?php echo $color['color_name']; ?>
-                                                </button>
-                                            <?php endforeach; ?>
-                                        </div>
-                                        <input type="hidden" name="color_option" id="colorOption" value="">
-                                        <div id="customColorContainer" style="margin-top: 10px; display: none;">
-                                            <input type="text" name="custom_color" placeholder="Please specify your custom color" 
-                                                   style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%;">
-                                        </div>
-                                    </div>
-                                <?php endif; ?>
-
-                                <?php if ($product_id == 20): ?>
-                                    <div class="option-group" style="margin-bottom: 20px;">
-                                        <button type="button" class="option-button selected" data-value="brown" onclick="selectOption(this, 'color')">
-                                            Brown (Standard)
-                                        </button>
-                                        <input type="hidden" name="color_option" value="brown">
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        <?php endif; ?>
-
+    <!-- Product Detail Section -->
+    <section class="product-detail-page">
+        <div class="container">
+            <div class="product-detail-container">
+                <div class="product-detail">
+                    <div class="product-gallery">
+                        <!-- Show product images in gallery -->
                         <?php
-                        if (
-                            $customization &&
-                            !in_array($product_id, [18, 19, 20, 21]) &&
-                            in_array($product['category'], ['RISO Printing', 'Offset Printing', 'Digital Printing'])
-                        ):
+                        $product_image_path = "../../assets/images/services/service-" . $product['id'] . ".jpg";
+                        $product_image_url = file_exists($product_image_path) ? $product_image_path : "https://via.placeholder.com/500x500/2c5aa0/ffffff?text=Product+Image";
+                        $product_back_image_path = "../../assets/images/services/service-" . $product['id'] . "-1.jpg";
+                        $product_back_image_url = file_exists($product_back_image_path) ? $product_back_image_path : "";
                         ?>
-                            <div class="customization-section">
-                                <h3 class="section-title"><i class="fas fa-cog"></i> Printing Options</h3>
+                        <img src="<?php echo $product_image_url; ?>" alt="<?php echo $product['product_name']; ?>" class="main-image" id="mainImage">
 
-                                <?php if ($customization['has_paper_option'] && !empty($paper_options)): ?>
-                                    <div class="option-group" style="margin-bottom: 20px;">
-                                        <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Paper Type:</label>
-                                        <div class="button-options">
-                                            <?php foreach ($paper_options as $paper): ?>
-                                                <button type="button" class="option-button" data-value="<?php echo $paper['id']; ?>" onclick="selectOption(this, 'paper')">
-                                                    <?php echo $paper['option_name']; ?>
-                                                </button>
-                                            <?php endforeach; ?>
-                                        </div>
-                                        <input type="hidden" name="paper_option" id="paperOption" value="">
-                                    </div>
-                                <?php endif; ?>
-
-                                <?php
-                                // Only show for printing categories, not for Other Services (IDs 18-21)
-                                if (
-                                    $customization['has_size_option'] &&
-                                    !in_array($product_id, [18, 19, 20, 21]) &&
-                                    in_array($product['category'], ['Riso Printing', 'Offset Printing', 'Digital Printing'])
-                                ): ?>
-                                    <div class="option-group" style="margin-bottom: 20px;">
-                                        <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Size (in inches):</label>
-                                        <input type="text" name="size_option" placeholder="e.g., 8.5 x 11" style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%;">
-                                    </div>
-                                <?php endif; ?>
-
-                                <?php if ($customization['has_finish_option'] && !empty($finish_options)): ?>
-                                    <div class="option-group" style="margin-bottom: 20px;">
-                                        <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Finish:</label>
-                                        <div class="button-options">
-                                            <?php foreach ($finish_options as $finish): ?>
-                                                <button type="button" class="option-button" data-value="<?php echo $finish['id']; ?>" onclick="selectOption(this, 'finish')">
-                                                    <?php echo $finish['option_name']; ?>
-                                                </button>
-                                            <?php endforeach; ?>
-                                        </div>
-                                        <input type="hidden" name="finish_option" id="finishOption" value="">
-                                    </div>
-                                <?php endif; ?>
-
-                                <?php if ($customization['has_layout_option'] && !empty($layout_options)): ?>
-                                    <div class="option-group" style="margin-bottom: 20px;">
-                                        <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Layout Option:</label>
-                                        <div class="button-options">
-                                            <?php foreach ($layout_options as $layout): ?>
-                                                <button type="button" class="option-button" data-value="<?php echo $layout['id']; ?>" onclick="selectLayoutOption(this)">
-                                                    <?php echo $layout['option_name']; ?>
-                                                </button>
-                                            <?php endforeach; ?>
-                                        </div>
-                                        <input type="hidden" name="layout_option" id="layoutOption" value="">
-                                        
-                                        <div id="layoutInputContainer" style="margin-top: 10px; display: none;">
-                                            <!-- Content will be populated by JavaScript based on selection -->
-                                        </div>
-                                    </div>
-                                <?php endif; ?>
-
-                                <?php if ($customization['has_binding_option'] && !empty($binding_options)): ?>
-                                    <div class="option-group" style="margin-bottom: 20px;">
-                                        <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Binding:</label>
-                                        <div class="button-options">
-                                            <?php foreach ($binding_options as $binding): ?>
-                                                <button type="button" class="option-button" data-value="<?php echo $binding['id']; ?>" onclick="selectOption(this, 'binding')">
-                                                    <?php echo $binding['option_name']; ?>
-                                                </button>
-                                            <?php endforeach; ?>
-                                        </div>
-                                        <input type="hidden" name="binding_option" id="bindingOption" value="">
-                                    </div>
-                                <?php endif; ?>
-
-                                <?php if ($customization['has_gsm_option']): ?>
-                                    <div class="option-group" style="margin-bottom: 20px;">
-                                        <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Paper Weight (GSM):</label>
-                                        <input type="number" name="gsm_option" placeholder="e.g., 120" min="0" style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%;">
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        <?php endif; ?>
-
-                        <div class="customization-section">
-                            <h3 class="section-title"><i class="fas fa-shopping-cart"></i> Quantity</h3>
-                            <div class="quantity-selector">
-                                <button type="button" class="quantity-btn" onclick="decreaseQuantity()">-</button>
-                                <input type="number" name="quantity" class="quantity-input" id="quantity" value="1" min="1">
-                                <button type="button" class="quantity-btn" onclick="increaseQuantity()">+</button>
-                            </div>
+                        <div class="thumbnail-container">
+                            <img src="<?php echo $product_image_url; ?>"
+                                alt="Thumbnail 1" class="thumbnail active" onclick="changeImage(this, 'front')">
+                            <?php if (!empty($product_back_image_url)): ?>
+                                <img src="<?php echo $product_back_image_url; ?>"
+                                    alt="Thumbnail 2" class="thumbnail" onclick="changeImage(this, 'back')">
+                            <?php endif; ?>
+                            <img src="../../assets/images/services/service-<?php echo $product['id']; ?>-2.jpg"
+                                alt="Thumbnail 3" class="thumbnail" onclick="changeImage(this, 'front')">
                         </div>
+                    </div>
 
-                        <?php if ($show_image_customization): ?>
-                            <div class="customization-section">
-                                <h3 class="section-title"><i class="fas fa-paint-brush"></i> Customize Your Product</h3>
+                    <div class="product-info">
+                        <h1 class="product-title"><?php echo $product['product_name']; ?></h1>
+                        <span class="product-category"><?php echo $product['category']; ?></span>
 
-                                <!-- Upload Type Selection -->
-                                <div class="upload-type-section" style="margin-bottom: 25px;">
-                                    <h4 class="section-title" style="font-size: 1.1em;"><i class="fas fa-upload"></i> Upload Type</h4>
-                                    <div class="upload-type-buttons" style="display: flex; gap: 15px; flex-wrap: wrap;">
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                            <input type="radio" name="upload_type" value="single" checked onchange="handleUploadTypeChange()">
-                                            <span>Same Design for Front & Back</span>
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                            <input type="radio" name="upload_type" value="separate" onchange="handleUploadTypeChange()">
-                                            <span>Different Designs for Front & Back</span>
-                                        </label>
-                                    </div>
-                                </div>
+                        <div class="product-price">₱<?php echo number_format($product['price'], 2); ?></div>
 
-                                <!-- Single Image Upload (Default) -->
-                                <div class="image-upload-section" id="singleUploadSection">
-                                    <label for="designUpload" class="upload-btn required-field">
-                                        <i class="fas fa-upload"></i> Choose Design Image (for both sides)
-                                    </label>
-                                    <input type="file" id="designUpload" name="design_upload" accept="image/*" style="display: none;">
-                                    <div class="upload-preview" id="uploadPreview">
-                                        <img src="" alt="Uploaded design" class="uploaded-image" id="uploadedImage">
-                                        <button type="button" class="btn btn-secondary" onclick="removeUploadedImage()">
-                                            <i class="fas fa-times"></i> Remove Image
-                                        </button>
-                                    </div>
-                                </div>
+                        <form method="post" id="cartForm" action="" enctype="multipart/form-data">
+                            <input type="hidden" name="add_to_cart" value="1">
 
-                                <!-- Separate Image Upload (Hidden by default) -->
-                                <div class="separate-upload-section" id="separateUploadSection" style="display: none;">
-                                    <div class="front-upload" style="margin-bottom: 20px;">
-                                        <h5 style="margin-bottom: 10px; color: #2c3e50;">
-                                            <i class="fas fa-tshirt"></i> Front Design
-                                        </h5>
-                                        <label for="frontDesignUpload" class="upload-btn required-field">
-                                            <i class="fas fa-upload"></i> Choose Front Design
-                                        </label>
-                                        <input type="file" id="frontDesignUpload" name="front_design_upload" accept="image/*" style="display: none;">
-                                        <div class="upload-preview" id="frontUploadPreview">
-                                            <img src="" alt="Front design" class="uploaded-image" id="frontUploadedImage">
-                                            <button type="button" class="btn btn-secondary" onclick="removeFrontUploadedImage()">
-                                                <i class="fas fa-times"></i> Remove Front Image
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <?php if (!empty($back_base_image_url)): ?>
-                                        <div class="back-upload">
-                                            <h5 style="margin-bottom: 10px; color: #2c3e50;">
-                                                <i class="fas fa-tshirt"></i> Back Design
-                                            </h5>
-                                            <label for="backDesignUpload" class="upload-btn required-field">
-                                                <i class="fas fa-upload"></i> Choose Back Design
-                                            </label>
-                                            <input type="file" id="backDesignUpload" name="back_design_upload" accept="image/*" style="display: none;">
-                                            <div class="upload-preview" id="backUploadPreview">
-                                                <img src="" alt="Back design" class="uploaded-image" id="backUploadedImage">
-                                                <button type="button" class="btn btn-secondary" onclick="removeBackUploadedImage()">
-                                                    <i class="fas fa-times"></i> Remove Back Image
-                                                </button>
+                            <?php if ($customization && in_array($product_id, [18, 19, 20, 21])): ?>
+                                <div class="customization-section">
+                                    <h3 class="section-title required-field"><i class="fas fa-ruler-combined"></i> Size</h3>
+                                    <?php if (!empty($size_options)): ?>
+                                        <div class="option-group" style="margin-bottom: 20px;">
+                                            <div class="button-options">
+                                                <?php foreach ($size_options as $size): 
+                                                    $display_name = isset($size['dimensions']) ? $size['size_name'] . ' (' . $size['dimensions'] . ')' : $size['size_name'];
+                                                ?>
+                                                    <button type="button" 
+                                                            class="option-button <?php echo $size['is_custom'] ? 'custom-option' : ''; ?>" 
+                                                            data-value="<?php echo $size['id']; ?>" 
+                                                            data-custom="<?php echo $size['is_custom']; ?>"
+                                                            onclick="selectOption(this, 'size')">
+                                                        <?php echo $display_name; ?>
+                                                    </button>
+                                                <?php endforeach; ?>
+                                            </div>
+                                            <input type="hidden" name="size_option" id="sizeOption" value="">
+                                            <div id="customSizeContainer" style="margin-top: 10px; display: none;">
+                                                <input type="text" name="custom_size" placeholder="Please specify your custom size" 
+                                                       style="padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
                                             </div>
                                         </div>
                                     <?php endif; ?>
                                 </div>
 
-                                <!-- Positioning Section -->
-                                <div class="positioning-section">
-                                    <h4 class="section-title"><i class="fas fa-arrows-alt"></i> Position Your Design</h4>
+                                <div class="customization-section">
+                                    <h3 class="section-title required-field"><i class="fas fa-palette"></i> Color</h3>
+                                    <?php if (!empty($color_options)): ?>
+                                        <div class="option-group" style="margin-bottom: 20px;">
+                                            <div class="button-options">
+                                                <?php foreach ($color_options as $color): ?>
+                                                    <button type="button" 
+                                                            class="option-button <?php echo $color['is_custom'] ? 'custom-option' : ''; ?>" 
+                                                            data-value="<?php echo $color['id']; ?>" 
+                                                            data-custom="<?php echo $color['is_custom']; ?>"
+                                                            onclick="selectOption(this, 'color')">
+                                                        <?php echo $color['color_name']; ?>
+                                                    </button>
+                                                <?php endforeach; ?>
+                                            </div>
+                                            <input type="hidden" name="color_option" id="colorOption" value="">
+                                            <div id="customColorContainer" style="margin-top: 10px; display: none;">
+                                                <input type="text" name="custom_color" placeholder="Please specify your custom color" 
+                                                       style="padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
 
-                                    <div class="view-selector">
-                                        <button type="button" class="view-btn active" id="frontViewBtn" onclick="switchView('front')">
-                                            <i class="fas fa-tshirt"></i> Front View
-                                        </button>
-                                        <?php if (!empty($back_base_image_url)): ?>
-                                            <button type="button" class="view-btn" id="backViewBtn" onclick="switchView('back')">
-                                                <i class="fas fa-tshirt"></i> Back View
+                                    <?php if ($product_id == 20): ?>
+                                        <div class="option-group" style="margin-bottom: 20px;">
+                                            <button type="button" class="option-button selected" data-value="brown" onclick="selectOption(this, 'color')">
+                                                Brown (Standard)
                                             </button>
+                                            <input type="hidden" name="color_option" value="brown">
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php
+                            if (
+                                $customization &&
+                                !in_array($product_id, [18, 19, 20, 21]) &&
+                                in_array($product['category'], ['RISO Printing', 'Offset Printing', 'Digital Printing'])
+                            ):
+                            ?>
+                                <div class="customization-section">
+                                    <h3 class="section-title"><i class="fas fa-cog"></i> Printing Options</h3>
+
+                                    <?php if ($customization['has_paper_option'] && !empty($paper_options)): ?>
+                                        <div class="option-group" style="margin-bottom: 20px;">
+                                            <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Paper Type:</label>
+                                            <div class="button-options">
+                                                <?php foreach ($paper_options as $paper): ?>
+                                                    <button type="button" class="option-button" data-value="<?php echo $paper['id']; ?>" onclick="selectOption(this, 'paper')">
+                                                        <?php echo $paper['option_name']; ?>
+                                                    </button>
+                                                <?php endforeach; ?>
+                                            </div>
+                                            <input type="hidden" name="paper_option" id="paperOption" value="">
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <?php
+                                    // Only show for printing categories, not for Other Services (IDs 18-21)
+                                    if (
+                                        $customization['has_size_option'] &&
+                                        !in_array($product_id, [18, 19, 20, 21]) &&
+                                        in_array($product['category'], ['Riso Printing', 'Offset Printing', 'Digital Printing'])
+                                    ): ?>
+                                        <div class="option-group" style="margin-bottom: 20px;">
+                                            <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Size (in inches):</label>
+                                            <input type="text" name="size_option" placeholder="e.g., 8.5 x 11" style="padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <?php if ($customization['has_finish_option'] && !empty($finish_options)): ?>
+                                        <div class="option-group" style="margin-bottom: 20px;">
+                                            <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Finish:</label>
+                                            <div class="button-options">
+                                                <?php foreach ($finish_options as $finish): ?>
+                                                    <button type="button" class="option-button" data-value="<?php echo $finish['id']; ?>" onclick="selectOption(this, 'finish')">
+                                                        <?php echo $finish['option_name']; ?>
+                                                    </button>
+                                                <?php endforeach; ?>
+                                            </div>
+                                            <input type="hidden" name="finish_option" id="finishOption" value="">
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <?php if ($customization['has_layout_option'] && !empty($layout_options)): ?>
+                                        <div class="option-group" style="margin-bottom: 20px;">
+                                            <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Layout Option:</label>
+                                            <div class="button-options">
+                                                <?php foreach ($layout_options as $layout): ?>
+                                                    <button type="button" class="option-button" data-value="<?php echo $layout['id']; ?>" onclick="selectLayoutOption(this)">
+                                                        <?php echo $layout['option_name']; ?>
+                                                    </button>
+                                                <?php endforeach; ?>
+                                            </div>
+                                            <input type="hidden" name="layout_option" id="layoutOption" value="">
+                                            
+                                            <div id="layoutInputContainer" style="margin-top: 10px; display: none;">
+                                                <!-- Content will be populated by JavaScript based on selection -->
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <?php if ($customization['has_binding_option'] && !empty($binding_options)): ?>
+                                        <div class="option-group" style="margin-bottom: 20px;">
+                                            <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Binding:</label>
+                                            <div class="button-options">
+                                                <?php foreach ($binding_options as $binding): ?>
+                                                    <button type="button" class="option-button" data-value="<?php echo $binding['id']; ?>" onclick="selectOption(this, 'binding')">
+                                                        <?php echo $binding['option_name']; ?>
+                                                    </button>
+                                                <?php endforeach; ?>
+                                            </div>
+                                            <input type="hidden" name="binding_option" id="bindingOption" value="">
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <?php if ($customization['has_gsm_option']): ?>
+                                        <div class="option-group" style="margin-bottom: 20px;">
+                                            <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Paper Weight (GSM):</label>
+                                            <input type="number" name="gsm_option" placeholder="e.g., 120" min="0" style="padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <div class="customization-section">
+                                <h3 class="section-title"><i class="fas fa-shopping-cart"></i> Quantity</h3>
+                                <div class="quantity-selector">
+                                    <button type="button" class="quantity-btn" onclick="decreaseQuantity()">-</button>
+                                    <input type="number" name="quantity" class="quantity-input" id="quantity" value="1" min="1">
+                                    <button type="button" class="quantity-btn" onclick="increaseQuantity()">+</button>
+                                </div>
+                            </div>
+
+                            <?php if ($show_image_customization): ?>
+                                <div class="customization-section">
+                                    <h3 class="section-title"><i class="fas fa-paint-brush"></i> Customize Your Product</h3>
+
+                                    <!-- Upload Type Selection -->
+                                    <div class="upload-type-section" style="margin-bottom: 25px;">
+                                        <h4 class="section-title" style="font-size: 1.1em;"><i class="fas fa-upload"></i> Upload Type</h4>
+                                        <div class="upload-type-buttons">
+                                            <label>
+                                                <input type="radio" name="upload_type" value="single" checked onchange="handleUploadTypeChange()">
+                                                <span>Same Design for Front & Back</span>
+                                            </label>
+                                            <label>
+                                                <input type="radio" name="upload_type" value="separate" onchange="handleUploadTypeChange()">
+                                                <span>Different Designs for Front & Back</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Single Image Upload (Default) -->
+                                    <div class="image-upload-section" id="singleUploadSection">
+                                        <label for="designUpload" class="upload-btn required-field">
+                                            <i class="fas fa-upload"></i> Choose Design Image (for both sides)
+                                        </label>
+                                        <input type="file" id="designUpload" name="design_upload" accept="image/*" style="display: none;">
+                                        <div class="upload-preview" id="uploadPreview">
+                                            <img src="" alt="Uploaded design" class="uploaded-image" id="uploadedImage">
+                                            <button type="button" class="btn btn-secondary" onclick="removeUploadedImage()">
+                                                <i class="fas fa-times"></i> Remove Image
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Separate Image Upload (Hidden by default) -->
+                                    <div class="separate-upload-section" id="separateUploadSection" style="display: none;">
+                                        <div class="front-upload" style="margin-bottom: 20px;">
+                                            <h5 style="margin-bottom: 10px; color: var(--text-dark);">
+                                                <i class="fas fa-tshirt"></i> Front Design
+                                            </h5>
+                                            <label for="frontDesignUpload" class="upload-btn required-field">
+                                                <i class="fas fa-upload"></i> Choose Front Design
+                                            </label>
+                                            <input type="file" id="frontDesignUpload" name="front_design_upload" accept="image/*" style="display: none;">
+                                            <div class="upload-preview" id="frontUploadPreview">
+                                                <img src="" alt="Front design" class="uploaded-image" id="frontUploadedImage">
+                                                <button type="button" class="btn btn-secondary" onclick="removeFrontUploadedImage()">
+                                                    <i class="fas fa-times"></i> Remove Front Image
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <?php if (!empty($back_base_image_url)): ?>
+                                            <div class="back-upload">
+                                                <h5 style="margin-bottom: 10px; color: var(--text-dark);">
+                                                    <i class="fas fa-tshirt"></i> Back Design
+                                                </h5>
+                                                <label for="backDesignUpload" class="upload-btn required-field">
+                                                    <i class="fas fa-upload"></i> Choose Back Design
+                                                </label>
+                                                <input type="file" id="backDesignUpload" name="back_design_upload" accept="image/*" style="display: none;">
+                                                <div class="upload-preview" id="backUploadPreview">
+                                                    <img src="" alt="Back design" class="uploaded-image" id="backUploadedImage">
+                                                    <button type="button" class="btn btn-secondary" onclick="removeBackUploadedImage()">
+                                                        <i class="fas fa-times"></i> Remove Back Image
+                                                    </button>
+                                                </div>
+                                            </div>
                                         <?php endif; ?>
                                     </div>
 
-                                    <div class="positioning-tools">
-                                        <button type="button" class="tool-btn" onclick="enableDragging()" id="dragBtn">
-                                            <i class="fas fa-arrows-alt"></i> Move Design
-                                        </button>
-                                        <button type="button" class="tool-btn" onclick="resizeDesign(1.1)">
-                                            <i class="fas fa-search-plus"></i> Enlarge
-                                        </button>
-                                        <button type="button" class="tool-btn" onclick="resizeDesign(0.9)">
-                                            <i class="fas fa-search-minus"></i> Shrink
-                                        </button>
-                                        <button type="button" class="tool-btn" onclick="resetDesignPosition()">
-                                            <i class="fas fa-redo"></i> Reset
-                                        </button>
-                                        <button type="button" class="tool-btn" onclick="toggleBoundary()" id="boundaryBtn">
-                                            <i class="fas fa-border-all"></i> Show Boundaries
-                                        </button>
-                                    </div>
+                                    <!-- Positioning Section -->
+                                    <div class="positioning-section">
+                                        <h4 class="section-title"><i class="fas fa-arrows-alt"></i> Position Your Design</h4>
 
-                                    <div class="positioning-container">
-                                        <div class="product-base-image">
-                                            <img src="<?php echo $base_image_url; ?>" alt="Product Base" id="baseImage">
-                                            <div id="designOverlay" class="design-overlay"></div>
-                                            <div id="designBoundary" class="design-boundary"></div>
+                                        <div class="view-selector">
+                                            <button type="button" class="view-btn active" id="frontViewBtn" onclick="switchView('front')">
+                                                <i class="fas fa-tshirt"></i> Front View
+                                            </button>
+                                            <?php if (!empty($back_base_image_url)): ?>
+                                                <button type="button" class="view-btn" id="backViewBtn" onclick="switchView('back')">
+                                                    <i class="fas fa-tshirt"></i> Back View
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <div class="positioning-tools">
+                                            <button type="button" class="tool-btn" onclick="enableDragging()" id="dragBtn">
+                                                <i class="fas fa-arrows-alt"></i> Move Design
+                                            </button>
+                                            <button type="button" class="tool-btn" onclick="resizeDesign(1.1)">
+                                                <i class="fas fa-search-plus"></i> Enlarge
+                                            </button>
+                                            <button type="button" class="tool-btn" onclick="resizeDesign(0.9)">
+                                                <i class="fas fa-search-minus"></i> Shrink
+                                            </button>
+                                            <button type="button" class="tool-btn" onclick="resetDesignPosition()">
+                                                <i class="fas fa-redo"></i> Reset
+                                            </button>
+                                            <button type="button" class="tool-btn" onclick="toggleBoundary()" id="boundaryBtn">
+                                                <i class="fas fa-border-all"></i> Show Boundaries
+                                            </button>
+                                        </div>
+
+                                        <div class="positioning-container">
+                                            <div class="product-base-image">
+                                                <img src="<?php echo $base_image_url; ?>" alt="Product Base" id="baseImage">
+                                                <div id="designOverlay" class="design-overlay"></div>
+                                                <div id="designBoundary" class="design-boundary"></div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div class="preview-section">
-                                    <h4 class="section-title"><i class="fas fa-eye"></i> Design Preview</h4>
-                                    <div class="preview-container">
-                                        <img src="" alt="Mockup Preview" class="mockup-preview" id="mockupPreview">
-                                        <p id="previewText" style="color: #6c757d; font-style: italic;">Upload an image to generate preview</p>
+                                    <div class="preview-section">
+                                        <h4 class="section-title"><i class="fas fa-eye"></i> Design Preview</h4>
+                                        <div class="preview-container">
+                                            <img src="" alt="Mockup Preview" class="mockup-preview" id="mockupPreview">
+                                            <p id="previewText" style="color: var(--text-light); font-style: italic;">Upload an image to generate preview</p>
+                                        </div>
+                                        <button type="button" class="btn btn-secondary" onclick="generateMockup()">
+                                            <i class="fas fa-image"></i> Generate Mockup
+                                        </button>
                                     </div>
-                                    <button type="button" class="btn btn-secondary" onclick="generateMockup()">
-                                        <i class="fas fa-image"></i> Generate Mockup
-                                    </button>
                                 </div>
+                            <?php endif; ?>
+
+                            <div class="action-buttons">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-shopping-cart"></i> Add to Cart
+                                </button>
                             </div>
-                        <?php endif; ?>
 
-                        <div class="action-buttons">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-shopping-cart"></i> Add to Cart
-                            </button>
-                        </div>
-
-                        <input type="hidden" name="design_image" id="designImageInput" value="">
-                        <input type="hidden" name="front_design_image" id="frontDesignImageInput" value="">
-                        <input type="hidden" name="back_design_image" id="backDesignImageInput" value="">
-                        <input type="hidden" name="upload_type" id="uploadTypeInput" value="single">
-                    </form>
+                            <input type="hidden" name="design_image" id="designImageInput" value="">
+                            <input type="hidden" name="front_design_image" id="frontDesignImageInput" value="">
+                            <input type="hidden" name="back_design_image" id="backDesignImageInput" value="">
+                            <input type="hidden" name="upload_type" id="uploadTypeInput" value="single">
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    </section>
 
     <!-- Mockup Popup -->
     <div class="mockup-popup" id="mockupPopup">
         <div class="mockup-container">
             <button class="close-popup" onclick="closeModal()">&times;</button>
-            <h2 style="text-align: center; color: #2c3e50; margin-bottom: 10px;">
+            <h2 style="text-align: center; color: var(--text-dark); margin-bottom: 10px;">
                 <i class="fas fa-palette"></i> Your <?php echo $product['product_name']; ?> Mockup
             </h2>
-            <p style="text-align: center; color: #6c757d; margin-bottom: 30px;">Preview your custom design</p>
+            <p style="text-align: center; color: var(--text-light); margin-bottom: 30px;">Preview your custom design</p>
 
             <div class="mockup-images">
                 <div class="mockup-image" id="frontMockupContainer">
                     <img src="" alt="Front View" id="mockupFront">
-                    <p style="margin: 15px 0; font-weight: 600; color: #2c3e50;">Front View</p>
+                    <p style="margin: 15px 0; font-weight: 600; color: var(--text-dark);">Front View</p>
                     <button class="download-btn" onclick="downloadMockup('mockupFront', 'front-design.png')">
                         <i class="fas fa-download"></i> Download
                     </button>
                 </div>
                 <div class="mockup-image" id="backMockupContainer">
                     <img src="" alt="Back View" id="mockupBack">
-                    <p style="margin: 15px 0; font-weight: 600; color: #2c3e50;">Back View</p>
+                    <p style="margin: 15px 0; font-weight: 600; color: var(--text-dark);">Back View</p>
                     <button class="download-btn" onclick="downloadMockup('mockupBack', 'back-design.png')">
                         <i class="fas fa-download"></i> Download
                     </button>
@@ -1413,6 +1371,75 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         </div>
     </div>
 
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Active Media</h3>
+                    <p>Professional printing services with quality, speed, and precision for all your business needs.</p>
+                    <div class="social-icons">
+                        <a href="#"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#"><i class="fab fa-twitter"></i></a>
+                        <a href="#"><i class="fab fa-instagram"></i></a>
+                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
+                    </div>
+                </div>
+                
+                <div class="footer-section">
+                    <h3>Services</h3>
+                    <ul>
+                        <li><a href="#offset">Offset Printing</a></li>
+                        <li><a href="#digital">Digital Printing</a></li>
+                        <li><a href="#riso">RISO Printing</a></li>
+                        <li><a href="#other">Other Services</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h3>Company</h3>
+                    <ul>
+                        <li><a href="#">About Us</a></li>
+                        <li><a href="#">Our Team</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Testimonials</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h3>Support</h3>
+                    <ul>
+                        <li><a href="#">Contact Us</a></li>
+                        <li><a href="#">FAQ</a></li>
+                        <li><a href="#">Shipping Info</a></li>
+                        <li><a href="#">Returns</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h3>Contact Info</h3>
+                    <ul class="contact-info">
+                        <li><i class="fas fa-map-marker-alt"></i> 123 Print Street, City, State 12345</li>
+                        <li><i class="fas fa-phone"></i> (123) 456-7890</li>
+                        <li><i class="fas fa-envelope"></i> info@activemedia.com</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <div class="copyright">
+                    <p>&copy; 2023 Active Media. All rights reserved.</p>
+                </div>
+                <div class="footer-links">
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                    <a href="#">Cookie Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../../assets/js/main.js"></script>
     <script>
         // Global variables
         let userDesign = null;
