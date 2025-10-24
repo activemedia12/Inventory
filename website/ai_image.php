@@ -412,6 +412,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             border-radius: 12px;
             margin-bottom: 25px;
             border: 1px solid var(--border-color);
+            display: none;
         }
 
         .api-note {
@@ -684,19 +685,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     <input type="hidden" id="style" value="">
                 </div>
 
-                <!-- API Configuration -->
-                <div class="api-config-section">
-                    <h3 class="section-title">
-                        <i class="fas fa-key"></i> API Configuration
-                    </h3>
-                    <label for="api-key">Stability AI API Key</label>
-                    <input type="password" id="api-key" placeholder="Enter your Stability AI API key">
-                    <div class="api-note">
-                        Get your free API key from <a href="https://platform.stability.ai/" target="_blank">Stability AI</a>.
-                        This will be removed when we launch our premium service.
-                    </div>
-                </div>
-
                 <!-- Generate Button -->
                 <button id="generate-btn" class="btn btn-primary">
                     <i class="fas fa-magic"></i> Generate Image
@@ -836,7 +824,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             const removeBgBtn = document.getElementById('remove-bg-btn');
             const promptInput = document.getElementById('prompt');
             const styleInput = document.getElementById('style');
-            const apiKeyInput = document.getElementById('api-key');
             const outputImage = document.getElementById('output-image');
             const placeholder = document.getElementById('placeholder');
             const loading = document.getElementById('loading');
@@ -923,18 +910,13 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             generateBtn.addEventListener('click', async function() {
                 const prompt = promptInput.value.trim();
                 const style = styleInput.value;
-                const apiKey = apiKeyInput.value.trim();
+                const apiKey = 'sk-kv3K4PjP2I6egGj8CgnaUfjDincIKv9463dpFQYZ1VxwTZck';
 
                 errorMessage.style.display = 'none';
                 successMessage.style.display = 'none';
 
                 if (!prompt) {
                     showError('Please describe the image you want to generate');
-                    return;
-                }
-
-                if (!apiKey) {
-                    showError('Please enter your Stability AI API key');
                     return;
                 }
 
