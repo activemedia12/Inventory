@@ -26,52 +26,90 @@ $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];
 $types = 'ss';
 
 // Get sales report data
+// Get sales report data
 if ($report_type === 'sales') {
-    // Total sales
+    // Debug: Check what dates are being used
+    error_log("Date range: $start_date to $end_date");
+    
+    // Total sales with COALESCE to handle NULL values
     $sales_query = "SELECT 
         COUNT(*) as total_orders,
-        SUM(total_amount) as total_revenue,
-        AVG(total_amount) as avg_order_value,
+        COALESCE(SUM(total_amount), 0) as total_revenue,
+        COALESCE(AVG(total_amount), 0) as avg_order_value,
         COUNT(DISTINCT user_id) as unique_customers
         FROM orders o
-        WHERE $date_condition AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')";
+        WHERE o.created_at BETWEEN ? AND ? 
+        AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed', 'pending')";
     
     $sales_stmt = $inventory->prepare($sales_query);
-    $sales_stmt->bind_param($types, ...$params);
+    
+    // Format dates properly for MySQL
+    $start_datetime = $start_date . ' 00:00:00';
+    $end_datetime = $end_date . ' 23:59:59';
+    
+    $sales_stmt->bind_param('ss', $start_datetime, $end_datetime);
     $sales_stmt->execute();
-    $sales_data = $sales_stmt->get_result()->fetch_assoc();
+    $sales_result = $sales_stmt->get_result();
+    
+    if ($sales_result) {
+        $sales_data = $sales_result->fetch_assoc();
+        
+        // Debug output (remove in production)
+        echo "<!-- Sales Data: " . print_r($sales_data, true) . " -->";
+        
+        // Ensure we have values even if NULL
+        $sales_data = [
+            'total_orders' => $sales_data['total_orders'] ?? 0,
+            'total_revenue' => $sales_data['total_revenue'] ?? 0,
+            'avg_order_value' => $sales_data['avg_order_value'] ?? 0,
+            'unique_customers' => $sales_data['unique_customers'] ?? 0
+        ];
+    } else {
+        // Handle query error
+        $sales_data = [
+            'total_orders' => 0,
+            'total_revenue' => 0,
+            'avg_order_value' => 0,
+            'unique_customers' => 0
+        ];
+        echo "<!-- Query Error: " . $sales_stmt->error . " -->";
+    }
     
     // Daily sales trend
     $daily_sales_query = "SELECT 
         DATE(o.created_at) as date,
         COUNT(*) as order_count,
-        SUM(o.total_amount) as daily_revenue
+        COALESCE(SUM(o.total_amount), 0) as daily_revenue
         FROM orders o
-        WHERE $date_condition AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+        WHERE o.created_at BETWEEN ? AND ? 
+        AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed', 'pending')
         GROUP BY DATE(o.created_at)
         ORDER BY date";
         
     $daily_sales_stmt = $inventory->prepare($daily_sales_query);
-    $daily_sales_stmt->bind_param($types, ...$params);
+    $daily_sales_stmt->bind_param('ss', $start_datetime, $end_datetime);
     $daily_sales_stmt->execute();
-    $daily_sales = $daily_sales_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $daily_sales_result = $daily_sales_stmt->get_result();
+    $daily_sales = $daily_sales_result ? $daily_sales_result->fetch_all(MYSQLI_ASSOC) : [];
     
     // Top products
     $top_products_query = "SELECT 
         oi.product_name,
-        SUM(oi.quantity) as total_sold,
-        SUM(oi.quantity * oi.unit_price) as total_revenue
+        COALESCE(SUM(oi.quantity), 0) as total_sold,
+        COALESCE(SUM(oi.quantity * oi.unit_price), 0) as total_revenue
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.order_id
-        WHERE $date_condition AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+        WHERE o.created_at BETWEEN ? AND ? 
+        AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed', 'pending')
         GROUP BY oi.product_name
         ORDER BY total_sold DESC
         LIMIT 10";
     
     $top_products_stmt = $inventory->prepare($top_products_query);
-    $top_products_stmt->bind_param($types, ...$params);
+    $top_products_stmt->bind_param('ss', $start_datetime, $end_datetime);
     $top_products_stmt->execute();
-    $top_products = $top_products_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $top_products_result = $top_products_stmt->get_result();
+    $top_products = $top_products_result ? $top_products_result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
 // Get customer report data
@@ -79,19 +117,28 @@ if ($report_type === 'customers') {
     // Customer statistics
     $customer_stats_query = "SELECT 
         COUNT(DISTINCT co.user_id) as active_customers,
-        AVG(co.order_count) as avg_orders_per_customer,
-        AVG(co.total_spent) as avg_customer_value
+        COALESCE(AVG(co.order_count), 0) as avg_orders_per_customer,
+        COALESCE(AVG(co.total_spent), 0) as avg_customer_value
         FROM (
-            SELECT user_id, COUNT(*) as order_count, SUM(total_amount) as total_spent
+            SELECT user_id, COUNT(*) as order_count, COALESCE(SUM(total_amount), 0) as total_spent
             FROM orders o
-            WHERE $date_condition AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+            WHERE o.created_at BETWEEN ? AND ? 
+            AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed', 'pending')
             GROUP BY user_id
         ) as co";
     
+    $start_datetime = $start_date . ' 00:00:00';
+    $end_datetime = $end_date . ' 23:59:59';
+    
     $customer_stats_stmt = $inventory->prepare($customer_stats_query);
-    $customer_stats_stmt->bind_param($types, ...$params);
+    $customer_stats_stmt->bind_param('ss', $start_datetime, $end_datetime);
     $customer_stats_stmt->execute();
-    $customer_stats = $customer_stats_stmt->get_result()->fetch_assoc();
+    $customer_stats_result = $customer_stats_stmt->get_result();
+    $customer_stats = $customer_stats_result ? $customer_stats_result->fetch_assoc() : [
+        'active_customers' => 0,
+        'avg_orders_per_customer' => 0,
+        'avg_customer_value' => 0
+    ];
     
     // Top customers
     $top_customers_query = "SELECT 
@@ -175,6 +222,9 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reports & Analytics - Active Media</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -193,7 +243,7 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Poppins', sans-serif;
         }
         
         body {
@@ -266,14 +316,14 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
         .main-content {
             flex: 1;
             padding: 20px;
-            background: #f8f9fa;
+            background: #f0f2f5;
         }
 
         .header {
             background: white;
             padding: 25px;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             margin-bottom: 25px;
             display: flex;
             justify-content: space-between;
@@ -343,7 +393,7 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
             background: white;
             padding: 25px;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             margin-bottom: 25px;
         }
 
@@ -430,7 +480,7 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
             background: white;
             padding: 25px;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             text-align: center;
             transition: transform 0.3s;
         }
@@ -472,7 +522,7 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
             background: white;
             padding: 25px;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         }
 
         .chart-title {
@@ -487,7 +537,7 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
             background: white;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             margin-bottom: 25px;
         }
 

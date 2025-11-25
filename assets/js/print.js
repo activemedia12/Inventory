@@ -70,7 +70,7 @@
         </head>
         <body>
           <div class="form-template">
-            <img src="../assets/images/jo.jpg" alt="Job Order Form Template" />
+            <img src="../assets/images/jo2.jpg" alt="Job Order Form Template" />
             <div class="field job-order-date">${jobOrderDate}</div>
             <div class="field client-name">${order.client_name || ''}</div>
             <div class="field address">${order.client_address || ''}</div>

@@ -45,6 +45,9 @@ while ($row = $orders_result->fetch_assoc()) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Order Management - Active Media</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         ::-webkit-scrollbar {
@@ -61,7 +64,7 @@ while ($row = $orders_result->fetch_assoc()) {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Poppins', sans-serif;
         }
         
         body {
@@ -134,14 +137,14 @@ while ($row = $orders_result->fetch_assoc()) {
         .main-content {
             flex: 1;
             padding: 20px;
-            background: #f8f9fa;
+            background: #f0f2f5;
         }
 
         .header {
             background: white;
             padding: 25px;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             margin-bottom: 25px;
             display: flex;
             justify-content: space-between;
@@ -200,7 +203,7 @@ while ($row = $orders_result->fetch_assoc()) {
             background: white;
             padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             margin-bottom: 25px;
             display: flex;
             gap: 15px;
@@ -238,7 +241,7 @@ while ($row = $orders_result->fetch_assoc()) {
             background: white;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         }
 
         .table {
