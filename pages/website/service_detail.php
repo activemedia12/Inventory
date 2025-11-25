@@ -408,23 +408,24 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         
         .thumbnail-container {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             margin-bottom: 25px;
             flex-wrap: wrap;
+            justify-content: center;
         }
-        
+
         .thumbnail {
-            width: 80px;
-            height: 80px;
+            width: 70px;
+            height: 70px;
             object-fit: cover;
             border-radius: 8px;
             cursor: pointer;
             border: 3px solid transparent;
             transition: var(--transition);
             background: var(--bg-light);
-            padding: 5px;
+            padding: 2px;
         }
-        
+
         .thumbnail:hover,
         .thumbnail.active {
             border-color: var(--primary-color);
@@ -878,6 +879,140 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             accent-color: var(--primary-color);
         }
 
+        /* Design Areas Layout */
+        .design-areas {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .design-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 25px;
+            transition: all 0.3s ease;
+            background: var(--bg-light);
+        }
+
+        .design-area.has-design {
+            border-color: var(--primary-color);
+            border-style: solid;
+            background: rgba(44, 90, 160, 0.05);
+        }
+
+        .design-area-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            color: var(--text-dark);
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .design-status {
+            font-size: 0.9em;
+            font-weight: normal;
+            color: var(--text-light);
+        }
+
+        .design-upload-container {
+            text-align: center;
+        }
+
+        .upload-zone {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--primary-color);
+            background: rgba(44, 90, 160, 0.05);
+        }
+
+        .upload-zone i {
+            font-size: 2.5em;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-dark);
+        }
+
+        .upload-hint {
+            color: var(--text-light);
+            font-size: 0.9em;
+        }
+
+        .design-preview {
+            display: none;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .design-preview img {
+            max-width: 100%;
+            max-height: 150px;
+            border-radius: 8px;
+            border: 2px solid var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .design-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .btn-remove-design {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .btn-remove-design:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        /* Design Type Indicator */
+        .design-type-indicator {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .design-type-indicator i {
+            color: var(--primary-color);
+            font-size: 1.2em;
+        }
+
+        #designTypeText {
+            color: var(--text-dark);
+            font-weight: 500;
+        }
+
         @media (max-width: 768px) {
             .product-detail {
                 flex-direction: column;
@@ -885,6 +1020,11 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             
             .product-gallery {
                 max-width: 100%;
+            }
+            
+            .thumbnail {
+                width: 60px;
+                height: 60px;
             }
             
             .main-image {
@@ -923,6 +1063,19 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                 flex-direction: column;
                 gap: 10px;
             }
+
+            .design-areas {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .design-area {
+                padding: 20px;
+            }
+            
+            .upload-zone {
+                padding: 20px;
+            }
         }
 
         @media (max-width: 576px) {
@@ -942,13 +1095,17 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                 padding: 20px;
             }
             
+            .thumbnail {
+                width: 50px;
+                height: 50px;
+            }
+            
             .main-image {
                 height: 280px;
             }
-            
-            .thumbnail {
-                width: 60px;
-                height: 60px;
+
+            .thumbnail-container {
+                gap: 8px;
             }
         }
     </style>
@@ -1002,22 +1159,46 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                     <div class="product-gallery">
                         <!-- Show product images in gallery -->
                         <?php
-                        $product_image_path = "../../assets/images/services/service-" . $product['id'] . ".jpg";
-                        $product_image_url = file_exists($product_image_path) ? $product_image_path : "https://via.placeholder.com/500x500/2c5aa0/ffffff?text=Product+Image";
-                        $product_back_image_path = "../../assets/images/services/service-" . $product['id'] . "-1.jpg";
-                        $product_back_image_url = file_exists($product_back_image_path) ? $product_back_image_path : "";
+                        // Array to store all product images
+                        $product_images = [];
+                        
+                        // Check for up to 5 product images
+                        for ($i = 0; $i < 5; $i++) {
+                            $suffix = $i > 0 ? '-' . $i : '';
+                            $image_path = "../../assets/images/services/service-" . $product['id'] . $suffix . ".jpg";
+                            
+                            if (file_exists($image_path)) {
+                                $product_images[] = [
+                                    'path' => $image_path,
+                                    'alt' => $product['product_name'] . ($i > 0 ? ' - View ' . ($i + 1) : ''),
+                                    'index' => $i
+                                ];
+                            }
+                        }
+                        
+                        // If no images found, use placeholder
+                        if (empty($product_images)) {
+                            $product_images[] = [
+                                'path' => "https://via.placeholder.com/500x500/2c5aa0/ffffff?text=Product+Image",
+                                'alt' => $product['product_name'],
+                                'index' => 0
+                            ];
+                        }
+                        
+                        // Main image (first one)
+                        $main_image = $product_images[0];
                         ?>
-                        <img src="<?php echo $product_image_url; ?>" alt="<?php echo $product['product_name']; ?>" class="main-image" id="mainImage">
+                        
+                        <img src="<?php echo $main_image['path']; ?>" alt="<?php echo $main_image['alt']; ?>" class="main-image" id="mainImage">
 
                         <div class="thumbnail-container">
-                            <img src="<?php echo $product_image_url; ?>"
-                                alt="Thumbnail 1" class="thumbnail active" onclick="changeImage(this, 'front')">
-                            <?php if (!empty($product_back_image_url)): ?>
-                                <img src="<?php echo $product_back_image_url; ?>"
-                                    alt="Thumbnail 2" class="thumbnail" onclick="changeImage(this, 'back')">
-                            <?php endif; ?>
-                            <img src="../../assets/images/services/service-<?php echo $product['id']; ?>-2.jpg"
-                                alt="Thumbnail 3" class="thumbnail" onclick="changeImage(this, 'front')">
+                            <?php foreach ($product_images as $index => $image): ?>
+                                <img src="<?php echo $image['path']; ?>"
+                                    alt="Thumbnail <?php echo $index + 1; ?>" 
+                                    class="thumbnail <?php echo $index === 0 ? 'active' : ''; ?>" 
+                                    onclick="changeImage(this, <?php echo $index; ?>)"
+                                    data-image-index="<?php echo $index; ?>">
+                            <?php endforeach; ?>
                         </div>
                     </div>
 
@@ -1196,70 +1377,68 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                                 <div class="customization-section">
                                     <h3 class="section-title"><i class="fas fa-paint-brush"></i> Customize Your Product</h3>
 
-                                    <!-- Upload Type Selection -->
-                                    <div class="upload-type-section" style="margin-bottom: 25px;">
-                                        <h4 class="section-title" style="font-size: 1.1em;"><i class="fas fa-upload"></i> Upload Type</h4>
-                                        <div class="upload-type-buttons">
-                                            <label>
-                                                <input type="radio" name="upload_type" value="single" checked onchange="handleUploadTypeChange()">
-                                                <span>Same Design for Front & Back</span>
-                                            </label>
-                                            <label>
-                                                <input type="radio" name="upload_type" value="separate" onchange="handleUploadTypeChange()">
-                                                <span>Different Designs for Front & Back</span>
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    <!-- Single Image Upload (Default) -->
-                                    <div class="image-upload-section" id="singleUploadSection">
-                                        <label for="designUpload" class="upload-btn required-field">
-                                            <i class="fas fa-upload"></i> Choose Design Image (for both sides)
-                                        </label>
-                                        <input type="file" id="designUpload" name="design_upload" accept="image/*" style="display: none;">
-                                        <div class="upload-preview" id="uploadPreview">
-                                            <img src="" alt="Uploaded design" class="uploaded-image" id="uploadedImage">
-                                            <button type="button" class="btn btn-secondary" onclick="removeUploadedImage()">
-                                                <i class="fas fa-times"></i> Remove Image
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <!-- Separate Image Upload (Hidden by default) -->
-                                    <div class="separate-upload-section" id="separateUploadSection" style="display: none;">
-                                        <div class="front-upload" style="margin-bottom: 20px;">
-                                            <h5 style="margin-bottom: 10px; color: var(--text-dark);">
+                                    <!-- Design Areas - Always show both front and back areas -->
+                                    <div class="design-areas">
+                                        <!-- Front Design Area -->
+                                        <div class="design-area front-design" id="frontDesignArea">
+                                            <h4 class="design-area-title">
                                                 <i class="fas fa-tshirt"></i> Front Design
-                                            </h5>
-                                            <label for="frontDesignUpload" class="upload-btn required-field">
-                                                <i class="fas fa-upload"></i> Choose Front Design
-                                            </label>
-                                            <input type="file" id="frontDesignUpload" name="front_design_upload" accept="image/*" style="display: none;">
-                                            <div class="upload-preview" id="frontUploadPreview">
-                                                <img src="" alt="Front design" class="uploaded-image" id="frontUploadedImage">
-                                                <button type="button" class="btn btn-secondary" onclick="removeFrontUploadedImage()">
-                                                    <i class="fas fa-times"></i> Remove Front Image
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <?php if (!empty($back_base_image_url)): ?>
-                                            <div class="back-upload">
-                                                <h5 style="margin-bottom: 10px; color: var(--text-dark);">
-                                                    <i class="fas fa-tshirt"></i> Back Design
-                                                </h5>
-                                                <label for="backDesignUpload" class="upload-btn required-field">
-                                                    <i class="fas fa-upload"></i> Choose Back Design
+                                                <span class="design-status" id="frontDesignStatus">(Not uploaded)</span>
+                                            </h4>
+                                            
+                                            <div class="design-upload-container">
+                                                <label class="upload-zone" id="frontUploadZone">
+                                                    <input type="file" id="frontDesignUpload" name="front_design_upload" accept="image/*" hidden 
+                                                        onchange="handleDesignUpload(this, 'front')">
+                                                    <i class="fas fa-cloud-upload-alt"></i>
+                                                    <span class="upload-text">Upload Front Design</span>
+                                                    <small class="upload-hint">JPG, PNG, GIF (Max 5MB)</small>
                                                 </label>
-                                                <input type="file" id="backDesignUpload" name="back_design_upload" accept="image/*" style="display: none;">
-                                                <div class="upload-preview" id="backUploadPreview">
-                                                    <img src="" alt="Back design" class="uploaded-image" id="backUploadedImage">
-                                                    <button type="button" class="btn btn-secondary" onclick="removeBackUploadedImage()">
-                                                        <i class="fas fa-times"></i> Remove Back Image
-                                                    </button>
+                                                
+                                                <div class="design-preview" id="frontDesignPreview">
+                                                    <img src="" alt="Front Design Preview" id="frontPreviewImage">
+                                                    <div class="design-actions">
+                                                        <button type="button" class="btn-remove-design" onclick="removeDesign('front')">
+                                                            <i class="fas fa-trash"></i> Remove
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        <?php endif; ?>
+                                        </div>
+
+                                        <!-- Back Design Area -->
+                                        <div class="design-area back-design" id="backDesignArea" 
+                                            style="<?php echo empty($back_base_image_url) ? 'display: none;' : ''; ?>">
+                                            <h4 class="design-area-title">
+                                                <i class="fas fa-tshirt"></i> Back Design
+                                                <span class="design-status" id="backDesignStatus">(Not uploaded)</span>
+                                            </h4>
+                                            
+                                            <div class="design-upload-container">
+                                                <label class="upload-zone" id="backUploadZone">
+                                                    <input type="file" id="backDesignUpload" name="back_design_upload" accept="image/*" hidden 
+                                                        onchange="handleDesignUpload(this, 'back')">
+                                                    <i class="fas fa-cloud-upload-alt"></i>
+                                                    <span class="upload-text">Upload Back Design</span>
+                                                    <small class="upload-hint">JPG, PNG, GIF (Max 5MB)</small>
+                                                </label>
+                                                
+                                                <div class="design-preview" id="backDesignPreview">
+                                                    <img src="" alt="Back Design Preview" id="backPreviewImage">
+                                                    <div class="design-actions">
+                                                        <button type="button" class="btn-remove-design" onclick="removeDesign('back')">
+                                                            <i class="fas fa-trash"></i> Remove
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Auto-determined design type indicator -->
+                                    <div class="design-type-indicator" id="designTypeIndicator">
+                                        <i class="fas fa-info-circle"></i>
+                                        <span id="designTypeText">Upload designs to see customization type</span>
                                     </div>
 
                                     <!-- Positioning Section -->
@@ -1441,16 +1620,15 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
     <script src="../../assets/js/main.js"></script>
     <script>
-        // Global variables
-        let userDesign = null;
-        let frontUserDesign = null;
-        let backUserDesign = null;
+        // Global variables for the new design system
+        let frontDesign = null;
+        let backDesign = null;
         let currentMockup = null;
         let backMockup = null;
         let isDraggingEnabled = false;
         let currentDesign = null;
         let currentView = 'front';
-        let currentUploadType = 'single';
+        let currentUploadType = 'none'; // 'front_only', 'back_only', 'both_sides'
         let frontDesignPosition = {
             x: 100,
             y: 100,
@@ -1479,28 +1657,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            // Setup design upload listeners
-            document.getElementById('designUpload').addEventListener('change', function(e) {
-                handleSingleDesignUpload(e);
-            });
-
-            // Front design upload
-            document.getElementById('frontDesignUpload').addEventListener('change', function(e) {
-                handleSeparateDesignUpload(e, 'front');
-            });
-
-            // Back design upload
-            document.getElementById('backDesignUpload').addEventListener('change', function(e) {
-                handleSeparateDesignUpload(e, 'back');
-            });
-
-            // Close popup when clicking outside
-            window.addEventListener('click', function(event) {
-                if (event.target === document.getElementById('mockupPopup')) {
-                    closeModal();
-                }
-            });
-
             // Calculate the image boundary for the initial product image
             const baseImage = document.getElementById('baseImage');
             baseImage.onload = function() {
@@ -1514,7 +1670,209 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             setTimeout(() => {
                 autoSelectFirstOptions();
             }, 100);
+
+            // Close popup when clicking outside
+            window.addEventListener('click', function(event) {
+                if (event.target === document.getElementById('mockupPopup')) {
+                    closeModal();
+                }
+            });
+
+            // Setup canvas quality
+            if (window.HTMLCanvasElement) {
+                const originalGetContext = HTMLCanvasElement.prototype.getContext;
+                HTMLCanvasElement.prototype.getContext = function() {
+                    const context = originalGetContext.apply(this, arguments);
+                    if (context && context.imageSmoothingEnabled !== undefined) {
+                        context.imageSmoothingEnabled = true;
+                        context.imageSmoothingQuality = 'high';
+                    }
+                    return context;
+                };
+            }
+
+            // Check for AI-generated design on page load
+            checkForAIDesign();
         });
+
+        // Check for AI-generated design on page load
+        function checkForAIDesign() {
+            const aiDesign = sessionStorage.getItem('aiGeneratedDesign');
+            const aiProductId = sessionStorage.getItem('aiDesignProductId');
+            const aiPlacement = sessionStorage.getItem('aiDesignPlacement');
+            const currentProductId = <?php echo $product_id; ?>;
+            const urlParams = new URLSearchParams(window.location.search);
+            const aiDesignParam = urlParams.get('ai_design');
+            
+            console.log('Checking for AI design:', {
+                hasDesign: !!aiDesign,
+                aiProductId: aiProductId,
+                currentProductId: currentProductId,
+                aiDesignParam: aiDesignParam
+            });
+            
+            if (aiDesign && aiProductId && aiProductId == currentProductId && aiDesignParam === '1') {
+                console.log('Auto-populating AI design for product:', currentProductId);
+                autoPopulateAIDesign(aiDesign);
+                
+                // Clear the session storage
+                sessionStorage.removeItem('aiGeneratedDesign');
+                sessionStorage.removeItem('aiDesignProductId');
+                sessionStorage.removeItem('aiDesignPlacement');
+                sessionStorage.removeItem('aiDesignTimestamp');
+                
+                // Remove the ai_design parameter from URL without reloading
+                const newUrl = window.location.pathname + '?id=' + currentProductId;
+                window.history.replaceState({}, '', newUrl);
+            }
+        }
+
+        // Handle design upload for both front and back
+        function handleDesignUpload(input, side) {
+            const file = input.files[0];
+            if (!file) return;
+
+            // Validate file size (5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size too large. Maximum size is 5MB.');
+                input.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const previewId = side + 'PreviewImage';
+                const previewContainer = side + 'DesignPreview';
+                const statusId = side + 'DesignStatus';
+                const designArea = side + 'DesignArea';
+
+                // Update preview
+                document.getElementById(previewId).src = event.target.result;
+                document.getElementById(previewContainer).style.display = 'block';
+                
+                // Update status and area styling
+                document.getElementById(statusId).textContent = '(Uploaded)';
+                document.getElementById(statusId).style.color = '#28a745';
+                document.getElementById(designArea).classList.add('has-design');
+
+                // Hide upload zone
+                document.getElementById(side + 'UploadZone').style.display = 'none';
+
+                // Store design
+                if (side === 'front') {
+                    frontDesign = new Image();
+                    frontDesign.src = event.target.result;
+                    frontDesign.onload = function() {
+                        if (currentView === 'front') {
+                            initDesignOverlay(event.target.result);
+                        }
+                        calculateImageBoundary();
+                        updateDesignType();
+                        updatePreview();
+                    };
+                } else {
+                    backDesign = new Image();
+                    backDesign.src = event.target.result;
+                    backDesign.onload = function() {
+                        if (currentView === 'back') {
+                            initDesignOverlay(event.target.result);
+                        }
+                        calculateImageBoundary();
+                        updateDesignType();
+                        updatePreview();
+                    };
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Remove design
+        function removeDesign(side) {
+            const inputId = side + 'DesignUpload';
+            const previewContainer = side + 'DesignPreview';
+            const statusId = side + 'DesignStatus';
+            const designArea = side + 'DesignArea';
+            const uploadZone = side + 'UploadZone';
+
+            // Reset input
+            document.getElementById(inputId).value = '';
+            
+            // Hide preview and show upload zone
+            document.getElementById(previewContainer).style.display = 'none';
+            document.getElementById(uploadZone).style.display = 'flex';
+            
+            // Update status and styling
+            document.getElementById(statusId).textContent = '(Not uploaded)';
+            document.getElementById(statusId).style.color = '';
+            document.getElementById(designArea).classList.remove('has-design');
+
+            // Clear design data
+            if (side === 'front') {
+                frontDesign = null;
+                if (currentView === 'front') {
+                    resetDesignOverlay();
+                }
+            } else {
+                backDesign = null;
+                if (currentView === 'back') {
+                    resetDesignOverlay();
+                }
+            }
+
+            updateDesignType();
+            updatePreview();
+        }
+
+        // Automatically determine design type based on uploaded designs
+        function updateDesignType() {
+            const hasFront = frontDesign !== null;
+            const hasBack = backDesign !== null;
+            const hasBackTemplate = backImageUrl !== '';
+
+            let designType = 'none';
+            let designTypeText = '';
+
+            if (hasFront && !hasBack) {
+                designType = 'front_only';
+                designTypeText = 'Front Only Design - The back will be plain';
+            } else if (!hasFront && hasBack) {
+                designType = 'back_only';
+                designTypeText = 'Back Only Design - The front will be plain';
+            } else if (hasFront && hasBack) {
+                designType = 'both_sides';
+                designTypeText = 'Both Sides Design - Front and back will have different designs';
+            } else {
+                designTypeText = 'Upload designs to see customization type';
+            }
+
+            // Add note about mockup preview
+            if (hasFront || hasBack) {
+                designTypeText += ' (Both sides will be shown in mockup preview)';
+            }
+
+            currentUploadType = designType;
+            document.getElementById('designTypeText').textContent = designTypeText;
+            document.getElementById('uploadTypeInput').value = designType;
+        }
+
+        // Update preview based on current view and available designs
+        function updatePreview() {
+            const previewText = document.getElementById('previewText');
+            const mockupPreview = document.getElementById('mockupPreview');
+
+            if (currentView === 'front' && frontDesign) {
+                previewText.style.display = 'none';
+                mockupPreview.style.display = 'block';
+                mockupPreview.src = frontDesign.src;
+            } else if (currentView === 'back' && backDesign) {
+                previewText.style.display = 'none';
+                mockupPreview.style.display = 'block';
+                mockupPreview.src = backDesign.src;
+            } else {
+                previewText.style.display = 'block';
+                mockupPreview.style.display = 'none';
+            }
+        }
 
         // Auto-select first option for each button group
         function autoSelectFirstOptions() {
@@ -1605,155 +1963,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             handleLayoutOptionChange();
         }
 
-        // Handle upload type change
-        function handleUploadTypeChange() {
-            const uploadType = document.querySelector('input[name="upload_type"]:checked').value;
-            currentUploadType = uploadType;
-            document.getElementById('uploadTypeInput').value = uploadType;
-
-            if (uploadType === 'single') {
-                document.getElementById('singleUploadSection').style.display = 'block';
-                document.getElementById('separateUploadSection').style.display = 'none';
-                // Reset separate uploads when switching to single
-                removeFrontUploadedImage();
-                removeBackUploadedImage();
-                // Switch to front view
-                switchView('front');
-            } else {
-                document.getElementById('singleUploadSection').style.display = 'none';
-                document.getElementById('separateUploadSection').style.display = 'block';
-                // Reset single upload when switching to separate
-                removeUploadedImage();
-            }
-        }
-
-        // Handle single design upload with quality preservation
-        function handleSingleDesignUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                document.getElementById('uploadedImage').src = event.target.result;
-                document.getElementById('uploadPreview').style.display = 'block';
-                
-                // Create a high-quality image object
-                userDesign = new Image();
-                userDesign.onload = function() {
-                    console.log('Original image dimensions:', userDesign.width, 'x', userDesign.height);
-                    
-                    // Initialize the design overlay with the uploaded image
-                    initDesignOverlay(event.target.result);
-                    
-                    document.getElementById('previewText').style.display = 'none';
-                    document.getElementById('mockupPreview').style.display = 'block';
-                    document.getElementById('mockupPreview').src = event.target.result;
-                    
-                    // Calculate the image boundary after the image is loaded
-                    calculateImageBoundary();
-                };
-                userDesign.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-
-        // Handle separate design upload
-        function handleSeparateDesignUpload(e, side) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const previewId = side + 'UploadPreview';
-                const imageId = side + 'UploadedImage';
-
-                document.getElementById(imageId).src = event.target.result;
-                document.getElementById(previewId).style.display = 'block';
-
-                // Store the design
-                if (side === 'front') {
-                    frontUserDesign = new Image();
-                    frontUserDesign.src = event.target.result;
-                    frontUserDesign.onload = function() {
-                        // If we're currently viewing front, update the overlay
-                        if (currentView === 'front') {
-                            initDesignOverlay(event.target.result);
-                        }
-                        calculateImageBoundary();
-                        updatePreviewForSeparateDesigns();
-                    };
-                } else {
-                    backUserDesign = new Image();
-                    backUserDesign.src = event.target.result;
-                    backUserDesign.onload = function() {
-                        // If we're currently viewing back, update the overlay
-                        if (currentView === 'back') {
-                            initDesignOverlay(event.target.result);
-                        }
-                        calculateImageBoundary();
-                        updatePreviewForSeparateDesigns();
-                    };
-                }
-            };
-            reader.readAsDataURL(file);
-        }
-
-        // Update preview for separate designs
-        function updatePreviewForSeparateDesigns() {
-            const previewText = document.getElementById('previewText');
-            const mockupPreview = document.getElementById('mockupPreview');
-
-            if (currentView === 'front' && frontUserDesign) {
-                previewText.style.display = 'none';
-                mockupPreview.style.display = 'block';
-                mockupPreview.src = frontUserDesign.src;
-            } else if (currentView === 'back' && backUserDesign) {
-                previewText.style.display = 'none';
-                mockupPreview.style.display = 'block';
-                mockupPreview.src = backUserDesign.src;
-            } else {
-                previewText.style.display = 'block';
-                mockupPreview.style.display = 'none';
-            }
-        }
-
-        // Remove functions for separate designs
-        function removeFrontUploadedImage() {
-            document.getElementById('frontDesignUpload').value = '';
-            document.getElementById('frontUploadPreview').style.display = 'none';
-            frontUserDesign = null;
-            resetDesignOverlay();
-            updatePreviewForSeparateDesigns();
-        }
-
-        function removeBackUploadedImage() {
-            document.getElementById('backDesignUpload').value = '';
-            document.getElementById('backUploadPreview').style.display = 'none';
-            backUserDesign = null;
-            resetDesignOverlay();
-            updatePreviewForSeparateDesigns();
-        }
-
-        // Update the existing remove function
-        function removeUploadedImage() {
-            document.getElementById('designUpload').value = '';
-            document.getElementById('uploadPreview').style.display = 'none';
-            document.getElementById('previewText').style.display = 'block';
-            document.getElementById('mockupPreview').style.display = 'none';
-            userDesign = null;
-            resetDesignOverlay();
-        }
-
-        // Helper function to reset design overlay
-        function resetDesignOverlay() {
-            const overlay = document.getElementById('designOverlay');
-            overlay.innerHTML = '';
-            currentDesign = null;
-            isDraggingEnabled = false;
-            document.getElementById('dragBtn').innerHTML = '<i class="fas fa-arrows-alt"></i> Move Design';
-            document.getElementById('dragBtn').style.background = '#6c757d';
-        }
-
         // Switch between front and back views
         function switchView(view) {
             // Only allow switching to back view if back image exists
@@ -1768,7 +1977,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             document.getElementById('frontViewBtn').classList.toggle('active', view === 'front');
             document.getElementById('backViewBtn').classList.toggle('active', view === 'back');
 
-            // Change the base image to use base template, not product image
+            // Change the base image
             const baseImage = document.getElementById('baseImage');
             if (view === 'front') {
                 baseImage.src = frontImageUrl;
@@ -1776,25 +1985,16 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                 baseImage.src = backImageUrl;
             }
 
-            // Reinitialize design overlay for the current view based on upload type
-            if (currentUploadType === 'single' && userDesign) {
-                initDesignOverlay(userDesign.src);
-            } else if (currentUploadType === 'separate') {
-                if (view === 'front' && frontUserDesign) {
-                    initDesignOverlay(frontUserDesign.src);
-                } else if (view === 'back' && backUserDesign) {
-                    initDesignOverlay(backUserDesign.src);
-                } else {
-                    resetDesignOverlay();
-                }
+            // Reinitialize design overlay for the current view
+            if (view === 'front' && frontDesign) {
+                initDesignOverlay(frontDesign.src);
+            } else if (view === 'back' && backDesign) {
+                initDesignOverlay(backDesign.src);
             } else {
                 resetDesignOverlay();
             }
 
-            // Update preview
-            updatePreviewForSeparateDesigns();
-
-            // Recalculate boundaries
+            updatePreview();
             setTimeout(calculateImageBoundary, 100);
         }
 
@@ -1870,17 +2070,18 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             }
         }
 
-        // Change main image when thumbnail is clicked (gallery only)
-        function changeImage(element, view) {
-            // Only update the gallery image, NOT the base image
+        // Change main image when thumbnail is clicked
+        function changeImage(element, imageIndex) {
+            // Update main image
             document.getElementById('mainImage').src = element.src;
+            
+            // Update active thumbnail
             document.querySelectorAll('.thumbnail').forEach(thumb => {
                 thumb.classList.remove('active');
             });
             element.classList.add('active');
-
+            
             // Don't change the base image - it should stay as the template
-            // The base image should only show the template for positioning
         }
 
         // Quantity controls
@@ -1898,20 +2099,11 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
         // Enable/disable dragging
         function enableDragging() {
-            if (currentUploadType === 'single' && !userDesign) {
-                alert('Please upload a design image first!');
+            const hasDesign = (currentView === 'front' && frontDesign) || (currentView === 'back' && backDesign);
+            
+            if (!hasDesign) {
+                alert(`Please upload a ${currentView} design image first!`);
                 return;
-            }
-
-            if (currentUploadType === 'separate') {
-                if (currentView === 'front' && !frontUserDesign) {
-                    alert('Please upload a front design image first!');
-                    return;
-                }
-                if (currentView === 'back' && !backUserDesign) {
-                    alert('Please upload a back design image first!');
-                    return;
-                }
             }
 
             isDraggingEnabled = !isDraggingEnabled;
@@ -1974,6 +2166,16 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             document.getElementById('dragBtn').innerHTML = '<i class="fas fa-hand-paper"></i> Dragging Enabled';
             designElement.style.cursor = 'move';
             designElement.style.pointerEvents = 'auto';
+        }
+
+        // Helper function to reset design overlay
+        function resetDesignOverlay() {
+            const overlay = document.getElementById('designOverlay');
+            overlay.innerHTML = '';
+            currentDesign = null;
+            isDraggingEnabled = false;
+            document.getElementById('dragBtn').innerHTML = '<i class="fas fa-arrows-alt"></i> Move Design';
+            document.getElementById('dragBtn').style.background = '#6c757d';
         }
 
         // Start dragging
@@ -2092,12 +2294,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
         // Resize design with buttons
         function resizeDesign(factor) {
-            if (currentUploadType === 'single' && !currentDesign) {
-                alert('Please upload a design image first!');
-                return;
-            }
-
-            if (currentUploadType === 'separate' && !currentDesign) {
+            if (!currentDesign) {
                 alert('Please upload a design image for the current view first!');
                 return;
             }
@@ -2132,12 +2329,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
         // Reset design position
         function resetDesignPosition() {
-            if (currentUploadType === 'single' && !currentDesign) {
-                alert('Please upload a design image first!');
-                return;
-            }
-
-            if (currentUploadType === 'separate' && !currentDesign) {
+            if (!currentDesign) {
                 alert('Please upload a design image for the current view first!');
                 return;
             }
@@ -2157,78 +2349,78 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
             // Save the position for the current view
             if (currentView === 'front') {
-                frontDesignPosition = {
-                    ...newPosition
-                };
+                frontDesignPosition = { ...newPosition };
             } else {
-                backDesignPosition = {
-                    ...newPosition
-                };
+                backDesignPosition = { ...newPosition };
             }
         }
 
-        // Generate mockup preview
+        // Generate mockup preview - ALWAYS show both sides if templates exist
         function generateMockup() {
-            if (currentUploadType === 'single' && !userDesign) {
-                alert('Please upload a design image first!');
+            const hasFrontDesign = frontDesign !== null;
+            const hasBackDesign = backDesign !== null;
+
+            if (!hasFrontDesign && !hasBackDesign) {
+                alert('Please upload at least one design image!');
                 return;
             }
 
-            if (currentUploadType === 'separate') {
-                if (!frontUserDesign && !backUserDesign) {
-                    alert('Please upload at least one design image!');
-                    return;
-                }
-            }
-
-            // Use base images as templates, not product images
+            // Use base images as templates
             const frontTemplate = "<?php echo $base_image_url; ?>";
             const backTemplate = "<?php echo !empty($back_base_image_url) ? $back_base_image_url : ''; ?>";
 
             // Show loading state
             document.querySelectorAll('.mockup-image').forEach(el => el.style.display = 'none');
 
-            // Generate front mockup if design exists
-            if (currentUploadType === 'single' && userDesign) {
-                generateSingleMockup(
-                    userDesign,
-                    frontTemplate,
-                    'mockupFront',
-                    'frontMockupContainer',
-                    frontDesignPosition
-                );
-            } else if (currentUploadType === 'separate' && frontUserDesign) {
-                generateSingleMockup(
-                    frontUserDesign,
-                    frontTemplate,
-                    'mockupFront',
-                    'frontMockupContainer',
-                    frontDesignPosition
-                );
+            // Reset mockups
+            currentMockup = '';
+            backMockup = '';
+
+            // ALWAYS generate front mockup if template exists
+            if (frontTemplate) {
+                if (hasFrontDesign) {
+                    // Use uploaded front design
+                    generateSingleMockup(
+                        frontDesign,
+                        frontTemplate,
+                        'mockupFront',
+                        'frontMockupContainer',
+                        frontDesignPosition,
+                        'Front View'
+                    );
+                } else {
+                    // Show front template only (no design)
+                    generateTemplateOnly(
+                        frontTemplate,
+                        'mockupFront',
+                        'frontMockupContainer',
+                        'Front View (No Design)'
+                    );
+                }
             } else {
                 document.getElementById('frontMockupContainer').style.display = 'none';
             }
 
-            // Generate back mockup if template and design exist
+            // ALWAYS generate back mockup if template exists
             if (backTemplate) {
-                if (currentUploadType === 'single' && userDesign) {
+                if (hasBackDesign) {
+                    // Use uploaded back design
                     generateSingleMockup(
-                        userDesign,
+                        backDesign,
                         backTemplate,
                         'mockupBack',
                         'backMockupContainer',
-                        backDesignPosition
-                    );
-                } else if (currentUploadType === 'separate' && backUserDesign) {
-                    generateSingleMockup(
-                        backUserDesign,
-                        backTemplate,
-                        'mockupBack',
-                        'backMockupContainer',
-                        backDesignPosition
+                        backDesignPosition,
+                        'Back View'
                     );
                 } else {
-                    document.getElementById('backMockupContainer').style.display = 'none';
+                    // Show back template only (no design)
+                    generateTemplateOnly(
+                        backTemplate,
+                        'mockupBack',
+                        'backMockupContainer',
+                        'Back View (No Design)'
+                    );
                 }
             } else {
                 document.getElementById('backMockupContainer').style.display = 'none';
@@ -2237,8 +2429,47 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             document.getElementById('mockupPopup').style.display = 'flex';
         }
 
-        // Generate single mockup by embedding design onto product template WITHOUT compression
-        function generateSingleMockup(designImage, templatePath, outputId, containerId, position) {
+        // Generate template-only view (when no design is uploaded for that side)
+        function generateTemplateOnly(templatePath, outputId, containerId, labelText) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const productTemplate = new Image();
+
+            productTemplate.src = templatePath;
+            productTemplate.onload = function() {
+                // Set canvas to high resolution
+                canvas.width = productTemplate.width;
+                canvas.height = productTemplate.height;
+                
+                // Use high-quality image rendering
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                // Draw product template only (no design overlay)
+                ctx.drawImage(productTemplate, 0, 0, canvas.width, canvas.height);
+
+                // Output the template image
+                const finalImage = canvas.toDataURL('image/png', 1.0);
+                document.getElementById(outputId).src = finalImage;
+                document.getElementById(containerId).style.display = 'block';
+                
+                // Update the label to indicate no design
+                const labelElement = document.querySelector(`#${containerId} p`);
+                if (labelElement) {
+                    labelElement.textContent = labelText;
+                }
+                
+                // Store mockup (empty for this side)
+                if (outputId === 'mockupFront') {
+                    currentMockup = '';
+                } else if (outputId === 'mockupBack') {
+                    backMockup = '';
+                }
+            };
+        }
+
+        // Generate single mockup by embedding design onto product template
+        function generateSingleMockup(designImage, templatePath, outputId, containerId, position, label) {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             const productTemplate = new Image();
@@ -2257,10 +2488,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                 ctx.drawImage(productTemplate, 0, 0, canvas.width, canvas.height);
 
                 // Calculate scale factors based on actual image dimensions, not container
-                const container = document.querySelector('.positioning-container');
-                const baseImg = document.getElementById('baseImage');
-                
-                // Get the actual displayed image dimensions within the boundary
                 const scaleX = productTemplate.width / imageBoundary.width;
                 const scaleY = productTemplate.height / imageBoundary.height;
                 
@@ -2282,6 +2509,12 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                 document.getElementById(outputId).src = finalImage;
                 document.getElementById(containerId).style.display = 'block';
                 
+                // Update the label
+                const labelElement = document.querySelector(`#${containerId} p`);
+                if (labelElement) {
+                    labelElement.textContent = label;
+                }
+                
                 // Store mockup
                 if (outputId === 'mockupFront') {
                     currentMockup = finalImage;
@@ -2299,120 +2532,100 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             link.click();
         }
 
-        // Use this design
+        // Use this design - ALWAYS save both sides
         function useThisDesign() {
-            if (currentUploadType === 'single' && currentMockup) {
-                saveBothDesigns(currentMockup, currentMockup).then(designData => {
-                    if (designData.front_mockup && designData.front_mockup !== 'error') {
-                        const completeDesignData = {
-                            front_mockup: designData.front_mockup || '',
-                            back_mockup: designData.back_mockup || '',
-                            uploaded_file: designData.uploaded_file || '',
-                            upload_type: 'single'
-                        };
+            const hasFrontDesign = frontDesign !== null;
+            const hasBackDesign = backDesign !== null;
 
-                        // Validate the JSON before storing
-                        const designDataString = JSON.stringify(completeDesignData);
-                        console.log('Single design data to save:', designDataString); // Debug
-
-                        // Store as JSON string
-                        document.getElementById('designImageInput').value = designDataString;
-                        alert('Design applied successfully! You can now add to cart.');
-                        closeModal();
-                    } else {
-                        alert('Error saving design. Please try again.');
-                    }
-                });
-            } else if (currentUploadType === 'separate') {
-                // For separate uploads, we need to ensure both mockups exist
-                if (!currentMockup && !backMockup) {
-                    alert('Please generate mockups for both front and back designs first!');
-                    return;
-                }
-
-                saveBothDesigns(
-                    currentMockup || '',
-                    backMockup || ''
-                ).then(designData => {
-                    console.log('Separate design save response:', designData); // Debug
-
-                    if ((designData.front_mockup && designData.front_mockup !== 'error') ||
-                        (designData.back_mockup && designData.back_mockup !== 'error')) {
-
-                        const completeDesignData = {
-                            front_mockup: designData.front_mockup || '',
-                            back_mockup: designData.back_mockup || '',
-                            front_uploaded_file: designData.front_uploaded_file || '',
-                            back_uploaded_file: designData.back_uploaded_file || '',
-                            upload_type: 'separate'
-                        };
-
-                        // Validate the JSON before storing
-                        const designDataString = JSON.stringify(completeDesignData);
-                        console.log('Separate design data to save:', designDataString); // Debug
-                        console.log('JSON length:', designDataString.length); // Debug
-
-                        // Store as JSON string in BOTH hidden inputs for safety
-                        document.getElementById('frontDesignImageInput').value = designDataString;
-                        document.getElementById('backDesignImageInput').value = designDataString;
-
-                        alert('Designs applied successfully! You can now add to cart.');
-                        closeModal();
-                    } else {
-                        alert('Error saving designs. Please try again.');
-                    }
-                });
+            if (!hasFrontDesign && !hasBackDesign) {
+                alert('Please generate mockups for your designs first!');
+                return;
             }
+
+            // ALWAYS save both mockups, even if one is empty
+            const frontMockupToSave = currentMockup || '';
+            const backMockupToSave = backMockup || '';
+
+            saveBothDesigns(frontMockupToSave, backMockupToSave).then(designData => {
+                console.log('Design save response:', designData);
+
+                const completeDesignData = {
+                    front_mockup: designData.front_mockup || '',
+                    back_mockup: designData.back_mockup || '',
+                    front_uploaded_file: designData.front_uploaded_file || '',
+                    back_uploaded_file: designData.back_uploaded_file || '',
+                    upload_type: currentUploadType,
+                    has_front_design: hasFrontDesign ? '1' : '0',
+                    has_back_design: hasBackDesign ? '1' : '0',
+                    front_design_position: frontDesignPosition,
+                    back_design_position: backDesignPosition
+                };
+
+                const designDataString = JSON.stringify(completeDesignData);
+                
+                // Store in hidden inputs
+                document.getElementById('designImageInput').value = designDataString;
+                document.getElementById('frontDesignImageInput').value = designDataString;
+                document.getElementById('backDesignImageInput').value = designDataString;
+
+                alert('Designs applied successfully! You can now add to cart.');
+                closeModal();
+            });
         }
 
-        // Helper function to save designs and uploaded files
+        // Helper function to save designs and uploaded files - ALWAYS save both mockups
         async function saveBothDesigns(frontImageData, backImageData) {
             try {
                 const formData = new FormData();
 
-                // Add mockup images
-                if (frontImageData) {
-                    formData.append('front_image', frontImageData);
-                }
-                if (backImageData) {
-                    formData.append('back_image', backImageData);
-                }
+                // ALWAYS send both images, even if one is empty
+                // For empty sides, we'll send a flag to create a plain mockup
+                formData.append('front_image', frontImageData || '');
+                formData.append('back_image', backImageData || '');
+                formData.append('has_front_design', frontDesign !== null ? '1' : '0');
+                formData.append('has_back_design', backDesign !== null ? '1' : '0');
 
-                // Add the actual uploaded files based on upload type
-                if (currentUploadType === 'single') {
-                    const singleUploadInput = document.getElementById('designUpload');
-                    if (singleUploadInput && singleUploadInput.files[0]) {
-                        formData.append('design_file', singleUploadInput.files[0]);
-                    }
-                } else {
-                    // For separate uploads, save both front and back files
-                    const frontUploadInput = document.getElementById('frontDesignUpload');
-                    if (frontUploadInput && frontUploadInput.files[0]) {
-                        formData.append('front_design_file', frontUploadInput.files[0]);
-                    }
-
-                    const backUploadInput = document.getElementById('backDesignUpload');
-                    if (backUploadInput && backUploadInput.files[0]) {
-                        formData.append('back_design_file', backUploadInput.files[0]);
-                    }
+                // Add the actual uploaded files (only if they exist)
+                const frontUploadInput = document.getElementById('frontDesignUpload');
+                if (frontUploadInput && frontUploadInput.files[0]) {
+                    formData.append('front_design_file', frontUploadInput.files[0]);
                 }
 
+                const backUploadInput = document.getElementById('backDesignUpload');
+                if (backUploadInput && backUploadInput.files[0]) {
+                    formData.append('back_design_file', backUploadInput.files[0]);
+                }
+
+                // Add design configuration
+                formData.append('upload_type', currentUploadType);
                 formData.append('user_id', '<?php echo isset($_SESSION['user_id']) ? $_SESSION['user_id'] : 0; ?>');
+                formData.append('product_id', '<?php echo $product_id; ?>');
 
-                console.log('Saving design data...'); // Debug
+                // Add template paths so server can generate plain mockups
+                formData.append('front_template', "<?php echo $base_image_url; ?>");
+                formData.append('back_template', "<?php echo !empty($back_base_image_url) ? $back_base_image_url : ''; ?>");
+
+                console.log('Saving design data with configuration:', {
+                    upload_type: currentUploadType,
+                    has_front: frontDesign !== null,
+                    has_back: backDesign !== null
+                });
+
                 const response = await fetch('save_design.php', {
                     method: 'POST',
                     body: formData
                 });
 
                 const result = await response.json();
-                console.log('Save design result:', result); // Debug
+                console.log('Save design result:', result);
                 return result;
             } catch (error) {
                 console.error('Error saving designs:', error);
                 return {
                     front_mockup: 'error',
-                    back_mockup: 'error'
+                    back_mockup: 'error',
+                    front_uploaded_file: 'error',
+                    back_uploaded_file: 'error'
                 };
             }
         }
@@ -2625,45 +2838,19 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
             // Validate image customization for Other Services
             <?php if ($show_image_customization): ?>
-                const uploadType = document.querySelector('input[name="upload_type"]:checked').value;
+                const hasFrontDesign = frontDesign !== null;
+                const hasBackDesign = backDesign !== null;
 
-                if (uploadType === 'single') {
-                    const designUpload = document.getElementById('designUpload');
-                    if (!designUpload || !designUpload.files.length) {
-                        isValid = false;
-                        errorMessage += '• Please upload a design image\n';
-                    }
-                } else if (uploadType === 'separate') {
-                    const frontDesignUpload = document.getElementById('frontDesignUpload');
-                    const backDesignUpload = document.getElementById('backDesignUpload');
-
-                    if (!frontDesignUpload || !frontDesignUpload.files.length) {
-                        isValid = false;
-                        errorMessage += '• Please upload a front design image\n';
-                    }
-
-                    <?php if (!empty($back_base_image_url)): ?>
-                        if (!backDesignUpload || !backDesignUpload.files.length) {
-                            isValid = false;
-                            errorMessage += '• Please upload a back design image\n';
-                        }
-                    <?php endif; ?>
+                if (!hasFrontDesign && !hasBackDesign) {
+                    isValid = false;
+                    errorMessage += '• Please upload at least one design image\n';
                 }
 
-                // Check if design was applied (mockup generated and used)
+                // Check if design was applied
                 const designImageInput = document.getElementById('designImageInput');
-                const frontDesignImageInput = document.getElementById('frontDesignImageInput');
-
-                if (uploadType === 'single') {
-                    if (!designImageInput || !designImageInput.value) {
-                        isValid = false;
-                        errorMessage += '• Please generate and apply your design using the "Generate Mockup" and "Use This Design" buttons\n';
-                    }
-                } else if (uploadType === 'separate') {
-                    if (!frontDesignImageInput || !frontDesignImageInput.value) {
-                        isValid = false;
-                        errorMessage += '• Please generate and apply your designs using the "Generate Mockup" and "Use This Design" buttons\n';
-                    }
+                if ((hasFrontDesign || hasBackDesign) && (!designImageInput || !designImageInput.value)) {
+                    isValid = false;
+                    errorMessage += '• Please generate and apply your design using the "Generate Mockup" and "Use This Design" buttons\n';
                 }
             <?php endif; ?>
 
@@ -2684,7 +2871,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                         behavior: 'smooth'
                     });
                 } else if (errorMessage.includes('design') || errorMessage.includes('mockup')) {
-                    document.querySelector('.image-upload-section').scrollIntoView({
+                    document.querySelector('.design-areas').scrollIntoView({
                         behavior: 'smooth'
                     });
                 }
@@ -2694,216 +2881,115 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
             return true;
         }
-        // Check for AI-generated design on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            // Check if we have an AI design in sessionStorage
-            const aiDesign = sessionStorage.getItem('aiGeneratedDesign');
-            const aiProductId = sessionStorage.getItem('aiDesignProductId');
-            const aiPlacement = sessionStorage.getItem('aiDesignPlacement');
-            const currentProductId = <?php echo $product_id; ?>;
-            const urlParams = new URLSearchParams(window.location.search);
-            const aiDesignParam = urlParams.get('ai_design');
-            
-            if (aiDesign && aiProductId && aiProductId == currentProductId && aiDesignParam === '1') {
-                // Auto-populate the design upload with placement
-                autoPopulateAIDesign(aiDesign);
-                
-                // Clear the session storage
-                sessionStorage.removeItem('aiGeneratedDesign');
-                sessionStorage.removeItem('aiDesignProductId');
-                sessionStorage.removeItem('aiDesignPlacement');
-                sessionStorage.removeItem('aiDesignTimestamp');
-            }
-
-            if (window.HTMLCanvasElement) {
-                const originalGetContext = HTMLCanvasElement.prototype.getContext;
-                HTMLCanvasElement.prototype.getContext = function() {
-                    const context = originalGetContext.apply(this, arguments);
-                    if (context && context.imageSmoothingEnabled !== undefined) {
-                        context.imageSmoothingEnabled = true;
-                        context.imageSmoothingQuality = 'high';
-                    }
-                    return context;
-                };
-            }
-        });
 
         function autoPopulateAIDesign(imageData) {
-        // Get placement from session storage
-        const placement = sessionStorage.getItem('aiDesignPlacement') || 'single';
-        const currentProductId = <?php echo $product_id; ?>;
-        
-        // Define which products support front/back
-        const productsWithFrontBack = [18, 19]; // T-Shirt (18), Tote Bag (19)
-        const supportsFrontBack = productsWithFrontBack.includes(currentProductId);
-        
-        // If product doesn't support front/back but placement was set to front/back, default to single
-        const effectivePlacement = supportsFrontBack ? placement : 'single';
-        
-        console.log('AI Design Placement:', effectivePlacement, 'Product ID:', currentProductId, 'Supports Front/Back:', supportsFrontBack);
+            // Get placement from session storage
+            const placement = sessionStorage.getItem('aiDesignPlacement') || 'front';
+            const currentProductId = <?php echo $product_id; ?>;
+            
+            console.log('AI Design Placement:', placement, 'Product ID:', currentProductId);
 
-        // Convert base64 to blob
-        fetch(imageData)
-            .then(res => res.blob())
-            .then(blob => {
-                // Create a file from the blob
-                const file = new File([blob], `ai-design-${Date.now()}.png`, { type: 'image/png' });
-                
-                // Set upload type based on placement and product capabilities
-                if (effectivePlacement === 'both' && supportsFrontBack) {
-                    // Single upload for both sides
-                    document.querySelector('input[name="upload_type"][value="single"]').checked = true;
-                    handleUploadTypeChange();
+            // Convert base64 to blob and create file
+            fetch(imageData)
+                .then(res => res.blob())
+                .then(blob => {
+                    const file = new File([blob], `ai-design-${Date.now()}.png`, { type: 'image/png' });
                     
-                    // Set the file to single upload after a short delay
-                    setTimeout(() => {
-                        const designUpload = document.getElementById('designUpload');
-                        if (designUpload) {
-                            const dataTransfer = new DataTransfer();
-                            dataTransfer.items.add(file);
-                            designUpload.files = dataTransfer.files;
-                            
-                            // Manually trigger the image preview
-                            const reader = new FileReader();
-                            reader.onload = function(e) {
-                                document.getElementById('uploadedImage').src = e.target.result;
-                                document.getElementById('uploadPreview').style.display = 'block';
-                                
-                                // Initialize design overlay
-                                initDesignOverlay(e.target.result);
-                                document.getElementById('previewText').style.display = 'none';
-                                document.getElementById('mockupPreview').style.display = 'block';
-                                document.getElementById('mockupPreview').src = e.target.result;
-                            };
-                            reader.readAsDataURL(file);
+                    // Determine which design area to populate based on placement
+                    if (placement === 'front' || placement === 'both') {
+                        populateDesignArea('front', file, imageData);
+                    }
+                    
+                    if (placement === 'back' || placement === 'both') {
+                        // Only populate back if back design area exists and is visible
+                        const backDesignArea = document.getElementById('backDesignArea');
+                        if (backDesignArea && backDesignArea.style.display !== 'none') {
+                            populateDesignArea('back', file, imageData);
+                        } else if (placement === 'back') {
+                            // If back was requested but not available, use front instead
+                            populateDesignArea('front', file, imageData);
                         }
-                    }, 300);
+                    }
                     
-                } else if ((effectivePlacement === 'front' || effectivePlacement === 'back') && supportsFrontBack) {
-                    // Separate upload for front/back
-                    document.querySelector('input[name="upload_type"][value="separate"]').checked = true;
-                    handleUploadTypeChange();
-                    
+                    // Show success message
                     setTimeout(() => {
-                        if (effectivePlacement === 'front') {
-                            const frontDesignUpload = document.getElementById('frontDesignUpload');
-                            if (frontDesignUpload) {
-                                const dataTransfer = new DataTransfer();
-                                dataTransfer.items.add(file);
-                                frontDesignUpload.files = dataTransfer.files;
-                                
-                                // Manually trigger front image preview
-                                const reader = new FileReader();
-                                reader.onload = function(e) {
-                                    document.getElementById('frontUploadedImage').src = e.target.result;
-                                    document.getElementById('frontUploadPreview').style.display = 'block';
-                                    
-                                    // Initialize design overlay for front
-                                    frontUserDesign = new Image();
-                                    frontUserDesign.src = e.target.result;
-                                    frontUserDesign.onload = function() {
-                                        if (currentView === 'front') {
-                                            initDesignOverlay(e.target.result);
-                                        }
-                                        calculateImageBoundary();
-                                        updatePreviewForSeparateDesigns();
-                                    };
-                                };
-                                reader.readAsDataURL(file);
-                            }
-                        } else if (effectivePlacement === 'back') {
-                            const backDesignUpload = document.getElementById('backDesignUpload');
-                            if (backDesignUpload) {
-                                const dataTransfer = new DataTransfer();
-                                dataTransfer.items.add(file);
-                                backDesignUpload.files = dataTransfer.files;
-                                
-                                // Manually trigger back image preview
-                                const reader = new FileReader();
-                                reader.onload = function(e) {
-                                    document.getElementById('backUploadedImage').src = e.target.result;
-                                    document.getElementById('backUploadPreview').style.display = 'block';
-                                    
-                                    // Initialize design overlay for back
-                                    backUserDesign = new Image();
-                                    backUserDesign.src = e.target.result;
-                                    backUserDesign.onload = function() {
-                                        if (currentView === 'back') {
-                                            initDesignOverlay(e.target.result);
-                                        }
-                                        calculateImageBoundary();
-                                        updatePreviewForSeparateDesigns();
-                                    };
-                                };
-                                reader.readAsDataURL(file);
-                            }
-                        }
-                    }, 300);
-                    
-                } else {
-                    // Single upload for other products
-                    document.querySelector('input[name="upload_type"][value="single"]').checked = true;
-                    handleUploadTypeChange();
-                    
-                    setTimeout(() => {
-                        const designUpload = document.getElementById('designUpload');
-                        if (designUpload) {
-                            const dataTransfer = new DataTransfer();
-                            dataTransfer.items.add(file);
-                            designUpload.files = dataTransfer.files;
-                            
-                            // Manually trigger the image preview
-                            const reader = new FileReader();
-                            reader.onload = function(e) {
-                                document.getElementById('uploadedImage').src = e.target.result;
-                                document.getElementById('uploadPreview').style.display = 'block';
-                                
-                                // Initialize design overlay
-                                initDesignOverlay(e.target.result);
-                                document.getElementById('previewText').style.display = 'none';
-                                document.getElementById('mockupPreview').style.display = 'block';
-                                document.getElementById('mockupPreview').src = e.target.result;
-                            };
-                            reader.readAsDataURL(file);
-                        }
-                    }, 300);
-                }
-                
-                // Switch to the appropriate view for products that support front/back
-                if (supportsFrontBack) {
-                    setTimeout(() => {
-                        if (effectivePlacement === 'back') {
+                        let message = 'AI-generated design loaded successfully! ';
+                        if (placement === 'front') message += 'Design applied to front.';
+                        else if (placement === 'back') message += 'Design applied to back.';
+                        else if (placement === 'both') message += 'Design applied to both sides.';
+                        
+                        alert(message);
+                        
+                        // Switch to appropriate view
+                        if (placement === 'back') {
                             switchView('back');
                         } else {
                             switchView('front');
                         }
                     }, 500);
+                })
+                .catch(error => {
+                    console.error('Error loading AI design:', error);
+                    alert('Error loading AI design. Please upload manually.');
+                });
+        }
+
+        // Helper function to populate a specific design area
+        function populateDesignArea(side, file, imageData) {
+            const inputId = side + 'DesignUpload';
+            const previewId = side + 'PreviewImage';
+            const previewContainer = side + 'DesignPreview';
+            const statusId = side + 'DesignStatus';
+            const designArea = side + 'DesignArea';
+            const uploadZone = side + 'UploadZone';
+
+            const input = document.getElementById(inputId);
+            const previewImg = document.getElementById(previewId);
+            const previewDiv = document.getElementById(previewContainer);
+            const statusSpan = document.getElementById(statusId);
+            const areaDiv = document.getElementById(designArea);
+            const zoneDiv = document.getElementById(uploadZone);
+
+            if (input && previewImg && previewDiv) {
+                // Create a new FileList-like object
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                input.files = dataTransfer.files;
+
+                // Update UI
+                previewImg.src = imageData;
+                previewDiv.style.display = 'block';
+                statusSpan.textContent = '(AI Generated)';
+                statusSpan.style.color = '#28a745';
+                areaDiv.classList.add('has-design');
+                zoneDiv.style.display = 'none';
+
+                // Store design data
+                if (side === 'front') {
+                    frontDesign = new Image();
+                    frontDesign.src = imageData;
+                    frontDesign.onload = function() {
+                        if (currentView === 'front') {
+                            initDesignOverlay(imageData);
+                        }
+                        calculateImageBoundary();
+                        updateDesignType();
+                        updatePreview();
+                    };
+                } else {
+                    backDesign = new Image();
+                    backDesign.src = imageData;
+                    backDesign.onload = function() {
+                        if (currentView === 'back') {
+                            initDesignOverlay(imageData);
+                        }
+                        calculateImageBoundary();
+                        updateDesignType();
+                        updatePreview();
+                    };
                 }
-                
-                // Show success message with placement info
-                setTimeout(() => {
-                    let placementMessage = 'AI-generated design loaded successfully! ';
-                    
-                    if (!supportsFrontBack) {
-                        placementMessage += 'Design applied.';
-                    } else if (effectivePlacement === 'front') {
-                        placementMessage += 'Design applied to front only.';
-                    } else if (effectivePlacement === 'back') {
-                        placementMessage += 'Design applied to back only.';
-                    } else if (effectivePlacement === 'both') {
-                        placementMessage += 'Design applied to both sides.';
-                    } else {
-                        placementMessage += 'Design applied.';
-                    }
-                    
-                    alert(placementMessage);
-                }, 1000);
-            })
-            .catch(error => {
-                console.error('Error loading AI design:', error);
-                alert('Error loading AI design. Please upload manually.');
-            });
-    }
+            }
+        }
     </script>
 </body>
 
