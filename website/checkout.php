@@ -99,6 +99,19 @@ while ($row = $result->fetch_assoc()) {
 $shipping = 0;
 $tax = $subtotal * 0.1;
 $total = $subtotal + $tax;
+
+$cart_count = 0;
+$query = "SELECT SUM(ci.quantity) as total_items 
+          FROM cart_items ci 
+          JOIN carts c ON ci.cart_id = c.cart_id 
+          WHERE c.user_id = ?";
+$stmt = $inventory->prepare($query);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result_cart = $stmt->get_result();
+$row = $result_cart->fetch_assoc();
+
+$cart_count = $row['total_items'] ? $row['total_items'] : 0;
 ?>
 
 <!DOCTYPE html>
