@@ -177,6 +177,7 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             flex: 1;
             padding: 20px;
             background: #f0f2f5;
+            padding-bottom: 110px;
         }
 
         .header {
@@ -191,9 +192,10 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         }
 
         .header h1 {
-            color: #2c3e50;
+            color: #1c1e21;
             font-size: 1.8em;
             margin: 0;
+            font-weight: 600;
         }
 
         .user-info {
@@ -533,6 +535,19 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                 width: 70px;
                 height: 70px;
             }
+        }
+
+        .order-details-container h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .order-details-container h3 i {
+            color: #3498db;
         }
     </style>
 </head>

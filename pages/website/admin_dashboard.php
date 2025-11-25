@@ -11,28 +11,42 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 // Get dashboard statistics
 $stats = [];
 
-// Total Orders
-$query = "SELECT COUNT(*) as total_orders FROM orders";
+// Get current month dates
+$current_month_start = date('Y-m-01');
+$current_month_end = date('Y-m-t');
+
+// Total Orders - Current Month
+$query = "SELECT COUNT(*) as total_orders FROM orders 
+          WHERE created_at BETWEEN '$current_month_start' AND '$current_month_end'
+          AND status IN ('completed')";
 $result = $inventory->query($query);
 $stats['total_orders'] = $result->fetch_assoc()['total_orders'];
 
-// Total Revenue
-$query = "SELECT COALESCE(SUM(total_amount), 0) as total_revenue FROM orders WHERE status IN ('paid', 'processing', 'ready_for_pickup', 'completed')";
+// Total Revenue - Current Month  
+$query = "SELECT COALESCE(SUM(total_amount), 0) as total_revenue FROM orders 
+          WHERE created_at BETWEEN '$current_month_start' AND '$current_month_end'
+          AND status IN ('completed')";
 $result = $inventory->query($query);
 $stats['total_revenue'] = $result->fetch_assoc()['total_revenue'];
 
-// Pending Orders
-$query = "SELECT COUNT(*) as pending_orders FROM orders WHERE status = 'pending'";
+// Pending Orders - Current Month
+$query = "SELECT COUNT(*) as pending_orders FROM orders 
+          WHERE created_at BETWEEN '$current_month_start' AND '$current_month_end'
+          AND status = 'pending'";
 $result = $inventory->query($query);
 $stats['pending_orders'] = $result->fetch_assoc()['pending_orders'];
 
-// Completed Orders
-$query = "SELECT COUNT(*) as completed_orders FROM orders WHERE status = 'completed'";
+// Completed Orders - Current Month
+$query = "SELECT COUNT(*) as completed_orders FROM orders 
+          WHERE created_at BETWEEN '$current_month_start' AND '$current_month_end'
+          AND status = 'completed'";
 $result = $inventory->query($query);
 $stats['completed_orders'] = $result->fetch_assoc()['completed_orders'];
 
-// Recent Orders (last 7 days)
-$query = "SELECT COUNT(*) as recent_orders FROM orders WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+// Recent Orders - Current Month
+$query = "SELECT COUNT(*) as recent_orders FROM orders 
+          WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+          AND created_at BETWEEN '$current_month_start' AND '$current_month_end'";
 $result = $inventory->query($query);
 $stats['recent_orders'] = $result->fetch_assoc()['recent_orders'];
 
@@ -41,10 +55,13 @@ $query = "SELECT COUNT(*) as total_customers FROM users WHERE role = 'customer'"
 $result = $inventory->query($query);
 $stats['total_customers'] = $result->fetch_assoc()['total_customers'];
 
-// Top Products
-$query = "SELECT product_name, SUM(quantity) as total_sold 
-          FROM order_items 
-          GROUP BY product_name 
+// Top Products - Current Month
+$query = "SELECT oi.product_name, SUM(oi.quantity) as total_sold 
+          FROM order_items oi
+          JOIN orders o ON oi.order_id = o.order_id
+          WHERE o.created_at BETWEEN '$current_month_start' AND '$current_month_end'
+          AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+          GROUP BY oi.product_name 
           ORDER BY total_sold DESC 
           LIMIT 5";
 $top_products_result = $inventory->query($query);
@@ -53,24 +70,25 @@ while ($row = $top_products_result->fetch_assoc()) {
     $top_products[] = $row;
 }
 
-// Monthly Revenue (for chart)
+$current_year_start = date('Y-01-01');
 $query = "SELECT 
             DATE_FORMAT(created_at, '%Y-%m') as month,
-            SUM(total_amount) as monthly_revenue
+            SUM(SUM(total_amount)) OVER (ORDER BY DATE_FORMAT(created_at, '%Y-%m')) as cumulative_revenue
           FROM orders 
-          WHERE status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+          WHERE created_at >= '$current_year_start'
+          AND status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
           GROUP BY DATE_FORMAT(created_at, '%Y-%m')
-          ORDER BY month DESC 
-          LIMIT 6";
-$monthly_revenue_result = $inventory->query($query);
-$monthly_revenue = [];
-while ($row = $monthly_revenue_result->fetch_assoc()) {
-    $monthly_revenue[] = $row;
+          ORDER BY month";
+$cumulative_revenue_result = $inventory->query($query);
+$cumulative_revenue = [];
+while ($row = $cumulative_revenue_result->fetch_assoc()) {
+    $cumulative_revenue[] = $row;
 }
 
 // Order Status Distribution
 $query = "SELECT status, COUNT(*) as count 
           FROM orders 
+          WHERE created_at BETWEEN '$current_month_start' AND '$current_month_end'
           GROUP BY status";
 $status_distribution_result = $inventory->query($query);
 $status_distribution = [];
@@ -81,6 +99,7 @@ while ($row = $status_distribution_result->fetch_assoc()) {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -179,6 +198,7 @@ while ($row = $status_distribution_result->fetch_assoc()) {
             flex: 1;
             padding: 20px;
             background: #f0f2f5;
+            padding-bottom: 110px;
         }
 
         .header {
@@ -193,9 +213,10 @@ while ($row = $status_distribution_result->fetch_assoc()) {
         }
 
         .header h1 {
-            color: #2c3e50;
+            color: #1c1e21;
             font-size: 1.8em;
             margin: 0;
+            font-weight: 600;
         }
 
         .user-info {
@@ -225,7 +246,7 @@ while ($row = $status_distribution_result->fetch_assoc()) {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 20px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         .stat-card {
@@ -246,15 +267,29 @@ while ($row = $status_distribution_result->fetch_assoc()) {
             margin-bottom: 15px;
         }
 
-        .stat-card.orders i { color: #3498db; }
-        .stat-card.revenue i { color: #27ae60; }
-        .stat-card.pending i { color: #f39c12; }
-        .stat-card.completed i { color: #2ecc71; }
-        .stat-card.customers i { color: #9b59b6; }
+        .stat-card.orders i {
+            color: #3498db;
+        }
+
+        .stat-card.revenue i {
+            color: #27ae60;
+        }
+
+        .stat-card.pending i {
+            color: #f39c12;
+        }
+
+        .stat-card.completed i {
+            color: #2ecc71;
+        }
+
+        .stat-card.customers i {
+            color: #9b59b6;
+        }
 
         .stat-number {
             font-size: 2em;
-            font-weight: bold;
+            font-weight: 600;
             margin: 10px 0;
         }
 
@@ -268,7 +303,7 @@ while ($row = $status_distribution_result->fetch_assoc()) {
             display: grid;
             grid-template-columns: 2fr 1fr;
             gap: 20px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         .chart-container {
@@ -318,11 +353,30 @@ while ($row = $status_distribution_result->fetch_assoc()) {
             font-weight: 600;
         }
 
-        .status-pending { background: #fff3cd; color: #856404; }
-        .status-paid { background: #d1ecf1; color: #0c5460; }
-        .status-processing { background: #d4edda; color: #155724; }
-        .status-ready_for_pickup { background: #cce7ff; color: #004085; }
-        .status-completed { background: #d1f7c4; color: #0f5132; }
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-paid {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status-processing {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-ready_for_pickup {
+            background: #cce7ff;
+            color: #004085;
+        }
+
+        .status-completed {
+            background: #d1f7c4;
+            color: #0f5132;
+        }
 
         .view-all {
             display: block;
@@ -338,12 +392,13 @@ while ($row = $status_distribution_result->fetch_assoc()) {
         }
     </style>
 </head>
+
 <body>
     <div class="admin-container">
         <!-- Main Content -->
         <div class="main-content">
             <div class="header">
-                <h1>Dashboard Overview</h1>
+                <h1>Monthly Website Overview - <?php echo date('F Y'); ?></h1>
             </div>
 
             <!-- Statistics Cards -->
@@ -378,7 +433,7 @@ while ($row = $status_distribution_result->fetch_assoc()) {
             <!-- Charts Section -->
             <div class="charts-section">
                 <div class="chart-container">
-                    <h3 class="chart-title">Revenue Overview (Last 6 Months)</h3>
+                    <h3 class="chart-title">Cumulative Revenue - <?php echo date('Y'); ?> (Monthly)</h3>
                     <canvas id="revenueChart"></canvas>
                 </div>
                 <div class="chart-container">
@@ -411,17 +466,17 @@ while ($row = $status_distribution_result->fetch_assoc()) {
                             $result = $inventory->query($query);
                             while ($order = $result->fetch_assoc()):
                             ?>
-                            <tr>
-                                <td>#<?php echo $order['order_id']; ?></td>
-                                <td><?php echo htmlspecialchars($order['username']); ?></td>
-                                <td>₱<?php echo number_format($order['total_amount'], 2); ?></td>
-                                <td>
-                                    <span class="status-badge status-<?php echo $order['status']; ?>">
-                                        <?php echo ucfirst(str_replace('_', ' ', $order['status'])); ?>
-                                    </span>
-                                </td>
-                                <td><?php echo date('M j, Y', strtotime($order['created_at'])); ?></td>
-                            </tr>
+                                <tr>
+                                    <td>#<?php echo $order['order_id']; ?></td>
+                                    <td><?php echo htmlspecialchars($order['username']); ?></td>
+                                    <td>₱<?php echo number_format($order['total_amount'], 2); ?></td>
+                                    <td>
+                                        <span class="status-badge status-<?php echo $order['status']; ?>">
+                                            <?php echo ucfirst(str_replace('_', ' ', $order['status'])); ?>
+                                        </span>
+                                    </td>
+                                    <td><?php echo date('M j, Y', strtotime($order['created_at'])); ?></td>
+                                </tr>
                             <?php endwhile; ?>
                         </tbody>
                     </table>
@@ -439,10 +494,10 @@ while ($row = $status_distribution_result->fetch_assoc()) {
                         </thead>
                         <tbody>
                             <?php foreach ($top_products as $product): ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars($product['product_name']); ?></td>
-                                <td><?php echo $product['total_sold']; ?> units</td>
-                            </tr>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($product['product_name']); ?></td>
+                                    <td><?php echo $product['total_sold']; ?> units</td>
+                                </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
@@ -452,26 +507,37 @@ while ($row = $status_distribution_result->fetch_assoc()) {
     </div>
 
     <script>
-        // Revenue Chart
+        // Revenue Chart - Monthly Cumulative data
         const revenueCtx = document.getElementById('revenueChart').getContext('2d');
         const revenueChart = new Chart(revenueCtx, {
             type: 'line',
             data: {
-                labels: <?php echo json_encode(array_column($monthly_revenue, 'month')); ?>,
+                labels: <?php echo json_encode(array_column($cumulative_revenue, 'month')); ?>,
                 datasets: [{
-                    label: 'Monthly Revenue (₱)',
-                    data: <?php echo json_encode(array_column($monthly_revenue, 'monthly_revenue')); ?>,
+                    label: 'Cumulative Revenue (₱)',
+                    data: <?php echo json_encode(array_column($cumulative_revenue, 'cumulative_revenue')); ?>,
                     borderColor: '#3498db',
                     backgroundColor: 'rgba(52, 152, 219, 0.1)',
                     borderWidth: 2,
-                    fill: true
+                    fill: true,
+                    tension: 0.4
                 }]
             },
             options: {
                 responsive: true,
                 scales: {
                     y: {
-                        beginAtZero: true
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Total Revenue (₱)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Month'
+                        }
                     }
                 }
             }
@@ -482,9 +548,9 @@ while ($row = $status_distribution_result->fetch_assoc()) {
         const statusChart = new Chart(statusCtx, {
             type: 'doughnut',
             data: {
-                labels: <?php echo json_encode(array_map(function($status) { 
-                    return ucfirst(str_replace('_', ' ', $status['status'])); 
-                }, $status_distribution)); ?>,
+                labels: <?php echo json_encode(array_map(function ($status) {
+                            return ucfirst(str_replace('_', ' ', $status['status']));
+                        }, $status_distribution)); ?>,
                 datasets: [{
                     data: <?php echo json_encode(array_column($status_distribution, 'count')); ?>,
                     backgroundColor: [
@@ -492,7 +558,7 @@ while ($row = $status_distribution_result->fetch_assoc()) {
                         '#d1ecf1', // paid
                         '#d4edda', // processing
                         '#cce7ff', // ready_for_pickup
-                        '#d1f7c4'  // completed
+                        '#d1f7c4' // completed
                     ],
                     borderColor: [
                         '#856404',
@@ -510,4 +576,5 @@ while ($row = $status_distribution_result->fetch_assoc()) {
         });
     </script>
 </body>
+
 </html>

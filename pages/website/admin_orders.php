@@ -138,6 +138,7 @@ while ($row = $orders_result->fetch_assoc()) {
             flex: 1;
             padding: 20px;
             background: #f0f2f5;
+            padding-bottom: 130px;
         }
 
         .header {
@@ -152,9 +153,10 @@ while ($row = $orders_result->fetch_assoc()) {
         }
 
         .header h1 {
-            color: #2c3e50;
+            color: #1c1e21;
             font-size: 1.8em;
             margin: 0;
+            font-weight: 600;
         }
 
         .user-info {

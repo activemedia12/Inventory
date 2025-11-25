@@ -317,6 +317,7 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
             flex: 1;
             padding: 20px;
             background: #f0f2f5;
+            padding-bottom: 110px;
         }
 
         .header {
@@ -331,9 +332,10 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
         }
 
         .header h1 {
-            color: #2c3e50;
+            color: #1c1e21;
             font-size: 1.8em;
             margin: 0;
+            font-weight: 600;
         }
 
         .user-info {
@@ -501,7 +503,7 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
 
         .stat-number {
             font-size: 2em;
-            font-weight: bold;
+            font-weight: 600;
             margin: 10px 0;
         }
 
@@ -686,12 +688,12 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
                 </div>
                 <div class="stat-card revenue">
                     <i class="fas fa-money-bill-wave"></i>
-                    <div class="stat-number">₱<?php echo number_format($sales_data['total_revenue'] ?? 0, 2); ?></div>
+                    <div class="stat-number">₱ <?php echo number_format($sales_data['total_revenue'] ?? 0, 2); ?></div>
                     <div class="stat-label">Total Revenue</div>
                 </div>
                 <div class="stat-card avg-order">
                     <i class="fas fa-chart-pie"></i>
-                    <div class="stat-number">₱<?php echo number_format($sales_data['avg_order_value'] ?? 0, 2); ?></div>
+                    <div class="stat-number">₱ <?php echo number_format($sales_data['avg_order_value'] ?? 0, 2); ?></div>
                     <div class="stat-label">Average Order Value</div>
                 </div>
                 <div class="stat-card customers">

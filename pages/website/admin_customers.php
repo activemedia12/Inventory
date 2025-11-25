@@ -373,6 +373,7 @@ $stats = $stats_result->fetch_assoc();
             flex: 1;
             padding: 20px;
             background: #f0f2f5;
+            padding-bottom: 110px;
         }
 
         .header {
@@ -387,9 +388,10 @@ $stats = $stats_result->fetch_assoc();
         }
 
         .header h1 {
-            color: #2c3e50;
+            color: #1c1e21;
             font-size: 1.8em;
             margin: 0;
+            font-weight: 600;
         }
 
         .user-info {
@@ -438,7 +440,7 @@ $stats = $stats_result->fetch_assoc();
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
 
         .stat-card {
@@ -477,7 +479,7 @@ $stats = $stats_result->fetch_assoc();
 
         .stat-number {
             font-size: 2em;
-            font-weight: bold;
+            font-weight: 600;
             margin: 10px 0;
         }
 
@@ -492,7 +494,7 @@ $stats = $stats_result->fetch_assoc();
             padding: 20px;
             border-radius: 12px;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             display: flex;
             gap: 15px;
             align-items: center;
@@ -631,31 +633,286 @@ $stats = $stats_result->fetch_assoc();
             top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.05);
+            backdrop-filter: blur(3px);
+            animation: fadeIn 0.3s ease-out;
         }
 
         .modal-content {
             background-color: white;
-            margin: 5% auto;
-            padding: 30px;
-            border-radius: 12px;
+            margin: 2% auto;
+            padding: 0;
+            border-radius: 16px;
             width: 90%;
-            max-width: 600px;
-            max-height: 80vh;
+            max-width: 700px;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease-out;
+            position: relative;
+        }
+
+        .modal-header {
+            padding: 25px 30px 20px;
+            border-bottom: 1px solid #eef2f7;
+            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+            position: relative;
+        }
+
+        .modal-header h2 {
+            color: #2c3e50;
+            font-size: 1.5em;
+            font-weight: 700;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .modal-header h2 i {
+            color: #3498db;
+            font-size: 1.2em;
+        }
+
+        .modal-body {
+            padding: 30px;
+            max-height: calc(90vh - 140px);
             overflow-y: auto;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-footer {
+            padding: 20px 30px;
+            border-top: 1px solid #eef2f7;
+            background: #f8fafc;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
         }
 
         .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
+            position: absolute;
+            right: 25px;
+            top: 25px;
+            color: #94a3b8;
+            font-size: 24px;
+            font-weight: 300;
             cursor: pointer;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            background: transparent;
+            border: none;
         }
 
         .close:hover {
-            color: #000;
+            background: #f1f5f9;
+            color: #64748b;
+            transform: rotate(90deg);
+        }
+
+        /* Modal Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Enhanced Form Styles */
+        .modal .form-group {
+            margin-bottom: 24px;
+        }
+
+        .modal .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+        }
+
+        .modal .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: #ffffff;
+        }
+
+        .modal .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+            background: #ffffff;
+        }
+
+        /* Enhanced Button Styles */
+        .modal .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            min-width: 100px;
+            justify-content: center;
+        }
+
+        .modal .btn-primary {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
+        }
+
+        .modal .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+        }
+
+        .modal .btn-secondary {
+            background: #64748b;
+            color: white;
+        }
+
+        .modal .btn-secondary:hover {
+            background: #475569;
+            transform: translateY(-2px);
+        }
+
+        .modal .btn-success {
+            background: linear-gradient(135deg, #27ae60 0%, #219a52 100%);
+            color: white;
+            box-shadow: 0 2px 4px rgba(39, 174, 96, 0.2);
+        }
+
+        .modal .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+        }
+
+        /* Customer Stats in Modal */
+        .customer-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin: 25px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .stat-box {
+            text-align: center;
+            padding: 16px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease;
+        }
+
+        .stat-box:hover {
+            transform: translateY(-2px);
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        /* Enhanced Table in Modal */
+        .modal .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .modal .table th {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 16px;
+            font-weight: 600;
+            color: #374151;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .modal .table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #475569;
+        }
+
+        .modal .table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Customer Info Section */
+        .customer-info {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 25px;
+        }
+
+        .customer-info h3 {
+            color: #1e293b;
+            margin-bottom: 16px;
+            font-size: 1.3em;
+            font-weight: 700;
+        }
+
+        .customer-info p {
+            margin-bottom: 8px;
+            color: #475569;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .customer-info strong {
+            color: #374151;
+            min-width: 120px;
+            display: inline-block;
         }
 
         .form-group {
@@ -683,33 +940,14 @@ $stats = $stats_result->fetch_assoc();
             box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
         }
 
-        .customer-stats {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .stat-box {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 1.5em;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-
-        .stat-label {
-            font-size: 0.9em;
-            color: #6c757d;
-        }
-
         /* Responsive */
         @media (max-width: 768px) {
+            .modal-content {
+                margin: 5% auto;
+                width: 95%;
+                max-height: 95vh;
+            }
+
             .admin-container {
                 flex-direction: column;
             }
@@ -921,61 +1159,76 @@ $stats = $stats_result->fetch_assoc();
 
     <!-- Customer Details Modal -->
     <div id="customerModal" class="modal">
-        <div class="modal-content" style="max-width: 700px;">
-            <span class="close" onclick="closeModal('customerModal')">&times;</span>
-            <h2>Customer Details</h2>
-            <div id="customerDetails">
-                <!-- Content will be loaded via AJAX -->
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-circle"></i> Customer Details</h2>
+                <button class="close" onclick="closeModal('customerModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="customerDetails">
+                    <!-- Content will be loaded via AJAX -->
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Edit Customer Modal -->
-    <div id="editCustomerModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('editCustomerModal')">&times;</span>
-            <h2>Edit Customer</h2>
-            <form id="editCustomerForm" method="post">
+<!-- Edit Customer Modal -->
+<div id="editCustomerModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2><i class="fas fa-edit"></i> Edit Customer</h2>
+            <button class="close" onclick="closeModal('editCustomerModal')">&times;</button>
+        </div>
+        <form id="editCustomerForm" method="post">
+            <div class="modal-body">
                 <input type="hidden" name="action" value="update_customer">
                 <input type="hidden" name="user_id" id="editUserId">
 
-                <div class="form-group">
-                    <label>Username/Email</label>
-                    <input type="email" name="username" id="editUsername" class="form-control" required>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-group">
+                        <label><i class="fas fa-envelope"></i> Username/Email</label>
+                        <input type="email" name="username" id="editUsername" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-phone"></i> Phone Number</label>
+                        <input type="text" name="contact_number" id="editContactNumber" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> First Name</label>
+                        <input type="text" name="first_name" id="editFirstName" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> Last Name</label>
+                        <input type="text" name="last_name" id="editLastName" class="form-control" required>
+                    </div>
                 </div>
 
                 <div class="form-group">
-                    <label>First Name</label>
-                    <input type="text" name="first_name" id="editFirstName" class="form-control" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Last Name</label>
-                    <input type="text" name="last_name" id="editLastName" class="form-control" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Phone Number</label>
-                    <input type="text" name="contact_number" id="editContactNumber" class="form-control">
-                </div>
-
-                <div class="form-group">
-                    <label>Address Line 1</label>
+                    <label><i class="fas fa-map-marker-alt"></i> Address Line 1</label>
                     <input type="text" name="address_line1" id="editAddressLine1" class="form-control">
                 </div>
 
                 <div class="form-group">
-                    <label>City</label>
+                    <label><i class="fas fa-city"></i> City</label>
                     <input type="text" name="city" id="editCity" class="form-control">
                 </div>
-
-                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
-                    <button type="button" class="btn" onclick="closeModal('editCustomerModal')" style="background: #95a5a6;">Cancel</button>
-                    <button type="submit" class="btn btn-success">Update Customer</button>
-                </div>
-            </form>
-        </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editCustomerModal')">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-save"></i> Update Customer
+                </button>
+            </div>
+        </form>
     </div>
+</div>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
@@ -1015,7 +1268,7 @@ $stats = $stats_result->fetch_assoc();
                             if (customer.customer_type === 'personal') {
                                 customerInfoHtml = `
                             <h3>${customer.first_name} ${customer.last_name}</h3>
-                            <p><strong>Username/Email:</strong> ${customer.username}</p>
+                            <p><strong>Email:</strong> ${customer.username}</p>
                             <p><strong>Full Name:</strong> ${customer.first_name} ${customer.middle_name || ''} ${customer.last_name}</p>
                             <p><strong>Phone:</strong> ${customer.contact_number || 'Not provided'}</p>
                             <p><strong>Address:</strong> ${customer.address_line1 || 'Not provided'} ${customer.city ? ', ' + customer.city : ''} ${customer.province ? ', ' + customer.province : ''} ${customer.zip_code ? ' ' + customer.zip_code : ''}</p>
@@ -1025,9 +1278,9 @@ $stats = $stats_result->fetch_assoc();
                             } else if (customer.customer_type === 'company') {
                                 customerInfoHtml = `
                             <h3>${customer.company_name}</h3>
-                            <p><strong>Username/Email:</strong> ${customer.username}</p>
-                            <p><strong>Taxpayer Name:</strong> ${customer.taxpayer_name || 'Not provided'}</p>
-                            <p><strong>Contact Person:</strong> ${customer.contact_person || 'Not provided'}</p>
+                            <p><strong>Email:</strong> ${customer.username}</p>
+                            <p><strong>Taxpayer:</strong> ${customer.taxpayer_name || 'Not provided'}</p>
+                            <p><strong>Person:</strong> ${customer.contact_person || 'Not provided'}</p>
                             <p><strong>Phone:</strong> ${customer.company_contact || 'Not provided'}</p>
                             <p><strong>Address:</strong> ${customer.building_or_block || ''} ${customer.lot_or_room_no || ''} ${customer.subd_or_street || ''} ${customer.barangay || ''} ${customer.city || ''} ${customer.province || ''} ${customer.zip_code || ''}</p>
                         `;
