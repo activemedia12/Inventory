@@ -147,7 +147,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             margin-bottom: 40px;
             padding: 40px;
             background: var(--bg-white);
-            border-radius: 15px;
             box-shadow: var(--shadow);
         }
 
@@ -172,7 +171,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             background: var(--bg-white);
             padding: 30px;
             margin-bottom: 25px;
-            border-radius: 12px;
             box-shadow: var(--shadow);
             border: 1px solid var(--border-color);
         }
@@ -234,7 +232,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             width: 100px;
             height: 100px;
             object-fit: cover;
-            border-radius: 8px;
             border: 2px solid var(--border-color);
         }
 
@@ -274,9 +271,9 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             margin-top: 15px;
             padding: 15px;
             background: var(--bg-light);
-            border-radius: 8px;
             font-size: 0.9em;
             border-left: 4px solid var(--primary-color);
+            text-transform: uppercase;
         }
 
         .details-row {
@@ -325,7 +322,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             width: 100px;
             height: 100px;
             object-fit: contain;
-            border-radius: 8px;
             border: 2px solid var(--primary-color);
             padding: 5px;
             background: white;
@@ -358,7 +354,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 8px;
             border: 2px dashed #ccc;
         }
 
@@ -408,7 +403,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         .payment-section {
             background: var(--bg-white);
             padding: 30px;
-            border-radius: 12px;
             box-shadow: var(--shadow);
             border: 1px solid var(--border-color);
             position: sticky;
@@ -419,7 +413,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             text-align: center;
             padding: 25px;
             background: var(--bg-light);
-            border-radius: 12px;
             margin-bottom: 25px;
             border: 2px solid var(--border-color);
         }
@@ -433,7 +426,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         .qr-code-image {
             max-width: 220px;
             margin: 0 auto 20px;
-            border-radius: 8px;
             overflow: hidden;
             box-shadow: var(--shadow);
         }
@@ -482,7 +474,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             width: 100%;
             padding: 12px;
             border: 2px dashed var(--border-color);
-            border-radius: 8px;
             background: var(--bg-light);
             transition: var(--transition);
         }
@@ -500,7 +491,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             margin-top: 25px;
             padding: 20px;
             background: var(--bg-light);
-            border-radius: 8px;
             border-left: 4px solid var(--primary-color);
         }
 
@@ -536,7 +526,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             background: #28a745;
             color: white;
             border: none;
-            border-radius: 10px;
             font-size: 1.2em;
             font-weight: 600;
             cursor: pointer;
@@ -1173,74 +1162,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             </div>
         </div>
     </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h3>Active Media</h3>
-                    <p>Professional printing services with quality, speed, and precision for all your business needs.</p>
-                    <div class="social-icons">
-                        <a href="#"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
-                    </div>
-                </div>
-
-                <div class="footer-section">
-                    <h3>Services</h3>
-                    <ul>
-                        <li><a href="#offset">Offset Printing</a></li>
-                        <li><a href="#digital">Digital Printing</a></li>
-                        <li><a href="#riso">RISO Printing</a></li>
-                        <li><a href="#other">Other Services</a></li>
-                    </ul>
-                </div>
-
-                <div class="footer-section">
-                    <h3>Company</h3>
-                    <ul>
-                        <li><a href="#">About Us</a></li>
-                        <li><a href="#">Our Team</a></li>
-                        <li><a href="#">Careers</a></li>
-                        <li><a href="#">Testimonials</a></li>
-                    </ul>
-                </div>
-
-                <div class="footer-section">
-                    <h3>Support</h3>
-                    <ul>
-                        <li><a href="#">Contact Us</a></li>
-                        <li><a href="#">FAQ</a></li>
-                        <li><a href="#">Shipping Info</a></li>
-                        <li><a href="#">Returns</a></li>
-                    </ul>
-                </div>
-
-                <div class="footer-section">
-                    <h3>Contact Info</h3>
-                    <ul class="contact-info">
-                        <li><i class="fas fa-map-marker-alt"></i> 123 Print Street, City, State 12345</li>
-                        <li><i class="fas fa-phone"></i> (123) 456-7890</li>
-                        <li><i class="fas fa-envelope"></i> info@activemedia.com</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="footer-bottom">
-                <div class="copyright">
-                    <p>&copy; 2023 Active Media. All rights reserved.</p>
-                </div>
-                <div class="footer-links">
-                    <a href="#">Privacy Policy</a>
-                    <a href="#">Terms of Service</a>
-                    <a href="#">Cookie Policy</a>
-                </div>
-            </div>
-        </div>
-    </footer>
 
     <script src="../assets/js/main.js"></script>
     <script>

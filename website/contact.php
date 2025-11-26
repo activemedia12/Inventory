@@ -69,7 +69,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
         .contact-container {
             background: var(--bg-white);
-            border-radius: 15px;
             padding: 40px;
             box-shadow: var(--shadow);
             margin: 0 auto;
@@ -127,7 +126,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             width: 60px;
             height: 3px;
             background: var(--primary-color);
-            border-radius: 2px;
         }
 
         .contact-info {
@@ -142,7 +140,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             gap: 20px;
             padding: 20px;
             background: var(--bg-light);
-            border-radius: 12px;
             transition: var(--transition);
             border: 1px solid var(--border-color);
         }
@@ -189,6 +186,10 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             text-decoration: underline;
         }
 
+        .info-content i {
+            color: #1c1c1c;
+        }
+
         .business-hours {
             margin-top: 10px;
         }
@@ -224,7 +225,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         }
 
         .map-container {
-            border-radius: 12px;
             overflow: hidden;
             box-shadow: var(--shadow);
             border: 1px solid var(--border-color);
@@ -244,7 +244,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         .faq-item {
             margin-bottom: 15px;
             border: 1px solid var(--border-color);
-            border-radius: 8px;
             overflow: hidden;
         }
 
@@ -288,28 +287,27 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         }
 
         .quick-contact {
-            background: var(--bg-light);
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
             padding: 30px;
-            border-radius: 12px;
             border: 1px solid var(--border-color);
             text-align: center;
         }
 
         .quick-contact h3 {
             margin-bottom: 15px;
-            color: var(--text-dark);
+            color: white;
             font-weight: 600;
         }
 
         .quick-contact p {
-            color: var(--text-light);
+            color: white;
             margin-bottom: 20px;
             line-height: 1.6;
         }
 
         .contact-buttons {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             justify-content: center;
             flex-wrap: wrap;
         }
@@ -441,8 +439,8 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                             </div>
                             <div class="info-content">
                                 <h3>Visit Our Office</h3>
-                                <p>123 Print Street<br>Creative District<br>City, State 12345</p>
-                                <a href="https://www.google.com/maps/dir//123+Print+Street+City+State+12345" target="_blank" class="get-directions">
+                                <p>Fausta Rd, Lucero St<br>Malolos City<br>Bulacan</p>
+                                <a href="https://www.google.com/maps/dir//Active+Media+Designs+%26+Printing/@14.8715798,120.7965735,14z/data=!4m8!4m7!1m0!1m5!1m1!1s0x339653cc016ea451:0x9d87b1b6274ebaf7!2m2!1d120.8208935!2d14.8465602?entry=ttu&g_ep=EgoyMDI1MTEyMy4xIKXMDSoASAFQAw%3D%3D" target="_blank" class="get-directions">
                                     <i class="fas fa-directions"></i> Get Directions
                                 </a>
                             </div>
@@ -454,9 +452,8 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                             </div>
                             <div class="info-content">
                                 <h3>Call Us</h3>
-                                <p>Main: <a href="tel:+11234567890">(123) 456-7890</a></p>
-                                <p>Support: <a href="tel:+11234567891">(123) 456-7891</a></p>
-                                <p>Fax: (123) 456-7892</p>
+                                <p>Main: <a href="tel:+0447964101">(044) 796-4101</a></p>
+                                <p>Support: <a href="tel:+639987916018">(+63) 998-791-6018</a></p>
                             </div>
                         </div>
 
@@ -466,9 +463,8 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                             </div>
                             <div class="info-content">
                                 <h3>Email Us</h3>
-                                <p>General: <a href="mailto:info@activemedia.com">info@activemedia.com</a></p>
-                                <p>Support: <a href="mailto:support@activemedia.com">support@activemedia.com</a></p>
-                                <p>Sales: <a href="mailto:sales@activemedia.com">sales@activemedia.com</a></p>
+                                <p>General: <a href="mailto:activemediaprint@gmail.com">activemediaprint@gmail.com</a></p>
+                                <p>Support: <a href="mailto:winnielumbad@gmail.com">winnielumbad@gmail.com</a></p>
                             </div>
                         </div>
 
@@ -481,12 +477,12 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                                 <div class="business-hours">
                                     <ul class="hours-list">
                                         <li>
-                                            <span class="day">Monday - Friday</span>
-                                            <span class="time">8:00 AM - 6:00 PM</span>
+                                            <span class="day">Weekdays</span>
+                                            <span class="time">8:00 AM - 5:00 PM</span>
                                         </li>
                                         <li>
                                             <span class="day">Saturday</span>
-                                            <span class="time">9:00 AM - 4:00 PM</span>
+                                            <span class="time">8:00 AM - 5:00 PM</span>
                                         </li>
                                         <li>
                                             <span class="day">Sunday</span>
@@ -576,16 +572,16 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">
-                    <h3>Active Media</h3>
+                    <h3>AMDP</h3>
                     <p>Professional printing services with quality, speed, and precision for all your business needs.</p>
                     <div class="social-icons">
-                        <a href="#"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
+                        <a href="https://www.facebook.com/profile.php?id=100063881538670"><i class="fab fa-facebook-f"></i></a>
+                        <a href=""><i class="fab fa-twitter"></i></a>
+                        <a href=""><i class="fab fa-instagram"></i></a>
+                        <a href=""><i class="fab fa-linkedin-in"></i></a>
                     </div>
                 </div>
-
+                
                 <div class="footer-section">
                     <h3>Services</h3>
                     <ul>
@@ -595,45 +591,45 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                         <li><a href="#other">Other Services</a></li>
                     </ul>
                 </div>
-
+                
                 <div class="footer-section">
                     <h3>Company</h3>
                     <ul>
                         <li><a href="about.php">About Us</a></li>
-                        <li><a href="#">Our Team</a></li>
-                        <li><a href="#">Careers</a></li>
-                        <li><a href="#">Testimonials</a></li>
+                        <li><a href="about.php">Our Team</a></li>
+                        <li><a href="about.php">Careers</a></li>
+                        <li><a href="about.php">Testimonials</a></li>
                     </ul>
                 </div>
-
+                
                 <div class="footer-section">
                     <h3>Support</h3>
                     <ul>
-                        <li><a href="#" class="active">Contact Us</a></li>
-                        <li><a href="#">FAQ</a></li>
-                        <li><a href="#">Shipping Info</a></li>
-                        <li><a href="#">Returns</a></li>
+                        <li><a href="contact.php">Contact Us</a></li>
+                        <li><a href="contact.php">FAQ</a></li>
+                        <li><a href="contact.php">Shipping Info</a></li>
+                        <li><a href="contact.php">Returns</a></li>
                     </ul>
                 </div>
-
+                
                 <div class="footer-section">
                     <h3>Contact Info</h3>
                     <ul class="contact-info">
-                        <li><i class="fas fa-map-marker-alt"></i> 123 Print Street, City, State 12345</li>
-                        <li><i class="fas fa-phone"></i> (123) 456-7890</li>
-                        <li><i class="fas fa-envelope"></i> info@activemedia.com</li>
+                        <li><i class="fas fa-map-marker-alt"></i>Fausta Rd Lucero St Mabolo, Malolos, Philippines</li>
+                        <li><i class="fas fa-phone"></i> (044) 796-4101</li>
+                        <li><i class="fas fa-envelope"></i> activemediaprint@gmail.com</li>
                     </ul>
                 </div>
             </div>
-
+            
             <div class="footer-bottom">
                 <div class="copyright">
-                    <p>&copy; 2023 Active Media. All rights reserved.</p>
+                    <p>&copy; 2025 Active Media Designs & Printing. All rights reserved.</p>
                 </div>
                 <div class="footer-links">
-                    <a href="#">Privacy Policy</a>
-                    <a href="#">Terms of Service</a>
-                    <a href="#">Cookie Policy</a>
+                    <a href="">Privacy Policy</a>
+                    <a href="">Terms of Service</a>
+                    <a href="">Cookie Policy</a>
                 </div>
             </div>
         </div>

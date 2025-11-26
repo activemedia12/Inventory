@@ -110,7 +110,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             margin-bottom: 40px;
             padding: 40px;
             background: var(--bg-white);
-            border-radius: 15px;
             box-shadow: var(--shadow);
         }
         
@@ -132,7 +131,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             margin-bottom: 30px;
             padding: 20px;
             background: var(--bg-white);
-            border-radius: 10px;
             box-shadow: var(--shadow);
         }
         
@@ -163,7 +161,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
         .bulk-btn {
             padding: 12px 24px;
             border: none;
-            border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
             display: flex;
@@ -189,7 +186,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
         .cart-item {
             display: flex;
             background: var(--bg-white);
-            border-radius: 12px;
             padding: 25px;
             margin-bottom: 20px;
             box-shadow: var(--shadow);
@@ -244,7 +240,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             width: 140px;
             height: 140px;
             object-fit: cover;
-            border-radius: 10px;
             border: 2px solid var(--border-color);
             transition: var(--transition);
         }
@@ -269,7 +264,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             background: var(--primary-color);
             color: white;
             padding: 6px 14px;
-            border-radius: 20px;
             font-size: 0.9em;
             display: inline-block;
             margin-bottom: 10px;
@@ -315,7 +309,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             width: 120px;
             height: 120px;
             object-fit: contain;
-            border-radius: 8px;
             border: 2px solid var(--primary-color);
             padding: 5px;
             background: white;
@@ -369,7 +362,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             padding: 12px;
             text-align: center;
             border: 2px solid var(--border-color);
-            border-radius: 8px;
             font-size: 1.1em;
             font-weight: bold;
             background: var(--bg-white);
@@ -380,7 +372,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             height: 40px;
             background: var(--bg-light);
             border: 2px solid var(--border-color);
-            border-radius: 8px;
             font-size: 1.2em;
             cursor: pointer;
             transition: var(--transition);
@@ -398,7 +389,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
         .update-btn, .remove-btn {
             padding: 12px 20px;
             border: none;
-            border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
             transition: var(--transition);
@@ -431,7 +421,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
         .cart-summary {
             background: var(--bg-white);
             padding: 30px;
-            border-radius: 15px;
             box-shadow: var(--shadow);
             margin-bottom: 30px;
             border: 1px solid var(--border-color);
@@ -470,7 +459,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
         .cart-btn {
             padding: 18px 35px;
             text-decoration: none;
-            border-radius: 10px;
             font-weight: 600;
             font-size: 1.1em;
             transition: var(--transition);
@@ -482,6 +470,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
         .continue-shopping {
             background: var(--text-light);
             color: white;
+            cursor: pointer;
         }
         
         .continue-shopping:hover {
@@ -491,8 +480,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
         }
         
         .checkout-btn {
+            cursor: pointer;
             background: #28a745;
             color: white;
+            border: none;
         }
         
         .checkout-btn:hover {
@@ -505,7 +496,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             text-align: center;
             padding: 80px 30px;
             background: var(--bg-white);
-            border-radius: 15px;
             box-shadow: var(--shadow);
         }
         
@@ -532,7 +522,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             background: var(--primary-color);
             color: white;
             text-decoration: none;
-            border-radius: 15px;
             font-weight: 600;
             transition: var(--transition);
             display: inline-flex;
@@ -550,9 +539,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             margin-top: 15px;
             padding: 15px;
             background: var(--bg-light);
-            border-radius: 8px;
             font-size: 0.9em;
             border-left: 4px solid var(--primary-color);
+            text-transform: uppercase;
         }
 
         .details-row {
@@ -588,7 +577,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             margin-top: 15px;
             padding: 12px;
             background: var(--bg-light);
-            border-radius: 6px;
             font-size: 0.85em;
         }
 
@@ -928,7 +916,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
                                                                     <img src="<?php echo $uploadedFilePath; ?>" 
                                                                         alt="Original Design File">
                                                                 <?php else: ?>
-                                                                    <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 2px dashed #ccc;">
+                                                                    <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 2px dashed #ccc;">
                                                                         <i class="fas fa-file-image" style="font-size: 24px; color: #999;"></i>
                                                                     </div>
                                                                 <?php endif; ?>
@@ -946,7 +934,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
                                                                         <img src="<?php echo $frontUploadedFilePath; ?>" 
                                                                             alt="Front Original Design">
                                                                     <?php else: ?>
-                                                                        <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 2px dashed #ccc;">
+                                                                        <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 2px dashed #ccc;">
                                                                             <i class="fas fa-file-image" style="font-size: 24px; color: #999;"></i>
                                                                         </div>
                                                                     <?php endif; ?>
@@ -963,7 +951,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
                                                                         <img src="<?php echo $backUploadedFilePath; ?>" 
                                                                             alt="Back Original Design">
                                                                     <?php else: ?>
-                                                                        <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 2px dashed #ccc;">
+                                                                        <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 2px dashed #ccc;">
                                                                             <i class="fas fa-file-image" style="font-size: 24px; color: #999;"></i>
                                                                         </div>
                                                                     <?php endif; ?>
@@ -984,7 +972,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
                                                                     <img src="<?php echo $frontMockupPath; ?>" 
                                                                         alt="Front Mockup">
                                                                 <?php else: ?>
-                                                                    <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 2px dashed var(--primary-color);">
+                                                                    <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--primary-color);">
                                                                         <i class="fas fa-image" style="font-size: 24px; color: var(--primary-color);"></i>
                                                                     </div>
                                                                 <?php endif; ?>
@@ -1003,7 +991,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
                                                                     <img src="<?php echo $backMockupPath; ?>" 
                                                                         alt="Back Mockup">
                                                                 <?php else: ?>
-                                                                    <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 2px dashed var(--primary-color);">
+                                                                    <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--primary-color);">
                                                                         <i class="fas fa-image" style="font-size: 24px; color: var(--primary-color);"></i>
                                                                     </div>
                                                                 <?php endif; ?>
@@ -1098,74 +1086,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             <?php endif; ?>
         </div>
     </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h3>Active Media</h3>
-                    <p>Professional printing services with quality, speed, and precision for all your business needs.</p>
-                    <div class="social-icons">
-                        <a href="#"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
-                    </div>
-                </div>
-                
-                <div class="footer-section">
-                    <h3>Services</h3>
-                    <ul>
-                        <li><a href="#offset">Offset Printing</a></li>
-                        <li><a href="#digital">Digital Printing</a></li>
-                        <li><a href="#riso">RISO Printing</a></li>
-                        <li><a href="#other">Other Services</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-section">
-                    <h3>Company</h3>
-                    <ul>
-                        <li><a href="#">About Us</a></li>
-                        <li><a href="#">Our Team</a></li>
-                        <li><a href="#">Careers</a></li>
-                        <li><a href="#">Testimonials</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-section">
-                    <h3>Support</h3>
-                    <ul>
-                        <li><a href="#">Contact Us</a></li>
-                        <li><a href="#">FAQ</a></li>
-                        <li><a href="#">Shipping Info</a></li>
-                        <li><a href="#">Returns</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-section">
-                    <h3>Contact Info</h3>
-                    <ul class="contact-info">
-                        <li><i class="fas fa-map-marker-alt"></i> 123 Print Street, City, State 12345</li>
-                        <li><i class="fas fa-phone"></i> (123) 456-7890</li>
-                        <li><i class="fas fa-envelope"></i> info@activemedia.com</li>
-                    </ul>
-                </div>
-            </div>
-            
-            <div class="footer-bottom">
-                <div class="copyright">
-                    <p>&copy; 2023 Active Media. All rights reserved.</p>
-                </div>
-                <div class="footer-links">
-                    <a href="#">Privacy Policy</a>
-                    <a href="#">Terms of Service</a>
-                    <a href="#">Cookie Policy</a>
-                </div>
-            </div>
-        </div>
-    </footer>
 
     <script src="../assets/js/main.js"></script>
     <script>
@@ -1432,7 +1352,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
         // Optional: Show a temporary success message
         const successMsg = document.createElement('div');
         successMsg.textContent = message;
-        successMsg.style.cssText = 'position: absolute; top: 10px; right: 10px; background: #4CAF50; color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; z-index: 10;';
+        successMsg.style.cssText = 'position: absolute; top: 10px; right: 10px; background: #4CAF50; color: white; padding: 5px 10px; font-size: 12px; z-index: 10;';
         itemElement.appendChild(successMsg);
         
         setTimeout(() => {

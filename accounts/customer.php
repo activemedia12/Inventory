@@ -260,7 +260,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       background: #fff;
       box-shadow: 0 2px 4px rgba(0, 0, 0, .1), 0 8px 16px rgba(0, 0, 0, .1);
       overflow: hidden;
-      border-radius: 28px;
     }
 
     .header {
@@ -286,7 +285,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       justify-content: center;
       align-items: center;
       padding: 50px 0;
-      border-radius: 28px;
     }
 
     .logo-container img {
@@ -340,7 +338,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       background: #fff2f0;
       border: 1px solid #ffccc7;
       padding: 10px;
-      border-radius: 6px;
       margin-bottom: 15px;
       font-size: 14px;
       display: flex;
@@ -353,7 +350,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       background: #f6ffed;
       border: 1px solid #b7eb8f;
       padding: 10px;
-      border-radius: 6px;
       margin-bottom: 15px;
       font-size: 14px;
       display: flex;

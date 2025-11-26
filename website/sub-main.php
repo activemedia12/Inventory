@@ -1,35 +1,9 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id'])) {
-    header("Location: ../accounts/login.php");
-    exit;
-}
-
 require_once '../config/db.php';
 
-$user_id = $_SESSION['user_id'];
-
 /* ------------------------------
-   1. Get USER info (personal or company)
---------------------------------*/
-$userQuery = "SELECT 
-                u.id,
-                pc.first_name, pc.last_name,
-                cc.company_name
-              FROM users u
-              LEFT JOIN personal_customers pc ON u.id = pc.user_id
-              LEFT JOIN company_customers cc ON u.id = cc.user_id
-              WHERE u.id = ?
-              LIMIT 1";
-
-$userStmt = $inventory->prepare($userQuery);
-$userStmt->bind_param("i", $user_id);
-$userStmt->execute();
-$userResult = $userStmt->get_result();
-$user_data = $userResult->fetch_assoc();
-
-/* ------------------------------
-   2. Fetch all products from products_offered
+   Fetch all products from products_offered
 --------------------------------*/
 $sql = "SELECT id, product_name, category, price FROM products_offered";
 $result = $inventory->query($sql);
@@ -64,24 +38,7 @@ $other_result = $inventory->query("SELECT id, product_name, category, price
 if ($result === false) {
     die("Error executing query: " . $inventory->error);
 }
-
-/* ------------------------------
-   3. Get cart count for the user
---------------------------------*/
-$cart_count = 0;
-$query = "SELECT SUM(ci.quantity) as total_items 
-          FROM cart_items ci 
-          JOIN carts c ON ci.cart_id = c.cart_id 
-          WHERE c.user_id = ?";
-$stmt = $inventory->prepare($query);
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$result_cart = $stmt->get_result();
-$row = $result_cart->fetch_assoc();
-
-$cart_count = $row['total_items'] ? $row['total_items'] : 0;
 ?>
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -109,33 +66,32 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 
                 <ul class="nav-links">
                     <li><a href="#" class="active"><i class="fas fa-home"></i> Home</a></li>
-                    <li><a href="ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
+                    <li><a href="sub-ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
                     <li><a href="about.php"><i class="fas fa-info-circle"></i> About</a></li>
                     <li><a href="contact.php"><i class="fas fa-phone"></i> Contact</a></li>
                 </ul>
                 
                 <div class="user-info">
-                    <a href="view_cart.php" class="cart-icon">
-                        <i class="fas fa-shopping-cart"></i>
-                        <span class="cart-count"><?php echo $cart_count; ?></span>
-                    </a>
-                    <a href="../pages/website/profile.php" class="user-profile">
-                        <i class="fas fa-user"></i>
-                        <span class="user-name">
-                            <?php 
-                                if (!empty($user_data['first_name'])) {
-                                    echo htmlspecialchars($user_data['first_name']);
-                                } elseif (!empty($user_data['company_name'])) {
-                                    echo htmlspecialchars($user_data['company_name']);
-                                } else {
-                                    echo 'User';
-                                }
-                            ?>
-                        </span>
-                    </a>
-                    <a href="../accounts/logout.php" class="logout-btn">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </a>
+                    <?php if (isset($_SESSION['user_id'])): ?>
+                        <!-- Show cart and profile for logged in users -->
+                        <a href="view_cart.php" class="cart-icon">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span class="cart-count">0</span>
+                        </a>
+                        <a href="../pages/website/profile.php" class="user-profile">
+                            <i class="fas fa-user"></i>
+                            <span class="user-name">My Account</span>
+                        </a>
+                        <a href="../accounts/logout.php" class="logout-btn">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </a>
+                    <?php else: ?>
+                        <!-- Show login/signup for guests -->
+                        <div class="auth-buttons">
+                            <a href="../accounts/login.php" class="btn log">Login</a>
+                            <a href="../accounts/customer.php" class="btn sign">Sign Up</a>
+                        </div>
+                    <?php endif; ?>
                 </div>
                 
                 <div class="mobile-menu-toggle">
@@ -156,7 +112,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 <p class="hero-subtitle">High-quality offset, digital, and RISO printing for all your business needs</p>
                 <div class="hero-actions">
                     <a href="#services" class="btn btn-primary">Explore Services</a>
-                    <a href="#" class="btn btn-secondary">Request Quote</a>
+                    <a href="../accounts/login.php" class="btn btn-secondary">Request Quote</a>
                 </div>
             </div>
         </div>
@@ -227,16 +183,16 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     <div class="product-card">
                         <div class="product-image">
                             <span class="category-badge">Offset</span>
-                            <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>">
+                            <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
                                 <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
                             </a>
                             <div class="product-overlay">
-                                <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
+                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
                             </div>
                         </div>
                         <div class="product-info">
                             <h3 class="product-name">
-                                <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>">
+                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
                                     <?php echo $row["product_name"]; ?>
                                 </a>
                             </h3>
@@ -249,6 +205,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
     </section>
     <?php endif; ?>
 
+    <!-- Repeat similar sections for Digital, RISO, Other services -->
     <!-- Digital Printing Section -->
     <?php if ($digital_result && $digital_result->num_rows > 0): ?>
     <section id="digital" class="printing-section">
@@ -266,16 +223,16 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     <div class="product-card">
                         <div class="product-image">
                             <span class="category-badge">Digital</span>
-                            <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>">
+                            <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
                                 <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
                             </a>
                             <div class="product-overlay">
-                                <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
+                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
                             </div>
                         </div>
                         <div class="product-info">
                             <h3 class="product-name">
-                                <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>">
+                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
                                     <?php echo $row["product_name"]; ?>
                                 </a>
                             </h3>
@@ -288,7 +245,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
     </section>
     <?php endif; ?>
 
-    <!-- RISO Printing Section -->
     <?php if ($riso_result && $riso_result->num_rows > 0): ?>
     <section id="riso" class="printing-section">
         <div class="container">
@@ -305,16 +261,16 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     <div class="product-card">
                         <div class="product-image">
                             <span class="category-badge">RISO</span>
-                            <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>">
+                            <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
                                 <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
                             </a>
                             <div class="product-overlay">
-                                <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
+                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
                             </div>
                         </div>
                         <div class="product-info">
                             <h3 class="product-name">
-                                <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>">
+                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
                                     <?php echo $row["product_name"]; ?>
                                 </a>
                             </h3>
@@ -327,7 +283,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
     </section>
     <?php endif; ?>
 
-    <!-- Other Services Section -->
     <?php if ($other_result && $other_result->num_rows > 0): ?>
     <section id="other" class="printing-section">
         <div class="container">
@@ -343,17 +298,17 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 <?php while($row = $other_result->fetch_assoc()): ?>
                     <div class="product-card">
                         <div class="product-image">
-                            <span class="category-badge">Other</span>
-                            <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>">
+                            <span class="category-badge">Other Services</span>
+                            <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
                                 <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
                             </a>
                             <div class="product-overlay">
-                                <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
+                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
                             </div>
                         </div>
                         <div class="product-info">
                             <h3 class="product-name">
-                                <a href="../pages/website/service_detail.php?id=<?php echo $row['id']; ?>">
+                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
                                     <?php echo $row["product_name"]; ?>
                                 </a>
                             </h3>
@@ -414,15 +369,15 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     while($row = $result->fetch_assoc()) {
                         echo '<div class="product-card" data-category="' . $row["category"] . '">';
                         echo '  <div class="product-image">';
-                        echo '    <a href="../pages/website/service_detail.php?id=' . $row['id'] . '">';
+                        echo '    <a href="service_detail_public.php?id=' . $row['id'] . '">';
                         echo '      <img src="../assets/images/services/service-' . $row['id'] . '.jpg" alt="' . $row["product_name"] . '">';
                         echo '    </a>';
                         echo '    <div class="product-overlay">';
-                        echo '      <a href="../pages/website/service_detail.php?id=' . $row['id'] . '" class="btn btn-outline">View Details</a>';
+                        echo '      <a href="service_detail_public.php?id=' . $row['id'] . '" class="btn btn-outline">View Details</a>';
                         echo '    </div>';
                         echo '  </div>';
                         echo '  <div class="product-info">';
-                        echo '    <h3 class="product-name"><a href="../pages/website/service_detail.php?id=' . $row['id'] . '">' . $row["product_name"] . '</a></h3>';
+                        echo '    <h3 class="product-name"><a href="service_detail_public.php?id=' . $row['id'] . '">' . $row["product_name"] . '</a></h3>';
                         echo '    <span class="product-category">' . $row["category"] . '</span>';
                         echo '    <div class="product-price">₱' . number_format($row["price"], 2) . '</div>';
                         echo '  </div>';
@@ -432,7 +387,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     echo "<p class='no-results'>No services found in the database.</p>";
                 }
 
-                // Close connection AFTER processing all results
+                // Close connection
                 $inventory->close();
                 ?>
             </div>
@@ -446,8 +401,8 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 <h2>Ready to Start Your Printing Project?</h2>
                 <p>Create an account to place orders and manage your projects</p>
                 <div class="hero-actions">
-                    <a href="quote.php" class="btn btn-secondary">Get Quote Now!</a>
-                    <a href="contact.php" class="btn btn-primary">Contact Us!</a>
+                    <a href="../accounts/login.php" class="btn btn-secondary">Login your Account Now!</a>
+                    <a href="../accounts/customer.php" class="btn btn-primary">Sign Up for Free!</a>
                 </div>
             </div>
         </div>
@@ -481,20 +436,20 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 <div class="footer-section">
                     <h3>Company</h3>
                     <ul>
-                        <li><a href="about.php">About Us</a></li>
-                        <li><a href="about.php">Our Team</a></li>
-                        <li><a href="about.php">Careers</a></li>
-                        <li><a href="about.php">Testimonials</a></li>
+                        <li><a href="sub-about.php">About Us</a></li>
+                        <li><a href="sub-about.php">Our Team</a></li>
+                        <li><a href="sub-about.php">Careers</a></li>
+                        <li><a href="sub-about.php">Testimonials</a></li>
                     </ul>
                 </div>
                 
                 <div class="footer-section">
                     <h3>Support</h3>
                     <ul>
-                        <li><a href="contact.php">Contact Us</a></li>
-                        <li><a href="contact.php">FAQ</a></li>
-                        <li><a href="contact.php">Shipping Info</a></li>
-                        <li><a href="contact.php">Returns</a></li>
+                        <li><a href="sub-contact.php">Contact Us</a></li>
+                        <li><a href="sub-contact.php">FAQ</a></li>
+                        <li><a href="sub-contact.php">Shipping Info</a></li>
+                        <li><a href="sub-contact.php">Returns</a></li>
                     </ul>
                 </div>
                 
