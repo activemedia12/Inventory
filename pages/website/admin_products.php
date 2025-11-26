@@ -598,6 +598,7 @@ while ($row = $categories_result->fetch_assoc()) {
             flex: 1;
             padding: 20px;
             background: #f0f2f5;
+            padding-bottom: 110px;
         }
 
         .header {
@@ -612,9 +613,10 @@ while ($row = $categories_result->fetch_assoc()) {
         }
 
         .header h1 {
-            color: #2c3e50;
+            color: #1c1e21;
             font-size: 1.8em;
             margin: 0;
+            font-weight: 600;
         }
 
         .user-info {
@@ -765,7 +767,9 @@ while ($row = $categories_result->fetch_assoc()) {
             top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.5);
+            background-color: rgba(0, 0, 0, 0.05);
+            backdrop-filter: blur(3px);
+            animation: fadeIn 0.3s ease-out;
         }
 
         .modal-content {
@@ -777,7 +781,30 @@ while ($row = $categories_result->fetch_assoc()) {
             max-width: 600px;
             max-height: 80vh;
             overflow-y: auto;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
         .close {
