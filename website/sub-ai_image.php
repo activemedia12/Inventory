@@ -1,85 +1,49 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id'])) {
-    header("Location: ../accounts/login.php");
-    exit;
-}
-
 require_once '../config/db.php';
 
-$user_id = $_SESSION['user_id'];
-
-/* ------------------------------
-   1. Get USER info (personal or company)
---------------------------------*/
-$userQuery = "SELECT 
-                u.id,
-                pc.first_name, pc.last_name,
-                cc.company_name
-              FROM users u
-              LEFT JOIN personal_customers pc ON u.id = pc.user_id
-              LEFT JOIN company_customers cc ON u.id = cc.user_id
-              WHERE u.id = ?
-              LIMIT 1";
-
-$userStmt = $inventory->prepare($userQuery);
-$userStmt->bind_param("i", $user_id);
-$userStmt->execute();
-$userResult = $userStmt->get_result();
-$user_data = $userResult->fetch_assoc();
-
-/* ------------------------------
-   2. Fetch all products from products_offered
---------------------------------*/
-$sql = "SELECT id, product_name, category, price FROM products_offered";
-$result = $inventory->query($sql);
-
-// Define product IDs for each category
-$offset_ids = [1, 2, 3, 4];
-$digital_ids = [7, 8, 9, 10];
-$riso_ids   = [13, 14, 15, 16];
-$other_ids  = [18, 19, 20, 21];
-
-// Fetch products for each category
-$offset_result = $inventory->query("SELECT id, product_name, category, price 
-                                    FROM products_offered 
-                                    WHERE id IN (" . implode(',', $offset_ids) . ") 
-                                    LIMIT 4");
-
-$digital_result = $inventory->query("SELECT id, product_name, category, price 
-                                     FROM products_offered 
-                                     WHERE id IN (" . implode(',', $digital_ids) . ") 
-                                     LIMIT 4");
-
-$riso_result = $inventory->query("SELECT id, product_name, category, price 
-                                  FROM products_offered 
-                                  WHERE id IN (" . implode(',', $riso_ids) . ") 
-                                  LIMIT 4");
-
-$other_result = $inventory->query("SELECT id, product_name, category, price 
-                                   FROM products_offered 
-                                   WHERE id IN (" . implode(',', $other_ids) . ") 
-                                   LIMIT 4");
-
-if ($result === false) {
-    die("Error executing query: " . $inventory->error);
-}
-
-/* ------------------------------
-   3. Get cart count for the user
---------------------------------*/
+// Initialize variables
+$user_data = [];
 $cart_count = 0;
-$query = "SELECT SUM(ci.quantity) as total_items 
-          FROM cart_items ci 
-          JOIN carts c ON ci.cart_id = c.cart_id 
-          WHERE c.user_id = ?";
-$stmt = $inventory->prepare($query);
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$result_cart = $stmt->get_result();
-$row = $result_cart->fetch_assoc();
 
-$cart_count = $row['total_items'] ? $row['total_items'] : 0;
+// Check if user is logged in
+if (isset($_SESSION['user_id'])) {
+    $user_id = $_SESSION['user_id'];
+
+    /* ------------------------------
+       1. Get USER info (personal or company)
+    ---------------------------------*/
+    $userQuery = "SELECT 
+                    u.id,
+                    pc.first_name, pc.last_name,
+                    cc.company_name
+                  FROM users u
+                  LEFT JOIN personal_customers pc ON u.id = pc.user_id
+                  LEFT JOIN company_customers cc ON u.id = cc.user_id
+                  WHERE u.id = ?
+                  LIMIT 1";
+
+    $userStmt = $inventory->prepare($userQuery);
+    $userStmt->bind_param("i", $user_id);
+    $userStmt->execute();
+    $userResult = $userStmt->get_result();
+    $user_data = $userResult->fetch_assoc();
+
+    /* ------------------------------
+       2. Get cart count for the user
+    ---------------------------------*/
+    $query = "SELECT SUM(ci.quantity) as total_items 
+              FROM cart_items ci 
+              JOIN carts c ON ci.cart_id = c.cart_id 
+              WHERE c.user_id = ?";
+    $stmt = $inventory->prepare($query);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result_cart = $stmt->get_result();
+    $row = $result_cart->fetch_assoc();
+
+    $cart_count = $row['total_items'] ? $row['total_items'] : 0;
+}
 ?>
 
 <!DOCTYPE html>
@@ -461,6 +425,35 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             color: var(--primary-color);
         }
 
+        /* Login Prompt Styles */
+        .login-prompt {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .login-message {
+            margin-bottom: 25px;
+        }
+
+        .login-message i {
+            font-size: 3em;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .login-message h3 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .login-message p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
         @media (max-width: 768px) {
             .ai-container {
                 padding: 25px;
@@ -490,6 +483,11 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             .style-options {
                 grid-template-columns: 1fr;
             }
+
+            .auth-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
         }
 
         @media (max-width: 576px) {
@@ -514,6 +512,10 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             .image-container {
                 min-height: 300px;
             }
+
+            .login-prompt {
+                padding: 20px;
+            }
         }
     </style>
 </head>
@@ -529,34 +531,43 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 </a>
 
                 <ul class="nav-links">
-                    <li><a href="main.php"><i class="fas fa-home"></i> Home</a></li>
-                    <li><a href="ai_image.php" class="active"><i class="fas fa-robot"></i> AI Services</a></li>
+                    <li><a href="sub-main.php"><i class="fas fa-home"></i> Home</a></li>
+                    <li><a href="sub-ai_image.php" class="active"><i class="fas fa-robot"></i> AI Services</a></li>
                     <li><a href="about.php"><i class="fas fa-info-circle"></i> About</a></li>
                     <li><a href="contact.php"><i class="fas fa-phone"></i> Contact</a></li>
                 </ul>
 
                 <div class="user-info">
-                    <a href="view_cart.php" class="cart-icon">
-                        <i class="fas fa-shopping-cart"></i>
-                        <span class="cart-count"><?php echo $cart_count; ?></span>
-                    </a>
-                    <a href="../pages/website/profile.php" class="user-profile">
-                        <i class="fas fa-user"></i>
-                        <span class="user-name">
-                            <?php 
-                                if (!empty($user_data['first_name'])) {
-                                    echo htmlspecialchars($user_data['first_name']);
-                                } elseif (!empty($user_data['company_name'])) {
-                                    echo htmlspecialchars($user_data['company_name']);
-                                } else {
-                                    echo 'User';
-                                }
-                            ?>
-                        </span>
-                    </a>
-                    <a href="../accounts/logout.php" class="logout-btn">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </a>
+                    <?php if (isset($_SESSION['user_id'])): ?>
+                        <!-- Show cart and profile for logged in users -->
+                        <a href="view_cart.php" class="cart-icon">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span class="cart-count"><?php echo $cart_count; ?></span>
+                        </a>
+                        <a href="profile.php" class="user-profile">
+                            <i class="fas fa-user"></i>
+                            <span class="user-name">
+                                <?php 
+                                    if (!empty($user_data['first_name'])) {
+                                        echo htmlspecialchars($user_data['first_name']);
+                                    } elseif (!empty($user_data['company_name'])) {
+                                        echo htmlspecialchars($user_data['company_name']);
+                                    } else {
+                                        echo 'User';
+                                    }
+                                ?>
+                            </span>
+                        </a>
+                        <a href="../accounts/logout.php" class="logout-btn">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </a>
+                    <?php else: ?>
+                        <!-- Show login/signup for guests -->
+                        <div class="auth-buttons">
+                            <a href="../accounts/login.php" class="btn log">Login</a>
+                            <a href="../accounts/customer.php" class="btn sign">Sign Up</a>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <div class="mobile-menu-toggle">
@@ -579,138 +590,158 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     </p>
                 </div>
 
-                <!-- Product Selection -->
-                <div class="product-select-section">
-                    <h3 class="section-title">
-                        <i class="fas fa-tshirt"></i> Product Selection
-                        <span class="feature-badge">Optional</span>
-                    </h3>
-                    <p style="margin-bottom: 15px; color: var(--text-light);">
-                        Choose a product to customize. This helps us optimize your design for the best results.
-                    </p>
-
-                    <div class="product-buttons">
-                        <div class="product-btn" data-product-id="18" data-supports-front-back="true">
-                            <i class="fas fa-tshirt product-icon"></i>
-                            <span class="product-name">T-Shirt</span>
+                <?php if (!isset($_SESSION['user_id'])): ?>
+                    <!-- Login prompt for guests -->
+                    <div class="login-prompt">
+                        <div class="login-message">
+                            <i class="fas fa-robot"></i>
+                            <h3>Try Our AI Image Generator</h3>
+                            <p>Generate amazing designs instantly! Login to save and use your designs on products.</p>
                         </div>
-                        <div class="product-btn" data-product-id="19" data-supports-front-back="true">
-                            <i class="fas fa-shopping-bag product-icon"></i>
-                            <span class="product-name">Tote Bag</span>
-                        </div>
-                        <div class="product-btn" data-product-id="20" data-supports-front-back="false">
-                            <i class="fas fa-shopping-bag product-icon"></i>
-                            <span class="product-name">Paper Bag</span>
-                        </div>
-                        <div class="product-btn" data-product-id="21" data-supports-front-back="false">
-                            <i class="fas fa-mug-hot product-icon"></i>
-                            <span class="product-name">Mug</span>
-                        </div>
-                        <div class="product-btn" data-product-id="other" data-supports-front-back="false">
-                            <i class="fas fa-print product-icon"></i>
-                            <span class="product-name">Other Product</span>
+                        <div class="hero-actions">
+                            <a href="../accounts/login.php?redirect=<?php echo urlencode('sub-ai_image.php'); ?>" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt"></i> Login to Generate
+                            </a>
+                            <a href="../accounts/customer.php" class="btn btn-secondary">
+                                <i class="fas fa-user-plus"></i> Sign Up for Free!
+                            </a>
                         </div>
                     </div>
-                </div>
+                <?php else: ?>
+                    <!-- AI Generator for logged in users -->
+                    <!-- Product Selection -->
+                    <div class="product-select-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-tshirt"></i> Product Selection
+                            <span class="feature-badge">Optional</span>
+                        </h3>
+                        <p style="margin-bottom: 15px; color: var(--text-light);">
+                            Choose a product to customize. This helps us optimize your design for the best results.
+                        </p>
 
-                <!-- Placement Selection -->
-                <div class="placement-select-section">
-                    <h3 class="section-title">
-                        <i class="fas fa-layer-group"></i> Design Placement
-                    </h3>
-                    <p style="margin-bottom: 15px; color: var(--text-light);">
-                        Choose where you'd like your design to appear on the product
-                    </p>
-
-                    <div class="placement-buttons">
-                        <div class="placement-btn" data-placement="front">
-                            <i class="fas fa-tshirt placement-icon"></i>
-                            <span class="placement-name">Front Only</span>
-                            <small class="placement-desc">Design on front side only</small>
-                        </div>
-                        <div class="placement-btn" data-placement="back">
-                            <i class="fas fa-tshirt placement-icon"></i>
-                            <span class="placement-name">Back Only</span>
-                            <small class="placement-desc">Design on back side only</small>
-                        </div>
-                        <div class="placement-btn" data-placement="both">
-                            <i class="fas fa-tshirt placement-icon"></i>
-                            <span class="placement-name">Both Sides</span>
-                            <small class="placement-desc">Same design on front & back</small>
+                        <div class="product-buttons">
+                            <div class="product-btn" data-product-id="18" data-supports-front-back="true">
+                                <i class="fas fa-tshirt product-icon"></i>
+                                <span class="product-name">T-Shirt</span>
+                            </div>
+                            <div class="product-btn" data-product-id="19" data-supports-front-back="true">
+                                <i class="fas fa-shopping-bag product-icon"></i>
+                                <span class="product-name">Tote Bag</span>
+                            </div>
+                            <div class="product-btn" data-product-id="20" data-supports-front-back="false">
+                                <i class="fas fa-shopping-bag product-icon"></i>
+                                <span class="product-name">Paper Bag</span>
+                            </div>
+                            <div class="product-btn" data-product-id="21" data-supports-front-back="false">
+                                <i class="fas fa-mug-hot product-icon"></i>
+                                <span class="product-name">Mug</span>
+                            </div>
+                            <div class="product-btn" data-product-id="other" data-supports-front-back="false">
+                                <i class="fas fa-print product-icon"></i>
+                                <span class="product-name">Other Product</span>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Design Input -->
-                <div class="input-group">
-                    <h3 class="section-title">
-                        <i class="fas fa-paint-brush"></i> Design Description
-                    </h3>
-                    <label for="prompt">Describe your design in detail</label>
-                    <textarea id="prompt" placeholder="Example: A colorful dragon flying over mountains during sunset, fantasy style, detailed scales..."></textarea>
-                    <small style="display: block; margin-top: 8px; color: var(--text-light);">
-                        Be specific! Include colors, style, mood, and any important details.
-                    </small>
-                </div>
+                    <!-- Placement Selection -->
+                    <div class="placement-select-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-layer-group"></i> Design Placement
+                        </h3>
+                        <p style="margin-bottom: 15px; color: var(--text-light);">
+                            Choose where you'd like your design to appear on the product
+                        </p>
 
-                <!-- Art Style Selection -->
-                <div class="input-group">
-                    <h3 class="section-title">
-                        <i class="fas fa-palette"></i> Art Style
-                        <span class="feature-badge">Optional</span>
-                    </h3>
-                    <label for="style">Choose an art style (optional)</label>
-                    <div class="style-options">
-                        <div class="style-option" data-style="">No Style (Default)</div>
-                        <div class="style-option" data-style="anime">Anime</div>
-                        <div class="style-option" data-style="cinematic">Cinematic</div>
-                        <div class="style-option" data-style="digital-art">Digital Art</div>
-                        <div class="style-option" data-style="fantasy-art">Fantasy Art</div>
-                        <div class="style-option" data-style="pixel-art">Pixel Art</div>
-                        <div class="style-option" data-style="photographic">Photographic</div>
+                        <div class="placement-buttons">
+                            <div class="placement-btn" data-placement="front">
+                                <i class="fas fa-tshirt placement-icon"></i>
+                                <span class="placement-name">Front Only</span>
+                                <small class="placement-desc">Design on front side only</small>
+                            </div>
+                            <div class="placement-btn" data-placement="back">
+                                <i class="fas fa-tshirt placement-icon"></i>
+                                <span class="placement-name">Back Only</span>
+                                <small class="placement-desc">Design on back side only</small>
+                            </div>
+                            <div class="placement-btn" data-placement="both">
+                                <i class="fas fa-tshirt placement-icon"></i>
+                                <span class="placement-name">Both Sides</span>
+                                <small class="placement-desc">Same design on front & back</small>
+                            </div>
+                        </div>
                     </div>
-                    <input type="hidden" id="style" value="">
-                </div>
 
-                <!-- Generate Button -->
-                <button id="generate-btn" class="btn btn-primary">
-                    <i class="fas fa-magic"></i> Generate Image
-                </button>
-
-                <!-- Loading -->
-                <div class="loading" id="loading">
-                    <div class="loading-spinner"></div>
-                    <p>Generating your design... This may take 15-30 seconds.</p>
-                </div>
-
-                <!-- Messages -->
-                <div class="error" id="error-message"></div>
-                <div class="success" id="success-message"></div>
-
-                <!-- Generated Image -->
-                <div class="image-container" id="image-container">
-                    <div class="placeholder-text" id="placeholder">
-                        <i class="fas fa-image" style="font-size: 3em; margin-bottom: 15px; opacity: 0.5;"></i><br>
-                        Your AI-generated design will appear here
+                    <!-- Design Input -->
+                    <div class="input-group">
+                        <h3 class="section-title">
+                            <i class="fas fa-paint-brush"></i> Design Description
+                        </h3>
+                        <label for="prompt">Describe your design in detail</label>
+                        <textarea id="prompt" placeholder="Example: A colorful dragon flying over mountains during sunset, fantasy style, detailed scales..."></textarea>
+                        <small style="display: block; margin-top: 8px; color: var(--text-light);">
+                            Be specific! Include colors, style, mood, and any important details.
+                        </small>
                     </div>
-                    <img id="output-image">
-                </div>
 
-                <!-- Action Buttons -->
-                <div class="action-buttons" id="action-buttons">
-                    <button id="download-btn" class="btn btn-primary">
-                        <i class="fas fa-download"></i> Download Image
+                    <!-- Art Style Selection -->
+                    <div class="input-group">
+                        <h3 class="section-title">
+                            <i class="fas fa-palette"></i> Art Style
+                            <span class="feature-badge">Optional</span>
+                        </h3>
+                        <label for="style">Choose an art style (optional)</label>
+                        <div class="style-options">
+                            <div class="style-option" data-style="">No Style (Default)</div>
+                            <div class="style-option" data-style="anime">Anime</div>
+                            <div class="style-option" data-style="cinematic">Cinematic</div>
+                            <div class="style-option" data-style="digital-art">Digital Art</div>
+                            <div class="style-option" data-style="fantasy-art">Fantasy Art</div>
+                            <div class="style-option" data-style="pixel-art">Pixel Art</div>
+                            <div class="style-option" data-style="photographic">Photographic</div>
+                        </div>
+                        <input type="hidden" id="style" value="">
+                    </div>
+
+                    <!-- Generate Button -->
+                    <button id="generate-btn" class="btn btn-primary">
+                        <i class="fas fa-magic"></i> Generate Image
                     </button>
-                    <button id="remove-bg-btn" class="btn btn-primary">
-                        <i class="fas fa-cut"></i> Remove Background
-                    </button>
-                    <button id="use-design-btn" class="btn btn-primary">
-                        <i class="fas fa-tshirt"></i> Use for Product
-                    </button>
-                    <button id="regenerate-btn" class="btn btn-primary">
-                        <i class="fas fa-redo"></i> Generate Another
-                    </button>
-                </div>
+
+                    <!-- Loading -->
+                    <div class="loading" id="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Generating your design... This may take 15-30 seconds.</p>
+                    </div>
+
+                    <!-- Messages -->
+                    <div class="error" id="error-message"></div>
+                    <div class="success" id="success-message"></div>
+
+                    <!-- Generated Image -->
+                    <div class="image-container" id="image-container">
+                        <div class="placeholder-text" id="placeholder">
+                            <i class="fas fa-image" style="font-size: 3em; margin-bottom: 15px; opacity: 0.5;"></i><br>
+                            Your AI-generated design will appear here
+                        </div>
+                        <img id="output-image">
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons" id="action-buttons">
+                        <button id="download-btn" class="btn btn-primary">
+                            <i class="fas fa-download"></i> Download Image
+                        </button>
+                        <button id="remove-bg-btn" class="btn btn-secondary">
+                            <i class="fas fa-cut"></i> Remove Background
+                        </button>
+                        <button id="use-design-btn" class="btn btn-secondary">
+                            <i class="fas fa-tshirt"></i> Use for Product
+                        </button>
+                        <button id="regenerate-btn" class="btn btn-secondary">
+                            <i class="fas fa-redo"></i> Generate Another
+                        </button>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </section>
@@ -733,30 +764,30 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 <div class="footer-section">
                     <h3>Services</h3>
                     <ul>
-                        <li><a href="#offset">Offset Printing</a></li>
-                        <li><a href="#digital">Digital Printing</a></li>
-                        <li><a href="#riso">RISO Printing</a></li>
-                        <li><a href="#other">Other Services</a></li>
+                        <li><a href="sub-main.php #offset">Offset Printing</a></li>
+                        <li><a href="sub-main.php #digital">Digital Printing</a></li>
+                        <li><a href="sub-main.php #riso">RISO Printing</a></li>
+                        <li><a href="sub-main.php #other">Other Services</a></li>
                     </ul>
                 </div>
                 
                 <div class="footer-section">
                     <h3>Company</h3>
                     <ul>
-                        <li><a href="about.php">About Us</a></li>
-                        <li><a href="about.php">Our Team</a></li>
-                        <li><a href="about.php">Careers</a></li>
-                        <li><a href="about.php">Testimonials</a></li>
+                        <li><a href="sub-about.php">About Us</a></li>
+                        <li><a href="sub-about.php">Our Team</a></li>
+                        <li><a href="sub-about.php">Careers</a></li>
+                        <li><a href="sub-about.php">Testimonials</a></li>
                     </ul>
                 </div>
                 
                 <div class="footer-section">
                     <h3>Support</h3>
                     <ul>
-                        <li><a href="contact.php">Contact Us</a></li>
-                        <li><a href="contact.php">FAQ</a></li>
-                        <li><a href="contact.php">Shipping Info</a></li>
-                        <li><a href="contact.php">Returns</a></li>
+                        <li><a href="sub-contact.php">Contact Us</a></li>
+                        <li><a href="sub-contact.php">FAQ</a></li>
+                        <li><a href="sub-contact.php">Shipping Info</a></li>
+                        <li><a href="sub-contact.php">Returns</a></li>
                     </ul>
                 </div>
                 
@@ -787,8 +818,10 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
     <script>
         // AI Generator specific JavaScript that extends the main script.js
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize AI Generator functionality
-            setupAIGenerator();
+            // Initialize AI Generator functionality only for logged in users
+            <?php if (isset($_SESSION['user_id'])): ?>
+                setupAIGenerator();
+            <?php endif; ?>
 
             // Add mobile menu toggle
             const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
@@ -803,6 +836,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             }
         });
 
+        <?php if (isset($_SESSION['user_id'])): ?>
         function setupAIGenerator() {
             const generateBtn = document.getElementById('generate-btn');
             const downloadBtn = document.getElementById('download-btn');
@@ -1035,9 +1069,9 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
                 // Redirect to appropriate page
                 if (selectedProductId === 'other') {
-                    window.location.href = '../pages/main.php';
+                    window.location.href = 'sub-main.php';
                 } else {
-                    window.location.href = `../pages/website/service_detail.php?id=${selectedProductId}&ai_design=1`;
+                    window.location.href = `service_detail_public.php?id=${selectedProductId}&ai_design=1`;
                 }
             });
 
@@ -1136,6 +1170,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             // Auto-focus on prompt input
             promptInput.focus();
         }
+        <?php endif; ?>
     </script>
 </body>
 

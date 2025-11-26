@@ -69,7 +69,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
         .about-container {
             background: var(--bg-white);
-            border-radius: 15px;
             padding: 40px;
             box-shadow: var(--shadow);
             margin: 0 auto;
@@ -120,7 +119,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             width: 60px;
             height: 3px;
             background: var(--primary-color);
-            border-radius: 2px;
         }
 
         .section-content {
@@ -143,7 +141,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         .value-card {
             background: var(--bg-light);
             padding: 30px;
-            border-radius: 12px;
             text-align: center;
             transition: var(--transition);
             border: 1px solid var(--border-color);
@@ -182,7 +179,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
         .team-member {
             background: var(--bg-light);
-            border-radius: 12px;
             overflow: hidden;
             text-align: center;
             transition: var(--transition);
@@ -237,7 +233,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         .stat-card {
             background: var(--bg-light);
             padding: 30px 20px;
-            border-radius: 12px;
             text-align: center;
             transition: var(--transition);
             border: 1px solid var(--border-color);
@@ -296,7 +291,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         .timeline-content {
             background: var(--bg-light);
             padding: 25px;
-            border-radius: 12px;
             box-shadow: var(--shadow);
             border: 1px solid var(--border-color);
             position: relative;
@@ -331,7 +325,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             background: var(--primary-color);
             color: white;
             padding: 5px 15px;
-            border-radius: 20px;
             font-weight: 600;
             margin-bottom: 15px;
         }
@@ -369,7 +362,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         .cta-section {
             background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
             padding: 50px;
-            border-radius: 15px;
             text-align: center;
             color: white;
             margin-top: 40px;
@@ -392,7 +384,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
         .cta-buttons {
             display: flex;
-            gap: 20px;
+            gap: 10px;
             justify-content: center;
             flex-wrap: wrap;
         }
@@ -405,7 +397,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
         .btn-light:hover {
             background: var(--bg-light);
-            transform: translateY(-2px);
         }
 
         .btn-outline-light {
@@ -544,7 +535,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         <div class="container">
             <div class="about-container">
                 <div class="about-header">
-                    <h1 class="about-title">About Active Media</h1>
+                    <h1 class="about-title">About Active Media Designs & Printing</h1>
                     <p class="about-subtitle">Excellence in Printing & Design Since 2010</p>
                     <p class="about-description">
                         Active Media Designs & Printing has been at the forefront of the printing industry, 
@@ -558,13 +549,13 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 <div class="section-content">
                     <h2 class="section-title">Our Story</h2>
                     <p>
-                        Founded in 2010 by a team of passionate designers and printing experts, Active Media 
+                        Founded in 2010 by Wizermina C. Lumbad, Active Media 
                         started as a small local print shop with a vision to revolutionize the printing industry. 
                         We believed that quality printing should be accessible to everyone, from small businesses 
                         to large corporations.
                     </p>
                     <p>
-                        Over the years, we've grown from a single-store operation to a multi-location printing 
+                        Over the years, we've grown from a single-office operation to a multi-location printing 
                         service provider with state-of-the-art equipment and a team of dedicated professionals. 
                         Our journey has been marked by continuous innovation, embracing new technologies while 
                         maintaining the craftsmanship that sets us apart.
@@ -703,7 +694,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                         <div class="timeline-item">
                             <div class="timeline-dot"></div>
                             <div class="timeline-content">
-                                <span class="timeline-year">2023</span>
+                                <span class="timeline-year">2025</span>
                                 <h3 class="timeline-title">AI Innovation</h3>
                                 <p class="timeline-description">
                                     Launched our AI-powered design tools, revolutionizing how customers 
@@ -786,7 +777,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                             <div class="stat-label">Projects Completed</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-number">13+</div>
+                            <div class="stat-number">10+</div>
                             <div class="stat-label">Years of Experience</div>
                         </div>
                         <div class="stat-card">
@@ -821,16 +812,16 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">
-                    <h3>Active Media</h3>
+                    <h3>AMDP</h3>
                     <p>Professional printing services with quality, speed, and precision for all your business needs.</p>
                     <div class="social-icons">
-                        <a href="#"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
+                        <a href="https://www.facebook.com/profile.php?id=100063881538670"><i class="fab fa-facebook-f"></i></a>
+                        <a href=""><i class="fab fa-twitter"></i></a>
+                        <a href=""><i class="fab fa-instagram"></i></a>
+                        <a href=""><i class="fab fa-linkedin-in"></i></a>
                     </div>
                 </div>
-
+                
                 <div class="footer-section">
                     <h3>Services</h3>
                     <ul>
@@ -840,45 +831,45 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                         <li><a href="#other">Other Services</a></li>
                     </ul>
                 </div>
-
+                
                 <div class="footer-section">
                     <h3>Company</h3>
                     <ul>
-                        <li><a href="#" class="active">About Us</a></li>
-                        <li><a href="#">Our Team</a></li>
-                        <li><a href="#">Careers</a></li>
-                        <li><a href="#">Testimonials</a></li>
+                        <li><a href="about.php">About Us</a></li>
+                        <li><a href="about.php">Our Team</a></li>
+                        <li><a href="about.php">Careers</a></li>
+                        <li><a href="about.php">Testimonials</a></li>
                     </ul>
                 </div>
-
+                
                 <div class="footer-section">
                     <h3>Support</h3>
                     <ul>
-                        <li><a href="#">Contact Us</a></li>
-                        <li><a href="#">FAQ</a></li>
-                        <li><a href="#">Shipping Info</a></li>
-                        <li><a href="#">Returns</a></li>
+                        <li><a href="contact.php">Contact Us</a></li>
+                        <li><a href="contact.php">FAQ</a></li>
+                        <li><a href="contact.php">Shipping Info</a></li>
+                        <li><a href="contact.php">Returns</a></li>
                     </ul>
                 </div>
-
+                
                 <div class="footer-section">
                     <h3>Contact Info</h3>
                     <ul class="contact-info">
-                        <li><i class="fas fa-map-marker-alt"></i> 123 Print Street, City, State 12345</li>
-                        <li><i class="fas fa-phone"></i> (123) 456-7890</li>
-                        <li><i class="fas fa-envelope"></i> info@activemedia.com</li>
+                        <li><i class="fas fa-map-marker-alt"></i>Fausta Rd Lucero St Mabolo, Malolos, Philippines</li>
+                        <li><i class="fas fa-phone"></i> (044) 796-4101</li>
+                        <li><i class="fas fa-envelope"></i> activemediaprint@gmail.com</li>
                     </ul>
                 </div>
             </div>
-
+            
             <div class="footer-bottom">
                 <div class="copyright">
-                    <p>&copy; 2023 Active Media. All rights reserved.</p>
+                    <p>&copy; 2025 Active Media Designs & Printing. All rights reserved.</p>
                 </div>
                 <div class="footer-links">
-                    <a href="#">Privacy Policy</a>
-                    <a href="#">Terms of Service</a>
-                    <a href="#">Cookie Policy</a>
+                    <a href="">Privacy Policy</a>
+                    <a href="">Terms of Service</a>
+                    <a href="">Cookie Policy</a>
                 </div>
             </div>
         </div>

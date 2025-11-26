@@ -137,7 +137,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             max-width: 900px;
             background: #fff;
             box-shadow: 0 2px 4px rgba(0, 0, 0, .1), 0 8px 16px rgba(0, 0, 0, .1);
-            border-radius: 28px;
             overflow: hidden;
         }
 
@@ -259,7 +258,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         .message {
             padding: 12px 16px;
             margin-bottom: 20px;
-            border-radius: 8px;
             font-size: 15px;
             display: flex;
             align-items: center;

@@ -108,7 +108,6 @@ if (!empty($token)) {
             background: #fff;
             box-shadow: 0 2px 4px rgba(0, 0, 0, .1), 0 8px 16px rgba(0, 0, 0, .1);
             overflow: hidden;
-            border-radius: 28px;
         }
 
         .header {
@@ -134,7 +133,6 @@ if (!empty($token)) {
             justify-content: center;
             align-items: center;
             padding: 50px 0;
-            border-radius: 28px;
         }
 
         .logo-container img {
@@ -208,7 +206,6 @@ if (!empty($token)) {
         .message {
             padding: 12px;
             margin-bottom: 20px;
-            border-radius: 8px;
             font-size: 15px;
             align-items: center;
             gap: 10px;
@@ -251,7 +248,6 @@ if (!empty($token)) {
             background-color: #000;
             color: white;
             text-decoration: none;
-            border-radius: 8px;
             font-weight: 500;
             transition: all 0.3s ease;
         }
