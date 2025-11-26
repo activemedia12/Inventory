@@ -1467,7 +1467,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                                             <img src="" alt="Mockup Preview" class="mockup-preview" id="mockupPreview">
                                             <p id="previewText" style="color: var(--text-light); font-style: italic;">Upload an image to generate preview</p>
                                         </div>
-                                        <button type="button" class="btn btn-secondary" onclick="generateMockup()">
+                                        <button type="button" class="btn btn-primary" onclick="generateMockup()">
                                             <i class="fas fa-image"></i> Generate Mockup
                                         </button>
                                     </div>
