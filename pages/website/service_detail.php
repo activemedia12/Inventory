@@ -49,7 +49,7 @@ if (isset($_GET['success'])) {
     }
 
     if ($message) {
-        echo '<div style="position: fixed; top: 20px; right: 20px; background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; border: 1px solid #c3e6cb; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">';
+        echo '<div style="position: fixed; top: 20px; right: 20px; background: #d4edda; color: #155724; padding: 15px; border: 1px solid #c3e6cb; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">';
         echo $message;
         echo '</div>';
 
@@ -83,7 +83,7 @@ if (isset($_GET['error'])) {
     }
 
     if ($message) {
-        echo '<div style="position: fixed; top: 20px; right: 20px; background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; border: 1px solid #f5c6cb; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">';
+        echo '<div style="position: fixed; top: 20px; right: 20px; background: #f8d7da; color: #721c24; padding: 15px; border: 1px solid #f5c6cb; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">';
         echo $message;
         echo '</div>';
 
@@ -377,7 +377,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         
         .product-detail-container {
             background: var(--bg-white);
-            border-radius: 15px;
             padding: 40px;
             box-shadow: var(--shadow);
             margin-bottom: 40px;
@@ -399,7 +398,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             width: 100%;
             height: 450px;
             object-fit: contain;
-            border-radius: 12px;
             margin-bottom: 20px;
             background: var(--bg-light);
             border: 2px solid var(--border-color);
@@ -419,7 +417,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             width: 70px;
             height: 70px;
             object-fit: cover;
-            border-radius: 8px;
             cursor: pointer;
             border: 3px solid transparent;
             transition: var(--transition);
@@ -449,7 +446,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
             color: white;
             padding: 8px 16px;
-            border-radius: 25px;
             font-size: 0.95em;
             display: inline-block;
             margin-bottom: 20px;
@@ -467,7 +463,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             margin-bottom: 30px;
             padding: 25px;
             background: var(--bg-light);
-            border-radius: 12px;
             border: 1px solid var(--border-color);
         }
         
@@ -499,7 +494,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             height: 45px;
             background: var(--bg-white);
             border: 2px solid var(--border-color);
-            border-radius: 8px;
             font-size: 1.3em;
             cursor: pointer;
             transition: var(--transition);
@@ -519,7 +513,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             height: 45px;
             text-align: center;
             border: 2px solid var(--border-color);
-            border-radius: 8px;
             font-size: 1.2em;
             font-weight: 600;
             background: var(--bg-white);
@@ -536,7 +529,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             padding: 14px 24px;
             background: var(--text-light);
             color: white;
-            border-radius: 8px;
             cursor: pointer;
             transition: var(--transition);
             font-weight: 500;
@@ -553,14 +545,12 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             text-align: center;
             padding: 15px;
             background: var(--bg-white);
-            border-radius: 8px;
             border: 2px dashed var(--border-color);
         }
         
         .uploaded-image {
             max-width: 220px;
             max-height: 180px;
-            border-radius: 8px;
             border: 2px solid var(--primary-color);
             margin-bottom: 15px;
         }
@@ -569,7 +559,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             margin-bottom: 30px;
             padding: 25px;
             background: var(--bg-white);
-            border-radius: 12px;
             border: 1px solid var(--border-color);
         }
         
@@ -578,7 +567,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             height: 220px;
             background: var(--bg-light);
             border: 2px dashed var(--border-color);
-            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -590,7 +578,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             max-width: 100%;
             max-height: 200px;
             display: none;
-            border-radius: 6px;
         }
         
         .action-buttons {
@@ -612,7 +599,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             background: var(--text-light);
             color: white;
             border: none;
-            border-radius: 5px;
             cursor: pointer;
             transition: var(--transition);
             display: flex;
@@ -629,7 +615,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             width: 100%;
             height: 400px;
             border: 2px dashed var(--border-color);
-            border-radius: 10px;
             margin-bottom: 20px;
             position: relative;
             overflow: hidden;
@@ -698,7 +683,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             background: var(--text-light);
             color: white;
             border: none;
-            border-radius: 5px;
             cursor: pointer;
             transition: var(--transition);
         }
@@ -729,7 +713,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         .mockup-container {
             background: var(--bg-white);
             padding: 40px;
-            border-radius: 15px;
             max-width: 90%;
             max-height: 90%;
             overflow: auto;
@@ -770,7 +753,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             max-width: 320px;
             max-height: 420px;
             border: 2px solid var(--border-color);
-            border-radius: 12px;
             box-shadow: var(--shadow);
         }
         
@@ -780,7 +762,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             background: #28a745;
             color: white;
             border: none;
-            border-radius: 6px;
             cursor: pointer;
             transition: var(--transition);
             display: inline-flex;
@@ -819,7 +800,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             padding: 12px 20px;
             background: var(--bg-light);
             border: 2px solid var(--border-color);
-            border-radius: 8px;
             cursor: pointer;
             transition: var(--transition);
             font-weight: 500;
@@ -827,6 +807,8 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             flex: 1;
             min-width: 120px;
             text-align: center;
+            text-transform: uppercase;
+            font-family: 'Poppins';
         }
         
         .option-button:hover {
@@ -869,7 +851,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             cursor: pointer;
             padding: 10px 15px;
             background: var(--bg-light);
-            border-radius: 8px;
             transition: var(--transition);
         }
 
@@ -891,7 +872,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
         .design-area {
             border: 2px dashed var(--border-color);
-            border-radius: 12px;
             padding: 25px;
             transition: all 0.3s ease;
             background: var(--bg-light);
@@ -929,7 +909,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             align-items: center;
             padding: 30px;
             border: 2px dashed #ccc;
-            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
             background: white;
@@ -966,7 +945,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         .design-preview img {
             max-width: 100%;
             max-height: 150px;
-            border-radius: 8px;
             border: 2px solid var(--primary-color);
             margin-bottom: 10px;
         }
@@ -982,7 +960,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             color: white;
             border: none;
             padding: 8px 15px;
-            border-radius: 5px;
             cursor: pointer;
             font-size: 0.9em;
             transition: all 0.3s ease;
@@ -997,7 +974,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         .design-type-indicator {
             background: #e7f3ff;
             border: 1px solid #b3d9ff;
-            border-radius: 8px;
             padding: 15px;
             margin-bottom: 20px;
             display: flex;
@@ -1234,7 +1210,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                                             <input type="hidden" name="size_option" id="sizeOption" value="">
                                             <div id="customSizeContainer" style="margin-top: 10px; display: none;">
                                                 <input type="text" name="custom_size" placeholder="Please specify your custom size" 
-                                                       style="padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
+                                                       style="padding: 10px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
                                             </div>
                                         </div>
                                     <?php endif; ?>
@@ -1258,7 +1234,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                                             <input type="hidden" name="color_option" id="colorOption" value="">
                                             <div id="customColorContainer" style="margin-top: 10px; display: none;">
                                                 <input type="text" name="custom_color" placeholder="Please specify your custom color" 
-                                                       style="padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
+                                                       style="padding: 10px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
                                             </div>
                                         </div>
                                     <?php endif; ?>
@@ -1307,7 +1283,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                                     ): ?>
                                         <div class="option-group" style="margin-bottom: 20px;">
                                             <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Size (in inches):</label>
-                                            <input type="text" name="size_option" placeholder="e.g., 8.5 x 11" style="padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
+                                            <input type="text" name="size_option" placeholder="e.g., 8.5 x 11" style="padding: 10px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
                                         </div>
                                     <?php endif; ?>
 
@@ -1360,7 +1336,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                                     <?php if ($customization['has_gsm_option']): ?>
                                         <div class="option-group" style="margin-bottom: 20px;">
                                             <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Paper Weight (GSM):</label>
-                                            <input type="number" name="gsm_option" placeholder="e.g., 120" min="0" style="padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
+                                            <input type="number" name="gsm_option" placeholder="e.g., 120" min="0" style="padding: 10px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
                                         </div>
                                     <?php endif; ?>
                                 </div>
@@ -2623,7 +2599,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                 layoutInputContainer.innerHTML = `
                     <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Design Specifications:</label>
                     <textarea name="layout_details" placeholder="Please describe your design preferences, colors, text, images, and any specific requirements..." 
-                            style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ddd; min-height: 100px;"></textarea>
+                            style="width: 100%; padding: 10px; border: 1px solid #ddd; min-height: 100px;"></textarea>
                     <small style="display: block; color: #6c757d; margin-top: 5px;">Please be as detailed as possible to help us create your design</small>
                 `;
             }
