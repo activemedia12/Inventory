@@ -402,6 +402,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             background: var(--bg-light);
             border: 2px solid var(--border-color);
             padding: 20px;
+            transition: opacity 0.5s ease-in-out;
         }
         
         .thumbnail-container {
@@ -421,6 +422,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             transition: var(--transition);
             background: var(--bg-light);
             padding: 2px;
+            transition: all 0.3s ease;
         }
 
         .thumbnail:hover,
@@ -1925,7 +1927,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             }
         }
 
-        // Change main image when thumbnail is clicked
         function changeImage(element, imageIndex) {
             // Update main image
             document.getElementById('mainImage').src = element.src;
@@ -1938,6 +1939,18 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             
             // Don't change the base image - it should stay as the template
         }
+
+        let slideIndex = 0;
+        const slideInterval = setInterval(() => {
+            const thumbs = document.querySelectorAll('.thumbnail');
+            if (thumbs.length > 1) {
+                slideIndex = (slideIndex + 1) % thumbs.length;
+                const nextThumb = thumbs[slideIndex];
+                document.getElementById('mainImage').src = nextThumb.src;
+                document.querySelector('.thumbnail.active')?.classList.remove('active');
+                nextThumb.classList.add('active');
+            }
+        }, 3000);
 
         // Quantity controls
         function increaseQuantity() {
