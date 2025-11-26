@@ -688,7 +688,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
                     <li><a href="main.php"><i class="fas fa-home"></i> Home</a></li>
                     <li><a href="ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
                     <li><a href="about.php"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="contact.php" class="active"><i class="fas fa-phone"></i> Contact</a></li>
+                    <li><a href="contact.php"><i class="fas fa-phone"></i> Contact</a></li>
                 </ul>
                 
                 <div class="user-info">
@@ -850,22 +850,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
                                             // Check if it's JSON format
                                             $isJson = false;
                                             $designArray = json_decode($designData, true);
-                                            
+
                                             if (json_last_error() === JSON_ERROR_NONE && is_array($designArray)) {
                                                 $isJson = true;
                                                 $uploadType = $designArray['upload_type'] ?? 'single';
                                                 
-                                                // Get mockup images
+                                                // Get ALL images - FIXED: Extract all file types
                                                 $frontMockup = $designArray['front_mockup'] ?? '';
                                                 $backMockup = $designArray['back_mockup'] ?? '';
+                                                $uploadedFile = $designArray['uploaded_file'] ?? '';
+                                                $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
+                                                $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
                                                 
-                                                // Get uploaded files based on upload type
-                                                if ($uploadType === 'single') {
-                                                    $uploadedFile = $designArray['uploaded_file'] ?? '';
-                                                } else {
-                                                    $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
-                                                    $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
-                                                }
                                             } else {
                                                 // Try to fix JSON if it's malformed
                                                 if (preg_match('/\{.*\}/', $designData)) {
@@ -878,17 +874,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
                                                         $uploadType = $designArray['upload_type'] ?? 'single';
                                                         $frontMockup = $designArray['front_mockup'] ?? '';
                                                         $backMockup = $designArray['back_mockup'] ?? '';
-                                                        
-                                                        if ($uploadType === 'single') {
-                                                            $uploadedFile = $designArray['uploaded_file'] ?? '';
-                                                        } else {
-                                                            $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
-                                                            $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
-                                                        }
+                                                        $uploadedFile = $designArray['uploaded_file'] ?? '';
+                                                        $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
+                                                        $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
                                                     }
                                                 } else {
                                                     // Legacy format - single image
-                                                    $frontMockup = $designData;
+                                                    $uploadedFile = $designData;
                                                     $uploadType = 'single';
                                                 }
                                             }
@@ -924,7 +916,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
                                                             </div>
                                                         <?php endif; ?>
                                                         
-                                                        <?php if ($uploadType === 'separate'): ?>
+                                                        <?php if (!empty($frontUploadedFile) || !empty($backUploadedFile)): ?>
                                                             <?php if (!empty($frontUploadedFile)): 
                                                                 $frontUploadedFilePath = "../assets/uploads/" . $frontUploadedFile;
                                                                 $frontUploadedFileExists = file_exists($frontUploadedFilePath);

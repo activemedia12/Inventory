@@ -549,7 +549,7 @@ if (isset($_SESSION['user_id'])) {
                         <i class="fas fa-shopping-cart"></i>
                         <span class="cart-count"><?php echo $cart_count; ?></span>
                     </a>
-                    <a href="../../website/profile.php" class="user-profile">
+                    <a href="../../pages/website/profile.php" class="user-profile">
                         <i class="fas fa-user"></i>
                         <span class="user-name">
                             <?php 
