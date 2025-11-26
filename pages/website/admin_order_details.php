@@ -828,22 +828,18 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                         // Check if it's JSON format
                         $isJson = false;
                         $designArray = json_decode($designData, true);
-                        
+
                         if (json_last_error() === JSON_ERROR_NONE && is_array($designArray)) {
                             $isJson = true;
                             $uploadType = $designArray['upload_type'] ?? 'single';
                             
-                            // Get mockup images
+                            // Get ALL images - FIXED: Extract all file types
                             $frontMockup = $designArray['front_mockup'] ?? '';
                             $backMockup = $designArray['back_mockup'] ?? '';
+                            $uploadedFile = $designArray['uploaded_file'] ?? '';
+                            $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
+                            $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
                             
-                            // Get uploaded files based on upload type
-                            if ($uploadType === 'single') {
-                                $uploadedFile = $designArray['uploaded_file'] ?? '';
-                            } else {
-                                $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
-                                $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
-                            }
                         } else {
                             // Try to fix JSON if it's malformed
                             if (preg_match('/\{.*\}/', $designData)) {
@@ -856,17 +852,13 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                     $uploadType = $designArray['upload_type'] ?? 'single';
                                     $frontMockup = $designArray['front_mockup'] ?? '';
                                     $backMockup = $designArray['back_mockup'] ?? '';
-                                    
-                                    if ($uploadType === 'single') {
-                                        $uploadedFile = $designArray['uploaded_file'] ?? '';
-                                    } else {
-                                        $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
-                                        $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
-                                    }
+                                    $uploadedFile = $designArray['uploaded_file'] ?? '';
+                                    $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
+                                    $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
                                 }
                             } else {
                                 // Legacy format - single image
-                                $frontMockup = $designData;
+                                $uploadedFile = $designData;
                                 $uploadType = 'single';
                             }
                         }
@@ -903,7 +895,7 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                         </div>
                                     <?php endif; ?>
                                     
-                                    <?php if ($uploadType === 'separate'): ?>
+                                    <?php if (!empty($frontUploadedFile) || !empty($backUploadedFile)): ?>
                                         <?php if (!empty($frontUploadedFile)): 
                                             $frontUploadedFilePath = "../../assets/uploads/" . $frontUploadedFile;
                                             $frontUploadedFileExists = file_exists($frontUploadedFilePath);
@@ -993,12 +985,6 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                             <?php endif; ?>
                                         </div>
                                     <?php endif; ?>
-                                </div>
-                                
-                                <!-- Show raw JSON data for debugging -->
-                                <div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 0.8em;">
-                                    <strong>Design Data:</strong>
-                                    <pre style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;"><?php echo htmlspecialchars($designData); ?></pre>
                                 </div>
                             </div>
                         <?php endif;
