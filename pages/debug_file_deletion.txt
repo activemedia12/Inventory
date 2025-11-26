@@ -64,3 +64,852 @@ Actual path: ../../assets/uploads/save_design/23/design_1759566870_68e0dc160b21a
 Total design files deleted: 3
 === END DELETE DESIGN FILES DEBUG ===
 
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764044659_69252f732d3a2.png\",\"back_mockup\":\"save_design/16/back_mockup_1764044659_69252f732f3e5.png\",\"uploaded_file\":\"save_design/16/design_1764044659_69252f732bda9.png\",\"upload_type\":\"single\"}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764044659_69252f732d3a2.png
+    [back_mockup] => save_design/16/back_mockup_1764044659_69252f732f3e5.png
+    [uploaded_file] => save_design/16/design_1764044659_69252f732bda9.png
+    [upload_type] => single
+)
+
+Single upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764044659_69252f732d3a2.png
+    [1] => save_design/16/back_mockup_1764044659_69252f732f3e5.png
+    [2] => save_design/16/design_1764044659_69252f732bda9.png
+)
+
+Processing: save_design/16/front_mockup_1764044659_69252f732d3a2.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764044659_69252f732d3a2.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764044659_69252f732d3a2.png
+Processing: save_design/16/back_mockup_1764044659_69252f732f3e5.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1764044659_69252f732f3e5.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_mockup_1764044659_69252f732f3e5.png
+Processing: save_design/16/design_1764044659_69252f732bda9.png
+Actual path: ../../assets/uploads/save_design/16/design_1764044659_69252f732bda9.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/design_1764044659_69252f732bda9.png
+Total design files deleted: 3
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"\",\"back_mockup\":\"save_design/16/back_mockup_1764051058_69254872dcbad.png\",\"front_uploaded_file\":\"\",\"back_uploaded_file\":\"save_design/16/back_design_1764051058_69254872dbe8e.jpg\",\"upload_type\":\"back_only\"}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => 
+    [back_mockup] => save_design/16/back_mockup_1764051058_69254872dcbad.png
+    [front_uploaded_file] => 
+    [back_uploaded_file] => save_design/16/back_design_1764051058_69254872dbe8e.jpg
+    [upload_type] => back_only
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/back_mockup_1764051058_69254872dcbad.png
+    [1] => save_design/16/back_design_1764051058_69254872dbe8e.jpg
+)
+
+Processing: save_design/16/back_mockup_1764051058_69254872dcbad.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1764051058_69254872dcbad.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_mockup_1764051058_69254872dcbad.png
+Processing: save_design/16/back_design_1764051058_69254872dbe8e.jpg
+Actual path: ../../assets/uploads/save_design/16/back_design_1764051058_69254872dbe8e.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_design_1764051058_69254872dbe8e.jpg
+Total design files deleted: 2
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764051032_6925485832ed9.png\",\"back_mockup\":\"save_design/16/back_mockup_1764051032_69254858344dc.png\",\"front_uploaded_file\":\"save_design/16/front_design_1764051032_6925485831fd2.jpg\",\"back_uploaded_file\":\"save_design/16/back_design_1764051032_69254858322c8.jpg\",\"upload_type\":\"both_sides\"}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764051032_6925485832ed9.png
+    [back_mockup] => save_design/16/back_mockup_1764051032_69254858344dc.png
+    [front_uploaded_file] => save_design/16/front_design_1764051032_6925485831fd2.jpg
+    [back_uploaded_file] => save_design/16/back_design_1764051032_69254858322c8.jpg
+    [upload_type] => both_sides
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764051032_6925485832ed9.png
+    [1] => save_design/16/back_mockup_1764051032_69254858344dc.png
+    [2] => save_design/16/front_design_1764051032_6925485831fd2.jpg
+    [3] => save_design/16/back_design_1764051032_69254858322c8.jpg
+)
+
+Processing: save_design/16/front_mockup_1764051032_6925485832ed9.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764051032_6925485832ed9.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764051032_6925485832ed9.png
+Processing: save_design/16/back_mockup_1764051032_69254858344dc.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1764051032_69254858344dc.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_mockup_1764051032_69254858344dc.png
+Processing: save_design/16/front_design_1764051032_6925485831fd2.jpg
+Actual path: ../../assets/uploads/save_design/16/front_design_1764051032_6925485831fd2.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_1764051032_6925485831fd2.jpg
+Processing: save_design/16/back_design_1764051032_69254858322c8.jpg
+Actual path: ../../assets/uploads/save_design/16/back_design_1764051032_69254858322c8.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_design_1764051032_69254858322c8.jpg
+Total design files deleted: 4
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764050933_692547f5358f6.png\",\"back_mockup\":\"\",\"front_uploaded_file\":\"save_design/16/front_design_1764050933_692547f53481b.jpg\",\"back_uploaded_file\":\"\",\"upload_type\":\"front_only\"}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764050933_692547f5358f6.png
+    [back_mockup] => 
+    [front_uploaded_file] => save_design/16/front_design_1764050933_692547f53481b.jpg
+    [back_uploaded_file] => 
+    [upload_type] => front_only
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764050933_692547f5358f6.png
+    [1] => save_design/16/front_design_1764050933_692547f53481b.jpg
+)
+
+Processing: save_design/16/front_mockup_1764050933_692547f5358f6.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764050933_692547f5358f6.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764050933_692547f5358f6.png
+Processing: save_design/16/front_design_1764050933_692547f53481b.jpg
+Actual path: ../../assets/uploads/save_design/16/front_design_1764050933_692547f53481b.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_1764050933_692547f53481b.jpg
+Total design files deleted: 2
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764051358_6925499eab7b8.png\",\"back_mockup\":\"save_design/16/back_mockup_1764051358_6925499ead7a5.png\",\"front_uploaded_file\":\"save_design/16/front_design_1764051358_6925499ea9c4d.jpg\",\"back_uploaded_file\":\"save_design/16/back_design_1764051358_6925499eaa028.jpg\",\"upload_type\":\"both_sides\"}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764051358_6925499eab7b8.png
+    [back_mockup] => save_design/16/back_mockup_1764051358_6925499ead7a5.png
+    [front_uploaded_file] => save_design/16/front_design_1764051358_6925499ea9c4d.jpg
+    [back_uploaded_file] => save_design/16/back_design_1764051358_6925499eaa028.jpg
+    [upload_type] => both_sides
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764051358_6925499eab7b8.png
+    [1] => save_design/16/back_mockup_1764051358_6925499ead7a5.png
+    [2] => save_design/16/front_design_1764051358_6925499ea9c4d.jpg
+    [3] => save_design/16/back_design_1764051358_6925499eaa028.jpg
+)
+
+Processing: save_design/16/front_mockup_1764051358_6925499eab7b8.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764051358_6925499eab7b8.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764051358_6925499eab7b8.png
+Processing: save_design/16/back_mockup_1764051358_6925499ead7a5.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1764051358_6925499ead7a5.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_mockup_1764051358_6925499ead7a5.png
+Processing: save_design/16/front_design_1764051358_6925499ea9c4d.jpg
+Actual path: ../../assets/uploads/save_design/16/front_design_1764051358_6925499ea9c4d.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_1764051358_6925499ea9c4d.jpg
+Processing: save_design/16/back_design_1764051358_6925499eaa028.jpg
+Actual path: ../../assets/uploads/save_design/16/back_design_1764051358_6925499eaa028.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_design_1764051358_6925499eaa028.jpg
+Total design files deleted: 4
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"\",\"back_mockup\":\"save_design/16/back_mockup_1764051346_69254992e1ac3.png\",\"front_uploaded_file\":\"\",\"back_uploaded_file\":\"save_design/16/back_design_1764051346_69254992e056a.jpg\",\"upload_type\":\"back_only\"}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => 
+    [back_mockup] => save_design/16/back_mockup_1764051346_69254992e1ac3.png
+    [front_uploaded_file] => 
+    [back_uploaded_file] => save_design/16/back_design_1764051346_69254992e056a.jpg
+    [upload_type] => back_only
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/back_mockup_1764051346_69254992e1ac3.png
+    [1] => save_design/16/back_design_1764051346_69254992e056a.jpg
+)
+
+Processing: save_design/16/back_mockup_1764051346_69254992e1ac3.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1764051346_69254992e1ac3.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_mockup_1764051346_69254992e1ac3.png
+Processing: save_design/16/back_design_1764051346_69254992e056a.jpg
+Actual path: ../../assets/uploads/save_design/16/back_design_1764051346_69254992e056a.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_design_1764051346_69254992e056a.jpg
+Total design files deleted: 2
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764051328_6925498046fc3.png\",\"back_mockup\":\"\",\"front_uploaded_file\":\"save_design/16/front_design_1764051328_6925498045bd7.jpg\",\"back_uploaded_file\":\"\",\"upload_type\":\"front_only\"}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764051328_6925498046fc3.png
+    [back_mockup] => 
+    [front_uploaded_file] => save_design/16/front_design_1764051328_6925498045bd7.jpg
+    [back_uploaded_file] => 
+    [upload_type] => front_only
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764051328_6925498046fc3.png
+    [1] => save_design/16/front_design_1764051328_6925498045bd7.jpg
+)
+
+Processing: save_design/16/front_mockup_1764051328_6925498046fc3.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764051328_6925498046fc3.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764051328_6925498046fc3.png
+Processing: save_design/16/front_design_1764051328_6925498045bd7.jpg
+Actual path: ../../assets/uploads/save_design/16/front_design_1764051328_6925498045bd7.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_1764051328_6925498045bd7.jpg
+Total design files deleted: 2
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764051566_69254a6ee8465.png\",\"back_mockup\":\"save_design/16/back_mockup_1764051566_69254a6eea08c.png\",\"front_uploaded_file\":\"save_design/16/front_design_1764051566_69254a6ee7042.jpg\",\"back_uploaded_file\":\"save_design/16/back_design_1764051566_69254a6ee72f8.jpg\",\"upload_type\":\"both_sides\",\"has_front_design\":\"1\",\"has_back_design\":\"1\",\"front_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200},\"back_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200}}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764051566_69254a6ee8465.png
+    [back_mockup] => save_design/16/back_mockup_1764051566_69254a6eea08c.png
+    [front_uploaded_file] => save_design/16/front_design_1764051566_69254a6ee7042.jpg
+    [back_uploaded_file] => save_design/16/back_design_1764051566_69254a6ee72f8.jpg
+    [upload_type] => both_sides
+    [has_front_design] => 1
+    [has_back_design] => 1
+    [front_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+    [back_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764051566_69254a6ee8465.png
+    [1] => save_design/16/back_mockup_1764051566_69254a6eea08c.png
+    [2] => save_design/16/front_design_1764051566_69254a6ee7042.jpg
+    [3] => save_design/16/back_design_1764051566_69254a6ee72f8.jpg
+)
+
+Processing: save_design/16/front_mockup_1764051566_69254a6ee8465.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764051566_69254a6ee8465.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764051566_69254a6ee8465.png
+Processing: save_design/16/back_mockup_1764051566_69254a6eea08c.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1764051566_69254a6eea08c.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_mockup_1764051566_69254a6eea08c.png
+Processing: save_design/16/front_design_1764051566_69254a6ee7042.jpg
+Actual path: ../../assets/uploads/save_design/16/front_design_1764051566_69254a6ee7042.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_1764051566_69254a6ee7042.jpg
+Processing: save_design/16/back_design_1764051566_69254a6ee72f8.jpg
+Actual path: ../../assets/uploads/save_design/16/back_design_1764051566_69254a6ee72f8.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_design_1764051566_69254a6ee72f8.jpg
+Total design files deleted: 4
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"\",\"back_mockup\":\"save_design/16/back_mockup_1764051549_69254a5d381dd.png\",\"front_uploaded_file\":\"\",\"back_uploaded_file\":\"save_design/16/back_design_1764051549_69254a5d36e34.jpg\",\"upload_type\":\"back_only\",\"has_front_design\":\"0\",\"has_back_design\":\"1\",\"front_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200},\"back_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200}}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => 
+    [back_mockup] => save_design/16/back_mockup_1764051549_69254a5d381dd.png
+    [front_uploaded_file] => 
+    [back_uploaded_file] => save_design/16/back_design_1764051549_69254a5d36e34.jpg
+    [upload_type] => back_only
+    [has_front_design] => 0
+    [has_back_design] => 1
+    [front_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+    [back_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/back_mockup_1764051549_69254a5d381dd.png
+    [1] => save_design/16/back_design_1764051549_69254a5d36e34.jpg
+)
+
+Processing: save_design/16/back_mockup_1764051549_69254a5d381dd.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1764051549_69254a5d381dd.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_mockup_1764051549_69254a5d381dd.png
+Processing: save_design/16/back_design_1764051549_69254a5d36e34.jpg
+Actual path: ../../assets/uploads/save_design/16/back_design_1764051549_69254a5d36e34.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_design_1764051549_69254a5d36e34.jpg
+Total design files deleted: 2
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764051538_69254a52cfa55.png\",\"back_mockup\":\"\",\"front_uploaded_file\":\"save_design/16/front_design_1764051538_69254a52ce9c9.jpg\",\"back_uploaded_file\":\"\",\"upload_type\":\"front_only\",\"has_front_design\":\"1\",\"has_back_design\":\"0\",\"front_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200},\"back_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200}}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764051538_69254a52cfa55.png
+    [back_mockup] => 
+    [front_uploaded_file] => save_design/16/front_design_1764051538_69254a52ce9c9.jpg
+    [back_uploaded_file] => 
+    [upload_type] => front_only
+    [has_front_design] => 1
+    [has_back_design] => 0
+    [front_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+    [back_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764051538_69254a52cfa55.png
+    [1] => save_design/16/front_design_1764051538_69254a52ce9c9.jpg
+)
+
+Processing: save_design/16/front_mockup_1764051538_69254a52cfa55.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764051538_69254a52cfa55.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764051538_69254a52cfa55.png
+Processing: save_design/16/front_design_1764051538_69254a52ce9c9.jpg
+Actual path: ../../assets/uploads/save_design/16/front_design_1764051538_69254a52ce9c9.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_1764051538_69254a52ce9c9.jpg
+Total design files deleted: 2
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764052015_69254c2f6ccc9.png\",\"back_mockup\":\"\",\"front_uploaded_file\":\"save_design/16/front_design_1764052015_69254c2f6bfac.jpg\",\"back_uploaded_file\":\"\",\"upload_type\":\"front_only\",\"has_front_design\":\"1\",\"has_back_design\":\"0\",\"front_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200},\"back_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200}}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764052015_69254c2f6ccc9.png
+    [back_mockup] => 
+    [front_uploaded_file] => save_design/16/front_design_1764052015_69254c2f6bfac.jpg
+    [back_uploaded_file] => 
+    [upload_type] => front_only
+    [has_front_design] => 1
+    [has_back_design] => 0
+    [front_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+    [back_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764052015_69254c2f6ccc9.png
+    [1] => save_design/16/front_design_1764052015_69254c2f6bfac.jpg
+)
+
+Processing: save_design/16/front_mockup_1764052015_69254c2f6ccc9.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764052015_69254c2f6ccc9.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764052015_69254c2f6ccc9.png
+Processing: save_design/16/front_design_1764052015_69254c2f6bfac.jpg
+Actual path: ../../assets/uploads/save_design/16/front_design_1764052015_69254c2f6bfac.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_1764052015_69254c2f6bfac.jpg
+Total design files deleted: 2
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764052216_69254cf87b63d.png\",\"back_mockup\":\"\",\"front_uploaded_file\":\"save_design/16/front_design_1764052216_69254cf879f2e.jpg\",\"back_uploaded_file\":\"\",\"upload_type\":\"front_only\",\"has_front_design\":\"1\",\"has_back_design\":\"0\",\"front_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200},\"back_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200}}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764052216_69254cf87b63d.png
+    [back_mockup] => 
+    [front_uploaded_file] => save_design/16/front_design_1764052216_69254cf879f2e.jpg
+    [back_uploaded_file] => 
+    [upload_type] => front_only
+    [has_front_design] => 1
+    [has_back_design] => 0
+    [front_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+    [back_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764052216_69254cf87b63d.png
+    [1] => save_design/16/front_design_1764052216_69254cf879f2e.jpg
+)
+
+Processing: save_design/16/front_mockup_1764052216_69254cf87b63d.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764052216_69254cf87b63d.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764052216_69254cf87b63d.png
+Processing: save_design/16/front_design_1764052216_69254cf879f2e.jpg
+Actual path: ../../assets/uploads/save_design/16/front_design_1764052216_69254cf879f2e.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_1764052216_69254cf879f2e.jpg
+Total design files deleted: 2
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764052175_69254ccf71537.png\",\"back_mockup\":\"\",\"front_uploaded_file\":\"save_design/16/front_design_1764052175_69254ccf703b1.jpg\",\"back_uploaded_file\":\"\",\"upload_type\":\"front_only\",\"has_front_design\":\"1\",\"has_back_design\":\"0\",\"front_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200},\"back_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200}}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764052175_69254ccf71537.png
+    [back_mockup] => 
+    [front_uploaded_file] => save_design/16/front_design_1764052175_69254ccf703b1.jpg
+    [back_uploaded_file] => 
+    [upload_type] => front_only
+    [has_front_design] => 1
+    [has_back_design] => 0
+    [front_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+    [back_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764052175_69254ccf71537.png
+    [1] => save_design/16/front_design_1764052175_69254ccf703b1.jpg
+)
+
+Processing: save_design/16/front_mockup_1764052175_69254ccf71537.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764052175_69254ccf71537.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764052175_69254ccf71537.png
+Processing: save_design/16/front_design_1764052175_69254ccf703b1.jpg
+Actual path: ../../assets/uploads/save_design/16/front_design_1764052175_69254ccf703b1.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_1764052175_69254ccf703b1.jpg
+Total design files deleted: 2
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764053038_6925502e9ea3f.png\",\"back_mockup\":\"save_design/16/back_mockup_1764053038_6925502ea09b2.png\",\"front_uploaded_file\":\"save_design/16/front_design_1764053038_6925502ea13c9.jpg\",\"back_uploaded_file\":\"save_design/16/back_design_1764053038_6925502ea186a.jpg\",\"upload_type\":\"both_sides\",\"has_front_design\":\"1\",\"has_back_design\":\"1\",\"front_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200},\"back_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200}}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764053038_6925502e9ea3f.png
+    [back_mockup] => save_design/16/back_mockup_1764053038_6925502ea09b2.png
+    [front_uploaded_file] => save_design/16/front_design_1764053038_6925502ea13c9.jpg
+    [back_uploaded_file] => save_design/16/back_design_1764053038_6925502ea186a.jpg
+    [upload_type] => both_sides
+    [has_front_design] => 1
+    [has_back_design] => 1
+    [front_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+    [back_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764053038_6925502e9ea3f.png
+    [1] => save_design/16/back_mockup_1764053038_6925502ea09b2.png
+    [2] => save_design/16/front_design_1764053038_6925502ea13c9.jpg
+    [3] => save_design/16/back_design_1764053038_6925502ea186a.jpg
+)
+
+Processing: save_design/16/front_mockup_1764053038_6925502e9ea3f.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764053038_6925502e9ea3f.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764053038_6925502e9ea3f.png
+Processing: save_design/16/back_mockup_1764053038_6925502ea09b2.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1764053038_6925502ea09b2.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_mockup_1764053038_6925502ea09b2.png
+Processing: save_design/16/front_design_1764053038_6925502ea13c9.jpg
+Actual path: ../../assets/uploads/save_design/16/front_design_1764053038_6925502ea13c9.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_1764053038_6925502ea13c9.jpg
+Processing: save_design/16/back_design_1764053038_6925502ea186a.jpg
+Actual path: ../../assets/uploads/save_design/16/back_design_1764053038_6925502ea186a.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_design_1764053038_6925502ea186a.jpg
+Total design files deleted: 4
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764052410_69254dba8a416.png\",\"back_mockup\":\"save_design/16/back_mockup_1764052410_69254dba8bd24.png\",\"front_uploaded_file\":\"save_design/16/front_design_1764052410_69254dba8d098.jpg\",\"back_uploaded_file\":\"save_design/16/back_design_1764052410_69254dba8d662.jpg\",\"upload_type\":\"both_sides\",\"has_front_design\":\"1\",\"has_back_design\":\"1\",\"front_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200},\"back_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200}}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764052410_69254dba8a416.png
+    [back_mockup] => save_design/16/back_mockup_1764052410_69254dba8bd24.png
+    [front_uploaded_file] => save_design/16/front_design_1764052410_69254dba8d098.jpg
+    [back_uploaded_file] => save_design/16/back_design_1764052410_69254dba8d662.jpg
+    [upload_type] => both_sides
+    [has_front_design] => 1
+    [has_back_design] => 1
+    [front_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+    [back_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764052410_69254dba8a416.png
+    [1] => save_design/16/back_mockup_1764052410_69254dba8bd24.png
+    [2] => save_design/16/front_design_1764052410_69254dba8d098.jpg
+    [3] => save_design/16/back_design_1764052410_69254dba8d662.jpg
+)
+
+Processing: save_design/16/front_mockup_1764052410_69254dba8a416.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764052410_69254dba8a416.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764052410_69254dba8a416.png
+Processing: save_design/16/back_mockup_1764052410_69254dba8bd24.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1764052410_69254dba8bd24.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_mockup_1764052410_69254dba8bd24.png
+Processing: save_design/16/front_design_1764052410_69254dba8d098.jpg
+Actual path: ../../assets/uploads/save_design/16/front_design_1764052410_69254dba8d098.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_1764052410_69254dba8d098.jpg
+Processing: save_design/16/back_design_1764052410_69254dba8d662.jpg
+Actual path: ../../assets/uploads/save_design/16/back_design_1764052410_69254dba8d662.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_design_1764052410_69254dba8d662.jpg
+Total design files deleted: 4
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764052388_69254da43c182.png\",\"back_mockup\":\"save_design/16/back_mockup_1764052388_69254da43e98e.png\",\"front_uploaded_file\":\"\",\"back_uploaded_file\":\"save_design/16/back_design_1764052388_69254da43f59e.jpg\",\"upload_type\":\"back_only\",\"has_front_design\":\"0\",\"has_back_design\":\"1\",\"front_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200},\"back_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200}}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764052388_69254da43c182.png
+    [back_mockup] => save_design/16/back_mockup_1764052388_69254da43e98e.png
+    [front_uploaded_file] => 
+    [back_uploaded_file] => save_design/16/back_design_1764052388_69254da43f59e.jpg
+    [upload_type] => back_only
+    [has_front_design] => 0
+    [has_back_design] => 1
+    [front_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+    [back_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764052388_69254da43c182.png
+    [1] => save_design/16/back_mockup_1764052388_69254da43e98e.png
+    [2] => save_design/16/back_design_1764052388_69254da43f59e.jpg
+)
+
+Processing: save_design/16/front_mockup_1764052388_69254da43c182.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764052388_69254da43c182.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764052388_69254da43c182.png
+Processing: save_design/16/back_mockup_1764052388_69254da43e98e.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1764052388_69254da43e98e.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_mockup_1764052388_69254da43e98e.png
+Processing: save_design/16/back_design_1764052388_69254da43f59e.jpg
+Actual path: ../../assets/uploads/save_design/16/back_design_1764052388_69254da43f59e.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_design_1764052388_69254da43f59e.jpg
+Total design files deleted: 3
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764052366_69254d8e3402b.png\",\"back_mockup\":\"save_design/16/back_mockup_1764052366_69254d8e34b86.png\",\"front_uploaded_file\":\"save_design/16/front_design_1764052366_69254d8e36916.jpg\",\"back_uploaded_file\":\"\",\"upload_type\":\"front_only\",\"has_front_design\":\"1\",\"has_back_design\":\"0\",\"front_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200},\"back_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200}}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764052366_69254d8e3402b.png
+    [back_mockup] => save_design/16/back_mockup_1764052366_69254d8e34b86.png
+    [front_uploaded_file] => save_design/16/front_design_1764052366_69254d8e36916.jpg
+    [back_uploaded_file] => 
+    [upload_type] => front_only
+    [has_front_design] => 1
+    [has_back_design] => 0
+    [front_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+    [back_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764052366_69254d8e3402b.png
+    [1] => save_design/16/back_mockup_1764052366_69254d8e34b86.png
+    [2] => save_design/16/front_design_1764052366_69254d8e36916.jpg
+)
+
+Processing: save_design/16/front_mockup_1764052366_69254d8e3402b.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764052366_69254d8e3402b.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764052366_69254d8e3402b.png
+Processing: save_design/16/back_mockup_1764052366_69254d8e34b86.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1764052366_69254d8e34b86.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_mockup_1764052366_69254d8e34b86.png
+Processing: save_design/16/front_design_1764052366_69254d8e36916.jpg
+Actual path: ../../assets/uploads/save_design/16/front_design_1764052366_69254d8e36916.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_1764052366_69254d8e36916.jpg
+Total design files deleted: 3
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764053446_692551c6c4067.png\",\"back_mockup\":\"save_design/16/back_mockup_1764053446_692551c6c59c2.png\",\"front_uploaded_file\":\"save_design/16/front_design_1764053446_692551c6c67f0.png\",\"back_uploaded_file\":\"save_design/16/back_design_1764053446_692551c6c6df9.png\",\"upload_type\":\"both_sides\",\"has_front_design\":\"1\",\"has_back_design\":\"1\",\"front_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200},\"back_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200}}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764053446_692551c6c4067.png
+    [back_mockup] => save_design/16/back_mockup_1764053446_692551c6c59c2.png
+    [front_uploaded_file] => save_design/16/front_design_1764053446_692551c6c67f0.png
+    [back_uploaded_file] => save_design/16/back_design_1764053446_692551c6c6df9.png
+    [upload_type] => both_sides
+    [has_front_design] => 1
+    [has_back_design] => 1
+    [front_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+    [back_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764053446_692551c6c4067.png
+    [1] => save_design/16/back_mockup_1764053446_692551c6c59c2.png
+    [2] => save_design/16/front_design_1764053446_692551c6c67f0.png
+    [3] => save_design/16/back_design_1764053446_692551c6c6df9.png
+)
+
+Processing: save_design/16/front_mockup_1764053446_692551c6c4067.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764053446_692551c6c4067.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764053446_692551c6c4067.png
+Processing: save_design/16/back_mockup_1764053446_692551c6c59c2.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1764053446_692551c6c59c2.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_mockup_1764053446_692551c6c59c2.png
+Processing: save_design/16/front_design_1764053446_692551c6c67f0.png
+Actual path: ../../assets/uploads/save_design/16/front_design_1764053446_692551c6c67f0.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_1764053446_692551c6c67f0.png
+Processing: save_design/16/back_design_1764053446_692551c6c6df9.png
+Actual path: ../../assets/uploads/save_design/16/back_design_1764053446_692551c6c6df9.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_design_1764053446_692551c6c6df9.png
+Total design files deleted: 4
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1764053402_6925519ad1d1a.png\",\"back_mockup\":\"save_design/16/back_mockup_1764053402_6925519ad283e.png\",\"front_uploaded_file\":\"save_design/16/front_design_1764053402_6925519ad429e.png\",\"back_uploaded_file\":\"\",\"upload_type\":\"front_only\",\"has_front_design\":\"1\",\"has_back_design\":\"0\",\"front_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200},\"back_design_position\":{\"x\":100,\"y\":100,\"width\":200,\"height\":200}}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1764053402_6925519ad1d1a.png
+    [back_mockup] => save_design/16/back_mockup_1764053402_6925519ad283e.png
+    [front_uploaded_file] => save_design/16/front_design_1764053402_6925519ad429e.png
+    [back_uploaded_file] => 
+    [upload_type] => front_only
+    [has_front_design] => 1
+    [has_back_design] => 0
+    [front_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+    [back_design_position] => Array
+        (
+            [x] => 100
+            [y] => 100
+            [width] => 200
+            [height] => 200
+        )
+
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1764053402_6925519ad1d1a.png
+    [1] => save_design/16/back_mockup_1764053402_6925519ad283e.png
+    [2] => save_design/16/front_design_1764053402_6925519ad429e.png
+)
+
+Processing: save_design/16/front_mockup_1764053402_6925519ad1d1a.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1764053402_6925519ad1d1a.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1764053402_6925519ad1d1a.png
+Processing: save_design/16/back_mockup_1764053402_6925519ad283e.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1764053402_6925519ad283e.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_mockup_1764053402_6925519ad283e.png
+Processing: save_design/16/front_design_1764053402_6925519ad429e.png
+Actual path: ../../assets/uploads/save_design/16/front_design_1764053402_6925519ad429e.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_1764053402_6925519ad429e.png
+Total design files deleted: 3
+=== END DELETE DESIGN FILES DEBUG ===
+
