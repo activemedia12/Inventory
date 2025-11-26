@@ -8,6 +8,106 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     exit;
 }
 
+// Function to handle product image uploads (supports single and multiple files)
+function handleProductImageUpload($product_id, $file_input_name, $directory, $prefix, $suffix = '', $index = null) {
+    if (isset($_FILES[$file_input_name])) {
+        // Handle both single file and multiple files
+        if ($index !== null && is_array($_FILES[$file_input_name]['name'])) {
+            // Multiple files - specific index
+            $file = [
+                'name' => $_FILES[$file_input_name]['name'][$index],
+                'type' => $_FILES[$file_input_name]['type'][$index],
+                'tmp_name' => $_FILES[$file_input_name]['tmp_name'][$index],
+                'error' => $_FILES[$file_input_name]['error'][$index],
+                'size' => $_FILES[$file_input_name]['size'][$index]
+            ];
+        } else {
+            // Single file
+            $file = $_FILES[$file_input_name];
+        }
+        
+        if ($file['error'] === 0) {
+            // Validate file type
+            $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+            if (!in_array($file['type'], $allowed_types)) {
+                $_SESSION['error'] = "Invalid file type. Only JPG, PNG, and GIF are allowed.";
+                return false;
+            }
+            
+            // Validate file size (max 5MB)
+            if ($file['size'] > 5 * 1024 * 1024) {
+                $_SESSION['error'] = "File size too large. Maximum size is 5MB.";
+                return false;
+            }
+            
+            // Create directory if it doesn't exist
+            $upload_dir = "../../assets/images/{$directory}/";
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0777, true);
+            }
+            
+            // Generate filename
+            $filename = $prefix . '-' . $product_id . $suffix . '.jpg';
+            $file_path = $upload_dir . $filename;
+            
+            // Convert and save image as JPG
+            if (move_uploaded_file($file['tmp_name'], $file_path)) {
+                // Clear file cache
+                clearstatcache(true, $file_path);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// Function to delete product images
+function deleteProductImages($product_id, $image_type) {
+    $success = true;
+    
+    switch($image_type) {
+        case 'product_images':
+            // Delete up to 5 product images (indices 0-4)
+            $files = [];
+            for ($i = 0; $i < 5; $i++) {
+                $suffix = $i > 0 ? '-' . $i : '';
+                $files[] = "../../assets/images/services/service-{$product_id}{$suffix}.jpg";
+            }
+            break;
+        case 'base_templates':
+            $files = [
+                "../../assets/images/base/base-{$product_id}.jpg",
+                "../../assets/images/base/base-{$product_id}-1.jpg"
+            ];
+            break;
+        case 'all_images':
+            // Delete all product images (up to 5) AND base templates
+            $files = [];
+            // Product images (indices 0-4)
+            for ($i = 0; $i < 5; $i++) {
+                $suffix = $i > 0 ? '-' . $i : '';
+                $files[] = "../../assets/images/services/service-{$product_id}{$suffix}.jpg";
+            }
+            // Base templates
+            $files[] = "../../assets/images/base/base-{$product_id}.jpg";
+            $files[] = "../../assets/images/base/base-{$product_id}-1.jpg";
+            break;
+        default:
+            return false;
+    }
+    
+    foreach ($files as $file) {
+        if (file_exists($file)) {
+            if (!unlink($file)) {
+                $success = false;
+                error_log("Failed to delete file: $file");
+            }
+        }
+    }
+    
+    return $success;
+}
+
 // Handle product actions
 if (isset($_POST['action'])) {
     $action = $_POST['action'];
@@ -35,6 +135,27 @@ if (isset($_POST['action'])) {
                 if ($stmt->execute()) {
                     $product_id = $inventory->insert_id;
                     $_SESSION['message'] = "Product '$product_name' added successfully!";
+                    
+                    // Handle image uploads
+                    if (isset($_FILES['product_images']) && !empty($_FILES['product_images']['name'][0])) {
+                        $uploaded_count = 0;
+                        $file_count = min(count($_FILES['product_images']['name']), 5); // Limit to 5 files
+                        
+                        for ($i = 0; $i < $file_count; $i++) {
+                            if ($_FILES['product_images']['error'][$i] === 0) {
+                                $suffix = $i > 0 ? '-' . $i : '';
+                                if (handleProductImageUpload($product_id, 'product_images', 'services', 'service', $suffix, $i)) {
+                                    $uploaded_count++;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Handle base template uploads for Other Services
+                    if ($category === 'Other Services') {
+                        handleProductImageUpload($product_id, 'base_image', 'base', 'base');
+                        handleProductImageUpload($product_id, 'base_back_image', 'base', 'base', '-1');
+                    }
                     
                     // Add default customization settings
                     $custom_query = "INSERT INTO product_customization (product_id, has_paper_option, has_size_option, has_finish_option, has_layout_option, has_binding_option, has_gsm_option) VALUES (?, 0, 0, 0, 0, 0, 0)";
@@ -77,6 +198,31 @@ if (isset($_POST['action'])) {
                 
                 if ($stmt->execute()) {
                     $_SESSION['message'] = "Product updated successfully!";
+                    
+                    // Handle image uploads for updates
+                    if (isset($_FILES['product_images']) && !empty($_FILES['product_images']['name'][0])) {
+                        $uploaded_count = 0;
+                        $file_count = min(count($_FILES['product_images']['name']), 5); // Limit to 5 files
+                        
+                        for ($i = 0; $i < $file_count; $i++) {
+                            if ($_FILES['product_images']['error'][$i] === 0) {
+                                $suffix = $i > 0 ? '-' . $i : '';
+                                if (handleProductImageUpload($product_id, 'product_images', 'services', 'service', $suffix, $i)) {
+                                    $uploaded_count++;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Handle base template uploads for Other Services
+                    if ($category === 'Other Services') {
+                        if (isset($_FILES['base_image']) && $_FILES['base_image']['error'] === 0) {
+                            handleProductImageUpload($product_id, 'base_image', 'base', 'base');
+                        }
+                        if (isset($_FILES['base_back_image']) && $_FILES['base_back_image']['error'] === 0) {
+                            handleProductImageUpload($product_id, 'base_back_image', 'base', 'base', '-1');
+                        }
+                    }
                 } else {
                     $_SESSION['error'] = "Failed to update product!";
                 }
@@ -96,6 +242,9 @@ if (isset($_POST['action'])) {
             if ($result['order_count'] > 0) {
                 $_SESSION['error'] = "Cannot delete product - it has existing orders!";
             } else {
+                // Delete product images first
+                deleteProductImages($product_id, 'all_images');
+                
                 // Delete from all option tables first
                 $option_tables = [
                     'product_paper_options',
@@ -136,7 +285,52 @@ if (isset($_POST['action'])) {
                 }
             }
             break;
+
+        case 'delete_product_images':
+            $product_id = $_POST['product_id'];
+            $image_type = $_POST['image_type'];
             
+            if (deleteProductImages($product_id, $image_type)) {
+                $_SESSION['message'] = "Images deleted successfully!";
+            } else {
+                $_SESSION['error'] = "Failed to delete images!";
+            }
+            break;
+            
+        case 'delete_single_image':
+            $product_id = $_POST['product_id'];
+            $image_index = $_POST['image_index'];
+            
+            $success = false;
+            
+            if ($image_index === 'front') {
+                // Delete front base template
+                $file = "../../assets/images/base/base-{$product_id}.jpg";
+                if (file_exists($file)) {
+                    $success = unlink($file);
+                }
+            } elseif ($image_index === 'back') {
+                // Delete back base template  
+                $file = "../../assets/images/base/base-{$product_id}-1.jpg";
+                if (file_exists($file)) {
+                    $success = unlink($file);
+                }
+            } else {
+                // Delete product image (0-4 index)
+                $suffix = $image_index > 0 ? '-' . $image_index : '';
+                $file = "../../assets/images/services/service-{$product_id}{$suffix}.jpg";
+                if (file_exists($file)) {
+                    $success = unlink($file);
+                }
+            }
+            
+            if ($success) {
+                $_SESSION['message'] = "Image deleted successfully!";
+            } else {
+                $_SESSION['error'] = "Failed to delete image!";
+            }
+            break;
+
         case 'update_customization':
             $product_id = $_POST['product_id'];
             $has_paper = isset($_POST['has_paper_option']) ? 1 : 0;
@@ -147,9 +341,9 @@ if (isset($_POST['action'])) {
             $has_gsm = isset($_POST['has_gsm_option']) ? 1 : 0;
             
             $query = "UPDATE product_customization SET 
-                     has_paper_option = ?, has_size_option = ?, has_finish_option = ?, 
-                     has_layout_option = ?, has_binding_option = ?, has_gsm_option = ? 
-                     WHERE product_id = ?";
+                    has_paper_option = ?, has_size_option = ?, has_finish_option = ?, 
+                    has_layout_option = ?, has_binding_option = ?, has_gsm_option = ? 
+                    WHERE product_id = ?";
             $stmt = $inventory->prepare($query);
             $stmt->bind_param("iiiiiii", $has_paper, $has_size, $has_finish, $has_layout, $has_binding, $has_gsm, $product_id);
             
@@ -160,15 +354,6 @@ if (isset($_POST['action'])) {
             } else {
                 $_SESSION['error'] = "Failed to update customization settings!";
             }
-            break;
-            
-        case 'update_product_options':
-            $product_id = $_POST['product_id'];
-            $option_type = $_POST['option_type'];
-            $selected_options = isset($_POST['options']) ? $_POST['options'] : [];
-            
-            updateSpecificProductOptions($inventory, $product_id, $option_type, $selected_options);
-            $_SESSION['message'] = "Product options updated successfully!";
             break;
     }
     
@@ -227,37 +412,6 @@ function updateProductOptions($tshirtprint, $product_id, $has_paper, $has_finish
     }
 }
 
-// Function to update specific product options
-function updateSpecificProductOptions($tshirtprint, $product_id, $option_type, $selected_options) {
-    $table_map = [
-        'paper' => ['table' => 'product_paper_options', 'column' => 'paper_option_id'],
-        'finish' => ['table' => 'product_finish_options', 'column' => 'finish_option_id'],
-        'binding' => ['table' => 'product_binding_options', 'column' => 'binding_option_id'],
-        'layout' => ['table' => 'product_layout_options', 'column' => 'layout_option_id']
-    ];
-    
-    if (!isset($table_map[$option_type])) return;
-    
-    $table_info = $table_map[$option_type];
-    
-    // Clear existing options
-    $clear_query = "DELETE FROM {$table_info['table']} WHERE product_id = ?";
-    $clear_stmt = $tshirtprint->prepare($clear_query);
-    $clear_stmt->bind_param("i", $product_id);
-    $clear_stmt->execute();
-    
-    // Add selected options
-    if (!empty($selected_options)) {
-        $insert_query = "INSERT INTO {$table_info['table']} (product_id, {$table_info['column']}) VALUES (?, ?)";
-        $insert_stmt = $tshirtprint->prepare($insert_query);
-        
-        foreach ($selected_options as $option_id) {
-            $insert_stmt->bind_param("ii", $product_id, $option_id);
-            $insert_stmt->execute();
-        }
-    }
-}
-
 // Handle AJAX requests
 if (isset($_GET['ajax'])) {
     switch ($_GET['ajax']) {
@@ -271,6 +425,21 @@ if (isset($_GET['ajax'])) {
             
             if ($result->num_rows > 0) {
                 $product = $result->fetch_assoc();
+                
+                // Check for up to 5 product images
+                for ($i = 0; $i < 5; $i++) {
+                    $suffix = $i > 0 ? '-' . $i : '';
+                    $product_image_path = "../../assets/images/services/service-" . $product_id . $suffix . ".jpg";
+                    $product['product_image_exists_' . $i] = file_exists($product_image_path);
+                }
+                
+                // Check base templates
+                $base_image_path = "../../assets/images/base/base-" . $product_id . ".jpg";
+                $base_back_image_path = "../../assets/images/base/base-" . $product_id . "-1.jpg";
+                
+                $product['base_image_exists'] = file_exists($base_image_path);
+                $product['base_back_image_exists'] = file_exists($base_back_image_path);
+                
                 echo json_encode($product);
             } else {
                 echo json_encode(['error' => 'Product not found']);
@@ -292,49 +461,6 @@ if (isset($_GET['ajax'])) {
                 echo json_encode(['error' => 'Customization settings not found']);
             }
             exit;
-            
-        case 'get_product_options':
-            $product_id = $_GET['product_id'];
-            $option_type = $_GET['option_type'];
-            
-            $table_map = [
-                'paper' => ['table' => 'product_paper_options', 'column' => 'paper_option_id', 'options_table' => 'paper_options'],
-                'finish' => ['table' => 'product_finish_options', 'column' => 'finish_option_id', 'options_table' => 'finish_options'],
-                'binding' => ['table' => 'product_binding_options', 'column' => 'binding_option_id', 'options_table' => 'binding_options'],
-                'layout' => ['table' => 'product_layout_options', 'column' => 'layout_option_id', 'options_table' => 'layout_options']
-            ];
-            
-            if (!isset($table_map[$option_type])) {
-                echo json_encode(['error' => 'Invalid option type']);
-                exit;
-            }
-            
-            $table_info = $table_map[$option_type];
-            
-            // Get all available options
-            $all_options_query = "SELECT * FROM {$table_info['options_table']}";
-            $all_options_result = $inventory->query($all_options_query);
-            $all_options = [];
-            while ($row = $all_options_result->fetch_assoc()) {
-                $all_options[] = $row;
-            }
-            
-            // Get selected options for this product
-            $selected_query = "SELECT {$table_info['column']} FROM {$table_info['table']} WHERE product_id = ?";
-            $selected_stmt = $inventory->prepare($selected_query);
-            $selected_stmt->bind_param("i", $product_id);
-            $selected_stmt->execute();
-            $selected_result = $selected_stmt->get_result();
-            $selected_options = [];
-            while ($row = $selected_result->fetch_assoc()) {
-                $selected_options[] = $row[$table_info['column']];
-            }
-            
-            echo json_encode([
-                'all_options' => $all_options,
-                'selected_options' => $selected_options
-            ]);
-            exit;
     }
 }
 
@@ -348,6 +474,18 @@ $query = "SELECT p.*,
 $products_result = $inventory->query($query);
 $products = [];
 while ($row = $products_result->fetch_assoc()) {
+    // Check image existence for each product
+    $product_id = $row['id'];
+    $product_image_path = "../../assets/images/services/service-" . $product_id . ".jpg";
+    $product_back_image_path = "../../assets/images/services/service-" . $product_id . "-1.jpg";
+    $base_image_path = "../../assets/images/base/base-" . $product_id . ".jpg";
+    $base_back_image_path = "../../assets/images/base/base-" . $product_id . "-1.jpg";
+    
+    $row['product_image_exists'] = file_exists($product_image_path);
+    $row['product_back_image_exists'] = file_exists($product_back_image_path);
+    $row['base_image_exists'] = file_exists($base_image_path);
+    $row['base_back_image_exists'] = file_exists($base_back_image_path);
+    
     $products[] = $row;
 }
 
@@ -357,35 +495,6 @@ $categories_result = $inventory->query($categories_query);
 $categories = [];
 while ($row = $categories_result->fetch_assoc()) {
     $categories[] = $row['category'];
-}
-
-// Get all available options for the option management modal
-$paper_options_query = "SELECT * FROM paper_options ORDER BY option_name";
-$paper_options_result = $inventory->query($paper_options_query);
-$all_paper_options = [];
-while ($row = $paper_options_result->fetch_assoc()) {
-    $all_paper_options[] = $row;
-}
-
-$finish_options_query = "SELECT * FROM finish_options ORDER BY option_name";
-$finish_options_result = $inventory->query($finish_options_query);
-$all_finish_options = [];
-while ($row = $finish_options_result->fetch_assoc()) {
-    $all_finish_options[] = $row;
-}
-
-$binding_options_query = "SELECT * FROM binding_options ORDER BY option_name";
-$binding_options_result = $inventory->query($binding_options_query);
-$all_binding_options = [];
-while ($row = $binding_options_result->fetch_assoc()) {
-    $all_binding_options[] = $row;
-}
-
-$layout_options_query = "SELECT * FROM layout_options ORDER BY option_name";
-$layout_options_result = $inventory->query($layout_options_query);
-$all_layout_options = [];
-while ($row = $layout_options_result->fetch_assoc()) {
-    $all_layout_options[] = $row;
 }
 ?>
 
@@ -745,74 +854,157 @@ while ($row = $layout_options_result->fetch_assoc()) {
             border: 1px solid #f5c6cb;
         }
 
-        .options-management {
-            margin-top: 20px;
-            padding: 20px;
+        /* Image Upload Styles */
+        .image-upload-section {
+            margin: 15px 0;
+            padding: 15px;
             background: #f8f9fa;
             border-radius: 8px;
             border: 1px solid #dee2e6;
         }
-        
-        .options-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        .option-checkbox {
+
+        .image-upload-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #2c3e50;
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px;
-            background: white;
-            border-radius: 5px;
+        }
+
+        .image-preview-container {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .image-preview {
+            width: 100px;
+            height: 100px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .image-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-preview .no-image {
+            width: 100%;
+            height: 100%;
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .file-input-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 15px;
+            background: #6c757d;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .file-input-label:hover {
+            background: #5a6268;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .current-images-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 8px;
             border: 1px solid #dee2e6;
         }
-        
-        .option-checkbox input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-        }
-        
-        .option-checkbox label {
-            margin: 0;
-            cursor: pointer;
-        }
-        
-        .option-type-section {
-            margin-bottom: 25px;
-            padding: 15px;
-            background: white;
-            border-radius: 8px;
-            border: 1px solid #e9ecef;
-        }
-        
-        .option-type-header {
+
+        .image-status {
             display: flex;
-            justify-content: between;
             align-items: center;
-            margin-bottom: 15px;
+            gap: 8px;
+            margin: 5px 0;
+            font-size: 14px;
+            padding: 5px;
+            border-radius: 4px;
         }
-        
-        .option-type-title {
-            font-weight: 600;
-            color: #2c3e50;
-            margin: 0;
+
+        .image-status:hover {
+            background: #f8f9fa;
         }
-        
-        .manage-options-btn {
-            background: #17a2b8;
+
+        .btn-delete-small {
+            background: #dc3545;
             color: white;
             border: none;
-            padding: 6px 12px;
             border-radius: 4px;
+            padding: 4px 8px;
             cursor: pointer;
             font-size: 12px;
+            margin-left: 10px;
+            transition: all 0.3s;
         }
-        
-        .manage-options-btn:hover {
-            background: #138496;
+
+        .btn-delete-small:hover {
+            background: #c82333;
+            transform: scale(1.05);
+        }
+
+        .btn-delete-all {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-delete-all:hover {
+            background: #c82333;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .status-present {
+            background: #28a745;
+        }
+
+        .status-missing {
+            background: #dc3545;
+        }
+
+        .image-preview-label {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 2px 5px;
+            font-size: 10px;
+            text-align: center;
         }
 
         /* Responsive */
@@ -866,9 +1058,6 @@ while ($row = $layout_options_result->fetch_assoc()) {
                 </button>
                 <button class="btn btn-success" onclick="exportProducts()">
                     <i class="fas fa-file-export"></i> Export Products
-                </button>
-                <button class="btn btn-info" onclick="openOptionsManagement()">
-                    <i class="fas fa-cogs"></i> Manage Global Options
                 </button>
             </div>
 
@@ -941,14 +1130,20 @@ while ($row = $layout_options_result->fetch_assoc()) {
                                         </span>
                                     <?php endif; ?>
                                     
-                                    <?php if ($base_image_exists): ?>
-                                        <span class="customization-badge active" title="Base Template Exists">
-                                            <i class="fas fa-vector-square"></i> Base
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="customization-badge" style="background: #fff3cd; color: #856404;" title="Base Template Missing">
-                                            <i class="fas fa-exclamation-circle"></i> Base
-                                        </span>
+                                    <?php 
+                                    // Only show base badge for products that need base templates
+                                    $needs_base = ($product['category'] === 'Other Services');
+                                    if ($needs_base): 
+                                    ?>
+                                        <?php if ($base_image_exists): ?>
+                                            <span class="customization-badge active" title="Base Template Exists">
+                                                <i class="fas fa-vector-square"></i> Base
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="customization-badge" style="background: #fff3cd; color: #856404;" title="Base Template Missing">
+                                                <i class="fas fa-exclamation-circle"></i> Base
+                                            </span>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </div>
                             </td>
@@ -959,9 +1154,6 @@ while ($row = $layout_options_result->fetch_assoc()) {
                                     </button>
                                     <button class="btn btn-primary" onclick="openCustomizationModal(<?php echo $product['id']; ?>)">
                                         <i class="fas fa-cog"></i> Options
-                                    </button>
-                                    <button class="btn btn-info" onclick="openOptionsModal(<?php echo $product['id']; ?>)">
-                                        <i class="fas fa-list"></i> Manage
                                     </button>
                                     <button class="btn btn-danger" onclick="confirmDelete(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['product_name']); ?>')">
                                         <i class="fas fa-trash"></i> Delete
@@ -981,7 +1173,7 @@ while ($row = $layout_options_result->fetch_assoc()) {
         <div class="modal-content">
             <span class="close" onclick="closeModal('productModal')">&times;</span>
             <h2 id="modalTitle">Add New Product</h2>
-            <form id="productForm" method="post">
+            <form id="productForm" method="post" enctype="multipart/form-data">
                 <input type="hidden" name="action" id="formAction" value="add_product">
                 <input type="hidden" name="product_id" id="productId">
                 
@@ -1005,14 +1197,83 @@ while ($row = $layout_options_result->fetch_assoc()) {
                     <input type="number" id="price" name="price" class="form-control" step="0.01" min="0" required>
                 </div>
                 
-                <div class="image-setup-info" id="imageSetupInfo" style="display: none;">
-                    <div class="message" style="margin-bottom: 15px;">
-                        <h4><i class="fas fa-info-circle"></i> Image Setup Required</h4>
-                        <p>After creating this product, you'll need to add these images:</p>
-                        <ul>
-                            <li><strong>Product Image:</strong> <code>assets/images/services/service-{id}.jpg</code></li>
-                            <li><strong>Base Template:</strong> <code>assets/images/base/base-{id}.jpg</code></li>
-                        </ul>
+                <!-- Product Images -->
+                <div class="image-upload-section">
+                    <h4 class="image-upload-title"><i class="fas fa-images"></i> Product Images (Up to 5 images)</h4>
+                    
+                    <div class="form-group">
+                        <label>Product Images:</label>
+                        <label class="file-input-label">
+                            <i class="fas fa-upload"></i> Choose Product Images
+                            <input type="file" class="file-input" name="product_images[]" accept="image/*" multiple onchange="showFileNames(this, 'productImagesFile')">
+                        </label>
+                        <small id="productImagesFile" style="color: #6c757d; display: block; margin-top: 5px;">No files chosen</small>
+                        <small style="color: #6c757d;">Will be saved as: service-{id}.jpg, service-{id}-1.jpg, service-{id}-2.jpg, etc.</small>
+                        
+                        <!-- Image Previews Container -->
+                        <div class="image-preview-container" id="productImagesPreview" style="display: none; margin-top: 10px;">
+                            <!-- Previews will be added here dynamically -->
+                        </div>
+                    </div>
+                    
+                    <!-- Current Images Status (for edit mode) -->
+                    <div class="current-images-section" id="currentImagesSection" style="display: none;">
+                        <h5>Current Images Status:</h5>
+                        <div id="currentImagesList">
+                            <!-- Current images will be listed here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Base Templates (Only for Other Services) -->
+                <div class="image-upload-section" id="baseTemplatesSection" style="display: none;">
+                    <h4 class="image-upload-title"><i class="fas fa-vector-square"></i> Base Templates</h4>
+                    
+                    <div class="form-group">
+                        <label>Front Base Template:</label>
+                        <label class="file-input-label">
+                            <i class="fas fa-upload"></i> Choose Front Base
+                            <input type="file" class="file-input" name="base_image" accept="image/*" onchange="showFileName(this, 'frontBaseFile')">
+                        </label>
+                        <small id="frontBaseFile" style="color: #6c757d; display: block; margin-top: 5px;">No file chosen</small>
+                        <small style="color: #6c757d;">Will be saved as: base-{id}.jpg</small>
+                        
+                        <!-- Image Preview -->
+                        <div class="image-preview-container" id="frontBasePreview" style="display: none; margin-top: 10px;">
+                            <div class="image-preview">
+                                <img id="frontBasePreviewImg" src="" alt="Preview">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Back Base Template (Optional):</label>
+                        <label class="file-input-label">
+                            <i class="fas fa-upload"></i> Choose Back Base
+                            <input type="file" class="file-input" name="base_back_image" accept="image/*" onchange="showFileName(this, 'backBaseFile')">
+                        </label>
+                        <small id="backBaseFile" style="color: #6c757d; display: block; margin-top: 5px;">No file chosen</small>
+                        <small style="color: #6c757d;">Will be saved as: base-{id}-1.jpg</small>
+                        
+                        <!-- Image Preview -->
+                        <div class="image-preview-container" id="backBasePreview" style="display: none; margin-top: 10px;">
+                            <div class="image-preview">
+                                <img id="backBasePreviewImg" src="" alt="Preview">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Current Base Templates Status (for edit mode) -->
+                    <div class="current-images-section" id="currentBaseSection" style="display: none;">
+                        <h5>Current Base Templates Status:</h5>
+                        <div class="image-status">
+                            <span class="status-indicator" id="frontBaseStatus"></span>
+                            <span>Front Base Template: <span id="frontBaseText">Checking...</span></span>
+                        </div>
+                        <div class="image-status">
+                            <span class="status-indicator" id="backBaseStatus"></span>
+                            <span>Back Base Template: <span id="backBaseText">Checking...</span></span>
+                        </div>
                     </div>
                 </div>
                 
@@ -1074,66 +1335,6 @@ while ($row = $layout_options_result->fetch_assoc()) {
         </div>
     </div>
 
-    <!-- Options Management Modal -->
-    <div id="optionsModal" class="modal">
-        <div class="modal-content" style="max-width: 800px;">
-            <span class="close" onclick="closeModal('optionsModal')">&times;</span>
-            <h2>Manage Product Options</h2>
-            <p id="optionsProductInfo" style="color: #666; margin-bottom: 20px;"></p>
-            
-            <form id="optionsForm" method="post">
-                <input type="hidden" name="action" value="update_product_options">
-                <input type="hidden" name="product_id" id="optionsProductId">
-                <input type="hidden" name="option_type" id="optionType">
-                
-                <div class="option-type-section">
-                    <div class="option-type-header">
-                        <h3 class="option-type-title">Paper Options</h3>
-                        <button type="button" class="manage-options-btn" onclick="loadOptions('paper')">Manage Paper Options</button>
-                    </div>
-                    <div class="options-grid" id="paperOptionsGrid">
-                        <!-- Options will be loaded dynamically -->
-                    </div>
-                </div>
-                
-                <div class="option-type-section">
-                    <div class="option-type-header">
-                        <h3 class="option-type-title">Finish Options</h3>
-                        <button type="button" class="manage-options-btn" onclick="loadOptions('finish')">Manage Finish Options</button>
-                    </div>
-                    <div class="options-grid" id="finishOptionsGrid">
-                        <!-- Options will be loaded dynamically -->
-                    </div>
-                </div>
-                
-                <div class="option-type-section">
-                    <div class="option-type-header">
-                        <h3 class="option-type-title">Binding Options</h3>
-                        <button type="button" class="manage-options-btn" onclick="loadOptions('binding')">Manage Binding Options</button>
-                    </div>
-                    <div class="options-grid" id="bindingOptionsGrid">
-                        <!-- Options will be loaded dynamically -->
-                    </div>
-                </div>
-                
-                <div class="option-type-section">
-                    <div class="option-type-header">
-                        <h3 class="option-type-title">Layout Options</h3>
-                        <button type="button" class="manage-options-btn" onclick="loadOptions('layout')">Manage Layout Options</button>
-                    </div>
-                    <div class="options-grid" id="layoutOptionsGrid">
-                        <!-- Options will be loaded dynamically -->
-                    </div>
-                </div>
-                
-                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
-                    <button type="button" class="btn" onclick="closeModal('optionsModal')" style="background: #95a5a6;">Cancel</button>
-                    <button type="submit" class="btn btn-success">Save Options</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <script>
         // Global variables
         let currentProductId = null;
@@ -1145,7 +1346,13 @@ while ($row = $layout_options_result->fetch_assoc()) {
             document.getElementById('formAction').value = 'add_product';
             document.getElementById('productId').value = '';
             document.getElementById('productForm').reset();
-            document.getElementById('imageSetupInfo').style.display = 'none';
+            document.getElementById('currentImagesSection').style.display = 'none';
+            document.getElementById('currentBaseSection').style.display = 'none';
+            document.getElementById('baseTemplatesSection').style.display = 'none';
+            
+            // Reset file inputs
+            resetFileInputs();
+            
             document.getElementById('productModal').style.display = 'block';
         }
 
@@ -1154,10 +1361,23 @@ while ($row = $layout_options_result->fetch_assoc()) {
             document.getElementById('saveBtnText').style.display = 'none';
             document.getElementById('saveBtnLoading').style.display = 'inline-block';
             
+            // Reset file inputs first
+            resetFileInputs();
+            
+            console.log('Fetching product data for ID:', productId);
+            
             // Fetch product data via AJAX
             fetch(`admin_products.php?ajax=get_product&product_id=${productId}`)
-                .then(response => response.json())
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('Received data:', data);
+                    
                     if (data.error) {
                         alert('Error: ' + data.error);
                         return;
@@ -1171,14 +1391,17 @@ while ($row = $layout_options_result->fetch_assoc()) {
                     document.getElementById('category').value = data.category;
                     document.getElementById('price').value = data.price;
                     
-                    // Show image setup info
-                    document.getElementById('imageSetupInfo').style.display = 'block';
+                    // Update image status
+                    updateImageStatus(data);
+                    
+                    // Handle category-specific visibility
+                    handleCategoryChange();
                     
                     document.getElementById('productModal').style.display = 'block';
                 })
                 .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error loading product data');
+                    console.error('Fetch Error:', error);
+                    alert('Error loading product data: ' + error.message);
                 })
                 .finally(() => {
                     // Hide loading state
@@ -1215,75 +1438,408 @@ while ($row = $layout_options_result->fetch_assoc()) {
                 });
         }
 
-        function openOptionsModal(productId) {
-            currentProductId = productId;
-            document.getElementById('optionsProductId').value = productId;
-            
-            // Fetch product info for display
-            fetch(`admin_products.php?ajax=get_product&product_id=${productId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        alert('Error: ' + data.error);
-                        return;
-                    }
-                    
-                    currentProductName = data.product_name;
-                    document.getElementById('optionsProductInfo').textContent = 
-                        `Managing options for: ${data.product_name} (${data.category})`;
-                    
-                    // Load all option types
-                    loadOptions('paper');
-                    loadOptions('finish');
-                    loadOptions('binding');
-                    loadOptions('layout');
-                    
-                    document.getElementById('optionsModal').style.display = 'block';
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error loading product information');
-                });
+        function refreshPageAfterUpload() {
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
         }
 
-        function loadOptions(optionType) {
-            document.getElementById('optionType').value = optionType;
-            
-            fetch(`admin_products.php?ajax=get_product_options&product_id=${currentProductId}&option_type=${optionType}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        console.error('Error:', data.error);
-                        return;
-                    }
-                    
-                    const grid = document.getElementById(`${optionType}OptionsGrid`);
-                    grid.innerHTML = '';
-                    
-                    data.all_options.forEach(option => {
-                        const isSelected = data.selected_options.includes(parseInt(option.id));
-                        const optionElement = document.createElement('div');
-                        optionElement.className = 'option-checkbox';
-                        optionElement.innerHTML = `
-                            <input type="checkbox" name="options[]" value="${option.id}" id="opt_${optionType}_${option.id}" ${isSelected ? 'checked' : ''}>
-                            <label for="opt_${optionType}_${option.id}">${option.option_name}</label>
-                        `;
-                        grid.appendChild(optionElement);
-                    });
-                })
-                .catch(error => {
-                    console.error('Error loading options:', error);
-                });
-        }
-
+        // Handle category change for base templates visibility
         function handleCategoryChange() {
             const category = document.getElementById('category').value;
-            const imageInfo = document.getElementById('imageSetupInfo');
+            const baseSection = document.getElementById('baseTemplatesSection');
             
             if (category) {
-                imageInfo.style.display = 'block';
+                // Show/hide base templates section
+                if (category === 'Other Services') {
+                    baseSection.style.display = 'block';
+                } else {
+                    baseSection.style.display = 'none';
+                }
             } else {
-                imageInfo.style.display = 'none';
+                baseSection.style.display = 'none';
+            }
+        }
+
+        // Show single file name when file is selected
+        function showFileName(input, displayElementId) {
+            const displayElement = document.getElementById(displayElementId);
+            
+            if (input.files && input.files[0]) {
+                displayElement.textContent = `Selected: ${input.files[0].name}`;
+                displayElement.style.color = '#28a745';
+                displayElement.style.fontWeight = '600';
+                
+                // Show image preview for base templates
+                if (input.name === 'base_image') {
+                    showImagePreview(input, 'frontBase');
+                } else if (input.name === 'base_back_image') {
+                    showImagePreview(input, 'backBase');
+                }
+            } else {
+                displayElement.textContent = 'No file chosen';
+                displayElement.style.color = '#6c757d';
+                displayElement.style.fontWeight = 'normal';
+                
+                // Hide image preview
+                if (input.name === 'base_image') {
+                    hideImagePreview('frontBase');
+                } else if (input.name === 'base_back_image') {
+                    hideImagePreview('backBase');
+                }
+            }
+        }
+
+        // Show multiple file names when files are selected
+        function showFileNames(input, displayElementId) {
+            const displayElement = document.getElementById(displayElementId);
+            const previewContainer = document.getElementById('productImagesPreview');
+            
+            if (input.files && input.files.length > 0) {
+                const fileNames = Array.from(input.files).slice(0, 5).map(file => file.name).join(', ');
+                const fileCount = Math.min(input.files.length, 5);
+                
+                displayElement.textContent = `Selected ${fileCount} file(s): ${fileNames}`;
+                displayElement.style.color = '#28a745';
+                displayElement.style.fontWeight = '600';
+                
+                // Show image previews
+                showMultipleImagePreviews(input);
+            } else {
+                displayElement.textContent = 'No files chosen';
+                displayElement.style.color = '#6c757d';
+                displayElement.style.fontWeight = 'normal';
+                
+                // Hide image previews
+                previewContainer.style.display = 'none';
+                previewContainer.innerHTML = '';
+            }
+        }
+
+        // Show multiple image previews
+        function showMultipleImagePreviews(input) {
+            const previewContainer = document.getElementById('productImagesPreview');
+            previewContainer.innerHTML = '';
+            
+            if (input.files && input.files.length > 0) {
+                const fileCount = Math.min(input.files.length, 5);
+                
+                for (let i = 0; i < fileCount; i++) {
+                    const file = input.files[i];
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        const previewDiv = document.createElement('div');
+                        previewDiv.className = 'image-preview';
+                        previewDiv.innerHTML = `
+                            <img src="${e.target.result}" alt="Preview ${i + 1}">
+                            <div class="image-preview-label">Image ${i + 1}</div>
+                        `;
+                        previewContainer.appendChild(previewDiv);
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+                
+                previewContainer.style.display = 'flex';
+            }
+        }
+
+        // Show image preview
+        function showImagePreview(input, previewId) {
+            const previewContainer = document.getElementById(previewId + 'Preview');
+            const previewImg = document.getElementById(previewId + 'PreviewImg');
+            
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    previewImg.src = e.target.result;
+                    previewContainer.style.display = 'block';
+                }
+                
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // Hide image preview
+        function hideImagePreview(previewId) {
+            const previewContainer = document.getElementById(previewId + 'Preview');
+            if (previewContainer) {
+                previewContainer.style.display = 'none';
+            }
+        }
+
+        // Get preview ID based on input name
+        function getPreviewId(inputName) {
+            const previewMap = {
+                'product_image': 'mainProduct',
+                'product_back_image': 'backProduct',
+                'base_image': 'frontBase',
+                'base_back_image': 'backBase'
+            };
+            
+            return previewMap[inputName] || inputName;
+        }
+
+        function resetFileInputs() {
+            // Reset file name displays
+            const fileDisplays = ['productImagesFile', 'frontBaseFile', 'backBaseFile'];
+            fileDisplays.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = id === 'productImagesFile' ? 'No files chosen' : 'No file chosen';
+                    element.style.color = '#6c757d';
+                    element.style.fontWeight = 'normal';
+                }
+            });
+            
+            // Hide all previews
+            const previews = ['productImagesPreview', 'frontBasePreview', 'backBasePreview'];
+            previews.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.style.display = 'none';
+                    if (id === 'productImagesPreview') {
+                        element.innerHTML = '';
+                    }
+                }
+            });
+            
+            // Reset file inputs
+            const fileInputs = document.querySelectorAll('.file-input');
+            fileInputs.forEach(input => {
+                input.value = '';
+            });
+        }
+
+        // Update image status in edit mode with delete buttons
+        function updateImageStatus(productData) {
+            const currentImagesSection = document.getElementById('currentImagesSection');
+            const currentImagesList = document.getElementById('currentImagesList');
+            const currentBaseSection = document.getElementById('currentBaseSection');
+            
+            if (productData.id) {
+                // Show current images section
+                currentImagesSection.style.display = 'block';
+                currentImagesList.innerHTML = '<h5>Current Images Status:</h5>';
+                
+                let hasAnyImages = false;
+                
+                // Check for up to 5 product images
+                for (let i = 0; i < 5; i++) {
+                    const imageExists = productData[`product_image_exists_${i}`] || false;
+                    if (imageExists) hasAnyImages = true;
+                    
+                    const imageStatus = document.createElement('div');
+                    imageStatus.className = 'image-status';
+                    imageStatus.innerHTML = `
+                        <span class="status-indicator ${imageExists ? 'status-present' : 'status-missing'}"></span>
+                        <span style="flex: 1;">Product Image ${i + 1}: <strong>${imageExists ? '✓ Present' : '✗ Missing'}</strong></span>
+                        ${imageExists ? `
+                            <button type="button" class="btn-delete-small" onclick="deleteProductImage(${productData.id}, ${i})" title="Delete this image">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        ` : ''}
+                    `;
+                    currentImagesList.appendChild(imageStatus);
+                }
+                
+                // Add "Delete All Images" button if any images exist
+                if (hasAnyImages) {
+                    const deleteAllContainer = document.createElement('div');
+                    deleteAllContainer.style.marginTop = '15px';
+                    deleteAllContainer.style.paddingTop = '15px';
+                    deleteAllContainer.style.borderTop = '1px solid #dee2e6';
+                    deleteAllContainer.innerHTML = `
+                        <button type="button" class="btn-delete-all" onclick="deleteAllProductImages(${productData.id})">
+                            <i class="fas fa-trash"></i> Delete All Product Images
+                        </button>
+                    `;
+                    currentImagesList.appendChild(deleteAllContainer);
+                }
+                
+                // Update base templates status if Other Services
+                if (productData.category === 'Other Services') {
+                    currentBaseSection.style.display = 'block';
+                    currentBaseSection.innerHTML = '<h5>Current Base Templates Status:</h5>';
+                    
+                    // Front base template
+                    const frontBaseStatus = document.createElement('div');
+                    frontBaseStatus.className = 'image-status';
+                    frontBaseStatus.innerHTML = `
+                        <span class="status-indicator ${productData.base_image_exists ? 'status-present' : 'status-missing'}"></span>
+                        <span style="flex: 1;">Front Base Template: <strong>${productData.base_image_exists ? '✓ Present' : '✗ Missing'}</strong></span>
+                        ${productData.base_image_exists ? `
+                            <button type="button" class="btn-delete-small" onclick="deleteBaseTemplate(${productData.id}, 'front')" title="Delete front base template">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        ` : ''}
+                    `;
+                    currentBaseSection.appendChild(frontBaseStatus);
+                    
+                    // Back base template
+                    const backBaseStatus = document.createElement('div');
+                    backBaseStatus.className = 'image-status';
+                    backBaseStatus.innerHTML = `
+                        <span class="status-indicator ${productData.base_back_image_exists ? 'status-present' : 'status-missing'}"></span>
+                        <span style="flex: 1;">Back Base Template: <strong>${productData.base_back_image_exists ? '✓ Present' : '✗ Missing'}</strong></span>
+                        ${productData.base_back_image_exists ? `
+                            <button type="button" class="btn-delete-small" onclick="deleteBaseTemplate(${productData.id}, 'back')" title="Delete back base template">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        ` : ''}
+                    `;
+                    currentBaseSection.appendChild(backBaseStatus);
+                } else {
+                    currentBaseSection.style.display = 'none';
+                }
+            } else {
+                currentImagesSection.style.display = 'none';
+                currentBaseSection.style.display = 'none';
+            }
+        }
+
+        // Delete a specific product image
+        function deleteProductImage(productId, imageIndex) {
+            const imageNumber = imageIndex + 1;
+            Swal.fire({
+                title: 'Delete Image?',
+                text: `Are you sure you want to delete Product Image ${imageNumber}?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, delete it!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Create a form and submit it
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = 'admin_products.php';
+                    
+                    const actionInput = document.createElement('input');
+                    actionInput.type = 'hidden';
+                    actionInput.name = 'action';
+                    actionInput.value = 'delete_single_image';
+                    form.appendChild(actionInput);
+                    
+                    const productIdInput = document.createElement('input');
+                    productIdInput.type = 'hidden';
+                    productIdInput.name = 'product_id';
+                    productIdInput.value = productId;
+                    form.appendChild(productIdInput);
+                    
+                    const imageIndexInput = document.createElement('input');
+                    imageIndexInput.type = 'hidden';
+                    imageIndexInput.name = 'image_index';
+                    imageIndexInput.value = imageIndex;
+                    form.appendChild(imageIndexInput);
+                    
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            });
+        }
+
+        // Delete all product images
+        function deleteAllProductImages(productId) {
+            Swal.fire({
+                title: 'Delete All Images?',
+                text: 'Are you sure you want to delete ALL product images? This action cannot be undone!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, delete all!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Create a form and submit it
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = 'admin_products.php';
+                    
+                    const actionInput = document.createElement('input');
+                    actionInput.type = 'hidden';
+                    actionInput.name = 'action';
+                    actionInput.value = 'delete_product_images';
+                    form.appendChild(actionInput);
+                    
+                    const productIdInput = document.createElement('input');
+                    productIdInput.type = 'hidden';
+                    productIdInput.name = 'product_id';
+                    productIdInput.value = productId;
+                    form.appendChild(productIdInput);
+                    
+                    const imageTypeInput = document.createElement('input');
+                    imageTypeInput.type = 'hidden';
+                    imageTypeInput.name = 'image_type';
+                    imageTypeInput.value = 'product_images';
+                    form.appendChild(imageTypeInput);
+                    
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            });
+        }
+
+        // Delete base template
+        function deleteBaseTemplate(productId, templateType) {
+            const templateName = templateType === 'front' ? 'Front Base Template' : 'Back Base Template';
+            
+            Swal.fire({
+                title: 'Delete Base Template?',
+                text: `Are you sure you want to delete the ${templateName}?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, delete it!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Create a form and submit it
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = 'admin_products.php';
+                    
+                    const actionInput = document.createElement('input');
+                    actionInput.type = 'hidden';
+                    actionInput.name = 'action';
+                    actionInput.value = 'delete_single_image';
+                    form.appendChild(actionInput);
+                    
+                    const productIdInput = document.createElement('input');
+                    productIdInput.type = 'hidden';
+                    productIdInput.name = 'product_id';
+                    productIdInput.value = productId;
+                    form.appendChild(productIdInput);
+                    
+                    const imageIndexInput = document.createElement('input');
+                    imageIndexInput.type = 'hidden';
+                    imageIndexInput.name = 'image_index';
+                    imageIndexInput.value = templateType;
+                    form.appendChild(imageIndexInput);
+                    
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            });
+        }
+
+        // Helper function to update status indicators
+        function updateStatusIndicator(statusId, textId, exists, label) {
+            const statusElement = document.getElementById(statusId);
+            const textElement = document.getElementById(textId);
+            
+            if (exists) {
+                statusElement.className = 'status-indicator status-present';
+                textElement.textContent = `${label} ✓`;
+            } else {
+                statusElement.className = 'status-indicator status-missing';
+                textElement.textContent = `${label} ✗ (Missing)`;
             }
         }
 
@@ -1353,11 +1909,6 @@ while ($row = $layout_options_result->fetch_assoc()) {
             link.setAttribute("download", "products_export.csv");
             document.body.appendChild(link);
             link.click();
-        }
-
-        function openOptionsManagement() {
-            alert('Global options management would open here - this would allow managing paper_types, finish_options, etc. across all products');
-            // You can implement a separate modal for global option management
         }
 
         // Close modal when clicking outside
