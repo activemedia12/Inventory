@@ -1059,9 +1059,6 @@ while ($row = $categories_result->fetch_assoc()) {
                 <button class="btn btn-success" onclick="exportProducts()">
                     <i class="fas fa-file-export"></i> Export Products
                 </button>
-                <button class="btn btn-info" onclick="openOptionsManagement()">
-                    <i class="fas fa-cogs"></i> Manage Global Options
-                </button>
             </div>
 
             <!-- Products Table -->
@@ -1461,6 +1458,35 @@ while ($row = $categories_result->fetch_assoc()) {
                 }
             } else {
                 baseSection.style.display = 'none';
+            }
+        }
+
+        // Show single file name when file is selected
+        function showFileName(input, displayElementId) {
+            const displayElement = document.getElementById(displayElementId);
+            
+            if (input.files && input.files[0]) {
+                displayElement.textContent = `Selected: ${input.files[0].name}`;
+                displayElement.style.color = '#28a745';
+                displayElement.style.fontWeight = '600';
+                
+                // Show image preview for base templates
+                if (input.name === 'base_image') {
+                    showImagePreview(input, 'frontBase');
+                } else if (input.name === 'base_back_image') {
+                    showImagePreview(input, 'backBase');
+                }
+            } else {
+                displayElement.textContent = 'No file chosen';
+                displayElement.style.color = '#6c757d';
+                displayElement.style.fontWeight = 'normal';
+                
+                // Hide image preview
+                if (input.name === 'base_image') {
+                    hideImagePreview('frontBase');
+                } else if (input.name === 'base_back_image') {
+                    hideImagePreview('backBase');
+                }
             }
         }
 
@@ -1883,11 +1909,6 @@ while ($row = $categories_result->fetch_assoc()) {
             link.setAttribute("download", "products_export.csv");
             document.body.appendChild(link);
             link.click();
-        }
-
-        function openOptionsManagement() {
-            alert('Global options management would open here - this would allow managing paper_types, finish_options, etc. across all products');
-            // You can implement a separate modal for global option management
         }
 
         // Close modal when clicking outside
