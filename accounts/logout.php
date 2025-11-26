@@ -1,9 +1,28 @@
 <?php
 session_start();
 
+// ADD CACHE CONTROL HEADERS FIRST
+header("Cache-Control: no-cache, no-store, must-revalidate");
+header("Pragma: no-cache");
+header("Expires: 0");
+
 // Check if logout is confirmed
 if (isset($_GET['confirm']) && $_GET['confirm'] === 'true') {
-    session_destroy();
+    // COMPLETELY DESTROY THE SESSION
+    session_unset();    // Remove all session variables
+    session_destroy();  // Destroy the session
+    session_write_close(); // Ensure session is closed
+    
+    // Clear session cookie
+    if (ini_get("session.use_cookies")) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000,
+            $params["path"], $params["domain"],
+            $params["secure"], $params["httponly"]
+        );
+    }
+    
+    // REDIRECT TO LOGIN WITH NO-CACHE HEADERS
     header("Location: login.php");
     exit;
 }
@@ -11,10 +30,13 @@ if (isset($_GET['confirm']) && $_GET['confirm'] === 'true') {
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- ADD THESE META TAGS FOR CACHE CONTROL -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Logout Confirmation</title>
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,6 +44,7 @@ if (isset($_GET['confirm']) && $_GET['confirm'] === 'true') {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
+        /* Your existing CSS remains the same */
         ::-webkit-scrollbar {
             width: 5px;
             height: 5px;
@@ -33,15 +56,18 @@ if (isset($_GET['confirm']) && $_GET['confirm'] === 'true') {
         }
 
         :root {
-            --primary: #1877f2;
-            --secondary: #166fe5;
-            --light: #f0f2f5;
-            --dark: #1c1e21;
-            --gray: #65676b;
-            --light-gray: #e4e6eb;
-            --card-bg: #ffffff;
-            --success: #42b72a;
-            --danger: #ff4d4f;
+            --primary-color: #1c1c1c;
+            --primary-dark: #1a51b0;
+            --secondary-color: white;
+            --accent-color: #e74c3c;
+            --text-dark: #3b3b3b;
+            --text-light: #7f8c8d;
+            --bg-light: #f8f9fa;
+            --bg-white: #ffffff;
+            --border-color: #e1e8ed;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.12);
+            --transition: all 0.3s ease;
         }
 
         * {
@@ -107,23 +133,26 @@ if (isset($_GET['confirm']) && $_GET['confirm'] === 'true') {
         }
 
         .btn-primary {
-            background-color: var(--primary);
+            background-color: var(--primary-color);
             color: white;
-            border: none;
+            border: 2px solid var(--primary-color);
         }
 
         .btn-primary:hover {
-            background-color: var(--secondary);
-        }
-
-        .btn-outline {
             background-color: transparent;
-            border: 1px solid var(--light-gray);
-            color: var(--dark);
+            color: #1c1c1c;
         }
 
-        .btn-outline:hover {
-            background-color: var(--light-gray);
+        .btn-secondary {
+            background-color: var(--secondary-color);
+            color: #1c1c1c;
+            border: 2px solid var(--primary-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: transparent;
+            color: var(--accent-color);
+            border: 2px solid var(--accent-color);
         }
 
         .btn i {
@@ -165,11 +194,20 @@ if (isset($_GET['confirm']) && $_GET['confirm'] === 'true') {
             <a href="logout.php?confirm=true" class="btn btn-primary">
                 <i class="fas fa-check"></i> Yes, Logout
             </a>
-            <a href="javascript:history.back()" class="btn btn-outline">
+            <a href="javascript:history.back()" class="btn btn-secondary">
                 <i class="fas fa-times"></i> Cancel
             </a>
         </div>
     </div>
+    
+    <!-- ADD JAVASCRIPT FOR EXTRA PROTECTION -->
+    <script>
+        // Prevent caching
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        });
+    </script>
 </body>
-
 </html>
