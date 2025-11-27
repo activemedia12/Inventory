@@ -1,5 +1,9 @@
 <?php
 require_once '../config/db.php';
+require_once '../config/vendor/autoload.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 session_start();
 
@@ -42,6 +46,62 @@ $c_zip            = $form_data['c_zip'] ?? '';
 $username         = $form_data['username'] ?? '';
 $password         = $form_data['password'] ?? '';
 $confirm_password = $form_data['confirm_password'] ?? '';
+
+// Function to send verification email using same setup as forgot-password
+function sendVerificationEmail($email, $verification_token, $customer_type = 'personal') {
+    $base_url = (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'];
+    $verify_link = $base_url . "/inventory/accounts/email-verification.php?token=" . urlencode($verification_token);
+    
+    try {
+        $mail = new PHPMailer(true);
+        
+        // SMTP Configuration (same as your forgot-password script)
+        $mail->isSMTP();
+        $mail->Host       = 'smtp.gmail.com';
+        $mail->SMTPAuth   = true;
+        $mail->Username   = 'reportsjoborder@gmail.com';
+        $mail->Password   = 'kjyj krfm rkbk qmst'; // App password
+        $mail->SMTPSecure = 'tls';
+        $mail->Port       = 587;
+
+        $mail->setFrom('reportsjoborder@gmail.com', 'Active Media');
+        $mail->addAddress($email);
+        
+        $mail->isHTML(true);
+        $mail->Subject = "Email Verification - Active Media";
+        
+        if ($customer_type === 'personal') {
+            $mail->Body = "
+                <h2>Welcome to Active Media Designs and Printing!</h2>
+                <p>Thank you for registering with us. Please verify your email address to activate your account.</p>
+                <p>Click the link below to verify your email address:</p>
+                <p><a href='$verify_link'>$verify_link</a></p>
+                <p>This link will expire in 24 hours.</p>
+                <br>
+                <p>If you didn't create an account, please ignore this email.</p>
+                <br>
+                <p>Regards,<br>Active Media Designs and Printing</p>
+            ";
+        } else {
+            $mail->Body = "
+                <h2>Welcome to Active Media Designs and Printing!</h2>
+                <p>Thank you for registering your company with us. Please verify your email address to activate your account.</p>
+                <p>Click the link below to verify your email address:</p>
+                <p><a href='$verify_link'>$verify_link</a></p>
+                <p>This link will expire in 24 hours.</p>
+                <br>
+                <p>If you didn't create an account, please ignore this email.</p>
+                <br>
+                <p>Regards,<br>Active Media Designs and Printing</p>
+            ";
+        }
+        
+        return $mail->send();
+    } catch (Exception $e) {
+        error_log("Email verification error: " . $e->getMessage());
+        return false;
+    }
+}
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
   // Step 1
@@ -156,12 +216,32 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $p_zip
           );
           if ($insert->execute()) {
-            $success = true;
-            $message = "Personal customer account created successfully.";
-            // Clear form data from session on success
-            unset($_SESSION['form_data']);
-            $_SESSION['display_message'] = $message;
-            $_SESSION['is_success'] = true;
+            // Generate verification token
+            $verification_token = bin2hex(random_bytes(32));
+            $verification_expires = date('Y-m-d H:i:s', strtotime('+24 hours'));
+            
+            $update_stmt = $inventory->prepare("UPDATE users SET verification_token = ?, verification_expires = ? WHERE id = ?");
+            $update_stmt->bind_param("ssi", $verification_token, $verification_expires, $user_id);
+            
+            if ($update_stmt->execute()) {
+              // Send verification email
+              if (sendVerificationEmail($username, $verification_token, 'personal')) {
+                $success = true;
+                $message = "Account created successfully! Please check your email to verify your account before logging in.";
+                
+                // Clear form data from session on success
+                unset($_SESSION['form_data']);
+                $_SESSION['display_message'] = $message;
+                $_SESSION['is_success'] = true;
+              } else {
+                $errors[] = "Account created but verification email failed to send. Please <a href='email-verification.php'>request a new verification email</a>.";
+                $message = implode("<br>", $errors);
+              }
+            } else {
+              $errors[] = "Error generating verification token. Please contact support.";
+              $message = implode("<br>", $errors);
+            }
+            $update_stmt->close();
           } else {
             $errors[] = "Error saving personal customer: " . $insert->error;
             $message = implode("<br>", $errors);
@@ -187,12 +267,32 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $c_zip
           );
           if ($insert->execute()) {
-            $success = true;
-            $message = "Company customer account created successfully.";
-            // Clear form data from session on success
-            unset($_SESSION['form_data']);
-            $_SESSION['display_message'] = $message;
-            $_SESSION['is_success'] = true;
+            // Generate verification token
+            $verification_token = bin2hex(random_bytes(32));
+            $verification_expires = date('Y-m-d H:i:s', strtotime('+24 hours'));
+            
+            $update_stmt = $inventory->prepare("UPDATE users SET verification_token = ?, verification_expires = ? WHERE id = ?");
+            $update_stmt->bind_param("ssi", $verification_token, $verification_expires, $user_id);
+            
+            if ($update_stmt->execute()) {
+              // Send verification email
+              if (sendVerificationEmail($username, $verification_token, 'company')) {
+                $success = true;
+                $message = "Company account created successfully! Please check your email to verify your account before logging in.";
+                
+                // Clear form data from session on success
+                unset($_SESSION['form_data']);
+                $_SESSION['display_message'] = $message;
+                $_SESSION['is_success'] = true;
+              } else {
+                $errors[] = "Account created but verification email failed to send. Please <a href='email-verification.php'>request a new verification email</a>.";
+                $message = implode("<br>", $errors);
+              }
+            } else {
+              $errors[] = "Error generating verification token. Please contact support.";
+              $message = implode("<br>", $errors);
+            }
+            $update_stmt->close();
           } else {
             $errors[] = "Error saving company customer: " . $insert->error;
             $message = implode("<br>", $errors);
@@ -212,6 +312,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -226,6 +327,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
   <style>
+    /* ... (keep all your existing CSS styles) ... */
     ::-webkit-scrollbar {
       width: 5px;
       height: 5px;
@@ -486,7 +588,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <script>
               setTimeout(function() {
                 window.location.href = "login.php";
-              }, 3000);
+              }, 5000);
             </script>
           <?php endif; ?>
         <?php endif; ?>
@@ -627,6 +729,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     </div>
   </div>
   <script>
+    // ... (keep all your existing JavaScript) ...
     const steps = ["step1", "step2", "step3", "step4"];
     let currentStep = 0;
 
