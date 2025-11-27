@@ -897,7 +897,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             generateBtn.addEventListener('click', async function() {
                 const prompt = promptInput.value.trim();
                 const style = styleInput.value;
-                const apiKey = 'sk-kv3K4PjP2I6egGj8CgnaUfjDincIKv9463dpFQYZ1VxwTZck';
+                const apiKey = 'sk-h16bbx9QfSHOUEmr0gYuSBgbzRJql6EWuLsIhY8nvl0EIbLm';
 
                 errorMessage.style.display = 'none';
                 successMessage.style.display = 'none';
