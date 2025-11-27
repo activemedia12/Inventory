@@ -8,44 +8,49 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   $username = trim($_POST['username']);
   $password = $_POST['password'];
 
-  $stmt = $inventory->prepare("SELECT id, password, role FROM users WHERE username = ?");
+  $stmt = $inventory->prepare("SELECT id, password, role, email_verified FROM users WHERE username = ?");
   $stmt->bind_param("s", $username);
   $stmt->execute();
   $stmt->store_result();
 
   if ($stmt->num_rows === 1) {
-    $stmt->bind_result($id, $hashed, $role);
+    $stmt->bind_result($id, $hashed, $role, $email_verified);
     $stmt->fetch();
 
     if (password_verify($password, $hashed)) {
-      session_regenerate_id(true);
-      $_SESSION['user_id'] = $id;
-      $_SESSION['username'] = $username;
-      $_SESSION['role'] = $role;
-
-      if ($role === 'customer') {
-        $stmt2 = $inventory->prepare("SELECT id FROM personal_customers WHERE user_id = ?");
-        $stmt2->bind_param("i", $id);
-        $stmt2->execute();
-        $res2 = $stmt2->get_result();
-        if ($row2 = $res2->fetch_assoc()) {
-          $_SESSION['customer_table'] = 'personal_customers';
-          $_SESSION['customer_id'] = $row2['id'];
-        } else {
-          $stmt3 = $inventory->prepare("SELECT id FROM company_customers WHERE user_id = ?");
-          $stmt3->bind_param("i", $id);
-          $stmt3->execute();
-          $res3 = $stmt3->get_result();
-          if ($row3 = $res3->fetch_assoc()) {
-            $_SESSION['customer_table'] = 'company_customers';
-            $_SESSION['customer_id'] = $row3['id'];
-          }
-        }
-        header("Location: ../website/main.php");
+      // Check if email is verified
+      if (!$email_verified) {
+        $error = "Please verify your email address before logging in. <a href='email-verification.php' style='color: #1c1c1c; font-weight: 600;'>Resend verification email</a>";
       } else {
-        header("Location: ../pages/dashboard.php");
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = $id;
+        $_SESSION['username'] = $username;
+        $_SESSION['role'] = $role;
+
+        if ($role === 'customer') {
+          $stmt2 = $inventory->prepare("SELECT id FROM personal_customers WHERE user_id = ?");
+          $stmt2->bind_param("i", $id);
+          $stmt2->execute();
+          $res2 = $stmt2->get_result();
+          if ($row2 = $res2->fetch_assoc()) {
+            $_SESSION['customer_table'] = 'personal_customers';
+            $_SESSION['customer_id'] = $row2['id'];
+          } else {
+            $stmt3 = $inventory->prepare("SELECT id FROM company_customers WHERE user_id = ?");
+            $stmt3->bind_param("i", $id);
+            $stmt3->execute();
+            $res3 = $stmt3->get_result();
+            if ($row3 = $res3->fetch_assoc()) {
+              $_SESSION['customer_table'] = 'company_customers';
+              $_SESSION['customer_id'] = $row3['id'];
+            }
+          }
+          header("Location: ../website/main.php");
+        } else {
+          header("Location: ../pages/dashboard.php");
+        }
+        exit;
       }
-      exit;
     } else {
       $error = "Incorrect password.";
     }
@@ -104,7 +109,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       background-color: #fff;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.1);
       overflow: hidden;
-      border-radius: 28px;
     }
 
     .header {
@@ -192,6 +196,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     .error-message i {
       font-size: 16px;
+    }
+
+    .error-message a {
+      color: #1c1c1c;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .error-message a:hover {
+      text-decoration: underline;
     }
 
     .password-container {
@@ -286,7 +300,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         <?php if ($error): ?>
           <div class="error-message">
             <i class="fas fa-exclamation-circle"></i>
-            <?php echo htmlspecialchars($error); ?>
+            <div>
+              <?php 
+              // Extract the HTML link from error message if it exists
+              if (strpos($error, '<a href') !== false) {
+                echo $error;
+              } else {
+                echo htmlspecialchars($error);
+              }
+              ?>
+            </div>
           </div>
         <?php endif; ?>
 
