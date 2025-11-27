@@ -2,6 +2,20 @@
 session_start();
 require_once '../../config/db.php';
 
+// In update_cart.php - add this to handle saving selected items
+if (isset($_POST['action']) && $_POST['action'] === 'save_selected_items') {
+    session_start();
+    
+    if (isset($_POST['selected_items']) && is_array($_POST['selected_items'])) {
+        $_SESSION['selected_cart_items'] = $_POST['selected_items'];
+        echo json_encode(['status' => 'success', 'message' => 'Selected items saved for checkout']);
+    } else {
+        $_SESSION['selected_cart_items'] = [];
+        echo json_encode(['status' => 'success', 'message' => 'Selected items cleared']);
+    }
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_SESSION['user_id'])) {
     $user_id = $_SESSION['user_id'];
     $action = $_POST['action'] ?? '';

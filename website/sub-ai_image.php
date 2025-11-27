@@ -533,8 +533,8 @@ if (isset($_SESSION['user_id'])) {
                 <ul class="nav-links">
                     <li><a href="sub-main.php"><i class="fas fa-home"></i> Home</a></li>
                     <li><a href="sub-ai_image.php" class="active"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="about.php"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="contact.php"><i class="fas fa-phone"></i> Contact</a></li>
+                    <li><a href="sub_about.php"><i class="fas fa-info-circle"></i> About</a></li>
+                    <li><a href="sub_contact.php"><i class="fas fa-phone"></i> Contact</a></li>
                 </ul>
 
                 <div class="user-info">

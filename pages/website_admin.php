@@ -295,33 +295,32 @@
             </ul>
         </div>
     </div>
-
-    <!-- Floating Navigation -->
-    <!-- Floating nav (the code you gave, restyled) -->
+    
     <div class="floating-nav" aria-label="Floating navigation">
         <button onclick="loadPage('website/admin_dashboard.php')" title="Dashboard" aria-label="Dashboard">
             <i class="fas fa-tachometer-alt" aria-hidden="true"></i>
             <span class="tooltip">Dashboard</span>
         </button>
 
-
         <button onclick="loadPage('website/admin_customers.php')" title="Customers" aria-label="Customers">
             <i class="fas fa-users" aria-hidden="true"></i>
             <span class="tooltip">Customers</span>
         </button>
-
 
         <button onclick="loadPage('website/admin_orders.php')" title="Orders" aria-label="Orders">
             <i class="fas fa-clipboard-list" aria-hidden="true"></i>
             <span class="tooltip">Orders</span>
         </button>
 
+        <button onclick="loadPage('website/admin_pricing_estimates.php')" title="Price Consultation" aria-label="Price Consultation">
+            <i class="fas fa-dollar-sign" aria-hidden="true"></i>
+            <span class="tooltip">Price Consultation</span>
+        </button>
 
         <button onclick="loadPage('website/admin_products.php')" title="Products" aria-label="Products">
             <i class="fas fa-box" aria-hidden="true"></i>
             <span class="tooltip">Products</span>
         </button>
-
 
         <button onclick="loadPage('website/admin_reports.php')" title="Reports" aria-label="Reports">
             <i class="fas fa-chart-bar" aria-hidden="true"></i>
