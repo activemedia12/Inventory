@@ -1215,3 +1215,50 @@ ALTER TABLE `product_tshirt_colors`
 ALTER TABLE `product_tshirt_sizes`
   ADD CONSTRAINT `product_tshirt_sizes_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products_offered` (`id`),
   ADD CONSTRAINT `product_tshirt_sizes_ibfk_2` FOREIGN KEY (`tshirt_size_id`) REFERENCES `tshirt_sizes` (`id`);
+
+CREATE TABLE pricing_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    selected_items TEXT NOT NULL,
+    estimated_total DECIMAL(10,2) NOT NULL,
+    final_price DECIMAL(10,2) NULL,
+    request_date DATETIME NOT NULL,
+    status ENUM('pending', 'reviewed', 'quoted', 'completed') DEFAULT 'pending',
+    admin_notes TEXT NULL,
+    updated_at DATETIME NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+ALTER TABLE cart_items 
+ADD COLUMN quoted_price DECIMAL(10,2) NULL AFTER user_layout_files,
+ADD COLUMN price_updated_by_admin BOOLEAN DEFAULT FALSE AFTER quoted_price,
+ADD COLUMN price_updated_at DATETIME NULL AFTER price_updated_by_admin;
+
+ALTER TABLE pricing_requests 
+MODIFY COLUMN request_date DATETIME DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE pricing_requests ADD COLUMN cart_id INT NULL AFTER user_id;
+ALTER TABLE pricing_requests ADD FOREIGN KEY (cart_id) REFERENCES carts(cart_id);
+
+CREATE TABLE IF NOT EXISTS pricing_requests_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    pricing_request_id INT NOT NULL,
+    cart_item_id INT NOT NULL,
+    admin_notes TEXT,
+    quoted_price DECIMAL(10,2),
+    status ENUM('pending', 'completed', 'approved') DEFAULT 'pending',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (pricing_request_id) REFERENCES pricing_requests(id) ON DELETE CASCADE,
+    FOREIGN KEY (cart_item_id) REFERENCES cart_items(item_id) ON DELETE CASCADE
+);
+
+ALTER TABLE pricing_requests_items 
+MODIFY COLUMN status ENUM('pending', 'completed', 'approved', 'cancelled') DEFAULT 'pending';
+
+ALTER TABLE pricing_requests 
+MODIFY COLUMN status ENUM('pending', 'reviewed', 'quoted', 'completed', 'cancelled') DEFAULT 'pending';
+
+ALTER TABLE users 
+ADD COLUMN email_verified BOOLEAN DEFAULT FALSE,
+ADD COLUMN verification_token VARCHAR(64) NULL,
+ADD COLUMN verification_expires DATETIME NULL;

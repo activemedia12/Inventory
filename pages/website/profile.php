@@ -87,7 +87,6 @@ if (isset($_SESSION['user_id'])) {
             margin-bottom: 40px;
             padding: 40px;
             background: var(--bg-white);
-            border-radius: 15px;
             box-shadow: var(--shadow);
         }
         
@@ -112,7 +111,6 @@ if (isset($_SESSION['user_id'])) {
         .profile-section {
             background: var(--bg-white);
             padding: 30px;
-            border-radius: 12px;
             box-shadow: var(--shadow);
             border: 1px solid var(--border-color);
         }
@@ -154,7 +152,6 @@ if (isset($_SESSION['user_id'])) {
             background: var(--bg-light);
             padding: 20px;
             margin-bottom: 15px;
-            border-radius: 8px;
             border-left: 4px solid var(--primary-color);
             transition: var(--transition);
         }
@@ -174,7 +171,6 @@ if (isset($_SESSION['user_id'])) {
         
         .order-status {
             padding: 6px 15px;
-            border-radius: 20px;
             font-size: 0.85em;
             font-weight: 600;
             text-transform: uppercase;
@@ -244,7 +240,6 @@ if (isset($_SESSION['user_id'])) {
             color: #155724;
             padding: 20px;
             margin: 20px 0;
-            border-radius: 8px;
             border: 1px solid #c3e6cb;
             display: flex;
             align-items: center;
@@ -291,7 +286,6 @@ if (isset($_SESSION['user_id'])) {
             background-color: var(--bg-white);
             margin: 5% auto;
             padding: 40px;
-            border-radius: 15px;
             width: 85%;
             max-width: 800px;
             max-height: 80vh;
@@ -330,7 +324,6 @@ if (isset($_SESSION['user_id'])) {
             background: var(--bg-light);
             padding: 20px;
             margin-bottom: 15px;
-            border-radius: 8px;
             border-left: 4px solid var(--primary-color);
         }
         
@@ -382,7 +375,6 @@ if (isset($_SESSION['user_id'])) {
             background: var(--primary-color);
             color: white;
             border: none;
-            border-radius: 8px;
             cursor: pointer;
             font-size: 1em;
             text-decoration: none;
@@ -425,7 +417,6 @@ if (isset($_SESSION['user_id'])) {
         .modal-order-summary {
             background: var(--bg-light);
             padding: 20px;
-            border-radius: 8px;
             margin-top: 20px;
             border-left: 4px solid var(--primary-color);
         }
@@ -540,8 +531,8 @@ if (isset($_SESSION['user_id'])) {
                 <ul class="nav-links">
                     <li><a href="../../website/main.php"><i class="fas fa-home"></i> Home</a></li>
                     <li><a href="../../website/ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="#"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="#"><i class="fas fa-phone"></i> Contact</a></li>
+                    <li><a href="../../website/about.php"><i class="fas fa-info-circle"></i> About</a></li>
+                    <li><a href="../../website/contact.php"><i class="fas fa-phone"></i> Contact</a></li>
                 </ul>
                 
                 <div class="user-info">
@@ -766,64 +757,64 @@ if (isset($_SESSION['user_id'])) {
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">
-                    <h3>Active Media</h3>
+                    <h3>AMDP</h3>
                     <p>Professional printing services with quality, speed, and precision for all your business needs.</p>
                     <div class="social-icons">
-                        <a href="#"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
+                        <a href="https://www.facebook.com/profile.php?id=100063881538670"><i class="fab fa-facebook-f"></i></a>
+                        <a href=""><i class="fab fa-twitter"></i></a>
+                        <a href=""><i class="fab fa-instagram"></i></a>
+                        <a href=""><i class="fab fa-linkedin-in"></i></a>
                     </div>
                 </div>
                 
                 <div class="footer-section">
                     <h3>Services</h3>
                     <ul>
-                        <li><a href="#offset">Offset Printing</a></li>
-                        <li><a href="#digital">Digital Printing</a></li>
-                        <li><a href="#riso">RISO Printing</a></li>
-                        <li><a href="#other">Other Services</a></li>
+                        <li><a href="../../website/main.php #offset">Offset Printing</a></li>
+                        <li><a href="../../website/main.php #digital">Digital Printing</a></li>
+                        <li><a href="../../website/main.php #riso">RISO Printing</a></li>
+                        <li><a href="../../website/main.php #other">Other Services</a></li>
                     </ul>
                 </div>
                 
                 <div class="footer-section">
                     <h3>Company</h3>
                     <ul>
-                        <li><a href="#">About Us</a></li>
-                        <li><a href="#">Our Team</a></li>
-                        <li><a href="#">Careers</a></li>
-                        <li><a href="#">Testimonials</a></li>
+                        <li><a href="../../website/about.php">About Us</a></li>
+                        <li><a href="../../website/about.php">Our Team</a></li>
+                        <li><a href="../../website/about.php">Careers</a></li>
+                        <li><a href="../../website/about.php">Testimonials</a></li>
                     </ul>
                 </div>
                 
                 <div class="footer-section">
                     <h3>Support</h3>
                     <ul>
-                        <li><a href="#">Contact Us</a></li>
-                        <li><a href="#">FAQ</a></li>
-                        <li><a href="#">Shipping Info</a></li>
-                        <li><a href="#">Returns</a></li>
+                        <li><a href="../../website/contact.php">Contact Us</a></li>
+                        <li><a href="../../website/contact.php">FAQ</a></li>
+                        <li><a href="../../website/contact.php">Shipping Info</a></li>
+                        <li><a href="../../website/contact.php">Returns</a></li>
                     </ul>
                 </div>
                 
                 <div class="footer-section">
                     <h3>Contact Info</h3>
                     <ul class="contact-info">
-                        <li><i class="fas fa-map-marker-alt"></i> 123 Print Street, City, State 12345</li>
-                        <li><i class="fas fa-phone"></i> (123) 456-7890</li>
-                        <li><i class="fas fa-envelope"></i> info@activemedia.com</li>
+                        <li><i class="fas fa-map-marker-alt"></i>Fausta Rd Lucero St Mabolo, Malolos, Philippines</li>
+                        <li><i class="fas fa-phone"></i> (044) 796-4101</li>
+                        <li><i class="fas fa-envelope"></i> activemediaprint@gmail.com</li>
                     </ul>
                 </div>
             </div>
             
             <div class="footer-bottom">
                 <div class="copyright">
-                    <p>&copy; 2023 Active Media. All rights reserved.</p>
+                    <p>&copy; 2025 Active Media Designs & Printing. All rights reserved.</p>
                 </div>
                 <div class="footer-links">
-                    <a href="#">Privacy Policy</a>
-                    <a href="#">Terms of Service</a>
-                    <a href="#">Cookie Policy</a>
+                    <a href="">Privacy Policy</a>
+                    <a href="">Terms of Service</a>
+                    <a href="">Cookie Policy</a>
                 </div>
             </div>
         </div>

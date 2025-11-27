@@ -43,6 +43,7 @@ $user_data = $result->fetch_assoc();
 $placeholders = str_repeat('?,', count($selected_items) - 1) . '?';
 $query = "SELECT p.id, p.product_name, p.price as unit_price, p.category as product_group, 
                  ci.quantity, ci.item_id, ci.design_image,
+                 ci.quoted_price, ci.price_updated_by_admin,
                  ci.size_option, ci.custom_size, ci.color_option, ci.custom_color,
                  ci.finish_option, ci.paper_option, ci.binding_option,
                  ci.layout_option, ci.layout_details, ci.gsm_option, ci.user_layout_files,
@@ -91,13 +92,23 @@ $result = $stmt->get_result();
 $checkout_items = [];
 $subtotal = 0;
 while ($row = $result->fetch_assoc()) {
-    $item_total = $row['unit_price'] * $row['quantity'];
+    // Use admin price if available, otherwise use unit price
+    $actual_price = $row['price_updated_by_admin'] && $row['quoted_price'] > 0 
+        ? $row['quoted_price'] 
+        : $row['unit_price'];
+    
+    $item_total = $actual_price * $row['quantity'];
     $subtotal += $item_total;
+    
+    // Add the actual price to the row for display
+    $row['actual_price'] = $actual_price;
+    $row['has_admin_price'] = $row['price_updated_by_admin'] && $row['quoted_price'] > 0;
+    
     $checkout_items[] = $row;
 }
 
 $shipping = 0;
-$tax = $subtotal * 0.1;
+$tax = $subtotal * 0.03;
 $total = $subtotal + $tax;
 
 $cart_count = 0;
@@ -783,7 +794,17 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                                             <p class="item-name"><?php echo htmlspecialchars($item['product_name']); ?></p>
                                             <p class="item-category"><?php echo htmlspecialchars($item['product_group']); ?></p>
                                             <p class="item-price">
-                                                ₱<?php echo number_format($item['unit_price'], 2); ?> × <?php echo $item['quantity']; ?>
+                                                <?php if ($item['has_admin_price']): ?>
+                                                    <span style="text-decoration: line-through; color: #999; margin-right: 10px;">
+                                                        ₱<?php echo number_format($item['unit_price'], 2); ?>
+                                                    </span>
+                                                    <span style="color: #e74c3c; font-weight: bold;">
+                                                        ₱<?php echo number_format($item['actual_price'], 2); ?>
+                                                    </span>
+                                                    <br><small style="color: #27ae60;">✓ Price confirmed by admin</small>
+                                                <?php else: ?>
+                                                    ₱<?php echo number_format($item['actual_price'], 2); ?> × <?php echo $item['quantity']; ?>
+                                                <?php endif; ?>
                                             </p>
 
                                             <!-- Display all customization options -->
@@ -1070,7 +1091,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                                         </div>
 
                                         <div class="item-total">
-                                            ₱<?php echo number_format($item['unit_price'] * $item['quantity'], 2); ?>
+                                            ₱<?php echo number_format($item['actual_price'] * $item['quantity'], 2); ?>
                                         </div>
                                     </div>
                                 </div>
@@ -1083,7 +1104,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                                 <span>₱<?php echo number_format($subtotal, 2); ?></span>
                             </div>
                             <div class="summary-row">
-                                <span>Tax (10%):</span>
+                                <span>Tax (3%):</span>
                                 <span>₱<?php echo number_format($tax, 2); ?></span>
                             </div>
                             <div class="summary-row total-row">
