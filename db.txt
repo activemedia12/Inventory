@@ -3,9 +3,6 @@ CREATE TABLE `binding_options` (
   `option_name` varchar(50) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `binding_options`
---
 
 INSERT INTO `binding_options` (`id`, `option_name`) VALUES
 (1, 'hard bound'),
@@ -15,11 +12,6 @@ INSERT INTO `binding_options` (`id`, `option_name`) VALUES
 (5, 'booklet'),
 (6, 'ring bind');
 
--- --------------------------------------------------------
-
---
--- Table structure for table `carts`
---
 
 CREATE TABLE `carts` (
   `cart_id` int(11) NOT NULL,
@@ -27,19 +19,6 @@ CREATE TABLE `carts` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `carts`
---
-
-INSERT INTO `carts` (`cart_id`, `user_id`, `created_at`) VALUES
-(1, 21, '2025-08-23 07:24:54'),
-(2, 16, '2025-09-29 11:50:36');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `cart_items`
---
 
 CREATE TABLE `cart_items` (
   `item_id` int(11) NOT NULL,
@@ -140,19 +119,6 @@ CREATE TABLE `orders` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `orders`
---
-
-INSERT INTO `orders` (`order_id`, `user_id`, `total_amount`, `status`, `payment_proof`, `created_at`, `updated_at`) VALUES
-(19, 21, 737.00, 'paid', 'payment_1759323813.jpg', '2025-10-01 13:03:33', '2025-10-01 13:05:23');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `order_items`
---
-
 CREATE TABLE `order_items` (
   `order_item_id` int(11) NOT NULL,
   `order_id` int(11) NOT NULL,
@@ -174,21 +140,6 @@ CREATE TABLE `order_items` (
   `paper_option` varchar(50) DEFAULT NULL,
   `binding_option` varchar(50) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `order_items`
---
-
-INSERT INTO `order_items` (`order_item_id`, `order_id`, `product_id`, `product_name`, `product_category`, `unit_price`, `quantity`, `layout_option`, `layout_details`, `gsm_option`, `user_layout_files`, `design_image`, `size_option`, `custom_size`, `color_option`, `custom_color`, `finish_option`, `paper_option`, `binding_option`) VALUES
-(22, 19, 1, 'Calendars', 'Offset Printing', 120.00, 1, '1', '', '120', '[\"..\\/assets\\/uploads\\/user_layouts\\/21\\/1759322651_sample_design_calendar.jpg\"]', '', '8.5x11', '', '', '', '2', '1', '6'),
-(23, 19, 18, 'T-Shirts', 'Other Services', 300.00, 1, '', '', '', '', '{\\\"front_mockup\\\":\\\"save_design/21/front_mockup_1759322699_68dd224b82f21.png\\\",\\\"back_mockup\\\":\\\"save_design/21/back_mockup_1759322699_68dd224b84228.png\\\",\\\"uploaded_file\\\":\\\"save_design/21/design_1759322699_68dd224b824d7.jpg\\\",\\\"upload_type\\\":\\\"single\\\"}', '1', '', '2', '', '', '', ''),
-(24, 19, 19, 'Tote Bag', 'Other Services', 250.00, 1, '', '', '', '', '{\\\"front_mockup\\\":\\\"save_design/21/front_mockup_1759322760_68dd228815955.png\\\",\\\"back_mockup\\\":\\\"save_design/21/back_mockup_1759322760_68dd228816d4c.png\\\",\\\"uploaded_file\\\":\\\"save_design/21/design_1759322760_68dd22881498b.jpg\\\",\\\"upload_type\\\":\\\"single\\\"}', '1', '', '1', '', '', '', '');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `paperbag_size_options`
---
 
 CREATE TABLE `paperbag_size_options` (
   `id` int(11) NOT NULL,

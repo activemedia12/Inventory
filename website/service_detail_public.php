@@ -877,7 +877,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                         <h1 class="product-title"><?php echo $product['product_name']; ?></h1>
                         <span class="product-category"><?php echo $product['category']; ?></span>
 
-                        <div class="product-price">₱<?php echo number_format($product['price'], 2); ?></div>
+                        <div class="product-price">From ₱<?php echo number_format($product['price'], 2); ?></div>
 
                         <?php if (isset($_SESSION['user_id'])): ?>
                             <!-- Order form for logged in users -->

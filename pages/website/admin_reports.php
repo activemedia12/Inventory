@@ -854,6 +854,20 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
     </div>
 
     <script>
+        // Auto-hide messages after 3 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const messages = document.querySelectorAll('.message');
+            messages.forEach(message => {
+                setTimeout(() => {
+                    message.style.transition = 'opacity 0.5s ease';
+                    message.style.opacity = '0';
+                    setTimeout(() => {
+                        message.remove();
+                    }, 500);
+                }, 3000);
+            });
+        });
+
         // Change report type
         function changeReportType(type) {
             document.getElementById('reportType').value = type;

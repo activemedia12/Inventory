@@ -99,21 +99,21 @@ if (($_SERVER['REQUEST_METHOD'] == 'POST' || isset($_GET['product_id'])) && isse
         $cart_id = $cart_row['cart_id'];
     }
     
-    // Check if product already in cart with same design
+    // Check if product already in cart with same design and options
     $check_item = "SELECT item_id, quantity FROM cart_items 
         WHERE cart_id = ? AND product_id = ? 
-        AND IFNULL(design_image, '') = IFNULL(?, '') 
-        AND IFNULL(size_option, '') = IFNULL(?, '')
-        AND IFNULL(custom_size, '') = IFNULL(?, '')
-        AND IFNULL(color_option, '') = IFNULL(?, '')
-        AND IFNULL(custom_color, '') = IFNULL(?, '')
-        AND IFNULL(finish_option, '') = IFNULL(?, '')
-        AND IFNULL(paper_option, '') = IFNULL(?, '')
-        AND IFNULL(binding_option, '') = IFNULL(?, '')
-        AND IFNULL(layout_option, '') = IFNULL(?, '')
-        AND IFNULL(layout_details, '') = IFNULL(?, '')
-        AND IFNULL(gsm_option, '') = IFNULL(?, '')
-        AND IFNULL(user_layout_files, '') = IFNULL(?, '')";
+        AND COALESCE(design_image, '') = COALESCE(?, '')
+        AND COALESCE(size_option, '') = COALESCE(?, '')
+        AND COALESCE(custom_size, '') = COALESCE(?, '')
+        AND COALESCE(color_option, '') = COALESCE(?, '')
+        AND COALESCE(custom_color, '') = COALESCE(?, '')
+        AND COALESCE(finish_option, '') = COALESCE(?, '')
+        AND COALESCE(paper_option, '') = COALESCE(?, '')
+        AND COALESCE(binding_option, '') = COALESCE(?, '')
+        AND COALESCE(layout_option, '') = COALESCE(?, '')
+        AND COALESCE(layout_details, '') = COALESCE(?, '')
+        AND COALESCE(gsm_option, '') = COALESCE(?, '')
+        AND COALESCE(user_layout_files, '') = COALESCE(?, '')";
 
     $stmt = $inventory->prepare($check_item);
     $stmt->bind_param(

@@ -196,7 +196,7 @@ if ($result === false) {
                                     <?php echo $row["product_name"]; ?>
                                 </a>
                             </h3>
-                            <div class="product-price">₱<?php echo number_format($row["price"], 2); ?></div>
+                            <div class="product-price">From ₱<?php echo number_format($row["price"], 2); ?></div>
                         </div>
                     </div>
                 <?php endwhile; ?>
@@ -236,7 +236,7 @@ if ($result === false) {
                                     <?php echo $row["product_name"]; ?>
                                 </a>
                             </h3>
-                            <div class="product-price">₱<?php echo number_format($row["price"], 2); ?></div>
+                            <div class="product-price">From ₱<?php echo number_format($row["price"], 2); ?></div>
                         </div>
                     </div>
                 <?php endwhile; ?>
@@ -274,7 +274,7 @@ if ($result === false) {
                                     <?php echo $row["product_name"]; ?>
                                 </a>
                             </h3>
-                            <div class="product-price">₱<?php echo number_format($row["price"], 2); ?></div>
+                            <div class="product-price">From ₱<?php echo number_format($row["price"], 2); ?></div>
                         </div>
                     </div>
                 <?php endwhile; ?>
@@ -312,7 +312,7 @@ if ($result === false) {
                                     <?php echo $row["product_name"]; ?>
                                 </a>
                             </h3>
-                            <div class="product-price">₱<?php echo number_format($row["price"], 2); ?></div>
+                            <div class="product-price">From ₱<?php echo number_format($row["price"], 2); ?></div>
                         </div>
                     </div>
                 <?php endwhile; ?>
@@ -379,7 +379,7 @@ if ($result === false) {
                         echo '  <div class="product-info">';
                         echo '    <h3 class="product-name"><a href="service_detail_public.php?id=' . $row['id'] . '">' . $row["product_name"] . '</a></h3>';
                         echo '    <span class="product-category">' . $row["category"] . '</span>';
-                        echo '    <div class="product-price">₱' . number_format($row["price"], 2) . '</div>';
+                        echo '    <div class="product-price">From ₱' . number_format($row["price"], 2) . '</div>';
                         echo '  </div>';
                         echo '</div>';
                     }
