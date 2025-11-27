@@ -17,7 +17,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $stmt->bind_result($id, $hashed, $role, $email_verified);
     $stmt->fetch();
 
-    if (password_verify($password, $hashed)) {
+    if (is_string($hashed) && password_verify($password, $hashed)) {
       // Check if email is verified
       if (!$email_verified) {
         $error = "Please verify your email address before logging in. <a href='email-verification.php' style='color: #1c1c1c; font-weight: 600;'>Resend verification email</a>";

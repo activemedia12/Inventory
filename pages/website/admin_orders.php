@@ -490,6 +490,20 @@ while ($row = $orders_result->fetch_assoc()) {
     </div>
 
     <script>
+        // Auto-hide messages after 3 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const messages = document.querySelectorAll('.message');
+            messages.forEach(message => {
+                setTimeout(() => {
+                    message.style.transition = 'opacity 0.5s ease';
+                    message.style.opacity = '0';
+                    setTimeout(() => {
+                        message.remove();
+                    }, 500);
+                }, 3000);
+            });
+        });
+        
         function filterOrders() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const statusFilter = document.getElementById('statusFilter').value;

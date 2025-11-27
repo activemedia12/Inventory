@@ -1557,7 +1557,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
     <div class="admin-container">
         <div class="main-content">
             <div class="header">
-                <h1>Pricing Estimates Management</h1>
+                <h1>Pricing Consultation Management</h1>
             </div>
 
             <?php if (isset($_SESSION['message'])): ?>
