@@ -1069,6 +1069,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
         padding: 12px 20px;
         font-size: 0.95em;
     }
+
+    .cart-items {
+        margin-bottom: 0;
+    }
+
+    .cart-item {
+        display: block;
+    }
+
+    .cart-page {
+        font-size: 80%;
+        padding: 20px;
+    }
 }
     </style>
 </head>

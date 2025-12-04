@@ -573,6 +573,10 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         }
 
         @media (max-width: 768px) {
+            .checkout-page {
+                font-size: 80%;
+                padding: 20px !important;
+            }
             .checkout-header {
                 padding: 30px 20px;
             }
@@ -588,7 +592,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
             .item-content {
                 flex-direction: column;
-                text-align: center;
+                align-content: center
             }
 
             .item-total {
@@ -1182,18 +1186,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize checkout functionality
             setupCheckout();
-
-            // Add mobile menu toggle
-            const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
-            const navLinks = document.querySelector('.nav-links');
-
-            if (mobileMenuToggle && navLinks) {
-                mobileMenuToggle.addEventListener('click', function() {
-                    navLinks.classList.toggle('active');
-                    this.querySelector('i').classList.toggle('fa-bars');
-                    this.querySelector('i').classList.toggle('fa-times');
-                });
-            }
         });
 
         function setupCheckout() {

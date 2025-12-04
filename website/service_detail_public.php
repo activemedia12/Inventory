@@ -760,11 +760,6 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                 flex-direction: column;
                 gap: 10px;
             }
-
-            .auth-buttons {
-                flex-direction: column;
-                align-items: center;
-            }
         }
 
         @media (max-width: 576px) {
@@ -809,36 +804,19 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                     <img src="../assets/images/plainlogo.png" alt="Active Media" class="logo-image">
                     <span>Active Media Designs & Printing</span>
                 </a>
-                
+
                 <ul class="nav-links">
-                    <li><a href="sub-main.php"><i class="fas fa-home"></i> Home</a></li>
+                    <li><a href="#" class="active"><i class="fas fa-home"></i> Home</a></li>
                     <li><a href="sub-ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="#"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="#"><i class="fas fa-phone"></i> Contact</a></li>
+                    <li><a href="sub-about.php"><i class="fas fa-info-circle"></i> About</a></li>
+                    <li><a href="sub-contact.php"><i class="fas fa-phone"></i> Contact</a></li>
                 </ul>
-                
-                <div class="user-info">
-                    <?php if (isset($_SESSION['user_id'])): ?>
-                        <!-- Show cart and profile for logged in users -->
-                        <a href="view_cart.php" class="cart-icon">
-                            <i class="fas fa-shopping-cart"></i>
-                            <span class="cart-count">0</span>
-                        </a>
-                        <a href="profile.php" class="user-profile">
-                            <i class="fas fa-user"></i>
-                            <span class="user-name">My Account</span>
-                        </a>
-                        <a href="../accounts/logout.php" class="logout-btn">
-                            <i class="fas fa-sign-out-alt"></i>
-                        </a>
-                    <?php else: ?>
-                        <div class="auth-buttons">
-                            <a href="../accounts/login.php" class="btn log">Login</a>
-                            <a href="../accounts/register.php" class="btn sign">Sign Up</a>
-                        </div>
-                    <?php endif; ?>
+
+                <div class="auth-buttons">
+                    <a href="../accounts/login.php" class="btn log">Login</a>
+                    <a href="../accounts/customer.php" class="btn sign">Sign Up</a>
                 </div>
-                
+
                 <div class="mobile-menu-toggle">
                     <i class="fas fa-bars"></i>
                 </div>

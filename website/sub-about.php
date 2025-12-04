@@ -1,48 +1,6 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id'])) {
-    header("Location: ../accounts/login.php");
-    exit;
-}
-
 require_once '../config/db.php';
-
-$user_id = $_SESSION['user_id'];
-
-/* ------------------------------
-   1. Get USER info (personal or company)
---------------------------------*/
-$userQuery = "SELECT 
-                u.id,
-                pc.first_name, pc.last_name,
-                cc.company_name
-              FROM users u
-              LEFT JOIN personal_customers pc ON u.id = pc.user_id
-              LEFT JOIN company_customers cc ON u.id = cc.user_id
-              WHERE u.id = ?
-              LIMIT 1";
-
-$userStmt = $inventory->prepare($userQuery);
-$userStmt->bind_param("i", $user_id);
-$userStmt->execute();
-$userResult = $userStmt->get_result();
-$user_data = $userResult->fetch_assoc();
-
-/* ------------------------------
-   2. Get cart count for the user
---------------------------------*/
-$cart_count = 0;
-$query = "SELECT SUM(ci.quantity) as total_items 
-          FROM cart_items ci 
-          JOIN carts c ON ci.cart_id = c.cart_id 
-          WHERE c.user_id = ?";
-$stmt = $inventory->prepare($query);
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$result_cart = $stmt->get_result();
-$row = $result_cart->fetch_assoc();
-
-$cart_count = $row['total_items'] ? $row['total_items'] : 0;
 ?>
 
 <!DOCTYPE html>
@@ -493,34 +451,15 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 </a>
 
                 <ul class="nav-links">
-                    <li><a href="main.php"><i class="fas fa-home"></i> Home</a></li>
-                    <li><a href="ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="about.php" class="active"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="contact.php"><i class="fas fa-phone"></i> Contact</a></li>
+                    <li><a href="sub-main.php"><i class="fas fa-home"></i> Home</a></li>
+                    <li><a href="sub-ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
+                    <li><a href="sub-about.php"  class="active"><i class="fas fa-info-circle"></i> About</a></li>
+                    <li><a href="sub-contact.php"><i class="fas fa-phone"></i> Contact</a></li>
                 </ul>
 
-                <div class="user-info">
-                    <a href="view_cart.php" class="cart-icon">
-                        <i class="fas fa-shopping-cart"></i>
-                        <span class="cart-count"><?php echo $cart_count; ?></span>
-                    </a>
-                    <a href="../pages/website/profile.php" class="user-profile">
-                        <i class="fas fa-user"></i>
-                        <span class="user-name">
-                            <?php 
-                                if (!empty($user_data['first_name'])) {
-                                    echo htmlspecialchars($user_data['first_name']);
-                                } elseif (!empty($user_data['company_name'])) {
-                                    echo htmlspecialchars($user_data['company_name']);
-                                } else {
-                                    echo 'User';
-                                }
-                            ?>
-                        </span>
-                    </a>
-                    <a href="../accounts/logout.php" class="logout-btn">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </a>
+                <div class="auth-buttons">
+                    <a href="../accounts/login.php" class="btn log">Login</a>
+                    <a href="../accounts/customer.php" class="btn sign">Sign Up</a>
                 </div>
 
                 <div class="mobile-menu-toggle">

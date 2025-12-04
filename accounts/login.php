@@ -18,10 +18,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $stmt->fetch();
 
     if (is_string($hashed) && password_verify($password, $hashed)) {
-      // Check if email is verified
-      if (!$email_verified) {
-        $error = "Please verify your email address before logging in. <a href='email-verification.php' style='color: #1c1c1c; font-weight: 600;'>Resend verification email</a>";
-      } else {
         session_regenerate_id(true);
         $_SESSION['user_id'] = $id;
         $_SESSION['username'] = $username;
@@ -50,7 +46,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           header("Location: ../pages/dashboard.php");
         }
         exit;
-      }
     } else {
       $error = "Incorrect password.";
     }

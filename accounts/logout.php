@@ -23,7 +23,7 @@ if (isset($_GET['confirm']) && $_GET['confirm'] === 'true') {
     }
     
     // REDIRECT TO LOGIN WITH NO-CACHE HEADERS
-    header("Location: login.php");
+    header("Location: ../website/sub-main.php");
     exit;
 }
 ?>

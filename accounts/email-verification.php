@@ -93,12 +93,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['email'])) {
                     $mail->isSMTP();
                     $mail->Host       = 'smtp.gmail.com';
                     $mail->SMTPAuth   = true;
-                    $mail->Username   = 'reportsjoborder@gmail.com';
-                    $mail->Password   = 'kjyj krfm rkbk qmst';
+                    $mail->Username   = 'activemediaprint@gmail.com';
+                    $mail->Password   = 'qbfk abbn tzio uqze';
                     $mail->SMTPSecure = 'tls';
                     $mail->Port       = 587;
 
-                    $mail->setFrom('reportsjoborder@gmail.com', 'Active Media');
+                    $mail->setFrom('activemediaprint@gmail.com', 'Active Media');
                     $mail->addAddress($email);
                     
                     $mail->isHTML(true);
@@ -388,7 +388,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['email'])) {
                     
                     <?php if (empty($token)): ?>
                         <p style="text-align: center; margin-bottom: 20px; color: #666;">
-                            Enter your email to receive a new verification link.
+                            Enter your email to receive a verification link.
                         </p>
                         <form method="post" id="verificationForm">
                             <div class="form-group">
