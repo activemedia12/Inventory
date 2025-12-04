@@ -114,7 +114,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     <li><a href="contact.php"><i class="fas fa-phone"></i> Contact</a></li>
                 </ul>
                 
-                <div class="user-info">
+                <div class="user-info" id="user-info">
                     <a href="view_cart.php" class="cart-icon">
                         <i class="fas fa-shopping-cart"></i>
                         <span class="cart-count"><?php echo $cart_count; ?></span>
@@ -156,7 +156,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 <p class="hero-subtitle">High-quality offset, digital, and RISO printing for all your business needs</p>
                 <div class="hero-actions">
                     <a href="#services" class="btn btn-primary">Explore Services</a>
-                    <a href="#" class="btn btn-secondary">Request Quote</a>
+                    <a href="view_cart.php" class="btn btn-secondary">Request Quote</a>
                 </div>
             </div>
         </div>
@@ -446,7 +446,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 <h2>Ready to Start Your Printing Project?</h2>
                 <p>Create an account to place orders and manage your projects</p>
                 <div class="hero-actions">
-                    <a href="quote.php" class="btn btn-secondary">Get Quote Now!</a>
+                    <a href="view_cart.php" class="btn btn-secondary">Get Quote Now!</a>
                     <a href="contact.php" class="btn btn-primary">Contact Us!</a>
                 </div>
             </div>

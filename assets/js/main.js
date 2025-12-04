@@ -15,13 +15,38 @@ hiddenElements.forEach((el) => observer.observe(el));
 
 document.addEventListener('DOMContentLoaded', function () {
     const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
-    const navLinks = document.querySelector('.nav-links');
-
+    
     if (mobileMenuToggle) {
         mobileMenuToggle.addEventListener('click', function () {
-            navLinks.classList.toggle('active');
-            this.querySelector('i').classList.toggle('fa-bars');
-            this.querySelector('i').classList.toggle('fa-times');
+            // Get references to all possible elements
+            const navLinks = document.querySelector('.nav-links');
+            const userInfo = document.querySelector('.user-info'); // For logged-in users
+            const authButtons = document.querySelector('.auth-buttons'); // For public users
+            
+            // Toggle nav links
+            if (navLinks) navLinks.classList.toggle('active');
+            
+            // Toggle user info (if exists - logged-in version)
+            if (userInfo) {
+                userInfo.classList.toggle('active');
+            }
+            
+            // Toggle auth buttons (if exists - public version)
+            if (authButtons) {
+                authButtons.classList.toggle('active');
+            }
+            
+            // Toggle menu icon
+            const icon = this.querySelector('i');
+            if (icon) {
+                if (icon.classList.contains('fa-bars')) {
+                    icon.classList.remove('fa-bars');
+                    icon.classList.add('fa-times');
+                } else {
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                }
+            }
         });
     }
 

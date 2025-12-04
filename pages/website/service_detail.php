@@ -992,6 +992,10 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         }
 
         @media (max-width: 768px) {
+            .product-detail-container {
+                font-size: 80%;
+                margin: 20px
+            }
             .product-detail {
                 flex-direction: column;
             }
@@ -1102,8 +1106,8 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                 <ul class="nav-links">
                     <li><a href="../../website/main.php"><i class="fas fa-home"></i> Home</a></li>
                     <li><a href="../../website/ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="#"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="#"><i class="fas fa-phone"></i> Contact</a></li>
+                    <li><a href="../../website/about.php"><i class="fas fa-info-circle"></i> About</a></li>
+                    <li><a href="../../website/contact.php"><i class="fas fa-phone"></i> Contact</a></li>
                 </ul>
                 
                 <div class="user-info">

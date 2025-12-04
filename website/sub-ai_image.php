@@ -456,7 +456,8 @@ if (isset($_SESSION['user_id'])) {
 
         @media (max-width: 768px) {
             .ai-container {
-                padding: 25px;
+                padding: 50px;
+                margin: 0 20px;
             }
 
             .ai-title {
@@ -483,22 +484,9 @@ if (isset($_SESSION['user_id'])) {
             .style-options {
                 grid-template-columns: 1fr;
             }
-
-            .auth-buttons {
-                flex-direction: column;
-                align-items: center;
-            }
         }
 
         @media (max-width: 576px) {
-            .ai-generator-page {
-                padding: 20px 0;
-            }
-
-            .ai-container {
-                padding: 20px;
-            }
-
             .ai-title {
                 font-size: 1.8em;
             }
@@ -521,7 +509,6 @@ if (isset($_SESSION['user_id'])) {
 </head>
 
 <body>
-    <!-- Header -->
     <header class="header">
         <div class="container">
             <nav class="navbar">
@@ -532,42 +519,14 @@ if (isset($_SESSION['user_id'])) {
 
                 <ul class="nav-links">
                     <li><a href="sub-main.php"><i class="fas fa-home"></i> Home</a></li>
-                    <li><a href="sub-ai_image.php" class="active"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="sub_about.php"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="sub_contact.php"><i class="fas fa-phone"></i> Contact</a></li>
+                    <li><a href="sub-ai_image.php"  class="active"><i class="fas fa-robot"></i> AI Services</a></li>
+                    <li><a href="sub-about.php"><i class="fas fa-info-circle"></i> About</a></li>
+                    <li><a href="sub-contact.php"><i class="fas fa-phone"></i> Contact</a></li>
                 </ul>
 
-                <div class="user-info">
-                    <?php if (isset($_SESSION['user_id'])): ?>
-                        <!-- Show cart and profile for logged in users -->
-                        <a href="view_cart.php" class="cart-icon">
-                            <i class="fas fa-shopping-cart"></i>
-                            <span class="cart-count"><?php echo $cart_count; ?></span>
-                        </a>
-                        <a href="profile.php" class="user-profile">
-                            <i class="fas fa-user"></i>
-                            <span class="user-name">
-                                <?php 
-                                    if (!empty($user_data['first_name'])) {
-                                        echo htmlspecialchars($user_data['first_name']);
-                                    } elseif (!empty($user_data['company_name'])) {
-                                        echo htmlspecialchars($user_data['company_name']);
-                                    } else {
-                                        echo 'User';
-                                    }
-                                ?>
-                            </span>
-                        </a>
-                        <a href="../accounts/logout.php" class="logout-btn">
-                            <i class="fas fa-sign-out-alt"></i>
-                        </a>
-                    <?php else: ?>
-                        <!-- Show login/signup for guests -->
-                        <div class="auth-buttons">
-                            <a href="../accounts/login.php" class="btn log">Login</a>
-                            <a href="../accounts/customer.php" class="btn sign">Sign Up</a>
-                        </div>
-                    <?php endif; ?>
+                <div class="auth-buttons">
+                    <a href="../accounts/login.php" class="btn log">Login</a>
+                    <a href="../accounts/customer.php" class="btn sign">Sign Up</a>
                 </div>
 
                 <div class="mobile-menu-toggle">
@@ -815,363 +774,6 @@ if (isset($_SESSION['user_id'])) {
     </footer>
 
     <script src="../assets/js/main.js"></script>
-    <script>
-        // AI Generator specific JavaScript that extends the main script.js
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize AI Generator functionality only for logged in users
-            <?php if (isset($_SESSION['user_id'])): ?>
-                setupAIGenerator();
-            <?php endif; ?>
-
-            // Add mobile menu toggle
-            const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
-            const navLinks = document.querySelector('.nav-links');
-
-            if (mobileMenuToggle && navLinks) {
-                mobileMenuToggle.addEventListener('click', function() {
-                    navLinks.classList.toggle('active');
-                    this.querySelector('i').classList.toggle('fa-bars');
-                    this.querySelector('i').classList.toggle('fa-times');
-                });
-            }
-        });
-
-        <?php if (isset($_SESSION['user_id'])): ?>
-        function setupAIGenerator() {
-            const generateBtn = document.getElementById('generate-btn');
-            const downloadBtn = document.getElementById('download-btn');
-            const useDesignBtn = document.getElementById('use-design-btn');
-            const regenerateBtn = document.getElementById('regenerate-btn');
-            const removeBgBtn = document.getElementById('remove-bg-btn');
-            const promptInput = document.getElementById('prompt');
-            const styleInput = document.getElementById('style');
-            const outputImage = document.getElementById('output-image');
-            const placeholder = document.getElementById('placeholder');
-            const loading = document.getElementById('loading');
-            const errorMessage = document.getElementById('error-message');
-            const successMessage = document.getElementById('success-message');
-            const actionButtons = document.getElementById('action-buttons');
-            const imageContainer = document.getElementById('image-container');
-
-            let currentGeneratedImage = null;
-            let selectedProductId = null;
-            let selectedPlacement = 'both';
-
-            // Product selection buttons
-            const productButtons = document.querySelectorAll('.product-btn');
-            const placementSection = document.querySelector('.placement-select-section');
-            const placementButtons = document.querySelectorAll('.placement-btn');
-            const styleOptions = document.querySelectorAll('.style-option');
-
-            // Product selection event
-            productButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    // Remove active class from all buttons
-                    productButtons.forEach(btn => btn.classList.remove('active'));
-
-                    // Add active class to clicked button
-                    this.classList.add('active');
-
-                    // Store selected product ID
-                    selectedProductId = this.getAttribute('data-product-id');
-                    const supportsFrontBack = this.getAttribute('data-supports-front-back') === 'true';
-
-                    // Show placement options only for products that support front/back
-                    if (supportsFrontBack) {
-                        placementSection.style.display = 'block';
-                        // Reset to default placement
-                        selectedPlacement = 'both';
-                        placementButtons.forEach(btn => btn.classList.remove('active'));
-                        document.querySelector('.placement-btn[data-placement="both"]').classList.add('active');
-                    } else {
-                        placementSection.style.display = 'none';
-                        // For products without front/back, default to single placement
-                        selectedPlacement = 'single';
-                    }
-
-                    // Update the "Use for Product" button text
-                    if (selectedProductId && selectedProductId !== 'other') {
-                        const productName = this.querySelector('.product-name').textContent;
-                        useDesignBtn.innerHTML = `<i class="fas fa-tshirt"></i> Use for ${productName}`;
-                    } else {
-                        useDesignBtn.innerHTML = `<i class="fas fa-tshirt"></i> Use for Product`;
-                    }
-                });
-            });
-
-            // Placement selection
-            placementButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    // Remove active class from all placement buttons
-                    placementButtons.forEach(btn => btn.classList.remove('active'));
-
-                    // Add active class to clicked button
-                    this.classList.add('active');
-
-                    // Store selected placement
-                    selectedPlacement = this.getAttribute('data-placement');
-                });
-            });
-
-            // Style selection
-            styleOptions.forEach(option => {
-                option.addEventListener('click', function() {
-                    // Remove selected class from all style options
-                    styleOptions.forEach(opt => opt.classList.remove('selected'));
-
-                    // Add selected class to clicked option
-                    this.classList.add('selected');
-
-                    // Update hidden input value
-                    styleInput.value = this.getAttribute('data-style');
-                });
-            });
-
-            // Generate button click handler
-            generateBtn.addEventListener('click', async function() {
-                const prompt = promptInput.value.trim();
-                const style = styleInput.value;
-                const apiKey = 'sk-kv3K4PjP2I6egGj8CgnaUfjDincIKv9463dpFQYZ1VxwTZck';
-
-                errorMessage.style.display = 'none';
-                successMessage.style.display = 'none';
-
-                if (!prompt) {
-                    showError('Please describe the image you want to generate');
-                    return;
-                }
-
-                loading.style.display = 'block';
-                generateBtn.disabled = true;
-                placeholder.style.display = 'block';
-                outputImage.style.display = 'none';
-                actionButtons.style.display = 'none';
-                imageContainer.classList.remove('has-image');
-
-                try {
-                    const imageData = await generateImageWithStabilityAI(prompt, apiKey, style);
-
-                    placeholder.style.display = 'none';
-                    outputImage.style.display = 'block';
-                    outputImage.src = imageData;
-                    currentGeneratedImage = imageData;
-                    imageContainer.classList.add('has-image');
-
-                    actionButtons.style.display = 'flex';
-                    showSuccess('Image generated successfully! Choose an option below.');
-
-                } catch (error) {
-                    console.error('Error:', error);
-                    showError(`Failed to generate image: ${error.message}`);
-                } finally {
-                    loading.style.display = 'none';
-                    generateBtn.disabled = false;
-                }
-            });
-
-            // Remove background button
-            removeBgBtn.addEventListener('click', async function() {
-                if (!currentGeneratedImage) {
-                    showError('No image generated yet');
-                    return;
-                }
-
-                loading.style.display = 'block';
-                removeBgBtn.disabled = true;
-
-                try {
-                    const transparentImage = await removeBackgroundWithCanvas(currentGeneratedImage);
-                    currentGeneratedImage = transparentImage;
-                    outputImage.src = transparentImage;
-                    showSuccess('Background removed successfully! Image is now ready for products.');
-                } catch (error) {
-                    console.error('Error:', error);
-                    showError(`Failed to remove background: ${error.message}`);
-                } finally {
-                    loading.style.display = 'none';
-                    removeBgBtn.disabled = false;
-                }
-            });
-
-            // Simple canvas-based background removal
-            async function removeBackgroundWithCanvas(imageData) {
-                return new Promise((resolve) => {
-                    const img = new Image();
-                    img.src = imageData;
-                    img.onload = function() {
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-
-                        ctx.drawImage(img, 0, 0);
-
-                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        const data = imageData.data;
-
-                        // Simple background removal - make white/light pixels transparent
-                        for (let i = 0; i < data.length; i += 4) {
-                            const r = data[i];
-                            const g = data[i + 1];
-                            const b = data[i + 2];
-
-                            // Remove white and very light backgrounds
-                            if (r > 240 && g > 240 && b > 240) {
-                                data[i + 3] = 0;
-                            }
-                        }
-
-                        ctx.putImageData(imageData, 0, 0);
-                        resolve(canvas.toDataURL('image/png'));
-                    };
-                });
-            }
-
-            // Download Button
-            downloadBtn.addEventListener('click', function() {
-                if (!currentGeneratedImage) {
-                    showError('No image generated yet');
-                    return;
-                }
-
-                const link = document.createElement('a');
-                link.href = currentGeneratedImage;
-                link.download = `ai-design-${Date.now()}.png`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-
-                showSuccess('Image downloaded successfully!');
-            });
-
-            // Use Design for Product Button
-            useDesignBtn.addEventListener('click', function() {
-                if (!currentGeneratedImage) {
-                    showError('No image generated yet');
-                    return;
-                }
-
-                if (!selectedProductId) {
-                    showError('Please select a product first');
-                    return;
-                }
-
-                // For products that don't support front/back, set placement to 'single'
-                const selectedProduct = document.querySelector('.product-btn.active');
-                const supportsFrontBack = selectedProduct.getAttribute('data-supports-front-back') === 'true';
-                const finalPlacement = supportsFrontBack ? selectedPlacement : 'single';
-
-                // Store design data in session storage for the product page
-                sessionStorage.setItem('aiGeneratedDesign', currentGeneratedImage);
-                sessionStorage.setItem('aiDesignProductId', selectedProductId);
-                sessionStorage.setItem('aiDesignPlacement', finalPlacement);
-                sessionStorage.setItem('aiDesignTimestamp', Date.now().toString());
-
-                // Redirect to appropriate page
-                if (selectedProductId === 'other') {
-                    window.location.href = 'sub-main.php';
-                } else {
-                    window.location.href = `service_detail_public.php?id=${selectedProductId}&ai_design=1`;
-                }
-            });
-
-            // Regenerate Button
-            regenerateBtn.addEventListener('click', function() {
-                // Clear previous image
-                outputImage.style.display = 'none';
-                placeholder.style.display = 'block';
-                actionButtons.style.display = 'none';
-                currentGeneratedImage = null;
-                successMessage.style.display = 'none';
-                imageContainer.classList.remove('has-image');
-
-                // Regenerate
-                generateBtn.click();
-            });
-
-            async function generateImageWithStabilityAI(prompt, apiKey, style) {
-                const engineId = 'stable-diffusion-xl-1024-v1-0';
-                const apiHost = 'https://api.stability.ai';
-                const url = `${apiHost}/v1/generation/${engineId}/text-to-image`;
-
-                const requestBody = {
-                    text_prompts: [{
-                        text: prompt
-                    }],
-                    cfg_scale: 7,
-                    height: 1024,
-                    width: 1024,
-                    steps: 30,
-                    samples: 1,
-                };
-
-                if (style) {
-                    requestBody.style_preset = style;
-                }
-
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`);
-                }
-
-                const responseJSON = await response.json();
-
-                if (responseJSON.artifacts && responseJSON.artifacts.length > 0) {
-                    const imageData = responseJSON.artifacts[0].base64;
-                    return `data:image/png;base64,${imageData}`;
-                } else {
-                    throw new Error('No image data received from API');
-                }
-            }
-
-            function showError(message) {
-                errorMessage.textContent = message;
-                errorMessage.style.display = 'block';
-
-                // Scroll to error message
-                errorMessage.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center'
-                });
-            }
-
-            function showSuccess(message) {
-                successMessage.textContent = message;
-                successMessage.style.display = 'block';
-
-                setTimeout(() => {
-                    successMessage.style.display = 'none';
-                }, 5000);
-            }
-
-            // Random Prompts for placeholder
-            const examples = [
-                "A colorful dragon flying over mountains during sunset, fantasy style, detailed scales",
-                "Minimalist geometric pattern in blue and gold, modern design, clean lines",
-                "Vintage floral artwork with roses and leaves, watercolor style, soft pastel colors",
-                "Cyberpunk cityscape with neon lights and futuristic buildings, night scene",
-                "Abstract waves in ocean blue and seafoam green, fluid motion, artistic",
-                "Space astronaut floating among stars and galaxies, cosmic, detailed helmet"
-            ];
-
-            const randomExample = examples[Math.floor(Math.random() * examples.length)];
-            document.getElementById('prompt').placeholder = `E.g.: ${randomExample}... or describe your own idea`;
-
-            // Auto-focus on prompt input
-            promptInput.focus();
-        }
-        <?php endif; ?>
-    </script>
 </body>
 
 </html>

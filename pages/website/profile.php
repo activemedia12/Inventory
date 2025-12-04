@@ -9,7 +9,7 @@ require_once '../../config/db.php';
 
 // Get user and customer details
 $user_id = $_SESSION['user_id'];
-$query = "SELECT u.username,
+$query = "SELECT u.username, u.email_verified,
                  p.first_name, p.middle_name, p.last_name, p.age, p.gender, 
                  p.birthdate, p.contact_number AS personal_contact, 
                  p.address_line1, p.city AS personal_city, 
@@ -42,6 +42,9 @@ $orders = [];
 while ($row = $result->fetch_assoc()) {
     $orders[] = $row;
 }
+
+$is_personal = !empty($user_data['first_name']);
+$is_company = !empty($user_data['company_name']);
 
 $cart_count = 0;
 if (isset($_SESSION['user_id'])) {
@@ -449,8 +452,9 @@ if (isset($_SESSION['user_id'])) {
         }
         
         @media (max-width: 768px) {
-            .profile-header {
-                padding: 30px 20px;
+            .profile-header, .profile-sections {
+                font-size: 80%;
+                margin: 20px;
             }
             
             .profile-header h1 {
@@ -515,6 +519,61 @@ if (isset($_SESSION['user_id'])) {
                 margin-bottom: 10px;
             }
         }
+
+        .email-verification {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            gap: 10px;
+        }
+        
+        .email-verified {
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .email-not-verified {
+            color: #dc3545;
+            font-weight: 600;
+        }
+        
+        .verification-btn {
+            padding: 6px 12px;
+            background: var(--primary-color);
+            color: white;
+            border: 2px solid var(--primary-color);
+            font-size: 0.85em;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .verification-btn:hover {
+            background-color: transparent;
+            color: black;
+        }
+        
+        .account-type-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            background: var(--bg-light);
+            color: var(--text-dark);
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        
+        .account-type-personal {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        
+        .account-type-company {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
     </style>
 </head>
 
@@ -572,22 +631,54 @@ if (isset($_SESSION['user_id'])) {
             <div class="profile-header">
                 <h1><i class="fas fa-user-circle"></i> My Profile</h1>
                 <p>Manage your account and view order history</p>
+                <div class="email-verification">
+                    <?php if ($user_data['email_verified']): ?>
+                        <span class="email-verified">
+                            <i class="fas fa-check-circle"></i> Email Verified
+                        </span>
+                    <?php else: ?>
+                        <span class="email-not-verified">
+                            <i class="fas fa-exclamation-circle"></i> Email Not Verified
+                        </span>
+                        <a href="../../accounts/email-verification.php" class="verification-btn">
+                            <i class="fas fa-envelope"></i> Verify Now
+                        </a>
+                    <?php endif; ?>
+                    <span class="account-type-badge <?php echo $is_personal ? 'account-type-personal' : 'account-type-company'; ?>">
+                        <?php echo $is_personal ? 'Personal Account' : 'Company Account'; ?>
+                    </span>
+                </div>
             </div>
 
             <?php if (isset($_GET['order_success'])): ?>
-                <div class="success-message">
+                <div class="success-message" id="success-message">
                     <i class="fas fa-check-circle"></i>
                     <div>
                         <strong>Success!</strong> Your order has been placed and is pending payment verification.
                     </div>
                 </div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const message = document.getElementById('success-message');
+                        if (message) {
+                            setTimeout(() => {
+                                message.style.opacity = '0';
+                                message.style.transition = 'opacity 0.5s';
+                                
+                                setTimeout(() => {
+                                    message.style.display = 'none';
+                                }, 500);
+                            }, 3000);
+                        }
+                    });
+                </script>
             <?php endif; ?>
 
             <div class="profile-sections">
                 <!-- Personal Information -->
                 <div class="profile-section">
                     <h2 class="section-title">
-                        <i class="fas fa-user"></i> Personal Information
+                        <i class="fas fa-user"></i> Account Information
                     </h2>
                     <div class="user-details">
                         <?php if (!empty($user_data['first_name'])): ?>
@@ -826,18 +917,6 @@ if (isset($_SESSION['user_id'])) {
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize profile functionality
         setupProfileInteractions();
-        
-        // Add mobile menu toggle if needed
-        const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
-        const navLinks = document.querySelector('.nav-links');
-        
-        if (mobileMenuToggle && navLinks) {
-            mobileMenuToggle.addEventListener('click', function() {
-                navLinks.classList.toggle('active');
-                this.querySelector('i').classList.toggle('fa-bars');
-                this.querySelector('i').classList.toggle('fa-times');
-            });
-        }
     });
 
     function setupProfileInteractions() {

@@ -463,7 +463,8 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
         @media (max-width: 768px) {
             .ai-container {
-                padding: 25px;
+                padding: 50px;
+                margin: 0 20px;
             }
 
             .ai-title {
@@ -493,14 +494,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         }
 
         @media (max-width: 576px) {
-            .ai-generator-page {
-                padding: 20px 0;
-            }
-
-            .ai-container {
-                padding: 20px;
-            }
-
             .ai-title {
                 font-size: 1.8em;
             }
@@ -785,24 +778,6 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
     <script src="../assets/js/main.js"></script>
     <script>
-        // AI Generator specific JavaScript that extends the main script.js
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize AI Generator functionality
-            setupAIGenerator();
-
-            // Add mobile menu toggle
-            const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
-            const navLinks = document.querySelector('.nav-links');
-
-            if (mobileMenuToggle && navLinks) {
-                mobileMenuToggle.addEventListener('click', function() {
-                    navLinks.classList.toggle('active');
-                    this.querySelector('i').classList.toggle('fa-bars');
-                    this.querySelector('i').classList.toggle('fa-times');
-                });
-            }
-        });
-
         function setupAIGenerator() {
             const generateBtn = document.getElementById('generate-btn');
             const downloadBtn = document.getElementById('download-btn');
