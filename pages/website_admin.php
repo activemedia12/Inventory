@@ -326,6 +326,11 @@
             <i class="fas fa-chart-bar" aria-hidden="true"></i>
             <span class="tooltip">Reports</span>
         </button>
+
+        <button onclick="loadPage('website/admin_chat.php')" title="Chats" aria-label="Chats">
+            <i class="fas fa-message" aria-hidden="true"></i>
+            <span class="tooltip">Chats</span>
+        </button>
     </div>
 
     <!-- Content Frame -->
