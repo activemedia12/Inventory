@@ -1213,3 +1213,105 @@ ALTER TABLE users
 ADD COLUMN email_verified BOOLEAN DEFAULT FALSE,
 ADD COLUMN verification_token VARCHAR(64) NULL,
 ADD COLUMN verification_expires DATETIME NULL;
+
+
+-- Add to your existing database
+CREATE TABLE IF NOT EXISTS `conversations` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `conversation_participants` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `conversation_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `role` enum('customer','admin','employee') NOT NULL,
+  `joined_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `is_active` tinyint(1) DEFAULT 1,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_participant` (`conversation_id`, `user_id`),
+  KEY `conversation_id` (`conversation_id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `conversation_participants_ibfk_1` FOREIGN KEY (`conversation_id`) REFERENCES `conversations` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `conversation_participants_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `messages` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `conversation_id` int(11) NOT NULL,
+  `sender_id` int(11) NOT NULL,
+  `message` text NOT NULL,
+  `message_type` enum('text','image','file','system') DEFAULT 'text',
+  `file_url` varchar(500) DEFAULT NULL,
+  `file_name` varchar(255) DEFAULT NULL,
+  `file_size` int(11) DEFAULT NULL,
+  `is_read` tinyint(1) DEFAULT 0,
+  `read_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `conversation_id` (`conversation_id`),
+  KEY `sender_id` (`sender_id`),
+  KEY `created_at` (`created_at`),
+  CONSTRAINT `messages_ibfk_1` FOREIGN KEY (`conversation_id`) REFERENCES `conversations` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `messages_ibfk_2` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `message_reads` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `message_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `read_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_read` (`message_id`, `user_id`),
+  KEY `message_id` (`message_id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `message_reads_ibfk_1` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `message_reads_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `chat_notifications` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `conversation_id` int(11) NOT NULL,
+  `message_id` int(11) DEFAULT NULL,
+  `notification_type` enum('new_message','new_conversation','mention') DEFAULT 'new_message',
+  `is_read` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `conversation_id` (`conversation_id`),
+  KEY `message_id` (`message_id`),
+  CONSTRAINT `chat_notifications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `chat_notifications_ibfk_2` FOREIGN KEY (`conversation_id`) REFERENCES `conversations` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `chat_notifications_ibfk_3` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Run these SQL queries to add the necessary columns and tables:
+
+-- 1. Add columns to users table
+ALTER TABLE users 
+ADD COLUMN IF NOT EXISTS is_online TINYINT(1) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN IF NOT EXISTS max_conversations INT DEFAULT 5;
+
+-- 2. Create admin conversation stats table
+CREATE TABLE IF NOT EXISTS admin_conversation_stats (
+    admin_id INT NOT NULL,
+    active_conversations INT DEFAULT 0,
+    total_conversations INT DEFAULT 0,
+    last_assigned DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (admin_id),
+    FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3. Initialize stats for existing admins
+INSERT INTO admin_conversation_stats (admin_id, active_conversations, total_conversations)
+SELECT u.id, 0, 0
+FROM users u
+WHERE u.role = 'admin'
+ON DUPLICATE KEY UPDATE 
+    active_conversations = VALUES(active_conversations),
+    total_conversations = VALUES(total_conversations);

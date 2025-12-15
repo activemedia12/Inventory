@@ -189,3 +189,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initialize filtering on page load
     filterProducts();
 });
+
+function autoResize(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+}
