@@ -8,6 +8,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
+
 session_start();
 date_default_timezone_set('Asia/Manila');
 
@@ -31,40 +32,40 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if ($stmt->num_rows === 1) {
             $stmt->bind_result($user_id);
             $stmt->fetch();
-            
+
             // Generate token and expiration
             $token = bin2hex(random_bytes(32));
             $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
-            
+
             // Delete any existing tokens for this user
             $delete_stmt = $inventory->prepare("DELETE FROM password_resets WHERE user_id = ?");
             $delete_stmt->bind_param("i", $user_id);
             $delete_stmt->execute();
-            
+
             // Store new token
             $insert_stmt = $inventory->prepare("INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)");
             $insert_stmt->bind_param("iss", $user_id, $token, $expires);
             $insert_stmt->execute();
-            
+
             // Send email using PHPMailer (reused from your export script)
             $base_url = (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'];
             $reset_link = $base_url . "/inventory/accounts/reset-password.php?token=" . urlencode($token);
-            
+
             try {
                 $mail = new PHPMailer(true);
-                
+
                 // SMTP Configuration (same as your export script)
                 $mail->isSMTP();
                 $mail->Host       = 'smtp.gmail.com';
                 $mail->SMTPAuth   = true;
-                $mail->Username   = 'reportsjoborder@gmail.com';
-                $mail->Password   = 'kjyj krfm rkbk qmst'; // App password
+                $mail->Username   = 'activemediaprint@gmail.com';
+                $mail->Password   = 'qbfk abbn tzio uqze';
                 $mail->SMTPSecure = 'tls';
                 $mail->Port       = 587;
 
-                $mail->setFrom('reportsjoborder@gmail.com', 'Active Media');
+                $mail->setFrom('activemediaprint@gmail.com', 'Active Media');
                 $mail->addAddress($email); // Send to the user's email
-                
+
                 $mail->isHTML(true);
                 $mail->Subject = "Password Reset Request";
                 $mail->Body    = "
@@ -76,16 +77,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     <br>
                     <p>Regards,<br>Active Media Designs and Printing</p>
                 ";
-                
+
                 $mail->send();
                 $success = "Password reset link has been sent to your email address.";
-                
             } catch (Exception $e) {
                 $error = "Failed to send email. Please try again later.";
                 // For debugging:
                 // $error = "Email could not be sent. Error: " . $mail->ErrorInfo;
             }
-            
         } else {
             $error = "No account found with that email address";
         }
@@ -143,12 +142,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         .header {
             text-align: center;
             padding: 20px;
-            background: linear-gradient(90deg, 
-                rgba(176, 0, 176, 1) 0%, 
-                rgba(0, 0, 0, 1) 30%, 
-                rgba(0, 0, 0, 1) 40%, 
-                rgba(0, 145, 255, 1) 70%, 
-                rgba(255, 255, 0, 1) 100%);
+            background: linear-gradient(90deg,
+                    rgba(176, 0, 176, 1) 0%,
+                    rgba(0, 0, 0, 1) 30%,
+                    rgba(0, 0, 0, 1) 40%,
+                    rgba(0, 145, 255, 1) 70%,
+                    rgba(255, 255, 0, 1) 100%);
             color: white;
         }
 
@@ -360,10 +359,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
-                
+
                 submitBtn.classList.add('loading');
                 submitBtn.disabled = true;
-                
+
                 setTimeout(() => {
                     form.submit();
                 }, 500);
