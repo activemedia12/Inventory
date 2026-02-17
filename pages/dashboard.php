@@ -88,7 +88,12 @@ while ($row = $stock_data->fetch_assoc()) {
     $grouped[$type][$name][$group] = $reams;
 }
 
-$sql = "SELECT jo.*, u.username 
+$sql = "SELECT 
+            jo.*, 
+            u.username,
+            jo.grand_total as total_expenses,
+            jo.total_cost,
+            (jo.total_cost - jo.grand_total) as profit
         FROM job_orders jo
         LEFT JOIN users u ON u.id = jo.created_by
         ORDER BY jo.created_at DESC 
@@ -1176,6 +1181,46 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             0% { background-position: 100%; }
             100% { background-position: -100%; }
         }
+
+/* Add to the existing style section */
+.profit-positive {
+    color: #28a745 !important;
+}
+
+.profit-negative {
+    color: #dc3545 !important;
+}
+
+.fw-bold {
+    font-weight: 600 !important;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+.status-badge:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    transition: all 0.2s;
+}
+
+/* Adjust table responsiveness */
+.recent-tables.table-responsive {
+    overflow-x: auto;
+}
+
+/* Make sure the table fits on mobile */
+@media (max-width: 768px) {
+    .recent-tables table {
+        min-width: 800px;
+    }
+    
+    .recent-tables td, .recent-tables th {
+        font-size: 13px;
+        padding: 8px 10px;
+    }
+}
     </style>
 </head>
 
@@ -1341,41 +1386,87 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             </div>
         </div>
 
-        <div class="table-card">
-            <h3><i class="fas fa-history"></i> Recent Job Orders</h3>
-            <?php if (empty($recent_orders)): ?>
-                <div class="empty-message">
-                    <p>No recent job orders</p>
-                </div>
-            <?php else: ?>
-                <div class="recent-tables table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Client</th>
-                                <th>Project</th>
-                                <th>Status</th>
-                                <th>Created By</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($recent_orders as $order): ?>
-                                <tr class="clickable-row"
-                                    data-order='<?= htmlspecialchars(json_encode($order), ENT_QUOTES, "UTF-8") ?>'
-                                    data-role="<?= htmlspecialchars($_SESSION['role']) ?>">
-                                    <td><?= htmlspecialchars($order['client_name']) ?></td>
-                                    <td><?= htmlspecialchars($order['project_name']) ?></td>
-                                    <td><span class="badge bg-info"><?= ucfirst($order['status']) ?></span></td>
-                                    <td><?= htmlspecialchars($order['username'] ?? 'Unknown') ?></td>
-                                    <td><?= date("M d, Y g:i A", strtotime($order['created_at'])) ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endif; ?>
+<div class="table-card">
+    <h3><i class="fas fa-history"></i> Recent Job Orders</h3>
+    <?php if (empty($recent_orders)): ?>
+        <div class="empty-message">
+            <p>No recent job orders</p>
         </div>
+    <?php else: ?>
+        <div class="recent-tables table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Client</th>
+                        <th>Project</th>
+                        <th>Status</th>
+                        <th>Expenses</th>
+                        <th>Total Cost</th>
+                        <th>Profit</th>
+                        <th>Created By</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($recent_orders as $order): 
+                        $total_expenses = $order['total_expenses'] ?? 0;
+                        $total_cost = $order['total_cost'] ?? 0;
+                        $profit = $order['profit'] ?? 0;
+                        $profit_class = $profit >= 0 ? 'profit-positive' : 'profit-negative';
+                        $profit_percent = $total_expenses > 0 ? ($profit / $total_expenses) * 100 : 0;
+                    ?>
+                        <tr class="clickable-row"
+                            data-order='<?= htmlspecialchars(json_encode($order), ENT_QUOTES, "UTF-8") ?>'
+                            data-role="<?= htmlspecialchars($_SESSION['role']) ?>">
+                            <td><?= htmlspecialchars($order['client_name']) ?></td>
+                            <td><?= htmlspecialchars($order['project_name']) ?></td>
+                            <td>
+                                <?php if ($_SESSION['role'] === 'admin'): ?>
+                                    <span class="badge bg-info status-badge" style="cursor: pointer;" onclick="openModal(<?= htmlspecialchars(json_encode($order), ENT_QUOTES, "UTF-8") ?>, '<?= $_SESSION['role'] ?>')">
+                                        <?= ucfirst($order['status']) ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span class="badge bg-info">
+                                        <?= ucfirst($order['status']) ?>
+                                    </span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if (empty($total_expenses) || $total_expenses == 0.00): ?>
+                                    <span class="text-muted">Not Set</span>
+                                <?php else: ?>
+                                    ₱ <?= number_format($total_expenses, 2) ?>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if (empty($total_cost) || $total_cost == 0.00): ?>
+                                    <span class="text-muted">Not Set</span>
+                                <?php else: ?>
+                                    <span class="fw-bold">₱ <?= number_format($total_cost, 2) ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if (empty($total_cost) || $total_cost == 0.00): ?>
+                                    <span class="text-muted">-</span>
+                                <?php else: ?>
+                                    <span class="fw-bold <?= $profit_class ?>">
+                                        ₱ <?= number_format($profit, 2) ?>
+                                        <br>
+                                        <small class="<?= $profit_class ?>">
+                                            (<?= number_format($profit_percent, 1) ?>%)
+                                        </small>
+                                    </span>
+                                <?php endif; ?>
+                            </td>
+                            <td><?= htmlspecialchars($order['username'] ?? 'Unknown') ?></td>
+                            <td><?= date("M d, Y g:i A", strtotime($order['created_at'])) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>
     </div>
 
     <!-- Product Modal -->

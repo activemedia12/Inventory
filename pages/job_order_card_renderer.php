@@ -64,9 +64,8 @@
                               <th>Color Sequence</th>
                               <th>Special Instructions</th>
                               <th>Total Expenses</th>
-                              <!-- <th>Tax Payer Name</th>
-                              <th>OCN Number</th>
-                              <th>Date Issued</th> -->
+                              <th>Total Cost (₱)</th>
+                              <th>Profit (₱)</th>
                               <?php if ($_SESSION['role'] === 'admin'): ?>
                                 <th>Recorded By</th>
                               <?php endif; ?>
@@ -80,6 +79,12 @@
                               <?php
                               $order_with_date = $order;
                               $order_with_date['job_order_date'] = $date;
+                              
+                              // Calculate profit
+                              $expenses = floatval($order['grand_total'] ?? 0);
+                              $total_cost = floatval($order['total_cost'] ?? 0);
+                              $profit = $total_cost - $expenses;
+                              $profit_class = $profit >= 0 ? 'profit-positive' : 'profit-negative';
                               ?>
                               <tr class="clickable-row"
                                 data-order='<?= htmlspecialchars(json_encode($order_with_date), ENT_QUOTES, 'UTF-8') ?>'
@@ -94,6 +99,11 @@
                                   <button class="quick-fill-btn" 
                                     onclick="window.location.href='paper_cost.php?id=<?= $order['id'] ?>'">
                                     Show Expenses
+                                  </button>
+                                  <button class="quick-fill-btn set-cost-btn" 
+                                    onclick="setTotalCost(<?= $order['id'] ?>, '<?= htmlspecialchars($order['client_name']) ?>', '<?= htmlspecialchars($order['project_name']) ?>')"
+                                    title="Set Total Cost">
+                                    Set Total Cost
                                   </button>
                                 </td>
                                 <td><?= $order['quantity'] ?></td>
@@ -111,17 +121,39 @@
                                 </td>
                                 <td><?= nl2br(htmlspecialchars($order['special_instructions'])) ?></td>
                                 <td>
-                                <?php 
-                                    if (empty($order['grand_total']) || $order['grand_total'] == 0.00) {
-                                        echo "Not Computed";
-                                    } else {
-                                        echo "₱ " . number_format($order['grand_total'], 2);
-                                    }
-                                ?>
+                                  <?php 
+                                  if (empty($order['grand_total']) || $order['grand_total'] == 0.00) {
+                                      echo "Not Computed";
+                                      echo '<br><a href="paper_cost.php?id=' . $order['id'] . '" class="btn">Compute Now</a>';
+                                  } else {
+                                      echo "₱ " . number_format($order['grand_total'], 2);
+                                  }
+                                  ?>
                                 </td>
-                                <!-- <td><?= htmlspecialchars($order['taxpayer_name']) ?></td>
-                                <td><?= htmlspecialchars($order['ocn_number']) ?></td>
-                                <td><?= $order['date_issued'] ? date("F j, Y", strtotime($order['date_issued'])) : 'Pending' ?></td> -->
+                                <td class="total-cost-cell" id="total-cost-<?= $order['id'] ?>">
+                                  <?php if (!empty($order['total_cost']) && $order['total_cost'] > 0): ?>
+                                    ₱ <?= number_format($order['total_cost'], 2) ?>
+                                  <?php else: ?>
+                                    <span class="text-muted">Not Set</span>
+                                  <?php endif; ?>
+                                </td>
+                                <td class="profit-cell <?= $profit_class ?>" id="profit-<?= $order['id'] ?>">
+                                  <?php 
+                                  // Check if expenses are computed AND total cost is set
+                                  if (!empty($order['grand_total']) && $order['grand_total'] > 0 && 
+                                      !empty($order['total_cost']) && $order['total_cost'] > 0): 
+                                  ?>
+                                    ₱ <?= number_format($profit, 2) ?>
+                                    <br>
+                                    <small class="<?= $profit_class ?>">
+                                      (<?= number_format(($expenses > 0 ? ($profit / $expenses) * 100 : 0), 1) ?>%)
+                                    </small>
+                                  <?php elseif (empty($order['grand_total']) || $order['grand_total'] == 0.00): ?>
+                                    <span class="text-muted" title="Expenses not computed yet">Compute Expenses First</span>
+                                  <?php else: ?>
+                                    <span class="text-muted" title="Total cost not set">-</span>
+                                  <?php endif; ?>
+                                </td>
                                 <?php if ($_SESSION['role'] === 'admin'): ?>
                                   <td><?= htmlspecialchars($order['username'] ?? 'Unknown') ?></td>
                                 <?php endif; ?>

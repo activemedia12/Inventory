@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $message = "You have successfully updated the pricelists.";
   }
 
-  // Update paper prices
+  // Update paper prices - FIXED: Added price_per_sheet
   if (isset($_POST['paper'])) {
     foreach ($_POST['paper'] as $row) {
       $id = $row['id'];
@@ -33,44 +33,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $disc_price = $row['disc_price'];
       $short_price = $row['short_price'];
       $long_price = $row['long_price'];
+      $price_per_sheet = !empty($row['price_per_sheet']) ? $row['price_per_sheet'] : null; // NEW
       $cutting_cost = $row['cutting_cost'];
       $effective_date = $row['effective_date'];
 
       $stmt = $inventory->prepare("UPDATE paper_prices 
-                SET paper_type=?, orig_price=?, disc_price=?, short_price=?, long_price=?, cutting_cost=?, effective_date=? 
+                SET paper_type=?, orig_price=?, disc_price=?, short_price=?, long_price=?, 
+                    price_per_sheet=?, cutting_cost=?, effective_date=? 
                 WHERE id=?");
-      $stmt->bind_param("sdddddsi", $paper_type, $orig_price, $disc_price, $short_price, $long_price, $cutting_cost, $effective_date, $id);
+      $stmt->bind_param("sddddddsi", $paper_type, $orig_price, $disc_price, $short_price, $long_price, 
+                       $price_per_sheet, $cutting_cost, $effective_date, $id);
       $stmt->execute();
     }
     $message = "You have successfully updated the pricelists.";
   }
 
-  // Update cut paper prices
+  // Update cut paper prices - FIXED: Added price_per_sheet
   if (isset($_POST['cut'])) {
     foreach ($_POST['cut'] as $row) {
       $id = $row['id'];
       $paper_type = $row['paper_type'];
       $short_price = $row['short_price'];
       $long_price = $row['long_price'];
+      $price_per_sheet = !empty($row['price_per_sheet']) ? $row['price_per_sheet'] : null; // NEW
       $cutting_cost = $row['cutting_cost'];
       $effective_date = $row['effective_date'];
 
       $stmt = $inventory->prepare("UPDATE paper_cut_prices 
-                SET paper_type=?, short_price=?, long_price=?, cutting_cost=?, effective_date=? 
+                SET paper_type=?, short_price=?, long_price=?, price_per_sheet=?, 
+                    cutting_cost=?, effective_date=? 
                 WHERE id=?");
-      $stmt->bind_param("sdddsi", $paper_type, $short_price, $long_price, $cutting_cost, $effective_date, $id);
+      $stmt->bind_param("sddddsi", $paper_type, $short_price, $long_price, 
+                       $price_per_sheet, $cutting_cost, $effective_date, $id);
       $stmt->execute();
     }
     $message = "You have successfully updated the pricelists.";
   }
 
-  // Update printing types
+  // Update printing types - FIXED: Added apply_to_paper_cost
   if (isset($_POST['printing'])) {
     foreach ($_POST['printing'] as $row) {
       $id = $row['id'];
       $base_cost = $row['base_cost'];
       $per_sheet_cost = $row['per_sheet_cost'];
-      $apply_to_paper_cost = isset($row['apply_to_paper_cost']) ? 1 : 0;
+      $apply_to_paper_cost = isset($row['apply_to_paper_cost']) ? 1 : 0; // FIXED: Should be from form
       $effective_date = $row['effective_date'];
 
       $stmt = $inventory->prepare("UPDATE printing_types 
@@ -351,6 +357,7 @@ $printing_types = $inventory->query("SELECT * FROM printing_types ORDER BY effec
                           <th>Discounted Price</th>
                           <th>Short Price</th>
                           <th>Long Price</th>
+                          <th>Price per Piece (₱)</th>
                           <th>Cutting Cost</th>
                           <th>Effective Date</th>
                         </tr>
@@ -375,6 +382,14 @@ $printing_types = $inventory->query("SELECT * FROM printing_types ORDER BY effec
                             </td>
                             <td>
                               <input type="number" step="0.01" name="paper[<?= $row['id'] ?>][long_price]" value="<?= $row['long_price'] ?>" class="form-control form-control-sm" required>
+                            </td>
+                            <td>
+                                <input type="number" step="0.0001" name="paper[<?= $row['id'] ?>][price_per_sheet]" 
+                                      value="<?= htmlspecialchars($row['price_per_sheet'] ?? '') ?>" 
+                                      class="form-control form-control-sm" placeholder="0.0000">
+                                <?php if (empty($row['price_per_sheet'])): ?>
+                                  <small class="text-muted d-block">Auto: ₱<?= number_format($row['disc_price'] / 500, 4) ?></small>
+                                <?php endif; ?>
                             </td>
                             <td>
                               <input type="number" step="0.01" name="paper[<?= $row['id'] ?>][cutting_cost]" value="<?= $row['cutting_cost'] ?>" class="form-control form-control-sm" required>
@@ -410,6 +425,7 @@ $printing_types = $inventory->query("SELECT * FROM printing_types ORDER BY effec
                           <th>Paper Type</th>
                           <th>Short Price</th>
                           <th>Long Price</th>
+                          <th>Price per Piece (₱)</th>
                           <th>Cutting Cost</th>
                           <th>Effective Date</th>
                         </tr>
@@ -428,6 +444,14 @@ $printing_types = $inventory->query("SELECT * FROM printing_types ORDER BY effec
                             </td>
                             <td>
                               <input type="number" step="0.01" name="cut[<?= $row['id'] ?>][long_price]" value="<?= $row['long_price'] ?>" class="form-control form-control-sm" required>
+                            </td>
+                            <td>
+                                <input type="number" step="0.0001" name="cut[<?= $row['id'] ?>][price_per_sheet]" 
+                                      value="<?= htmlspecialchars($row['price_per_sheet'] ?? '') ?>" 
+                                      class="form-control form-control-sm" placeholder="0.0000">
+                                <?php if (empty($row['price_per_sheet'])): ?>
+                                  <small class="text-muted d-block">Auto: ₱<?= number_format($row['short_price'] / 500, 4) ?></small>
+                                <?php endif; ?>
                             </td>
                             <td>
                               <input type="number" step="0.01" name="cut[<?= $row['id'] ?>][cutting_cost]" value="<?= $row['cutting_cost'] ?>" class="form-control form-control-sm" required>
@@ -463,6 +487,7 @@ $printing_types = $inventory->query("SELECT * FROM printing_types ORDER BY effec
                           <th>Name</th>
                           <th>Base Cost (₱)</th>
                           <th>Per Sheet Cost (₱)</th>
+                          <th>Apply to Paper Cost?</th>
                           <th>Effective Date</th>
                         </tr>
                       </thead>
@@ -479,6 +504,13 @@ $printing_types = $inventory->query("SELECT * FROM printing_types ORDER BY effec
                             </td>
                             <td>
                               <input type="number" step="0.0001" name="printing[<?= $row['id'] ?>][per_sheet_cost]" value="<?= $row['per_sheet_cost'] ?>" class="form-control form-control-sm" required>
+                            </td>
+                            <td>
+                              <div class="form-check form-switch d-flex justify-content-center">
+                                <input class="form-check-input" type="checkbox" name="printing[<?= $row['id'] ?>][apply_to_paper_cost]" 
+                                       id="apply_<?= $row['id'] ?>" value="1" 
+                                       <?= ($row['apply_to_paper_cost'] == 1) ? 'checked' : '' ?>>
+                              </div>
                             </td>
                             <td>
                               <input type="date" name="printing[<?= $row['id'] ?>][effective_date]" value="<?= $row['effective_date'] ?>" class="form-control form-control-sm" required>
