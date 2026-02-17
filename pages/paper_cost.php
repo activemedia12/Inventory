@@ -15,7 +15,7 @@ while ($row = $res->fetch_assoc()) {
 $tasks = array_keys($rates);
 
 // ========== FETCH JOB ORDER DATA ==========
-$sql = "SELECT log_date, client_name, project_name, quantity, number_of_sets, product_size, paper_size, paper_type, paper_sequence, printing_type, other_expenses, paper_spoilage 
+$sql = "SELECT log_date, client_name, project_name, quantity, number_of_sets, product_size, paper_size, paper_type, paper_sequence, printing_type, other_expenses, paper_spoilage, paper_pricing_method, custom_paper_cost 
         FROM job_orders WHERE id = ?";
 $stmt = $inventory->prepare($sql);
 $stmt->bind_param("i", $job_id);
@@ -93,13 +93,14 @@ function mapPaperType($color, $paper_type)
     return strtoupper($color);
 }
 
-$total_paper_cost = 0.0;
-$layer_details = [];
+// ========== FETCH PAPER PRICES FOR ALL LAYERS ==========
+$layer_data = [];
+$total_paper_cost_ream = 0.0;
 
 foreach ($paper_sequence as $color) {
     $mappedType = mapPaperType($color, $paper_type);
 
-    $stmt2 = $inventory->prepare("SELECT short_price, long_price 
+    $stmt2 = $inventory->prepare("SELECT short_price, long_price, price_per_sheet
                                FROM $table 
                                WHERE paper_type = ? 
                                ORDER BY effective_date DESC LIMIT 1");
@@ -119,21 +120,28 @@ foreach ($paper_sequence as $color) {
             $unit_price = $price['long_price'];
         }
 
-        $layer_cost = $unit_price * $reams;
-        $total_paper_cost += $layer_cost;
+        $price_per_sheet = $price['price_per_sheet'] ?? ($unit_price / 500);
+        $layer_cost_ream = $unit_price * $reams;
+        $total_paper_cost_ream += $layer_cost_ream;
 
-        $layer_details[] = [
+        $layer_data[] = [
             "color" => $color,
             "mapped" => $mappedType,
             "unit_price" => (float)$unit_price,
+            "price_per_sheet" => (float)$price_per_sheet,
             "reams" => (float)$reams,
-            "cost" => (float)$layer_cost
+            "cost_ream" => (float)$layer_cost_ream,
+            "total_sheets" => (float)$total_sheets
         ];
     }
 }
 
+// Pass data to JavaScript
 $js_rates = json_encode($rates);
-$js_paper_cost = json_encode((float)$total_paper_cost);
+$js_layer_data = json_encode($layer_data);
+$js_cut_sheets = $cut_sheets;
+$js_total_sheets = $total_sheets;
+$js_reams = $reams;
 ?>
 <!DOCTYPE HTML>
 <html lang="en">
@@ -269,26 +277,88 @@ $js_paper_cost = json_encode((float)$total_paper_cost);
         }
     </style>
     <script>
-        window.onload = function() {
-            if (!window.location.hash.includes('reloaded')) {
-                window.location.hash = 'reloaded';
-                window.location.reload();
-            }
-        };
-
+        // Global variables
         const rates = <?= $js_rates ?>;
-        let paperCost = <?= $js_paper_cost ?>;
+        const layerData = <?= $js_layer_data ?>;
         const printingTypes = <?= $js_printing ?>;
+        const cutSheets = <?= $js_cut_sheets ?>;
+        const totalSheets = <?= $js_total_sheets ?>;
+        const reams = <?= $js_reams ?>;
+        
+        let paperCost = 0;
         let selectedPrinting = null;
 
+        // Show/hide custom paper cost section
+        function initPaperPricing() {
+            const paperMethodSelect = document.getElementById('paper_pricing_method');
+            if (paperMethodSelect) {
+                // Set initial state
+                const customSection = document.getElementById('custom_paper_section');
+                if (paperMethodSelect.value === 'custom') {
+                    customSection.style.display = 'block';
+                } else {
+                    customSection.style.display = 'none';
+                }
+                
+                // Add event listener
+                paperMethodSelect.addEventListener('change', function() {
+                    if (this.value === 'custom') {
+                        customSection.style.display = 'block';
+                    } else {
+                        customSection.style.display = 'none';
+                    }
+                    calculate();
+                });
+            }
+        }
+
+        // Calculate paper cost based on selected method
+        function calculatePaperCost() {
+            const method = document.getElementById('paper_pricing_method')?.value || 'ream';
+            let totalCost = 0;
+            
+            switch(method) {
+                case 'piece':
+                    // Calculate based on price_per_sheet
+                    layerData.forEach(layer => {
+                        if (layer.price_per_sheet && layer.price_per_sheet > 0) {
+                            totalCost += layer.price_per_sheet * totalSheets;
+                        } else {
+                            // Fallback: calculate from ream price if per-sheet price not set
+                            totalCost += (layer.unit_price / 500) * totalSheets;
+                        }
+                    });
+                    break;
+                    
+                case 'custom':
+                    // Use custom paper cost
+                    const customCost = parseFloat(document.getElementById('custom_paper_cost')?.value) || 0;
+                    totalCost = customCost;
+                    break;
+                    
+                case 'ream':
+                default:
+                    // Original calculation (per ream)
+                    layerData.forEach(layer => {
+                        totalCost += layer.unit_price * reams;
+                    });
+                    break;
+            }
+            
+            return totalCost;
+        }
+
+        // Main calculation function
         function calculate() {
+            // Calculate paper cost dynamically
+            paperCost = calculatePaperCost();
+            
             let grandTotal = paperCost;
             let tbody = document.getElementById("results");
             let sessionBody = document.getElementById("session_details");
             tbody.innerHTML = "";
             sessionBody.innerHTML = "";
 
-            let totalSheets = <?= $cut_sheets ?>;
             let totalLayers = <?= count($paper_sequence) ?>;
 
             // === Labor ===
@@ -350,11 +420,12 @@ $js_paper_cost = json_encode((float)$total_paper_cost);
                 printingCost += parseFloat(pt.base_cost);
 
                 if (pt.per_sheet_cost > 0) {
-                    printingCost += totalSheets * totalLayers * parseFloat(pt.per_sheet_cost);
+                    printingCost += cutSheets * totalLayers * parseFloat(pt.per_sheet_cost);
                 }
 
                 if (pt.apply_to_paper_cost == 1) {
                     paperCost += parseFloat(pt.base_cost);
+                    grandTotal += parseFloat(pt.base_cost);
                 }
             }
             grandTotal += printingCost;
@@ -373,7 +444,7 @@ $js_paper_cost = json_encode((float)$total_paper_cost);
 
             // Calculate paper spoilage
             if (paperSpoilCheck && paperSpoilCheck.checked) {
-                paperSpoil = paperCost * 0.10; // Calculate 10% of ORIGINAL paper cost
+                paperSpoil = paperCost * 0.10; // Calculate 10% of paper cost
                 calculatedPaperCost += paperSpoil; // Add spoilage to paper cost for display
                 calculatedGrandTotal += paperSpoil; // Add spoilage to grand total
             }
@@ -406,10 +477,75 @@ $js_paper_cost = json_encode((float)$total_paper_cost);
             document.getElementById("summary-labor").textContent = `₱${(grandTotal - paperCost - printingCost).toFixed(2)}`;
             document.getElementById("summary-total").textContent = `₱${calculatedGrandTotal.toFixed(2)}`;
 
+            // Update hidden inputs
             document.getElementById("printing_type_hidden").value = printingChoice || "";
             document.getElementById("printing_cost_hidden").value = printingCost.toFixed(2);
             document.getElementById("other_expenses_hidden").value = otherExpCheck.checked ? 1 : 0;
             document.getElementById("paper_spoilage_hidden").value = paperSpoilCheck.checked ? 1 : 0;
+            document.getElementById('paper_pricing_method_hidden').value = document.getElementById('paper_pricing_method').value;
+            document.getElementById('custom_paper_cost_hidden').value = document.getElementById('custom_paper_cost').value;
+            
+            // Update paper cost display
+            updatePaperCostDisplay();
+        }
+
+        // Update paper cost display based on selected method
+        function updatePaperCostDisplay() {
+            const method = document.getElementById('paper_pricing_method')?.value || 'ream';
+            const paperDetailsContainer = document.getElementById('paper_details_display');
+            
+            if (!paperDetailsContainer) return;
+            
+            let html = '';
+            
+            if (layerData.length > 0) {
+                layerData.forEach(layer => {
+                    html += `<div class="paper-layer">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <strong>${layer.color}</strong>
+                                <small class="text-muted">(→ ${layer.mapped})</small>
+                            </div>
+                            <div>`;
+                    
+                    if (method === 'piece') {
+                        const pricePerSheet = layer.price_per_sheet > 0 ? layer.price_per_sheet : (layer.unit_price / 500);
+                        const layerCost = pricePerSheet * totalSheets;
+                        html += `₱${layerCost.toFixed(2)}</div>
+                        </div>
+                        <div class="small text-muted">
+                            ₱${pricePerSheet.toFixed(4)}/sheet × ${totalSheets} sheets
+                        </div>`;
+                    } else if (method === 'custom') {
+                        const customCost = parseFloat(document.getElementById('custom_paper_cost')?.value) || 0;
+                        html += `₱${(customCost / layerData.length).toFixed(2)}</div>
+                        </div>
+                        <div class="small text-muted">
+                            Custom price allocation
+                        </div>`;
+                    } else {
+                        html += `₱${layer.cost_ream.toFixed(2)}</div>
+                        </div>
+                        <div class="small text-muted">
+                            ₱${layer.unit_price.toFixed(2)}/ream × ${layer.reams.toFixed(2)} reams
+                        </div>`;
+                    }
+                    
+                    html += `</div>`;
+                });
+                
+                const totalCost = calculatePaperCost();
+                html += `<div class="total-row p-2 mt-3 rounded">
+                    <div class="d-flex justify-content-between fw-bold">
+                        <div>Total Paper Cost (${method}):</div>
+                        <div>₱${totalCost.toFixed(2)}</div>
+                    </div>
+                </div>`;
+            } else {
+                html = '<div class="alert alert-warning">No paper price rows found for the mapped types.</div>';
+            }
+            
+            paperDetailsContainer.innerHTML = html;
         }
 
         function addSession(task) {
@@ -459,10 +595,20 @@ $js_paper_cost = json_encode((float)$total_paper_cost);
             if (hour === 0) hour = 12;
             return `${hour}:${minute.toString().padStart(2, "0")} ${ampm}`;
         }
+
+        // Initialize on page load
+        window.onload = function() {
+            initPaperPricing();
+            calculate();
+            if (!window.location.hash.includes('reloaded')) {
+                window.location.hash = 'reloaded';
+                window.location.reload();
+            }
+        };
     </script>
 </head>
 
-<body onload="calculate()">
+<body>
     <div class="container">
         <div class="back-button">
             <button type="button" class="btn btn-outline-primary" onclick="window.location.href='job_orders.php'">
@@ -511,6 +657,29 @@ $js_paper_cost = json_encode((float)$total_paper_cost);
                                 <?php endforeach; ?>
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label for="paper_pricing_method" class="form-label">Paper Cost Calculation Method</label>
+                            <select id="paper_pricing_method" name="paper_pricing_method" class="form-select" onchange="calculate()">
+                                <option value="ream" <?= ($order['paper_pricing_method'] ?? 'ream') === 'ream' ? 'selected' : '' ?>>
+                                    Calculate by Ream (500 sheets)
+                                </option>
+                                <option value="piece" <?= ($order['paper_pricing_method'] ?? 'ream') === 'piece' ? 'selected' : '' ?>>
+                                    Calculate by Piece (per sheet)
+                                </option>
+                                <option value="custom" <?= ($order['paper_pricing_method'] ?? 'ream') === 'custom' ? 'selected' : '' ?>>
+                                    Enter Custom Paper Cost
+                                </option>
+                            </select>
+                        </div>
+
+                        <div id="custom_paper_section" style="display: <?= (($order['paper_pricing_method'] ?? 'ream') === 'custom') ? 'block' : 'none' ?>;">
+                            <div class="mb-3">
+                                <label for="custom_paper_cost" class="form-label">Total Paper Cost (₱)</label>
+                                <input type="number" step="0.01" id="custom_paper_cost" name="custom_paper_cost" 
+                                    value="<?= $order['custom_paper_cost'] ?? 0 ?>" class="form-control" onchange="calculate()">
+                            </div>
+                        </div>
+
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="other_expenses"
                                 <?= ($order['other_expenses'] == 1 ? 'checked' : '') ?>
@@ -564,6 +733,18 @@ $js_paper_cost = json_encode((float)$total_paper_cost);
                             <div class="col-6 fw-bold">Paper Size:</div>
                             <div class="col-6"><?= htmlspecialchars($paper_size) ?></div>
                         </div>
+                        <div class="row mb-2">
+                            <div class="col-6 fw-bold">Total Pieces:</div>
+                            <div class="col-6"><?= htmlspecialchars($total_sheets) ?></div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-6 fw-bold">Sheets after cut:</div>
+                            <div class="col-6"><?= htmlspecialchars($cut_sheets) ?></div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-6 fw-bold">Reams needed:</div>
+                            <div class="col-6"><?= number_format($reams, 2) ?></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -601,38 +782,41 @@ $js_paper_cost = json_encode((float)$total_paper_cost);
                                 <div><?= htmlspecialchars($product_size) ?> (<?= htmlspecialchars($cut_size_map[$product_size] ?? 1) ?> per sheet)</div>
                             </div>
                             <div class="col-md-6">
-                                <div class="fw-bold">Sheets after cut:</div>
-                                <div><?= htmlspecialchars($cut_sheets) ?></div>
+                                <div class="fw-bold">Paper Type:</div>
+                                <div><?= htmlspecialchars(ucfirst($paper_type)) ?> Paper</div>
                             </div>
                         </div>
 
                         <h6 class="border-bottom pb-2 mb-4 mt-4">Paper Layers</h6>
-                        <?php if (!empty($layer_details)): ?>
-                            <?php foreach ($layer_details as $layer): ?>
-                                <div class="paper-layer">
-                                    <div class="d-flex justify-content-between">
-                                        <div>
-                                            <strong><?= htmlspecialchars($layer['color']) ?></strong>
-                                            <small class="text-muted">(→ <?= htmlspecialchars($layer['mapped']) ?>)</small>
+                        <div id="paper_details_display">
+                            <!-- Dynamic content will be loaded here by JavaScript -->
+                            <?php if (!empty($layer_data)): ?>
+                                <?php foreach ($layer_data as $layer): ?>
+                                    <div class="paper-layer">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <strong><?= htmlspecialchars($layer['color']) ?></strong>
+                                                <small class="text-muted">(→ <?= htmlspecialchars($layer['mapped']) ?>)</small>
+                                            </div>
+                                            <div>₱<?= number_format($layer['cost_ream'], 2) ?></div>
                                         </div>
-                                        <div>₱<?= number_format($layer['cost'], 2) ?></div>
+                                        <div class="small text-muted">
+                                            ₱<?= number_format($layer['unit_price'], 2) ?> × <?= number_format($layer['reams'], 2) ?> reams
+                                        </div>
                                     </div>
-                                    <div class="small text-muted">
-                                        ₱<?= number_format($layer['unit_price'], 2) ?> × <?= number_format($layer['reams'], 2) ?> reams
+                                <?php endforeach; ?>
+                                <div class="total-row p-2 mt-3 rounded">
+                                    <div class="d-flex justify-content-between fw-bold">
+                                        <div>Total Paper Cost (ream):</div>
+                                        <div>₱<?= number_format($total_paper_cost_ream, 2) ?></div>
                                     </div>
                                 </div>
-                            <?php endforeach; ?>
-                            <div class="total-row p-2 mt-3 rounded">
-                                <div class="d-flex justify-content-between fw-bold">
-                                    <div>Total Paper Cost:</div>
-                                    <div>₱<?= number_format($total_paper_cost, 2) ?></div>
+                            <?php else: ?>
+                                <div class="alert alert-warning">
+                                    No paper price rows found for the mapped types. Check your price tables and mappings.
                                 </div>
-                            </div>
-                        <?php else: ?>
-                            <div class="alert alert-warning">
-                                No paper price rows found for the mapped types. Check your price tables and mappings.
-                            </div>
-                        <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
 
@@ -644,6 +828,8 @@ $js_paper_cost = json_encode((float)$total_paper_cost);
                     <input type="hidden" name="printing_cost" id="printing_cost_hidden">
                     <input type="hidden" name="other_expenses_hidden" id="other_expenses_hidden">
                     <input type="hidden" name="paper_spoilage_hidden" id="paper_spoilage_hidden">
+                    <input type="hidden" name="paper_pricing_method" id="paper_pricing_method_hidden">
+                    <input type="hidden" name="custom_paper_cost" id="custom_paper_cost_hidden">
 
                     <div class="card mb-4">
                         <div class="card-header">

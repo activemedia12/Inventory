@@ -9,6 +9,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $other_expenses = intval($_POST['other_expenses_hidden'] ?? 0);
     $paper_spoilage = intval($_POST['paper_spoilage_hidden'] ?? 0);
     $sessions      = $_POST['sessions'] ?? [];
+    $paper_pricing_method = $_POST['paper_pricing_method'] ?? 'ream';
+    $custom_paper_cost = floatval($_POST['custom_paper_cost'] ?? 0);
 
     if ($job_id <= 0) {
         die("❌ Invalid job order ID.");
@@ -17,13 +19,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // 1. Save grand total + printing + expenses
     $stmt = $inventory->prepare("
         UPDATE job_orders 
-        SET grand_total = ?, printing_type = ?, printing_cost = ?, other_expenses = ?, paper_spoilage = ?
+        SET grand_total = ?, printing_type = ?, printing_cost = ?, 
+            other_expenses = ?, paper_spoilage = ?, 
+            paper_pricing_method = ?, custom_paper_cost = ?
         WHERE id = ?
     ");
     if (!$stmt) {
         die("❌ Prepare failed: " . $inventory->error);
     }
-    $stmt->bind_param("dsdiii", $grand_total, $printing_type, $printing_cost, $other_expenses, $paper_spoilage, $job_id);
+    // FIXED: Changed "dsdiii" to "dsdiisdi" to match parameters
+    $stmt->bind_param("dsdiisdi", 
+        $grand_total,           // d (double/float)
+        $printing_type,         // s (string)
+        $printing_cost,         // d (double/float)
+        $other_expenses,        // i (integer)
+        $paper_spoilage,        // i (integer)
+        $paper_pricing_method,  // s (string)
+        $custom_paper_cost,     // d (double/float)
+        $job_id                 // i (integer)
+    );
     $stmt->execute();
     $stmt->close();
 
@@ -75,4 +89,3 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     header("Location: job_orders.php?updated=1&id=" . $job_id);
     exit;
 }
-?>

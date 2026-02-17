@@ -336,7 +336,7 @@ while ($row = $result->fetch_assoc()) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
   <style>
     .hide {
       opacity: 0;
@@ -353,18 +353,19 @@ while ($row = $result->fetch_assoc()) {
 
     @media (prefers-reduced-motion) {
       .hide {
-          transition: none;
+        transition: none;
       }
     }
 
     ::-webkit-scrollbar {
       width: 7px;
-      height: 5px;
+      height: 10px;
     }
 
     ::-webkit-scrollbar-thumb {
       background: #1876f299;
       border-radius: 10px;
+      cursor: ew-resize;
     }
 
     :root {
@@ -1527,6 +1528,35 @@ while ($row = $result->fetch_assoc()) {
     }
 
     /* Buttons */
+    .export-info-box {
+        background: #f8f9fa;
+        border-left: 4px solid #4F81BD;
+        padding: 15px;
+        margin-top: 20px;
+        border-radius: 4px;
+    }
+
+    .export-info-box h6 {
+        color: #4F81BD;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .export-info-box ul {
+        margin: 0;
+        padding-left: 20px;
+        font-size: 14px;
+    }
+
+    .export-info-box li {
+        margin-bottom: 5px;
+    }
+
+    .export-btn i {
+        margin-right: 8px;
+    }
     .export-form-actions {
       display: flex;
       justify-content: flex-start;
@@ -1617,6 +1647,15 @@ while ($row = $result->fetch_assoc()) {
       }
     }
 
+    .export1 {
+      background-color: var(--card-bg);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      width: 234.3px;
+    }
+
     .export {
       background-color: var(--card-bg);
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
@@ -1624,6 +1663,50 @@ while ($row = $result->fetch_assoc()) {
       padding: 20px;
       margin-bottom: 20px;
       width: 216.3px;
+    }
+
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(3px);
+      z-index: 999;
+      display: none;
+    }
+
+    .profit-positive {
+      color: #28a745;
+      font-weight: bold;
+    }
+
+    .profit-negative {
+      color: #dc3545;
+      font-weight: bold;
+    }
+
+    .profit-cell {
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .set-cost-btn {
+      background-color: #ffc107;
+      border-color: #d39e00;
+      color: #212529;
+      margin-top: 5px;
+    }
+
+    .set-cost-btn:hover {
+      background-color: #e0a800;
+      border-color: #d39e00;
+    }
+
+    .total-cost-cell {
+      font-weight: 600;
+      color: #0d6efd;
     }
   </style>
 </head>
@@ -1680,13 +1763,19 @@ while ($row = $result->fetch_assoc()) {
         <a href="job_orders.php" class="btn btn-outline"><i class="fas fa-sync-alt"></i> Reset</a>
       </form>
     </div>
+    <div style="display: flex; gap: 20px;">
+      <div class="export">
+        <button onclick="document.getElementById('exportModal').style.display='flex'" class="btn">
+          Request J.O. Reports
+        </button>
+      </div>
 
-    <div class="export">
-      <button onclick="document.getElementById('exportModal').style.display='flex'" class="btn">
-        Request J.O. Reports
-      </button>
+      <div class="export1">
+        <button onclick="document.getElementById('exportExpensesModal').style.display='flex'" class="btn">
+            Export Expenses Report
+        </button>
+      </div>
     </div>
-
     <div class="card">
       <div class="collapsible-form-header" onclick="toggleForm()">
         <span><i class="fas fa-plus-circle"></i> Create New Job Order</span>
@@ -2117,18 +2206,342 @@ while ($row = $result->fetch_assoc()) {
     </div>
   </div>
 
+  <div id="exportExpensesModal" class="export-modal-overlay">
+      <div class="export-modal-container">
+          <div class="export-modal-header">
+              <h3 class="export-modal-title">Export Expenses Report</h3>
+              <button class="export-modal-close" onclick="document.getElementById('exportExpensesModal').style.display='none'">
+                  &times;
+              </button>
+          </div>
+
+          <div class="export-modal-body">
+              <span style="font-size: 80%; color: lightgray;">Generate and export job order expenses with profit analysis.*</span>
+              <br>
+              <span style="font-size: 80%; color: lightgray;">Will be sent via email as an Excel (.xlsx) attachment.*</span>
+              <br>
+              <span style="font-size: 80%; color: lightgray;"><strong>Includes labor costs, paper costs, printing costs, and profit calculations.</strong>*</span>
+              
+              <form action="../config/export_expenses.php" method="GET" target="_blank" class="export-form">
+                  <div class="export-form-group">
+                      <label class="export-form-label">Start Date</label>
+                      <div class="export-input-wrapper">
+                          <input type="date" name="start_date" id="expenses_start_date" class="export-form-input" required>
+                      </div>
+                  </div>
+
+                  <div class="export-form-group">
+                      <label class="export-form-label">End Date</label>
+                      <div class="export-input-wrapper">
+                          <input type="date" name="end_date" id="expenses_end_date" class="export-form-input" required>
+                      </div>
+                  </div>
+
+                  <div class="export-form-actions">
+                      <button type="submit" class="export-btn export-btn-primary">
+                          <i class="fas fa-file-excel"></i> Generate & Email Report
+                      </button>
+                      <button type="button" class="export-btn export-btn-secondary" onclick="document.getElementById('exportExpensesModal').style.display='none'">
+                          Cancel
+                      </button>
+                  </div>
+              </form>
+              
+              <div class="export-info-box">
+                  <h6><i class="fas fa-info-circle"></i> Report Includes:</h6>
+                  <ul>
+                      <li><strong>Sheet 1:</strong> Expenses Summary with Profit Calculation</li>
+                      <li><strong>Sheet 2:</strong> Detailed Labor Sessions</li>
+                      <li><strong>Sheet 3:</strong> Paper Cost Analysis</li>
+                      <li><strong>Sheet 4:</strong> Financial Summary</li>
+                  </ul>
+                  <p class="mb-0"><small>Email will be sent to: <strong>activemediaprint@gmail.com</strong></small></p>
+              </div>
+          </div>
+      </div>
+  </div>
+
+  <div id="setCostModal" class="modal" style="display: none;">
+    <div class="floating-window">
+      <div class="window-header">
+        <div class="window-title">
+          <i class="fas fa-dollar-sign"></i>
+          Set Total Cost
+        </div>
+        <button class="close-btn" onclick="closeCostModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="window-content">
+        <form id="setCostForm">
+          <input type="hidden" id="modalJobId" name="job_id">
+          <div class="form-group">
+            <label for="modalClient" class="form-label">Client</label>
+            <input type="text" class="form-control" id="modalClient" readonly>
+          </div>
+          <div class="form-group">
+            <label for="modalProject" class="form-label">Project</label>
+            <input type="text" class="form-control" id="modalProject" readonly>
+          </div>
+          <div class="form-group">
+            <label for="modalExpenses" class="form-label">Total Expenses</label>
+            <input type="text" class="form-control" id="modalExpenses" readonly>
+          </div>
+          <div class="form-group">
+            <label for="totalCost" class="form-label">Total Cost to Client (₱)</label>
+            <input type="number" step="0.01" min="0" class="form-control" id="totalCost" name="total_cost" required>
+            <div class="form-text">This is the amount you charged the client</div>
+          </div>
+          <div class="form-group">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Profit Preview</h6>
+                <div class="row">
+                  <div class="col-6">
+                    <small>Expenses:</small><br>
+                    <span id="previewExpenses" class="fw-bold">₱ 0.00</span>
+                  </div>
+                  <div class="col-6">
+                    <small>Profit:</small><br>
+                    <span id="previewProfit" class="fw-bold">₱ 0.00</span>
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <small>Profit Margin:</small><br>
+                  <span id="previewMargin" class="fw-bold">0.0%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="action-buttons">
+            <button type="button" class="btn-edit" onclick="closeCostModal()">Cancel</button>
+            <button type="button" class="btn-status" onclick="saveTotalCost()">Save Cost</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <script>
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          console.log(entry)
-          if (entry.isIntersecting) {
-            entry.target.classList.add('show');
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        
+        const startDate = document.getElementById('expenses_start_date');
+        const endDate = document.getElementById('expenses_end_date');
+        
+        if (startDate) {
+            startDate.value = firstDay.toISOString().split('T')[0];
+        }
+        
+        if (endDate) {
+            endDate.value = lastDay.toISOString().split('T')[0];
+        }
+        
+        // Date validation for expenses modal
+        if (startDate && endDate) {
+            endDate.addEventListener('change', function() {
+                if (new Date(startDate.value) > new Date(endDate.value)) {
+                    alert('End date cannot be before start date');
+                    endDate.value = startDate.value;
+                }
+            });
+            
+            startDate.addEventListener('change', function() {
+                if (new Date(startDate.value) > new Date(endDate.value)) {
+                    endDate.value = startDate.value;
+                }
+            });
+        }
+        
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const expensesModal = document.getElementById('exportExpensesModal');
+            const joModal = document.getElementById('exportModal');
+            
+            if (event.target === expensesModal) {
+                expensesModal.style.display = 'none';
+            }
+            
+            if (event.target === joModal) {
+                joModal.style.display = 'none';
+            }
+        });
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            document.getElementById('exportExpensesModal').style.display = 'none';
+            document.getElementById('exportModal').style.display = 'none';
+        }
+    });
+
+    // Quick date range buttons (optional enhancement)
+    function setExpensesDateRange(days) {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(start.getDate() - days);
+        
+        document.getElementById('expenses_start_date').value = start.toISOString().split('T')[0];
+        document.getElementById('expenses_end_date').value = end.toISOString().split('T')[0];
+    }
+
+    // Function to open modal and set total cost
+    function setTotalCost(jobId, clientName, projectName) {
+      // Fetch current expenses via AJAX
+      fetch(`get_job_expenses.php?id=${jobId}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            document.getElementById('modalJobId').value = jobId;
+            document.getElementById('modalClient').value = clientName;
+            document.getElementById('modalProject').value = projectName;
+
+            // Check if expenses are computed
+            if (parseFloat(data.expenses) > 0) {
+              document.getElementById('modalExpenses').value = '₱ ' + parseFloat(data.expenses).toFixed(2);
+              document.getElementById('modalExpenses').classList.remove('text-muted');
+              document.getElementById('totalCost').disabled = false;
+              document.getElementById('totalCost').placeholder = '';
+            } else {
+              document.getElementById('modalExpenses').value = 'Not Computed Yet';
+              document.getElementById('modalExpenses').classList.add('text-muted');
+              document.getElementById('totalCost').disabled = true;
+              document.getElementById('totalCost').placeholder = 'Compute expenses first';
+            }
+
+            // Set current total cost if exists
+            if (data.total_cost && data.total_cost > 0) {
+              document.getElementById('totalCost').value = data.total_cost;
+            } else {
+              document.getElementById('totalCost').value = '';
+            }
+
+            // Update preview
+            updateProfitPreview();
+
+            // Show modal using your existing system
+            const modal = document.getElementById('setCostModal');
+            modal.style.display = 'flex';
+
           } else {
-            entry.target.classList.remove('show');
+            alert('Error fetching job data: ' + data.message);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Error fetching job data');
+        });
+    }
+
+    // Close the cost modal
+    function closeCostModal() {
+      document.getElementById('setCostModal').style.display = 'none';
+    }
+
+    // Update profit preview
+    function updateProfitPreview() {
+      const expensesText = document.getElementById('modalExpenses').value;
+      const expenses = parseFloat(expensesText.replace('₱ ', '')) || 0;
+      const totalCost = parseFloat(document.getElementById('totalCost').value) || 0;
+      const profit = totalCost - expenses;
+      const profitMargin = expenses > 0 ? (profit / expenses) * 100 : 0;
+
+      document.getElementById('previewExpenses').textContent = '₱ ' + expenses.toFixed(2);
+      document.getElementById('previewProfit').textContent = '₱ ' + profit.toFixed(2);
+      document.getElementById('previewMargin').textContent = profitMargin.toFixed(1) + '%';
+
+      // Color coding
+      const profitElement = document.getElementById('previewProfit');
+      const marginElement = document.getElementById('previewMargin');
+
+      if (profit >= 0) {
+        profitElement.className = 'fw-bold profit-positive';
+        marginElement.className = 'fw-bold profit-positive';
+      } else {
+        profitElement.className = 'fw-bold profit-negative';
+        marginElement.className = 'fw-bold profit-negative';
+      }
+    }
+
+    // Save total cost via AJAX
+    function saveTotalCost() {
+      const jobId = document.getElementById('modalJobId').value;
+      const totalCost = document.getElementById('totalCost').value;
+
+      if (!totalCost || parseFloat(totalCost) <= 0) {
+        alert('Please enter a valid total cost');
+        return;
+      }
+
+      fetch('save_total_cost.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: `job_id=${jobId}&total_cost=${totalCost}`
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // Update the table row
+            const expensesText = document.getElementById('modalExpenses').value;
+            const expenses = parseFloat(expensesText.replace('₱ ', '')) || 0;
+            const profit = totalCost - expenses;
+            const profitMargin = expenses > 0 ? (profit / expenses) * 100 : 0;
+
+            // Update cells
+            document.getElementById(`total-cost-${jobId}`).innerHTML = `₱ ${parseFloat(totalCost).toFixed(2)}`;
+
+            let profitHtml = `₱ ${profit.toFixed(2)}<br><small class="${profit >= 0 ? 'profit-positive' : 'profit-negative'}">(${profitMargin.toFixed(1)}%)</small>`;
+            document.getElementById(`profit-${jobId}`).innerHTML = profitHtml;
+            document.getElementById(`profit-${jobId}`).className = `profit-cell ${profit >= 0 ? 'profit-positive' : 'profit-negative'}`;
+
+            // Close modal
+            closeCostModal();
+
+            alert('Total cost saved successfully!');
+          } else {
+            alert('Error saving total cost: ' + data.message);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Error saving total cost');
+        });
+    }
+
+    // Add event listener for real-time preview
+    document.addEventListener('DOMContentLoaded', function() {
+      const totalCostInput = document.getElementById('totalCost');
+      if (totalCostInput) {
+        totalCostInput.addEventListener('input', updateProfitPreview);
+      }
+
+      // Close modal on outside click
+      const costModal = document.getElementById('setCostModal');
+      if (costModal) {
+        costModal.addEventListener('click', function(e) {
+          if (e.target === this) {
+            closeCostModal();
           }
         });
+      }
+    });
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        console.log(entry)
+        if (entry.isIntersecting) {
+          entry.target.classList.add('show');
+        } else {
+          entry.target.classList.remove('show');
+        }
       });
-      
+    });
+
     const hiddenElements = document.querySelectorAll('.hide');
     hiddenElements.forEach((el) => observer.observe(el));
 
