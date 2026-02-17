@@ -13,7 +13,7 @@ try {
     $mail = new PHPMailer(true);
     $mail->SMTPDebug = 2;
     $mail->Debugoutput = 'html';
-    
+
     $mail->isSMTP();
     $mail->Host = 'smtp.gmail.com';
     $mail->SMTPAuth = true;
@@ -21,7 +21,7 @@ try {
     $mail->Password = 'kjyj krfm rkbk qmst';
     $mail->SMTPSecure = 'tls';
     $mail->Port = 587;
-    
+
     echo "Attempting to connect...<br>";
     if ($mail->smtpConnect()) {
         echo "<span style='color:green'>✓ Connected successfully!</span><br>";
@@ -35,22 +35,23 @@ try {
 echo "<h3>Test 2: Send Test Email</h3>";
 if (isset($_POST['test_email'])) {
     $test_email = $_POST['test_email'];
-    
+
     try {
         $mail = new PHPMailer(true);
         $mail->isSMTP();
-        $mail->Host = 'smtp.gmail.com';
-        $mail->SMTPAuth = true;
-        $mail->Username = 'reportsjoborder@gmail.com';
-        $mail->Password = 'kjyj krfm rkbk qmst';
+        $mail->isSMTP();
+        $mail->Host       = 'smtp.gmail.com';
+        $mail->SMTPAuth   = true;
+        $mail->Username   = 'amdpreports@gmail.com';
+        $mail->Password   = 'odyh qgxv iaez fylf'; // App password
         $mail->SMTPSecure = 'tls';
-        $mail->Port = 587;
-        
-        $mail->setFrom('reportsjoborder@gmail.com', 'Test Sender');
+        $mail->Port       = 587;
+
+        $mail->setFrom('amdpreports@gmail.com', 'AMDP Reports');
         $mail->addAddress($test_email);
         $mail->Subject = 'Test Email from PHPMailer';
         $mail->Body = 'This is a test email sent at ' . date('Y-m-d H:i:s');
-        
+
         if ($mail->send()) {
             echo "<span style='color:green'>✓ Test email sent to $test_email</span>";
         }
@@ -76,4 +77,3 @@ echo "PHP Mail Function: " . (function_exists('mail') ? 'Enabled' : 'Disabled') 
 echo "OpenSSL: " . (extension_loaded('openssl') ? 'Enabled' : 'Disabled') . "\n";
 echo "SMTP in php.ini: " . ini_get('SMTP') . "\n";
 echo "</pre>";
-?>

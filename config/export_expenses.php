@@ -45,10 +45,25 @@ $summarySheet->getStyle('A3')->getAlignment()->setHorizontal(Alignment::HORIZONT
 
 // Column Headers
 $summaryHeaders = [
-    'Job ID', 'Date', 'Client', 'Project', 'Quantity', 'Sets',
-    'Product Size', 'Paper Type', 'Paper Layers', 'Printing Type',
-    'Paper Cost', 'Printing Cost', 'Labor Cost', 'Other Expenses (25%)', 
-    'Paper Spoilage (10%)', 'Total Expenses', 'Total Cost', 'Profit', 'Profit %'
+    'Job ID',
+    'Date',
+    'Client',
+    'Project',
+    'Quantity',
+    'Sets',
+    'Product Size',
+    'Paper Type',
+    'Paper Layers',
+    'Printing Type',
+    'Paper Cost',
+    'Printing Cost',
+    'Labor Cost',
+    'Other Expenses (25%)',
+    'Paper Spoilage (10%)',
+    'Total Expenses',
+    'Total Cost',
+    'Profit',
+    'Profit %'
 ];
 $summarySheet->fromArray($summaryHeaders, NULL, 'A5');
 $summarySheet->getStyle('A5:S5')->applyFromArray([
@@ -131,28 +146,28 @@ if ($totalJobs === 0) {
         $labor_data = $labor_result->fetch_assoc();
         $labor_cost = $labor_data['total_labor'] ?? 0;
         $labor_stmt->close();
-        
+
         // Get printing cost
         $printing_cost = $job['printing_cost'] ?? 0;
-        
+
         // Calculate paper cost (estimated as grand_total - labor - printing)
         $paper_cost = max(0, $job['grand_total'] - $labor_cost - $printing_cost);
-        
+
         // Calculate other expenses
         $other_expenses = ($job['other_expenses'] == 1) ? $job['grand_total'] * 0.25 : 0;
         $paper_spoilage = ($job['paper_spoilage'] == 1) ? $paper_cost * 0.10 : 0;
-        
+
         // Total expenses (should match grand_total)
         $total_expense = $job['grand_total'];
-        
+
         // Get total cost (revenue)
         $total_cost = $job['total_cost'] ?? 0;
         $profit = $total_cost - $total_expense;
         $profit_percent = $total_expense > 0 ? ($profit / $total_expense) * 100 : 0;
-        
+
         // Count paper layers
         $paper_layers = !empty($job['paper_sequence']) ? count(explode(',', $job['paper_sequence'])) : 0;
-        
+
         // Accumulate totals
         $total_paper_cost += $paper_cost;
         $total_printing_cost += $printing_cost;
@@ -162,7 +177,7 @@ if ($totalJobs === 0) {
         $total_expenses += $total_expense;
         $total_revenue += $total_cost;
         $total_profit += $profit;
-        
+
         $summarySheet->fromArray([
             $job['id'],
             date('m/d/Y', strtotime($job['log_date'])),
@@ -184,21 +199,21 @@ if ($totalJobs === 0) {
             number_format($profit, 2),
             number_format($profit_percent, 2) . '%'
         ], null, 'A' . $row);
-        
+
         $row++;
     }
-    
+
     // Apply alignment styles to all data rows
     // Left align text columns (A-J)
-    $summarySheet->getStyle('A6:J' . ($row-1))->applyFromArray([
+    $summarySheet->getStyle('A6:J' . ($row - 1))->applyFromArray([
         'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
     ]);
-    
+
     // Right align number columns (K-S)
-    $summarySheet->getStyle('K6:S' . ($row-1))->applyFromArray([
+    $summarySheet->getStyle('K6:S' . ($row - 1))->applyFromArray([
         'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
     ]);
-    
+
     // Color code profit column
     for ($i = 6; $i < $row; $i++) {
         $profitValue = $summarySheet->getCell('R' . $i)->getValue();
@@ -211,14 +226,14 @@ if ($totalJobs === 0) {
             }
         }
     }
-    
+
     // Add Summary Totals
     $summaryRow = $row + 2;
     $summarySheet->mergeCells('A' . $summaryRow . ':J' . $summaryRow);
     $summarySheet->setCellValue('A' . $summaryRow, 'TOTALS SUMMARY');
     $summarySheet->getStyle('A' . $summaryRow)->getFont()->setBold(true)->setSize(14);
     $summarySheet->getStyle('A' . $summaryRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
-    
+
     $summaryRow++;
     $summarySheet->setCellValue('A' . $summaryRow, 'Total Paper Cost:');
     $summarySheet->setCellValue('B' . $summaryRow, '₱' . number_format($total_paper_cost, 2));
@@ -226,12 +241,12 @@ if ($totalJobs === 0) {
     $summarySheet->setCellValue('D' . $summaryRow, '₱' . number_format($total_printing_cost, 2));
     $summarySheet->setCellValue('E' . $summaryRow, 'Total Labor:');
     $summarySheet->setCellValue('F' . $summaryRow, '₱' . number_format($total_labor_cost, 2));
-    
+
     $summarySheet->getStyle('A' . $summaryRow . ':F' . $summaryRow)->applyFromArray([
         'font' => ['bold' => true],
         'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
     ]);
-    
+
     $summaryRow++;
     $summarySheet->setCellValue('A' . $summaryRow, 'Other Expenses:');
     $summarySheet->setCellValue('B' . $summaryRow, '₱' . number_format($total_other_expenses, 2));
@@ -239,24 +254,24 @@ if ($totalJobs === 0) {
     $summarySheet->setCellValue('D' . $summaryRow, '₱' . number_format($total_paper_spoilage, 2));
     $summarySheet->setCellValue('E' . $summaryRow, 'Total Expenses:');
     $summarySheet->setCellValue('F' . $summaryRow, '₱' . number_format($total_expenses, 2));
-    
+
     $summarySheet->getStyle('A' . $summaryRow . ':F' . $summaryRow)->applyFromArray([
         'font' => ['bold' => true],
         'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
     ]);
-    
+
     $summaryRow++;
     $summarySheet->setCellValue('A' . $summaryRow, 'Total Revenue:');
     $summarySheet->setCellValue('B' . $summaryRow, '₱' . number_format($total_revenue, 2));
     $summarySheet->setCellValue('C' . $summaryRow, 'Total Profit:');
     $profitCell = 'D' . $summaryRow;
     $summarySheet->setCellValue($profitCell, '₱' . number_format($total_profit, 2));
-    
+
     $summarySheet->getStyle('A' . $summaryRow . ':D' . $summaryRow)->applyFromArray([
         'font' => ['bold' => true],
         'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
     ]);
-    
+
     // Color code total profit
     if ($total_profit > 0) {
         $summarySheet->getStyle($profitCell)->getFont()->getColor()->setARGB('FF006600');
@@ -276,8 +291,17 @@ $laborSheet = $spreadsheet->createSheet();
 $laborSheet->setTitle("Labor Sessions");
 
 $laborHeaders = [
-    'Job ID', 'Client', 'Project', 'Task', 'Date', 'Start Time', 
-    'End Time', 'Break (mins)', 'Hours', 'Rate', 'Cost'
+    'Job ID',
+    'Client',
+    'Project',
+    'Task',
+    'Date',
+    'Start Time',
+    'End Time',
+    'Break (mins)',
+    'Hours',
+    'Rate',
+    'Cost'
 ];
 $laborSheet->fromArray($laborHeaders, NULL, 'A1');
 $laborSheet->getStyle('A1:K1')->applyFromArray([
@@ -338,20 +362,20 @@ if ($laborResult->num_rows === 0) {
         ], null, 'A' . $laborRow);
         $laborRow++;
     }
-    
+
     // Apply alignment to labor data
     // Left align text columns (A-E)
-    $laborSheet->getStyle('A2:E' . ($laborRow-1))->applyFromArray([
+    $laborSheet->getStyle('A2:E' . ($laborRow - 1))->applyFromArray([
         'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
     ]);
-    
+
     // Center align time columns (F-H)
-    $laborSheet->getStyle('F2:H' . ($laborRow-1))->applyFromArray([
+    $laborSheet->getStyle('F2:H' . ($laborRow - 1))->applyFromArray([
         'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
     ]);
-    
+
     // Right align number columns (I-K)
-    $laborSheet->getStyle('I2:K' . ($laborRow-1))->applyFromArray([
+    $laborSheet->getStyle('I2:K' . ($laborRow - 1))->applyFromArray([
         'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
     ]);
 }
@@ -366,9 +390,19 @@ $detailsSheet = $spreadsheet->createSheet();
 $detailsSheet->setTitle("Job Details");
 
 $detailsHeaders = [
-    'Job ID', 'Date', 'Client', 'Project', 'Quantity', 'Sets',
-    'Product Size', 'Paper Size', 'Paper Type', 'Paper Sequence',
-    'Binding Type', 'Printing Type', 'Special Instructions'
+    'Job ID',
+    'Date',
+    'Client',
+    'Project',
+    'Quantity',
+    'Sets',
+    'Product Size',
+    'Paper Size',
+    'Paper Type',
+    'Paper Sequence',
+    'Binding Type',
+    'Printing Type',
+    'Special Instructions'
 ];
 $detailsSheet->fromArray($detailsHeaders, NULL, 'A1');
 $detailsSheet->getStyle('A1:M1')->applyFromArray([
@@ -432,16 +466,16 @@ if ($detailsResult->num_rows === 0) {
         ], null, 'A' . $detailsRow);
         $detailsRow++;
     }
-    
+
     // Apply alignment to job details
     // Left align all columns
-    $detailsSheet->getStyle('A2:M' . ($detailsRow-1))->applyFromArray([
+    $detailsSheet->getStyle('A2:M' . ($detailsRow - 1))->applyFromArray([
         'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
         'wrapText' => true
     ]);
-    
+
     // Right align quantity and sets columns
-    $detailsSheet->getStyle('E2:F' . ($detailsRow-1))->applyFromArray([
+    $detailsSheet->getStyle('E2:F' . ($detailsRow - 1))->applyFromArray([
         'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
     ]);
 }
@@ -467,23 +501,23 @@ try {
     $mail->isSMTP();
     $mail->Host       = 'smtp.gmail.com';
     $mail->SMTPAuth   = true;
-    $mail->Username   = 'reportsjoborder@gmail.com';
-    $mail->Password   = 'kjyj krfm rkbk qmst';
+    $mail->Username   = 'amdpreports@gmail.com';
+    $mail->Password   = 'odyh qgxv iaez fylf'; // App password
     $mail->SMTPSecure = 'tls';
     $mail->Port       = 587;
 
-    $mail->setFrom('reportsjoborder@gmail.com', 'AMDP Inventory');
+    $mail->setFrom('amdpreports@gmail.com', 'AMDP Reports');
     $mail->addAddress('activemediaprint@gmail.com', 'Active Media');
-    $mail->addCC('reportsjoborder@gmail.com');
+    $mail->addCC('amdpreports@gmail.com');
 
     $mail->addAttachment($tempPath, $filename);
 
     $mail->isHTML(true);
     $mail->Subject = "Job Order Expenses Report: {$startFormatted} to {$endFormatted}";
-    
+
     $profitClass = $total_profit >= 0 ? 'profit-positive' : 'profit-negative';
     $profitIcon = $total_profit >= 0 ? '📈' : '📉';
-    
+
     $mail->Body    = "
         <html>
         <body style='font-family: Arial, sans-serif;'>
@@ -520,21 +554,21 @@ try {
 
     // Success HTML response
     echo generateSuccessHTML($startFormatted, $endFormatted, $total_revenue, $total_expenses, $total_profit, $totalJobs);
-
 } catch (Exception $e) {
     echo generateErrorHTML($mail->ErrorInfo);
 }
 
 // Helper functions for HTML responses
-function generateSuccessHTML($startDate, $endDate, $revenue, $expenses, $profit, $totalJobs) {
+function generateSuccessHTML($startDate, $endDate, $revenue, $expenses, $profit, $totalJobs)
+{
     $profitClass = $profit >= 0 ? 'profit-positive' : 'profit-negative';
     $profitIcon = $profit >= 0 ? '📈' : '📉';
-    
+
     // Format numbers for display
     $formattedRevenue = number_format($revenue, 2);
     $formattedExpenses = number_format($expenses, 2);
     $formattedProfit = number_format($profit, 2);
-    
+
     return '<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -784,7 +818,8 @@ function generateSuccessHTML($startDate, $endDate, $revenue, $expenses, $profit,
 </html>';
 }
 
-function generateErrorHTML($error) {
+function generateErrorHTML($error)
+{
     return '<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -947,4 +982,3 @@ function generateErrorHTML($error) {
 </body>
 </html>';
 }
-?>
