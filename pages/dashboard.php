@@ -456,7 +456,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             gap: 20px;
         }
 
@@ -466,13 +466,11 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             padding: 20px;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             transition: transform 0.2s, box-shadow 0.2s;
-            min-width: 0;
-            /* Prevents overflow */
+            min-width: 600px;
         }
-
-        .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        
+        .ss {
+            max-width: 600px;
         }
 
         .stat-card .card-header {
@@ -532,7 +530,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 20px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         .finance-card {
@@ -607,7 +605,8 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             border-radius: 8px;
             padding: 20px;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+            overflow: scroll;
         }
 
         .section-header {
@@ -894,13 +893,14 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         /* Stock Summary Styles */
         .stock-summary {
             margin-top: 15px;
+            overflow: scroll;
         }
 
         .product-category {
             border: 1px solid var(--light-gray);
             border-radius: 8px;
             margin-bottom: 15px;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .category-header {
@@ -910,6 +910,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             display: flex;
             justify-content: space-between;
             align-items: center;
+            min-width: 500px;
         }
 
         .category-title {
@@ -1175,7 +1176,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             transform: translate(-50%, -50%);
             width: 90%;
             max-width: 1000px;
-            max-height: 80vh;
+            height: 80vh;
             background: white;
             border-radius: 12px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
@@ -1533,6 +1534,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
                 padding: 8px 10px;
             }
         }
+        
 
         /* New user-friendly additions - subtle improvements */
         .quick-tip {
@@ -1714,6 +1716,54 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
                 </div>
             </div>
         </div>
+        
+<?php
+$missing_revenue = $inventory->query("
+    SELECT COUNT(*) AS cnt
+    FROM job_orders
+    WHERE YEAR(log_date) = YEAR(CURDATE())
+    AND (total_cost IS NULL OR total_cost <= 0)
+")->fetch_assoc()['cnt'] ?? 0;
+
+if ($missing_revenue > 0): ?>
+    <div class="quick-tip" style="
+        background: #fff3cd;
+        border-left: 5px solid var(--warning);
+        padding: 16px 20px;
+        margin: 25px 0 30px;
+        border-radius: 8px;
+        font-size: 14px;
+        line-height: 1.5;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    ">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+            <i class="fas fa-exclamation-triangle" style="
+                color: #856404;
+                font-size: 24px;
+                margin-top: 4px;
+            "></i>
+            <div>
+                <strong style="color: #856404; font-size: 16px; display: block; margin-bottom: 6px;">
+                    Important: Incomplete Financial Data
+                </strong>
+                <span style="color: #856404;">
+                    <?= number_format($missing_revenue) ?> job orders this year have production costs calculated 
+                    but <strong>no selling price (total cost)</strong> entered yet.<br>
+                    This makes revenue, profit, and margin figures incomplete or misleading.
+                </span>
+                <br><br>
+                <a href="job_orders.php" style="
+                    color: #856404;
+                    font-weight: 600;
+                    text-decoration: underline;
+                    transition: color 0.2s;
+                " onmouseover="this.style.color='#b36b00'" onmouseout="this.style.color='#856404'">
+                    → Go to Job Orders and set missing Total Costs
+                </a>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
 
         <!-- Financial Summary Cards -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -1853,7 +1903,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
                     </div>
                 </div>
 
-                <table style="width: 100%;">
+                <table>
                     <thead>
                         <tr>
                             <th>Year</th>
@@ -1887,7 +1937,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         <div class="flex">
             <div class="stock-cards">
                 <!-- Stock Summary Card -->
-                <div class="stat-card" style="margin-right: 20px; min-width: 600px;">
+                <div class="stat-card ss" style="margin-right: 20px;">
                     <div class="card-header">
                         <div>
                             <h3>Stock Summary</h3>
@@ -2105,15 +2155,8 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
 
     <!-- Product Modal -->
     <div id="productModal" class="modal">
-        <div class="floating-window" style="max-width: 500px;">
-            <div class="window-header">
-                <div class="window-title">
-                    <i class="fas fa-box"></i> Product Details
-                </div>
-                <button class="close-btn" onclick="closeModal('product')"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="window-content" id="productModalBody"></div>
-        </div>
+        <button class="close-btn" onclick="closeModal('product')"><i class="fas fa-times"></i></button>
+        <div class="window-content" id="productModalBody"></div>
     </div>
 
     <div id="jobModal" class="modal">
@@ -2153,52 +2196,71 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             });
         });
 
-        // Clickable rows for product details
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.clickable-row[data-id]').forEach(row => {
-                row.addEventListener('click', function(e) {
-                    if (e.target.closest('.status-badge')) return;
-                    const productId = this.dataset.id;
-                    if (!productId) return;
+// Close modal function - simplified and more robust
+function closeModal() {
+    const productModal = document.getElementById('productModal');
+    const jobModal = document.getElementById('jobModal');
+    
+    if (productModal) {
+        productModal.style.display = 'none';
+        document.getElementById('productModalBody').innerHTML = ''; // Clear content
+    }
+    if (jobModal) {
+        jobModal.style.display = 'none';
+        // Clear job modal if needed
+    }
+}
 
-                    fetch(`product_info.php?id=${productId}`)
-                        .then(res => {
-                            if (!res.ok) throw new Error("Failed to fetch");
-                            return res.text();
-                        })
-                        .then(html => {
-                            document.getElementById('productModalBody').innerHTML = html;
-                            document.getElementById('productModal').style.display = 'flex';
-                        })
-                        .catch(err => {
-                            document.getElementById('productModalBody').innerHTML = `
-                                <div style="text-align: center; padding: 20px; color: var(--danger);">
-                                    <i class="fas fa-exclamation-circle" style="font-size: 40px; margin-bottom: 10px;"></i>
-                                    <p>Error loading product info: ${err.message}</p>
-                                </div>
-                            `;
-                            document.getElementById('productModal').style.display = 'flex';
-                        });
+// Click outside modal to close
+window.addEventListener('click', function(event) {
+    if (event.target.classList.contains('modal')) {
+        closeModal();
+    }
+});
+
+// Event delegation for ALL close buttons (static + dynamic from loaded content)
+document.addEventListener('click', function(e) {
+    // Check if clicked element is the close button or inside it
+    const closeBtn = e.target.closest('.close-btn');
+    if (closeBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeModal();
+        return;
+    }
+});
+
+// Clickable rows for product details (keep your existing fetch logic, just make sure it's not conflicting)
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.clickable-row[data-id]').forEach(row => {
+        row.addEventListener('click', function(e) {
+            if (e.target.closest('.status-badge')) return;
+            const productId = this.dataset.id;
+            if (!productId) return;
+
+            fetch(`product_info.php?id=${productId}`)
+                .then(res => {
+                    if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
+                    return res.text();
+                })
+                .then(html => {
+                    const modalBody = document.getElementById('productModalBody');
+                    modalBody.innerHTML = html;
+                    document.getElementById('productModal').style.display = 'flex';
+                })
+                .catch(err => {
+                    document.getElementById('productModalBody').innerHTML = `
+                        <div style="text-align:center; padding:40px; color:#dc3545;">
+                            <i class="fas fa-exclamation-circle fa-3x" style="margin-bottom:20px;"></i>
+                            <p><strong>Error loading product details</strong></p>
+                            <small>${err.message}</small>
+                        </div>
+                    `;
+                    document.getElementById('productModal').style.display = 'flex';
                 });
-            });
         });
-
-        // Close modal functions
-        function closeModal(type) {
-            if (type === 'product') {
-                document.getElementById('productModal').style.display = 'none';
-                document.getElementById('productModalBody').innerHTML = '';
-            } else {
-                document.getElementById('jobModal').style.display = 'none';
-            }
-        }
-
-        // Click outside modal to close
-        window.addEventListener('click', function(event) {
-            if (event.target.classList.contains('modal')) {
-                event.target.style.display = 'none';
-            }
-        });
+    });
+});
 
         // Scroll position persistence
         const scrollKey = `scroll-position-/dashboard.php`;
