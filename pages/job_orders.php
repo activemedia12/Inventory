@@ -2389,82 +2389,90 @@ while ($row = $result->fetch_assoc()) {
     }
 
     // Function to open modal and set total cost
-    function setTotalCost(jobId, clientName, projectName) {
-      // Fetch current expenses via AJAX
-      fetch(`get_job_expenses.php?id=${jobId}`)
+function setTotalCost(jobId, clientName, projectName) {
+    // Fetch current expenses via AJAX
+    fetch(`get_job_expenses.php?id=${jobId}`)
         .then(response => response.json())
         .then(data => {
-          if (data.success) {
-            document.getElementById('modalJobId').value = jobId;
-            document.getElementById('modalClient').value = clientName;
-            document.getElementById('modalProject').value = projectName;
+            if (data.success) {
+                document.getElementById('modalJobId').value = jobId;
+                document.getElementById('modalClient').value = clientName;
+                document.getElementById('modalProject').value = projectName;
 
-            // Check if expenses are computed
-            if (parseFloat(data.expenses) > 0) {
-              document.getElementById('modalExpenses').value = '₱ ' + parseFloat(data.expenses).toFixed(2);
-              document.getElementById('modalExpenses').classList.remove('text-muted');
-              document.getElementById('totalCost').disabled = false;
-              document.getElementById('totalCost').placeholder = '';
+                // Always enable total cost input, but show expenses status
+                const expenses = parseFloat(data.expenses) || 0;
+                if (expenses > 0) {
+                    document.getElementById('modalExpenses').value = '₱ ' + expenses.toFixed(2);
+                    document.getElementById('modalExpenses').classList.remove('text-muted');
+                } else {
+                    document.getElementById('modalExpenses').value = 'Not Computed Yet (₱ 0.00)';
+                    document.getElementById('modalExpenses').classList.add('text-muted');
+                }
+
+                // Always enable the input
+                document.getElementById('totalCost').disabled = false;
+                document.getElementById('totalCost').placeholder = '';  // No restrictive placeholder
+
+                // Set current total cost if exists
+                if (data.total_cost && data.total_cost > 0) {
+                    document.getElementById('totalCost').value = data.total_cost;
+                } else {
+                    document.getElementById('totalCost').value = '';
+                }
+
+                // Update preview (profit calculation will handle expenses=0 gracefully)
+                updateProfitPreview();
+
+                // Show modal using your existing system
+                const modal = document.getElementById('setCostModal');
+                modal.style.display = 'flex';
+
             } else {
-              document.getElementById('modalExpenses').value = 'Not Computed Yet';
-              document.getElementById('modalExpenses').classList.add('text-muted');
-              document.getElementById('totalCost').disabled = true;
-              document.getElementById('totalCost').placeholder = 'Compute expenses first';
+                alert('Error fetching job data: ' + data.message);
             }
-
-            // Set current total cost if exists
-            if (data.total_cost && data.total_cost > 0) {
-              document.getElementById('totalCost').value = data.total_cost;
-            } else {
-              document.getElementById('totalCost').value = '';
-            }
-
-            // Update preview
-            updateProfitPreview();
-
-            // Show modal using your existing system
-            const modal = document.getElementById('setCostModal');
-            modal.style.display = 'flex';
-
-          } else {
-            alert('Error fetching job data: ' + data.message);
-          }
         })
         .catch(error => {
-          console.error('Error:', error);
-          alert('Error fetching job data');
+            console.error('Error:', error);
+            alert('Error fetching job data');
         });
-    }
+}
 
     // Close the cost modal
     function closeCostModal() {
       document.getElementById('setCostModal').style.display = 'none';
     }
 
-    // Update profit preview
-    function updateProfitPreview() {
-      const expensesText = document.getElementById('modalExpenses').value;
-      const expenses = parseFloat(expensesText.replace('₱ ', '')) || 0;
-      const totalCost = parseFloat(document.getElementById('totalCost').value) || 0;
-      const profit = totalCost - expenses;
-      const profitMargin = expenses > 0 ? (profit / expenses) * 100 : 0;
+function updateProfitPreview() {
+    const expensesText = document.getElementById('modalExpenses').value;
+    const expenses = parseFloat(expensesText.replace('₱ ', '').replace('Not Computed Yet (', '').replace(')', '')) || 0;
+    const totalCost = parseFloat(document.getElementById('totalCost').value) || 0;
+    const profit = totalCost - expenses;
+    let profitMargin = 0;
+    let marginText = '0.0%';
 
-      document.getElementById('previewExpenses').textContent = '₱ ' + expenses.toFixed(2);
-      document.getElementById('previewProfit').textContent = '₱ ' + profit.toFixed(2);
-      document.getElementById('previewMargin').textContent = profitMargin.toFixed(1) + '%';
+    if (expenses > 0) {
+        profitMargin = (profit / expenses) * 100;
+        marginText = profitMargin.toFixed(1) + '%';
+    } else {
+        marginText = 'N/A (No Expenses)';  // Handle zero expenses
+    }
 
-      // Color coding
-      const profitElement = document.getElementById('previewProfit');
-      const marginElement = document.getElementById('previewMargin');
+    document.getElementById('previewExpenses').textContent = '₱ ' + expenses.toFixed(2);
+    document.getElementById('previewProfit').textContent = '₱ ' + profit.toFixed(2);
+    document.getElementById('previewMargin').textContent = marginText;
 
-      if (profit >= 0) {
+    // Color coding
+    const profitElement = document.getElementById('previewProfit');
+    const marginElement = document.getElementById('previewMargin');
+
+    if (profit >= 0) {
         profitElement.className = 'fw-bold profit-positive';
         marginElement.className = 'fw-bold profit-positive';
-      } else {
+    } else {
         profitElement.className = 'fw-bold profit-negative';
         marginElement.className = 'fw-bold profit-negative';
-      }
     }
+}
 
     // Save total cost via AJAX
     function saveTotalCost() {
