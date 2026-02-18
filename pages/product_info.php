@@ -120,13 +120,12 @@ $delivery_history = $delivery_stmt->get_result();
         }
 
         ::-webkit-scrollbar {
-            /* width: 5px;
-            height: 5px; */
-            display: none;
+            width: 7px;
+            height: 5px;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: rgb(140, 140, 140);
+            background: #1876f299;
             border-radius: 10px;
         }
 
@@ -361,7 +360,7 @@ $delivery_history = $delivery_stmt->get_result();
         </div>
 
         <div class="window-content">
-            <!-- Basic Product Info -->
+             Basic Product Info 
             <div class="product-info-compact">
                 <div class="info-item-compact">
                     <strong>Paper Type</strong>
@@ -384,7 +383,7 @@ $delivery_history = $delivery_stmt->get_result();
                 </div>
             </div>
 
-            <!-- Stock Summary -->
+             Stock Summary 
             <p class="stock-unit-compact">Displayed per ream*</p>
             <div class="stock-summary-compact">
                 <div class="stock-card-compact">
@@ -406,7 +405,7 @@ $delivery_history = $delivery_stmt->get_result();
                 </div>
             </div>
 
-            <!-- Usage History Section -->
+             Usage History Section 
             <div class="section-header">
                 <i class="fas fa-history"></i>
                 Usage History
@@ -449,7 +448,7 @@ $delivery_history = $delivery_stmt->get_result();
                 <?php endif; ?>
             </div>
 
-            <!-- Delivery History Section -->
+             Delivery History Section 
             <div class="section-header">
                 <i class="fas fa-truck"></i>
                 Delivery History
