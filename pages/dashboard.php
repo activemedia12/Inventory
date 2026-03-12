@@ -25,9 +25,10 @@ $out_of_stock = fetchData($inventory, "
   LEFT JOIN (
     SELECT d.product_id,
           SUM(d.delivered_reams) AS total_reams,
-          (SUM(d.delivered_reams) * 500) - IFNULL(SUM(u.used_sheets), 0) AS balance
+          (SUM(d.delivered_reams) * 500) - IFNULL((
+            SELECT SUM(u.used_sheets) FROM usage_logs u WHERE u.product_id = d.product_id
+          ), 0) AS balance
     FROM delivery_logs d
-    LEFT JOIN usage_logs u ON u.product_id = d.product_id
     GROUP BY d.product_id
   ) AS stock ON p.id = stock.product_id
   WHERE IFNULL(balance, 0) <= 0
@@ -64,20 +65,32 @@ function getFinancialSummary($inventory, $period = 'month')
             COALESCE(SUM(jo.total_cost - jo.grand_total), 0) as total_profit
         FROM job_orders jo
         WHERE {$dateCondition}
-        AND jo.grand_total > 0
+        AND jo.grand_total > 0 AND jo.total_cost > 0
+    ";
+
+    // Count jobs excluded from financial stats (missing cost or selling price)
+    $excluded_query = "
+        SELECT COUNT(DISTINCT jo.id) as excluded
+        FROM job_orders jo
+        WHERE {$dateCondition}
+        AND (jo.grand_total <= 0 OR jo.total_cost IS NULL OR jo.total_cost <= 0)
     ";
 
     $result = $inventory->query($query);
     $data = $result->fetch_assoc();
 
-    // Calculate profit percentage
-    $profit_percent = ($data['total_expenses'] > 0)
-        ? ($data['total_profit'] / $data['total_expenses']) * 100
+    $excl_result = $inventory->query($excluded_query);
+    $excluded = (int)($excl_result->fetch_assoc()['excluded'] ?? 0);
+
+    // Profit margin: profit as % of revenue (selling price), not expenses
+    $profit_percent = ($data['total_revenue'] > 0)
+        ? ($data['total_profit'] / $data['total_revenue']) * 100
         : 0;
 
     return [
         'period' => $periodLabel,
         'jobs' => $data['total_jobs'] ?? 0,
+        'excluded' => $excluded,
         'expenses' => $data['total_expenses'] ?? 0,
         'revenue' => $data['total_revenue'] ?? 0,
         'profit' => $data['total_profit'] ?? 0,
@@ -98,7 +111,7 @@ function getMonthlyBreakdown($inventory, $year = null)
             COALESCE(SUM(jo.total_cost - jo.grand_total), 0) as total_profit
         FROM job_orders jo
         WHERE YEAR(jo.log_date) = ?
-        AND jo.grand_total > 0
+        AND jo.grand_total > 0 AND jo.total_cost > 0
         GROUP BY MONTH(jo.log_date)
         ORDER BY month ASC
     ";
@@ -131,8 +144,8 @@ function getMonthlyBreakdown($inventory, $year = null)
         $months[$monthNum]['expenses'] = $row['total_expenses'];
         $months[$monthNum]['revenue'] = $row['total_revenue'];
         $months[$monthNum]['profit'] = $row['total_profit'];
-        $months[$monthNum]['profit_percent'] = ($row['total_expenses'] > 0)
-            ? ($row['total_profit'] / $row['total_expenses']) * 100
+        $months[$monthNum]['profit_percent'] = ($row['total_revenue'] > 0)
+            ? ($row['total_profit'] / $row['total_revenue']) * 100
             : 0;
     }
 
@@ -150,7 +163,7 @@ function getYearlySummary($inventory)
             COALESCE(SUM(jo.total_cost), 0) as total_revenue,
             COALESCE(SUM(jo.total_cost - jo.grand_total), 0) as total_profit
         FROM job_orders jo
-        WHERE jo.grand_total > 0
+        WHERE (jo.grand_total > 0 AND jo.total_cost > 0)
         GROUP BY YEAR(jo.log_date)
         ORDER BY year DESC
         LIMIT 5
@@ -160,8 +173,8 @@ function getYearlySummary($inventory)
     $years = [];
 
     while ($row = $result->fetch_assoc()) {
-        $row['profit_percent'] = ($row['total_expenses'] > 0)
-            ? ($row['total_profit'] / $row['total_expenses']) * 100
+        $row['profit_percent'] = ($row['total_revenue'] > 0)
+            ? ($row['total_profit'] / $row['total_revenue']) * 100
             : 0;
         $years[] = $row;
     }
@@ -211,9 +224,10 @@ $low_stock = fetchData($inventory, "
   LEFT JOIN (
     SELECT d.product_id,
           SUM(d.delivered_reams) AS total_reams,
-          (SUM(d.delivered_reams) * 500) - IFNULL(SUM(u.used_sheets), 0) AS balance
+          (SUM(d.delivered_reams) * 500) - IFNULL((
+            SELECT SUM(u.used_sheets) FROM usage_logs u WHERE u.product_id = d.product_id
+          ), 0) AS balance
     FROM delivery_logs d
-    LEFT JOIN usage_logs u ON u.product_id = d.product_id
     GROUP BY d.product_id
   ) AS stock ON p.id = stock.product_id
   WHERE IFNULL(balance, 0) >= 0 
@@ -1718,6 +1732,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         </div>
         
 <?php
+// Jobs with no selling price set (total_cost missing)
 $missing_revenue = $inventory->query("
     SELECT COUNT(*) AS cnt
     FROM job_orders
@@ -1725,39 +1740,69 @@ $missing_revenue = $inventory->query("
     AND (total_cost IS NULL OR total_cost <= 0)
 ")->fetch_assoc()['cnt'] ?? 0;
 
-if ($missing_revenue > 0): ?>
+// Jobs with no production cost computed yet (grand_total missing)
+$missing_costs = $inventory->query("
+    SELECT COUNT(*) AS cnt
+    FROM job_orders
+    WHERE YEAR(log_date) = YEAR(CURDATE())
+    AND (grand_total IS NULL OR grand_total <= 0)
+")->fetch_assoc()['cnt'] ?? 0;
+
+if ($missing_costs > 0): ?>
     <div class="quick-tip" style="
-        background: #fff3cd;
-        border-left: 5px solid var(--warning);
+        background: #fdecea;
+        border-left: 5px solid var(--danger);
         padding: 16px 20px;
-        margin: 25px 0 30px;
+        margin: 25px 0 0;
         border-radius: 8px;
         font-size: 14px;
         line-height: 1.5;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     ">
         <div style="display: flex; align-items: flex-start; gap: 12px;">
-            <i class="fas fa-exclamation-triangle" style="
-                color: #856404;
-                font-size: 24px;
-                margin-top: 4px;
-            "></i>
+            <i class="fas fa-exclamation-circle" style="color: #c0392b; font-size: 24px; margin-top: 4px;"></i>
             <div>
-                <strong style="color: #856404; font-size: 16px; display: block; margin-bottom: 6px;">
-                    Important: Incomplete Financial Data
+                <strong style="color: #c0392b; font-size: 16px; display: block; margin-bottom: 6px;">
+                    Action Required: Production Costs Not Computed
                 </strong>
-                <span style="color: #856404;">
-                    <?= number_format($missing_revenue) ?> job orders this year have production costs calculated 
-                    but <strong>no selling price (total cost)</strong> entered yet.<br>
-                    This makes revenue, profit, and margin figures incomplete or misleading.
+                <span style="color: #c0392b;">
+                    <?= number_format($missing_costs) ?> job orders this year have <strong>no production cost calculated</strong> yet.
+                    These are completely excluded from all financial figures until costed.
                 </span>
                 <br><br>
-                <a href="job_orders.php" style="
-                    color: #856404;
-                    font-weight: 600;
-                    text-decoration: underline;
-                    transition: color 0.2s;
-                " onmouseover="this.style.color='#b36b00'" onmouseout="this.style.color='#856404'">
+                <a href="job_orders.php" style="color: #c0392b; font-weight: 600; text-decoration: underline;">
+                    → Go to Job Orders and compute missing expenses
+                </a>
+            </div>
+        </div>
+    </div>
+<?php endif;
+
+if ($missing_revenue > 0): ?>
+    <div class="quick-tip" style="
+        background: #fff3cd;
+        border-left: 5px solid var(--warning);
+        padding: 16px 20px;
+        margin: 15px 0 30px;
+        border-radius: 8px;
+        font-size: 14px;
+        line-height: 1.5;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    ">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+            <i class="fas fa-exclamation-triangle" style="color: #856404; font-size: 24px; margin-top: 4px;"></i>
+            <div>
+                <strong style="color: #856404; font-size: 16px; display: block; margin-bottom: 6px;">
+                    Incomplete Financial Data: Missing Selling Prices
+                </strong>
+                <span style="color: #856404;">
+                    <?= number_format($missing_revenue) ?> job orders this year have production costs calculated
+                    but <strong>no selling price (total cost)</strong> entered yet.<br>
+                    Revenue, profit, and margin figures are understated until these are filled in.
+                </span>
+                <br><br>
+                <a href="job_orders.php" style="color: #856404; font-weight: 600; text-decoration: underline;"
+                   onmouseover="this.style.color='#b36b00'" onmouseout="this.style.color='#856404'">
                     → Go to Job Orders and set missing Total Costs
                 </a>
             </div>
@@ -1789,9 +1834,14 @@ if ($missing_revenue > 0): ?>
                     <span>Profit:</span>
                     <span class="<?= $weekly_finance['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
                         ₱ <?= number_format($weekly_finance['profit'], 2) ?>
-                        <small>(<?= number_format($weekly_finance['profit_percent'], 1) ?>%)</small>
+                        <small>(<?= number_format($weekly_finance['profit_percent'], 1) ?>% margin)</small>
                     </span>
                 </div>
+                <?php if ($weekly_finance['excluded'] > 0): ?>
+                    <div style="margin-top: 8px; font-size: 11px; color: var(--gray); border-top: 1px solid var(--light-gray); padding-top: 8px;">
+                        <i class="fas fa-info-circle"></i> <?= $weekly_finance['excluded'] ?> incomplete job(s) excluded
+                    </div>
+                <?php endif; ?>
             </div>
 
             <!-- Monthly Card -->
@@ -1812,9 +1862,14 @@ if ($missing_revenue > 0): ?>
                     <span>Profit:</span>
                     <span class="<?= $monthly_finance['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
                         ₱ <?= number_format($monthly_finance['profit'], 2) ?>
-                        <small>(<?= number_format($monthly_finance['profit_percent'], 1) ?>%)</small>
+                        <small>(<?= number_format($monthly_finance['profit_percent'], 1) ?>% margin)</small>
                     </span>
                 </div>
+                <?php if ($monthly_finance['excluded'] > 0): ?>
+                    <div style="margin-top: 8px; font-size: 11px; color: var(--gray); border-top: 1px solid var(--light-gray); padding-top: 8px;">
+                        <i class="fas fa-info-circle"></i> <?= $monthly_finance['excluded'] ?> incomplete job(s) excluded
+                    </div>
+                <?php endif; ?>
             </div>
 
             <!-- Yearly Card -->
@@ -1835,9 +1890,14 @@ if ($missing_revenue > 0): ?>
                     <span>Profit:</span>
                     <span class="<?= $yearly_finance['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
                         ₱ <?= number_format($yearly_finance['profit'], 2) ?>
-                        <small>(<?= number_format($yearly_finance['profit_percent'], 1) ?>%)</small>
+                        <small>(<?= number_format($yearly_finance['profit_percent'], 1) ?>% margin)</small>
                     </span>
                 </div>
+                <?php if ($yearly_finance['excluded'] > 0): ?>
+                    <div style="margin-top: 8px; font-size: 11px; color: var(--gray); border-top: 1px solid var(--light-gray); padding-top: 8px;">
+                        <i class="fas fa-info-circle"></i> <?= $yearly_finance['excluded'] ?> incomplete job(s) excluded
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -1864,6 +1924,9 @@ if ($missing_revenue > 0): ?>
                                 <span style="font-size: 10px; background: var(--primary); color: white; padding: 2px 6px; border-radius: 10px; margin-left: 5px;">Current</span>
                             <?php endif; ?>
                         </div>
+                        <?php if ($month['jobs'] == 0): ?>
+                            <div style="font-size: 12px; color: var(--gray); margin-top: 8px; font-style: italic;">No complete data</div>
+                        <?php else: ?>
                         <div class="month-stat">
                             <span class="label">Jobs:</span>
                             <span class="value"><?= $month['jobs'] ?></span>
@@ -1888,6 +1951,7 @@ if ($missing_revenue > 0): ?>
                                 <?= number_format($month['profit_percent'], 1) ?>%
                             </span>
                         </div>
+                        <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -1911,7 +1975,7 @@ if ($missing_revenue > 0): ?>
                             <th>Revenue</th>
                             <th>Expenses</th>
                             <th>Profit</th>
-                            <th>Margin</th>
+                            <th>Net Margin</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2106,11 +2170,17 @@ if ($missing_revenue > 0): ?>
                         </thead>
                         <tbody>
                             <?php foreach ($recent_orders as $order):
-                                $total_expenses = $order['total_expenses'] ?? 0;
-                                $total_cost = $order['total_cost'] ?? 0;
-                                $profit = $order['profit'] ?? 0;
-                                $profit_class = $profit >= 0 ? 'profit-positive' : 'profit-negative';
-                                $profit_percent = $total_expenses > 0 ? ($profit / $total_expenses) * 100 : 0;
+                                $total_expenses = floatval($order['total_expenses'] ?? 0);
+                                $total_cost = floatval($order['total_cost'] ?? 0);
+                                // Recalculate profit safely from the two fields
+                                $profit = ($total_expenses > 0 && $total_cost > 0)
+                                    ? $total_cost - $total_expenses
+                                    : null;
+                                $profit_class = ($profit !== null && $profit >= 0) ? 'profit-positive' : 'profit-negative';
+                                // Net margin = profit / revenue * 100
+                                $profit_percent = ($profit !== null && $total_cost > 0)
+                                    ? ($profit / $total_cost) * 100
+                                    : 0;
 
                                 // Add status badge class
                                 $status_class = 'status-' . str_replace('_', '-', $order['status']);
@@ -2131,13 +2201,31 @@ if ($missing_revenue > 0): ?>
                                             </span>
                                         <?php endif; ?>
                                     </td>
-                                    <td>₱ <?= number_format($total_expenses, 2) ?></td>
-                                    <td><span class="fw-bold">₱ <?= number_format($total_cost, 2) ?></span></td>
                                     <td>
-                                        <span class="fw-bold <?= $profit_class ?>">
-                                            ₱ <?= number_format($profit, 2) ?>
-                                            <small>(<?= number_format($profit_percent, 1) ?>%)</small>
-                                        </span>
+                                        <?php if ($total_expenses > 0): ?>
+                                            ₱ <?= number_format($total_expenses, 2) ?>
+                                        <?php else: ?>
+                                            <span class="text-muted" style="font-size:12px;">Not computed</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($total_cost > 0): ?>
+                                            <span class="fw-bold">₱ <?= number_format($total_cost, 2) ?></span>
+                                        <?php else: ?>
+                                            <span class="text-muted" style="font-size:12px;">Not set</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($profit !== null): ?>
+                                            <span class="fw-bold <?= $profit_class ?>">
+                                                ₱ <?= number_format($profit, 2) ?>
+                                                <small>(<?= number_format($profit_percent, 1) ?>%)</small>
+                                            </span>
+                                        <?php elseif ($total_expenses <= 0): ?>
+                                            <span class="text-muted" style="font-size:12px;">Compute expenses first</span>
+                                        <?php else: ?>
+                                            <span class="text-muted" style="font-size:12px;">Set selling price first</span>
+                                        <?php endif; ?>
                                     </td>
                                     <td><?= htmlspecialchars($order['username'] ?? 'Unknown') ?></td>
                                     <td><?= date("M d, Y", strtotime($order['created_at'])) ?></td>
@@ -2313,7 +2401,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div style="text-align: center;">
                 <div style="font-size: 12px; color: var(--gray);">Profit</div>
-                <div class="${order.profit >= 0 ? 'profit-positive' : 'profit-negative'} fw-bold">₱${number_format(order.profit, 2)}</div>
+                <div class="${(order.grand_total > 0 && order.total_cost > 0) ? ((order.total_cost - order.grand_total >= 0) ? 'profit-positive' : 'profit-negative') : 'text-muted'} fw-bold">${(order.grand_total > 0 && order.total_cost > 0) ? '₱' + number_format(order.total_cost - order.grand_total, 2) : 'N/A'}</div>
             </div>
             <div style="text-align: center;">
                 <div style="font-size: 12px; color: var(--gray);">Quantity</div>
@@ -2399,18 +2487,29 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
             <div style="background: var(--light); padding: 10px; border-radius: 6px;">
-                <div style="font-size: 11px; color: var(--gray;">Expenses</div>
-                <div class="fw-bold">₱${number_format(order.grand_total, 2)}</div>
+                <div style="font-size: 11px; color: var(--gray);">Production Cost</div>
+                <div class="fw-bold">${order.grand_total > 0 ? '&#8369;' + number_format(order.grand_total, 2) : '<span style=&quot;font-size:12px;color:#999;&quot;>Not computed</span>'}</div>
             </div>
             <div style="background: var(--light); padding: 10px; border-radius: 6px;">
-                <div style="font-size: 11px; color: var(--gray;">Revenue</div>
-                <div class="fw-bold">₱${number_format(order.total_cost, 2)}</div>
+                <div style="font-size: 11px; color: var(--gray);">Selling Price</div>
+                <div class="fw-bold">${order.total_cost > 0 ? '&#8369;' + number_format(order.total_cost, 2) : '<span style=&quot;font-size:12px;color:#999;&quot;>Not set</span>'}</div>
             </div>
             <div style="background: var(--light); padding: 10px; border-radius: 6px;">
-                <div style="font-size: 11px; color: var(--gray;">Profit</div>
-                <div class="fw-bold ${order.profit >= 0 ? 'profit-positive' : 'profit-negative'}">₱${number_format(order.profit, 2)}</div>
+                <div style="font-size: 11px; color: var(--gray);">Profit</div>
+                <div class="fw-bold ${(order.grand_total > 0 && order.total_cost > 0) ? ((order.total_cost - order.grand_total >= 0) ? 'profit-positive' : 'profit-negative') : ''}">${(order.grand_total > 0 && order.total_cost > 0) ? '&#8369;' + number_format(order.total_cost - order.grand_total, 2) : '<span style=&quot;font-size:12px;color:#999;&quot;>N/A</span>'}</div>
             </div>
         </div>
+
+        <!-- Special Instructions -->
+
+
+
+
+
+
+
+
+
 
         <!-- Special Instructions -->
         <div class="section-header">
