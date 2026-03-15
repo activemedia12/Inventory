@@ -147,7 +147,7 @@ function validatePHZipCode($zip) {
 // Function to send verification email
 function sendVerificationEmail($email, $verification_token, $customer_type = 'personal') {
     $base_url = (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'];
-    $verify_link = $base_url . "/inventory/accounts/email-verification.php?token=" . urlencode($verification_token);
+    $verify_link = $base_url . "/accounts/email-verification.php?token=" . urlencode($verification_token);
     
     try {
         $mail = new PHPMailer(true);

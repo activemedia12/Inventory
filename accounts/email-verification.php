@@ -84,7 +84,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['email'])) {
             if ($update_stmt->execute()) {
                 // Send verification email
                 $base_url = (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'];
-                $verify_link = $base_url . "/inventory/accounts/email-verification.php?token=" . urlencode($new_token);
+                $verify_link = $base_url . "/accounts/email-verification.php?token=" . urlencode($new_token);
                 
                 try {
                     $mail = new PHPMailer(true);

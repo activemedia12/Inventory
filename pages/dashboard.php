@@ -57,6 +57,14 @@ function getFinancialSummary($inventory, $period = 'month')
             $periodLabel = 'This Month';
     }
 
+    // All jobs in period regardless of pricing status
+    $all_jobs_query = "
+        SELECT COUNT(DISTINCT jo.id) as total_all_jobs
+        FROM job_orders jo
+        WHERE {$dateCondition}
+    ";
+
+    // Only jobs with both production cost AND selling price filled in
     $query = "
         SELECT 
             COUNT(DISTINCT jo.id) as total_jobs,
@@ -68,13 +76,16 @@ function getFinancialSummary($inventory, $period = 'month')
         AND jo.grand_total > 0 AND jo.total_cost > 0
     ";
 
-    // Count jobs excluded from financial stats (missing cost or selling price)
+    // Jobs incomplete (missing cost or selling price)
     $excluded_query = "
         SELECT COUNT(DISTINCT jo.id) as excluded
         FROM job_orders jo
         WHERE {$dateCondition}
-        AND (jo.grand_total <= 0 OR jo.total_cost IS NULL OR jo.total_cost <= 0)
+        AND (jo.grand_total IS NULL OR jo.grand_total <= 0 OR jo.total_cost IS NULL OR jo.total_cost <= 0)
     ";
+
+    $all_result = $inventory->query($all_jobs_query);
+    $total_all_jobs = (int)($all_result->fetch_assoc()['total_all_jobs'] ?? 0);
 
     $result = $inventory->query($query);
     $data = $result->fetch_assoc();
@@ -88,12 +99,13 @@ function getFinancialSummary($inventory, $period = 'month')
         : 0;
 
     return [
-        'period' => $periodLabel,
-        'jobs' => $data['total_jobs'] ?? 0,
-        'excluded' => $excluded,
-        'expenses' => $data['total_expenses'] ?? 0,
-        'revenue' => $data['total_revenue'] ?? 0,
-        'profit' => $data['total_profit'] ?? 0,
+        'period'       => $periodLabel,
+        'total_jobs'   => $total_all_jobs,   // all jobs logged this period
+        'jobs'         => $data['total_jobs'] ?? 0,  // jobs with complete pricing
+        'excluded'     => $excluded,
+        'expenses'     => $data['total_expenses'] ?? 0,
+        'revenue'      => $data['total_revenue'] ?? 0,
+        'profit'       => $data['total_profit'] ?? 0,
         'profit_percent' => $profit_percent
     ];
 }
@@ -190,7 +202,6 @@ $monthly_breakdown = getMonthlyBreakdown($inventory);
 $yearly_summary = getYearlySummary($inventory);
 
 // Calculate total profit for the year
-$total_yearly_profit = array_sum(array_column($monthly_breakdown, 'profit'));
 
 // Recent Data
 $recent_deliveries = $inventory->query("
@@ -267,23 +278,7 @@ if ($result && $result->num_rows > 0) {
 }
 
 // Add friendly messages based on data
-$stock_status_message = "";
-if ($low_stock > 0) {
-    $stock_status_message = "⚠️ You have $low_stock items running low on stock. Consider reordering soon.";
-} elseif ($out_of_stock > 0) {
-    $stock_status_message = "🔴 $out_of_stock items are out of stock and need immediate attention.";
-} else {
-    $stock_status_message = "✅ All stock levels are healthy. Great job managing inventory!";
-}
 
-$profit_message = "";
-if ($monthly_finance['profit'] > 0) {
-    $profit_message = "📈 You're on track for a profitable month! Current profit: ₱" . number_format($monthly_finance['profit'], 2);
-} elseif ($monthly_finance['profit'] < 0) {
-    $profit_message = "📉 This month is showing a loss of ₱" . number_format(abs($monthly_finance['profit']), 2) . ". Review expenses to improve profitability.";
-} else {
-    $profit_message = "📊 No profit data available for this month yet.";
-}
 
 $greetings = [
     "Welcome back",
@@ -1670,17 +1665,8 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             <?= $greeting ?>, <?= $username ?>!
         </div>
 
-        <?php if ($monthly_finance['profit'] < 0): ?>
-            <div class="quick-tip" style="background: #fff3f3; border-left-color: var(--danger);">
-                <i class="fas fa-chart-line" style="color: var(--danger);"></i>
-                <span>
-                    <strong>📉 Profit alert:</strong> <?= $profit_message ?>
-                    <a href="reports.php?month=current" style="color: var(--primary); text-decoration: underline;">Review details</a>
-                </span>
-            </div>
-        <?php endif; ?>
 
-        <!-- Stats Cards - Complete Fixed Version -->
+        <!-- Stats Cards        <!-- Stats Cards - Complete Fixed Version -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="card-header">
@@ -1732,81 +1718,31 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         </div>
         
 <?php
-// Jobs with no selling price set (total_cost missing)
-$missing_revenue = $inventory->query("
-    SELECT COUNT(*) AS cnt
-    FROM job_orders
-    WHERE YEAR(log_date) = YEAR(CURDATE())
-    AND (total_cost IS NULL OR total_cost <= 0)
-")->fetch_assoc()['cnt'] ?? 0;
-
-// Jobs with no production cost computed yet (grand_total missing)
-$missing_costs = $inventory->query("
-    SELECT COUNT(*) AS cnt
-    FROM job_orders
-    WHERE YEAR(log_date) = YEAR(CURDATE())
+// Scope to current month only
+$missing_costs = (int)($inventory->query("
+    SELECT COUNT(*) AS cnt FROM job_orders
+    WHERE MONTH(log_date) = MONTH(CURDATE()) AND YEAR(log_date) = YEAR(CURDATE())
     AND (grand_total IS NULL OR grand_total <= 0)
-")->fetch_assoc()['cnt'] ?? 0;
+")->fetch_assoc()['cnt'] ?? 0);
 
-if ($missing_costs > 0): ?>
-    <div class="quick-tip" style="
-        background: #fdecea;
-        border-left: 5px solid var(--danger);
-        padding: 16px 20px;
-        margin: 25px 0 0;
-        border-radius: 8px;
-        font-size: 14px;
-        line-height: 1.5;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    ">
-        <div style="display: flex; align-items: flex-start; gap: 12px;">
-            <i class="fas fa-exclamation-circle" style="color: #c0392b; font-size: 24px; margin-top: 4px;"></i>
-            <div>
-                <strong style="color: #c0392b; font-size: 16px; display: block; margin-bottom: 6px;">
-                    Action Required: Production Costs Not Computed
-                </strong>
-                <span style="color: #c0392b;">
-                    <?= number_format($missing_costs) ?> job orders this year have <strong>no production cost calculated</strong> yet.
-                    These are completely excluded from all financial figures until costed.
-                </span>
-                <br><br>
-                <a href="job_orders.php" style="color: #c0392b; font-weight: 600; text-decoration: underline;">
-                    → Go to Job Orders and compute missing expenses
-                </a>
-            </div>
-        </div>
-    </div>
-<?php endif;
+$missing_revenue = (int)($inventory->query("
+    SELECT COUNT(*) AS cnt FROM job_orders
+    WHERE MONTH(log_date) = MONTH(CURDATE()) AND YEAR(log_date) = YEAR(CURDATE())
+    AND grand_total > 0
+    AND (total_cost IS NULL OR total_cost <= 0)
+")->fetch_assoc()['cnt'] ?? 0);
 
-if ($missing_revenue > 0): ?>
-    <div class="quick-tip" style="
-        background: #fff3cd;
-        border-left: 5px solid var(--warning);
-        padding: 16px 20px;
-        margin: 15px 0 30px;
-        border-radius: 8px;
-        font-size: 14px;
-        line-height: 1.5;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    ">
-        <div style="display: flex; align-items: flex-start; gap: 12px;">
-            <i class="fas fa-exclamation-triangle" style="color: #856404; font-size: 24px; margin-top: 4px;"></i>
-            <div>
-                <strong style="color: #856404; font-size: 16px; display: block; margin-bottom: 6px;">
-                    Incomplete Financial Data: Missing Selling Prices
-                </strong>
-                <span style="color: #856404;">
-                    <?= number_format($missing_revenue) ?> job orders this year have production costs calculated
-                    but <strong>no selling price (total cost)</strong> entered yet.<br>
-                    Revenue, profit, and margin figures are understated until these are filled in.
-                </span>
-                <br><br>
-                <a href="job_orders.php" style="color: #856404; font-weight: 600; text-decoration: underline;"
-                   onmouseover="this.style.color='#b36b00'" onmouseout="this.style.color='#856404'">
-                    → Go to Job Orders and set missing Total Costs
-                </a>
-            </div>
-        </div>
+$notice_parts = [];
+if ($missing_costs > 0)    $notice_parts[] = "<strong>{$missing_costs}</strong> job" . ($missing_costs != 1 ? 's' : '') . " missing production cost";
+if ($missing_revenue > 0)  $notice_parts[] = "<strong>{$missing_revenue}</strong> job" . ($missing_revenue != 1 ? 's' : '') . " missing selling price";
+?>
+<?php if (!empty($notice_parts)): ?>
+    <div style="display:flex; align-items:center; gap:10px; background:#fff8e1; border-left:4px solid var(--warning); padding:10px 16px; border-radius:6px; font-size:13px; margin-bottom:20px;">
+        <i class="fas fa-exclamation-triangle" style="color:var(--warning); flex-shrink:0;"></i>
+        <span style="color:#5a4000;">
+            This month: <?= implode(' &amp; ', $notice_parts) ?> —
+            <a href="job_orders.php" style="color:var(--primary); font-weight:600;">complete them to see accurate figures</a>
+        </span>
     </div>
 <?php endif; ?>
 
@@ -1816,89 +1752,68 @@ if ($missing_revenue > 0): ?>
         </div>
 
         <div class="finance-grid">
-            <!-- Weekly Card -->
-            <div class="finance-card week">
+            <?php foreach ([
+                ['data' => $weekly_finance,  'class' => 'week',  'icon' => 'fa-calendar-week', 'label' => 'This Week'],
+                ['data' => $monthly_finance, 'class' => 'month', 'icon' => 'fa-calendar-alt',  'label' => 'This Month'],
+                ['data' => $yearly_finance,  'class' => 'year',  'icon' => 'fa-calendar',       'label' => 'This Year'],
+            ] as $card):
+                $f = $card['data'];
+                $has_data = $f['jobs'] > 0;
+            ?>
+            <div class="finance-card <?= $card['class'] ?>">
                 <div class="finance-header">
-                    <span class="finance-title"><i class="fas fa-calendar-week"></i> This Week</span>
-                    <span class="finance-badge"><?= $weekly_finance['jobs'] ?> Jobs</span>
-                </div>
-                <div class="finance-row">
-                    <span class="finance-label">Revenue:</span>
-                    <span class="finance-value">₱ <?= number_format($weekly_finance['revenue'], 2) ?></span>
-                </div>
-                <div class="finance-row">
-                    <span class="finance-label">Expenses:</span>
-                    <span class="finance-value">₱ <?= number_format($weekly_finance['expenses'], 2) ?></span>
-                </div>
-                <div class="finance-profit">
-                    <span>Profit:</span>
-                    <span class="<?= $weekly_finance['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
-                        ₱ <?= number_format($weekly_finance['profit'], 2) ?>
-                        <small>(<?= number_format($weekly_finance['profit_percent'], 1) ?>% margin)</small>
+                    <span class="finance-title">
+                        <i class="fas <?= $card['icon'] ?>"></i> <?= $card['label'] ?>
                     </span>
+                    <span class="finance-badge"><?= $f['total_jobs'] ?> Job<?= $f['total_jobs'] != 1 ? 's' : '' ?></span>
                 </div>
-                <?php if ($weekly_finance['excluded'] > 0): ?>
-                    <div style="margin-top: 8px; font-size: 11px; color: var(--gray); border-top: 1px solid var(--light-gray); padding-top: 8px;">
-                        <i class="fas fa-info-circle"></i> <?= $weekly_finance['excluded'] ?> incomplete job(s) excluded
-                    </div>
-                <?php endif; ?>
-            </div>
 
-            <!-- Monthly Card -->
-            <div class="finance-card month">
-                <div class="finance-header">
-                    <span class="finance-title"><i class="fas fa-calendar-alt"></i> This Month</span>
-                    <span class="finance-badge"><?= $monthly_finance['jobs'] ?> Jobs</span>
-                </div>
-                <div class="finance-row">
-                    <span class="finance-label">Revenue:</span>
-                    <span class="finance-value">₱ <?= number_format($monthly_finance['revenue'], 2) ?></span>
-                </div>
-                <div class="finance-row">
-                    <span class="finance-label">Expenses:</span>
-                    <span class="finance-value">₱ <?= number_format($monthly_finance['expenses'], 2) ?></span>
-                </div>
-                <div class="finance-profit">
-                    <span>Profit:</span>
-                    <span class="<?= $monthly_finance['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
-                        ₱ <?= number_format($monthly_finance['profit'], 2) ?>
-                        <small>(<?= number_format($monthly_finance['profit_percent'], 1) ?>% margin)</small>
-                    </span>
-                </div>
-                <?php if ($monthly_finance['excluded'] > 0): ?>
-                    <div style="margin-top: 8px; font-size: 11px; color: var(--gray); border-top: 1px solid var(--light-gray); padding-top: 8px;">
-                        <i class="fas fa-info-circle"></i> <?= $monthly_finance['excluded'] ?> incomplete job(s) excluded
+                <?php if (!$has_data && $f['total_jobs'] == 0): ?>
+                    <!-- No jobs at all -->
+                    <div style="text-align:center; padding: 20px 0; color: var(--gray); font-size: 13px;">
+                        <i class="fas fa-inbox" style="font-size: 24px; opacity: 0.3; display: block; margin-bottom: 8px;"></i>
+                        No job orders <?= strtolower($card['label']) ?>
                     </div>
-                <?php endif; ?>
-            </div>
 
-            <!-- Yearly Card -->
-            <div class="finance-card year">
-                <div class="finance-header">
-                    <span class="finance-title"><i class="fas fa-calendar"></i> This Year</span>
-                    <span class="finance-badge"><?= $yearly_finance['jobs'] ?> Jobs</span>
-                </div>
-                <div class="finance-row">
-                    <span class="finance-label">Revenue:</span>
-                    <span class="finance-value">₱ <?= number_format($yearly_finance['revenue'], 2) ?></span>
-                </div>
-                <div class="finance-row">
-                    <span class="finance-label">Expenses:</span>
-                    <span class="finance-value">₱ <?= number_format($yearly_finance['expenses'], 2) ?></span>
-                </div>
-                <div class="finance-profit">
-                    <span>Profit:</span>
-                    <span class="<?= $yearly_finance['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
-                        ₱ <?= number_format($yearly_finance['profit'], 2) ?>
-                        <small>(<?= number_format($yearly_finance['profit_percent'], 1) ?>% margin)</small>
-                    </span>
-                </div>
-                <?php if ($yearly_finance['excluded'] > 0): ?>
-                    <div style="margin-top: 8px; font-size: 11px; color: var(--gray); border-top: 1px solid var(--light-gray); padding-top: 8px;">
-                        <i class="fas fa-info-circle"></i> <?= $yearly_finance['excluded'] ?> incomplete job(s) excluded
+                <?php elseif (!$has_data && $f['excluded'] > 0): ?>
+                    <!-- Jobs exist but none are priced yet -->
+                    <div style="text-align:center; padding: 16px 0; color: var(--gray); font-size: 13px;">
+                        <i class="fas fa-clock" style="font-size: 24px; color: var(--warning); display: block; margin-bottom: 8px;"></i>
+                        <strong style="color: var(--dark);"><?= $f['excluded'] ?> job<?= $f['excluded'] != 1 ? 's' : '' ?> logged</strong><br>
+                        <span style="font-size: 12px;">Awaiting cost &amp; price entry</span>
+                        <br><br>
+                        <a href="job_orders.php" style="font-size: 12px; color: var(--primary); font-weight: 600;">
+                            &rarr; Enter missing data
+                        </a>
                     </div>
+
+                <?php else: ?>
+                    <!-- Has complete financial data -->
+                    <div class="finance-row">
+                        <span class="finance-label">Revenue:</span>
+                        <span class="finance-value">&#8369; <?= number_format($f['revenue'], 2) ?></span>
+                    </div>
+                    <div class="finance-row">
+                        <span class="finance-label">Expenses:</span>
+                        <span class="finance-value">&#8369; <?= number_format($f['expenses'], 2) ?></span>
+                    </div>
+                    <div class="finance-profit">
+                        <span>Profit:</span>
+                        <span class="<?= $f['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                            &#8369; <?= number_format($f['profit'], 2) ?>
+                            <small>(<?= number_format($f['profit_percent'], 1) ?>% margin)</small>
+                        </span>
+                    </div>
+                    <?php if ($f['excluded'] > 0): ?>
+                        <div style="margin-top: 8px; font-size: 11px; color: var(--gray); border-top: 1px solid var(--light-gray); padding-top: 8px;">
+                            <i class="fas fa-info-circle"></i>
+                            <?= $f['jobs'] ?> of <?= $f['total_jobs'] ?> jobs priced &mdash;
+                            <a href="job_orders.php" style="color: var(--primary);"><?= $f['excluded'] ?> incomplete</a>
+                        </div>
+                    <?php endif; ?>
                 <?php endif; ?>
             </div>
+            <?php endforeach; ?>
         </div>
 
         <!-- Monthly Breakdown -->

@@ -39,7 +39,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_type'], $_POS
     $stmt->bind_param("sssdi", $type, $group, $name, $price, $created_by);
 
     if ($stmt->execute()) {
-      $_SESSION['success_message'] = "Product added successfully.";
+      // ── If Special Paper, auto-create paper_formats + paper_prices_new row ──
+      if (strtolower($type) === 'special paper') {
+        // Only create a format row if this size code doesn't already exist
+        $fmt_check = $inventory->prepare("SELECT id FROM paper_formats WHERE code = ? LIMIT 1");
+        $fmt_check->bind_param("s", $group);
+        $fmt_check->execute();
+        $existing_fmt = $fmt_check->get_result()->fetch_assoc();
+        $fmt_check->close();
+
+        if (!$existing_fmt) {
+          // Insert into paper_formats (dimensions unknown, use 0 as placeholder)
+          $fmt_stmt = $inventory->prepare(
+            "INSERT INTO paper_formats (code, display_name, sheets_per_ream, notes)
+             VALUES (?, ?, 500, 'Auto-created from Special Paper product')"
+          );
+          $display_name = $group . ' inches';
+          $fmt_stmt->bind_param("ss", $group, $display_name);
+          $fmt_stmt->execute();
+          $new_format_id = $inventory->insert_id;
+          $fmt_stmt->close();
+        } else {
+          $new_format_id = $existing_fmt['id'];
+        }
+
+        // Check if a price row already exists for this format
+        $price_check = $inventory->prepare(
+          "SELECT id FROM paper_prices_new WHERE paper_family_id = 6 AND paper_format_id = ? LIMIT 1"
+        );
+        $price_check->bind_param("i", $new_format_id);
+        $price_check->execute();
+        $existing_price = $price_check->get_result()->fetch_assoc();
+        $price_check->close();
+
+        if (!$existing_price) {
+          // Insert a blank price row — unit_price from products is per sheet for special paper
+          $pps   = $price > 0 ? $price : 0;
+          $today = date('Y-m-d');
+          $price_stmt = $inventory->prepare(
+            "INSERT INTO paper_prices_new
+               (paper_family_id, paper_format_id, effective_date, price_per_ream, price_per_sheet, cutting_cost, notes)
+             VALUES (6, ?, ?, 0, ?, 0, ?)"
+          );
+          $note = "Auto-created from product: $name";
+          $price_stmt->bind_param("isds", $new_format_id, $today, $pps, $note);
+          $price_stmt->execute();
+          $price_stmt->close();
+        }
+      }
+
+      $_SESSION['success_message'] = "Product added successfully." .
+        (strtolower($type) === 'special paper' ? " Price entry created in Manage Prices → Special Paper." : "");
     } else {
       $_SESSION['error_message'] = "Error: " . $stmt->error;
     }

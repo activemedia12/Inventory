@@ -23,13 +23,22 @@ $message = $_SESSION['message'] ?? '';
 unset($_SESSION['message']);
 
 // FETCH Dropdowns
-$product_types = $inventory->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
-$product_sizes = $inventory->query("SELECT DISTINCT product_group FROM products ORDER BY product_group");
-$product_names = $inventory->query("SELECT DISTINCT product_name FROM products ORDER BY product_name");
 $project_names = $inventory->query("SELECT DISTINCT project_name FROM job_orders ORDER BY project_name");
 
 $search_client = strtolower(trim($_GET['search_client'] ?? ''));
 $search_project = strtolower(trim($_GET['search_project'] ?? ''));
+$search_paper = strtolower(trim($_GET['search_paper'] ?? ''));
+$search_paper_size = strtolower(trim($_GET['search_paper_size'] ?? ''));
+$search_unpriced = isset($_GET['search_unpriced']) && $_GET['search_unpriced'] === '1';
+$search_priced = isset($_GET['search_priced']) && $_GET['search_priced'] === '1';
+
+// New ones
+$search_date_from = trim($_GET['search_date_from'] ?? '');
+$search_date_to   = trim($_GET['search_date_to']   ?? '');
+
+// For price range (assuming you store total_cost as DECIMAL or similar)
+$search_price_min = trim($_GET['search_price_min'] ?? '');
+$search_price_max = trim($_GET['search_price_max'] ?? '');
 
 // Handle POST submission (PRG pattern)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -68,12 +77,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $floor_no = $_POST['floor_no'] ?? '';
   $zip_code = $_POST['zip_code'] ?? '';
 
-  $cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, '1/10' => 10, '1/12' => 12, '1/14' => 14, '1/16' => 16, '1/18' => 18, '1/20' => 20, 'whole' => 1];
+  $cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, '1/10' => 10, '1/12' => 12, '1/14' => 14, '1/16' => 16, '1/18' => 18, '1/20' => 20, '1/22' => 22, '1/24' => 24, '1/25' => 25, '1/26' => 26, '1/28' => 28, '1/30' => 30, '1/32' => 32, '1/36' => 36, '1/40' => 40, '1/48' => 48, '1/50' => 50, 'whole' => 1];
   $cut_size = $cut_size_map[$product_size] ?? 1;
   $total_sheets = $number_of_sets * $quantity;
   $cut_sheets = $total_sheets / $cut_size;
   $reams = $cut_sheets / 500;
-  $used_sheets = $reams * 500;
   $paper_sequence_str = implode(', ', $paper_sequence);
 
   $insufficient = [];
@@ -81,30 +89,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   foreach ($paper_sequence as $color) {
     $color = trim($color);
-    $result = $inventory->query("
+    $stock_stmt = $inventory->prepare("
       SELECT p.id, (
         (
           SELECT IFNULL(SUM(delivered_reams), 0)
           FROM delivery_logs
           WHERE product_id = p.id
         ) * 500 - (
-          SELECT IFNULL(SUM(used_sheets), 0)
+          SELECT IFNULL(SUM(used_sheets + spoilage_sheets), 0)
           FROM usage_logs
           WHERE product_id = p.id
         )
       ) AS available
       FROM products p
-      WHERE p.product_type = '$paper_type' AND p.product_group = '$paper_size' AND p.product_name = '$color'
+      WHERE p.product_type = ? AND p.product_group = ? AND p.product_name = ?
       LIMIT 1
     ");
+    $stock_stmt->bind_param("sss", $paper_type, $paper_size, $color);
+    $stock_stmt->execute();
+    $result = $stock_stmt->get_result();
+    $stock_stmt->close();
 
     if ($result && $result->num_rows > 0) {
       $row = $result->fetch_assoc();
-      if ($row['available'] < $used_sheets) {
-        $needed_sheets = $used_sheets - $row['available'];
+      if ($row['available'] < $cut_sheets) {
+        $needed_sheets = $cut_sheets - $row['available'];
         $needed_reams = ceil($needed_sheets / 500);
 
-        $insufficient[] = "<i class='fas fa-exclamation-circle'></i> Not enough stock for <strong>$color</strong>. Available: {$row['available']} sheets, Required: $used_sheets sheets. You need to add at least <strong>{$needed_reams} ream(s)</strong>.";
+        $insufficient[] = "<i class='fas fa-exclamation-circle'></i> Not enough stock for <strong>$color</strong>. Available: {$row['available']} sheets, Required: $cut_sheets sheets. You need to add at least <strong>{$needed_reams} ream(s)</strong>.";
       } else {
         $products_used[] = ['product_id' => $row['id'], 'color' => $color];
       }
@@ -142,26 +154,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $insert_client->bind_param(
       "ssssssssssssssss",
-      $client_name,
-      $taxpayer_name,
-      $tin,
-      $tax_type,
-      $rdo_code,
-      $client_address,
-      $province,
-      $city,
-      $barangay,
-      $street,
-      $building_no,
-      $floor_no,
-      $zip_code,
-      $contact_person,
-      $contact_number,
-      $client_by,
+      $client_name, $taxpayer_name, $tin, $tax_type, $rdo_code, $client_address,
+      $province, $city, $barangay, $street, $building_no, $floor_no, $zip_code,
+      $contact_person, $contact_number, $client_by,
     );
-
     $insert_client->execute();
     $insert_client->close();
+  } else {
+    // UPDATE existing client with latest details
+    $existing = $client_check_result->fetch_assoc();
+    $update_client = $inventory->prepare("UPDATE clients SET
+      taxpayer_name = ?, tin = ?, tax_type = ?, rdo_code = ?, client_address = ?,
+      province = ?, city = ?, barangay = ?, street = ?, building_no = ?, floor_no = ?,
+      zip_code = ?, contact_person = ?, client_by = ?
+      WHERE id = ?");
+    $update_client->bind_param(
+      "ssssssssssssssi",
+      $taxpayer_name, $tin, $tax_type, $rdo_code, $client_address,
+      $province, $city, $barangay, $street, $building_no, $floor_no,
+      $zip_code, $contact_person, $client_by, $existing['id']
+    );
+    $update_client->execute();
+    $update_client->close();
   }
 
   $stmt = $inventory->prepare("INSERT INTO job_orders (
@@ -212,13 +226,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($stmt->execute()) {
       $job_order_id = $inventory->insert_id;
+      $usage_stmt = $inventory->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
       foreach ($products_used as $prod) {
-        $usage_stmt = $inventory->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
         $note = "Auto-deducted from job order for $client_name";
-        $usage_stmt->bind_param("iisds", $prod['product_id'], $used_sheets, $log_date, $job_order_id, $note);
+        $usage_stmt->bind_param("iisds", $prod['product_id'], $cut_sheets, $log_date, $job_order_id, $note);
         $usage_stmt->execute();
-        $usage_stmt->close();
       }
+      $usage_stmt->close();
 
       $_SESSION['message'] = "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> Job order saved. Reams used per paper: " . number_format($reams, 2) . "</div>";
     } else {
@@ -260,6 +274,117 @@ if (!empty($search_project)) {
   $types .= "s";
 }
 
+if (!empty($search_paper)) {
+  $query .= " AND LOWER(j.paper_type) LIKE ?";
+  $params[] = '%' . $search_paper . '%';
+  $types .= "s";
+}
+
+if (!empty($search_paper_size)) {
+  $query .= " AND LOWER(j.paper_size) LIKE ?";
+  $params[] = '%' . $search_paper_size . '%';
+  $types .= "s";
+}
+
+// ── Date range filter ────────────────────────────────────────────────
+if (!empty($search_date_from) && !empty($search_date_to)) {
+  $query .= " AND j.log_date BETWEEN ? AND ?";
+  $params[] = $search_date_from;
+  $params[] = $search_date_to;
+  $types   .= "ss";
+} elseif (!empty($search_date_from)) {
+  $query .= " AND j.log_date >= ?";
+  $params[] = $search_date_from;
+  $types   .= "s";
+} elseif (!empty($search_date_to)) {
+  $query .= " AND j.log_date <= ?";
+  $params[] = $search_date_to;
+  $types   .= "s";
+}
+
+if ($search_unpriced) {
+  $query .= " AND (
+        j.total_cost  IS NULL OR j.total_cost  <= 0
+        OR
+        j.grand_total IS NULL OR j.grand_total <= 0
+    )";
+}
+
+if ($search_priced) {
+  $query .= " AND j.total_cost > 0
+                AND j.grand_total > 0
+                AND j.total_cost IS NOT NULL
+                AND j.grand_total IS NOT NULL";
+}
+
+// Pagination for completed orders only
+$completed_per_page = 50;
+$completed_page     = max(1, intval($_GET['completed_page'] ?? 1));
+
+$query = "
+  SELECT j.*, u.username
+  FROM job_orders j
+  LEFT JOIN users u ON j.created_by = u.id
+  WHERE 1=1
+";
+$params = [];
+$types = "";
+
+if (!empty($search_client)) {
+  $query .= " AND LOWER(j.client_name) LIKE ?";
+  $params[] = '%' . $search_client . '%';
+  $types .= "s";
+}
+
+if (!empty($search_project)) {
+  $query .= " AND LOWER(j.project_name) LIKE ?";
+  $params[] = '%' . $search_project . '%';
+  $types .= "s";
+}
+
+if (!empty($search_paper)) {
+  $query .= " AND LOWER(j.paper_type) LIKE ?";
+  $params[] = '%' . $search_paper . '%';
+  $types .= "s";
+}
+
+if (!empty($search_paper_size)) {
+  $query .= " AND LOWER(j.paper_size) LIKE ?";
+  $params[] = '%' . $search_paper_size . '%';
+  $types .= "s";
+}
+
+// ── Date range filter ────────────────────────────────────────────────
+if (!empty($search_date_from) && !empty($search_date_to)) {
+  $query .= " AND j.log_date BETWEEN ? AND ?";
+  $params[] = $search_date_from;
+  $params[] = $search_date_to;
+  $types   .= "ss";
+} elseif (!empty($search_date_from)) {
+  $query .= " AND j.log_date >= ?";
+  $params[] = $search_date_from;
+  $types   .= "s";
+} elseif (!empty($search_date_to)) {
+  $query .= " AND j.log_date <= ?";
+  $params[] = $search_date_to;
+  $types   .= "s";
+}
+
+if ($search_unpriced) {
+  $query .= " AND (
+        j.total_cost  IS NULL OR j.total_cost  <= 0
+        OR
+        j.grand_total IS NULL OR j.grand_total <= 0
+    )";
+}
+
+if ($search_priced) {
+  $query .= " AND j.total_cost > 0
+                AND j.grand_total > 0
+                AND j.total_cost IS NOT NULL
+                AND j.grand_total IS NOT NULL";
+}
+
 $query .= " ORDER BY j.client_name, j.log_date DESC, j.project_name";
 $stmt = $inventory->prepare($query);
 if ($params) {
@@ -267,6 +392,8 @@ if ($params) {
 }
 $stmt->execute();
 $result = $stmt->get_result();
+
+$total_results = $result->num_rows;
 
 while ($row = $result->fetch_assoc()) {
   $client = $row['client_name'];
@@ -308,7 +435,7 @@ $product_query = $inventory->query("
       FROM delivery_logs
       WHERE product_id = p.id
     ) * 500 - (
-      SELECT IFNULL(SUM(used_sheets), 0)
+      SELECT IFNULL(SUM(used_sheets + spoilage_sheets), 0)
       FROM usage_logs
       WHERE product_id = p.id
     )) AS available_sheets
@@ -338,25 +465,6 @@ while ($row = $result->fetch_assoc()) {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
   <style>
-    .hide {
-      opacity: 0;
-      filter: blur(5px);
-      transform: translateY(100%);
-      transition: all 0.5s;
-    }
-
-    .show {
-      opacity: 1;
-      filter: blur(0);
-      transform: translateY(0);
-    }
-
-    @media (prefers-reduced-motion) {
-      .hide {
-        transition: none;
-      }
-    }
-
     ::-webkit-scrollbar {
       width: 7px;
       height: 10px;
@@ -558,8 +666,8 @@ while ($row = $result->fetch_assoc()) {
     .form-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      grid-template-rows: 1fr;
       gap: 15px;
-      margin-bottom: 15px;
     }
 
     .vat-group label {
@@ -1216,6 +1324,36 @@ while ($row = $result->fetch_assoc()) {
       background: rgba(244, 67, 54, 0.2);
     }
 
+    .empty-status-state {
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      color: #6c757d;
+      background: rgba(248, 249, 250, 0.6);
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 0.7rem;
+      border-radius: 0 0 10px 10px;
+    }
+
+    .empty-icon {
+      color: #adb5bd;
+      margin-bottom: 0.5rem;
+    }
+
+    .empty-status-state p {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 500;
+    }
+
+    .empty-status-state small {
+      font-size: 0.9rem;
+      opacity: 0.85;
+    }
+
     /* Empty State */
     .empty-state {
       padding: 1rem;
@@ -1529,34 +1667,35 @@ while ($row = $result->fetch_assoc()) {
 
     /* Buttons */
     .export-info-box {
-        background: #f8f9fa;
-        border-left: 4px solid #4F81BD;
-        padding: 15px;
-        margin-top: 20px;
-        border-radius: 4px;
+      background: #f8f9fa;
+      border-left: 4px solid #4F81BD;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 4px;
     }
 
     .export-info-box h6 {
-        color: #4F81BD;
-        margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+      color: #4F81BD;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .export-info-box ul {
-        margin: 0;
-        padding-left: 20px;
-        font-size: 14px;
+      margin: 0;
+      padding-left: 20px;
+      font-size: 14px;
     }
 
     .export-info-box li {
-        margin-bottom: 5px;
+      margin-bottom: 5px;
     }
 
     .export-btn i {
-        margin-right: 8px;
+      margin-right: 8px;
     }
+
     .export-form-actions {
       display: flex;
       justify-content: flex-start;
@@ -1708,6 +1847,141 @@ while ($row = $result->fetch_assoc()) {
       font-weight: 600;
       color: #0d6efd;
     }
+
+    /* Optional: color tint per status */
+    .pending-column .status-card {
+      border-left: 5px solid #ffc107;
+    }
+
+    /* yellow */
+    .unpaid-column .status-card {
+      border-left: 5px solid #dc3545;
+    }
+
+    /* red */
+    .for-delivery-column .status-card {
+      border-left: 5px solid #0d6efd;
+    }
+
+    /* blue */
+    .completed-column .status-card {
+      border-left: 5px solid #28a745;
+    }
+
+    /* green */
+
+
+    /* Responsive ─────────────────────────────────────── */
+    @media (max-width: 992px) {
+      .status-sections-2x2-grid {
+        grid-template-columns: 1fr;
+        /* stack on smaller tablets */
+        gap: 1.8rem;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .status-card h3 {
+        font-size: 1.15rem;
+        padding: 0.9rem 1rem;
+      }
+    }
+
+    .noprice {
+      grid-row: 2;
+      grid-column: 1 / 3;
+      padding: 10px 10px 0 10px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      background: #f9f9f9;
+      justify-content: center;
+    }
+
+    .withprice {
+      grid-row: 2;
+      grid-column: 3 / 5;
+      padding: 10px 10px 0 10px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      background: #f9f9f9;
+      justify-content: center;
+    }
+
+    .pagination-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 20px 0 10px;
+      flex-wrap: wrap;
+    }
+
+    .page-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 13px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      color: var(--dark);
+      background: var(--card-bg);
+      border: 1px solid var(--light-gray);
+      transition: background 0.2s, border-color 0.2s;
+      cursor: pointer;
+    }
+
+    .page-btn:hover:not(.disabled):not(.active) {
+      background: var(--light-gray);
+    }
+
+    .page-btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .page-btn.disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    .page-ellipsis {
+      padding: 7px 4px;
+      color: var(--gray);
+      font-size: 14px;
+    }
+
+    .noprice label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      color: #444;
+      user-select: none;
+    }
+
+    .withprice label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      color: #444;
+      user-select: none;
+    }
+
+    @media (max-width: 1640px) {
+      .noprice {
+        grid-row: 1;
+        grid-column: 1;
+      }
+
+      .withprice {
+        grid-row: 2;
+        grid-column: 1;
+      }
+    }
   </style>
 </head>
 
@@ -1758,6 +2032,45 @@ while ($row = $result->fetch_assoc()) {
             <label for="search_project">Project Name</label>
             <input type="text" id="search_project" name="search_project" placeholder="Search by project..." value="<?= htmlspecialchars($_GET['search_project'] ?? '') ?>">
           </div>
+          <div class="form-group">
+            <label for="search_paper">Paper Type</label>
+            <input type="text" id="search_paper" name="search_paper" placeholder="Search by paper type..." value="<?= htmlspecialchars($_GET['search_paper'] ?? '') ?>">
+            <span style="font-size: 80%; color: lightgray;">e.g. Carbonless, Ordinary, Special</span>
+          </div>
+          <div class="form-group">
+            <label for="search_paper_size">Paper Size</label>
+            <input type="text" id="search_paper_size" name="search_paper_size" placeholder="Search by paper size..." value="<?= htmlspecialchars($_GET['search_paper_size'] ?? '') ?>">
+            <span style="font-size: 80%; color: lightgray;">e.g. Long, Short, 11x17...</span>
+          </div>
+
+          <div class="form-group">
+            <label>Date Range</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="date" name="search_date_from"
+                value="<?= htmlspecialchars($search_date_from ?? '') ?>">
+              <span style="align-self: center; color: #666;">to</span>
+              <input type="date" name="search_date_to"
+                value="<?= htmlspecialchars($search_date_to ?? '') ?>">
+            </div>
+          </div>
+
+          <div class="form-group noprice">
+            <label>
+              <input type="checkbox" name="search_unpriced" value="1"
+                <?= $search_unpriced ? 'checked' : '' ?>
+                style="width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer;">
+              <span>Only show job orders <strong>without expenses and total costs</strong></span>
+            </label>
+          </div>
+
+          <div class="form-group withprice">
+            <label>
+              <input type="checkbox" name="search_priced" value="1"
+                <?= $search_priced ? 'checked' : '' ?>
+                style="width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer;">
+              <span>Only show orders <strong>with complete expenses and total costs</strong></span>
+            </label>
+          </div>
         </div>
         <button type="submit" class="btn"><i class="fas fa-filter"></i> Filter</button>
         <a href="job_orders.php" class="btn btn-outline"><i class="fas fa-sync-alt"></i> Reset</a>
@@ -1772,7 +2085,7 @@ while ($row = $result->fetch_assoc()) {
 
       <div class="export1">
         <button onclick="document.getElementById('exportExpensesModal').style.display='flex'" class="btn">
-            Export Expenses Report
+          Export Expenses Report
         </button>
       </div>
     </div>
@@ -2010,7 +2323,7 @@ while ($row = $result->fetch_assoc()) {
               </div>
               <div class="form-group">
                 <label for="log_date">Order Date *</label>
-                <input type="date" id="log_date" name="log_date" value="<?= date('Y-m-d') ?>" value="<?= htmlspecialchars($prefill['log_date'] ?? '') ?>">
+                <input type="date" id="log_date" name="log_date" value="<?= htmlspecialchars($prefill['log_date'] ?? date('Y-m-d')) ?>">
               </div>
               <div class="form-group">
                 <label for="ocn_number">OCN Number</label>
@@ -2039,17 +2352,28 @@ while ($row = $result->fetch_assoc()) {
                 <select id="product_size" name="product_size" required>
                   <option value="">Select</option>
                   <option value="whole" <?= ($prefill['product_size'] ?? '') === 'whole' ? 'selected' : '' ?>>Whole</option>
-                  <option value="1/2" <?= ($prefill['product_size'] ?? '') === '1/2' ? 'selected' : '' ?>>1/2</option>
-                  <option value="1/3" <?= ($prefill['product_size'] ?? '') === '1/3' ? 'selected' : '' ?>>1/3</option>
-                  <option value="1/4" <?= ($prefill['product_size'] ?? '') === '1/4' ? 'selected' : '' ?>>1/4</option>
-                  <option value="1/6" <?= ($prefill['product_size'] ?? '') === '1/6' ? 'selected' : '' ?>>1/6</option>
-                  <option value="1/8" <?= ($prefill['product_size'] ?? '') === '1/8' ? 'selected' : '' ?>>1/8</option>
+                  <option value="1/2"  <?= ($prefill['product_size'] ?? '') === '1/2'  ? 'selected' : '' ?>>1/2</option>
+                  <option value="1/3"  <?= ($prefill['product_size'] ?? '') === '1/3'  ? 'selected' : '' ?>>1/3</option>
+                  <option value="1/4"  <?= ($prefill['product_size'] ?? '') === '1/4'  ? 'selected' : '' ?>>1/4</option>
+                  <option value="1/6"  <?= ($prefill['product_size'] ?? '') === '1/6'  ? 'selected' : '' ?>>1/6</option>
+                  <option value="1/8"  <?= ($prefill['product_size'] ?? '') === '1/8'  ? 'selected' : '' ?>>1/8</option>
                   <option value="1/10" <?= ($prefill['product_size'] ?? '') === '1/10' ? 'selected' : '' ?>>1/10</option>
                   <option value="1/12" <?= ($prefill['product_size'] ?? '') === '1/12' ? 'selected' : '' ?>>1/12</option>
                   <option value="1/14" <?= ($prefill['product_size'] ?? '') === '1/14' ? 'selected' : '' ?>>1/14</option>
                   <option value="1/16" <?= ($prefill['product_size'] ?? '') === '1/16' ? 'selected' : '' ?>>1/16</option>
                   <option value="1/18" <?= ($prefill['product_size'] ?? '') === '1/18' ? 'selected' : '' ?>>1/18</option>
                   <option value="1/20" <?= ($prefill['product_size'] ?? '') === '1/20' ? 'selected' : '' ?>>1/20</option>
+                  <option value="1/22" <?= ($prefill['product_size'] ?? '') === '1/22' ? 'selected' : '' ?>>1/22</option>
+                  <option value="1/24" <?= ($prefill['product_size'] ?? '') === '1/24' ? 'selected' : '' ?>>1/24</option>
+                  <option value="1/25" <?= ($prefill['product_size'] ?? '') === '1/25' ? 'selected' : '' ?>>1/25</option>
+                  <option value="1/26" <?= ($prefill['product_size'] ?? '') === '1/26' ? 'selected' : '' ?>>1/26</option>
+                  <option value="1/28" <?= ($prefill['product_size'] ?? '') === '1/28' ? 'selected' : '' ?>>1/28</option>
+                  <option value="1/30" <?= ($prefill['product_size'] ?? '') === '1/30' ? 'selected' : '' ?>>1/30</option>
+                  <option value="1/32" <?= ($prefill['product_size'] ?? '') === '1/32' ? 'selected' : '' ?>>1/32</option>
+                  <option value="1/36" <?= ($prefill['product_size'] ?? '') === '1/36' ? 'selected' : '' ?>>1/36</option>
+                  <option value="1/40" <?= ($prefill['product_size'] ?? '') === '1/40' ? 'selected' : '' ?>>1/40</option>
+                  <option value="1/48" <?= ($prefill['product_size'] ?? '') === '1/48' ? 'selected' : '' ?>>1/48</option>
+                  <option value="1/50" <?= ($prefill['product_size'] ?? '') === '1/50' ? 'selected' : '' ?>>1/50</option>
                 </select>
               </div>
               <div class="form-group">
@@ -2060,7 +2384,7 @@ while ($row = $result->fetch_assoc()) {
                   $product_types = $inventory->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
                   while ($type = $product_types->fetch_assoc()):
                   ?>
-                    <option value="<?= htmlspecialchars($type['product_type']) ?>"><?= htmlspecialchars($type['product_type']) ?></option>
+                    <option value="<?= htmlspecialchars($type['product_type']) ?>" <?= ($prefill['paper_type'] ?? '') === $type['product_type'] ? 'selected' : '' ?>><?= htmlspecialchars($type['product_type']) ?></option>
                   <?php endwhile; ?>
                 </select>
               </div>
@@ -2094,7 +2418,7 @@ while ($row = $result->fetch_assoc()) {
 
             <div class="form-group">
               <label for="special_instructions">Other Special Instructions</label>
-              <textarea id="special_instructions" name="special_instructions" rows="3" value="<?= htmlspecialchars($prefill['special_instructions'] ?? '') ?>"></textarea>
+              <textarea id="special_instructions" name="special_instructions" rows="3"><?= htmlspecialchars($prefill['special_instructions'] ?? '') ?></textarea>
             </div>
           </fieldset>
 
@@ -2103,56 +2427,69 @@ while ($row = $result->fetch_assoc()) {
       </div>
     </div>
 
-    <div class="card">
-      <h3><i class="fas fa-clock"></i> Pending Job Orders</h3>
-      <?php if (empty($pending_orders)): ?>
-        <div class="empty-message">
-          <p>No pending job orders</p>
-        </div>
-      <?php else: ?>
-        <?php $orders_to_show = $pending_orders;
-        $status_title = 'Pending'; ?>
-        <?php include 'job_order_card_renderer.php'; ?>
-      <?php endif; ?>
+    <div class="card" style="margin-bottom: 20px;">
+      <div style="padding: 5px;">
+        <?php if ($total_results > 0): ?>
+          <strong><?= number_format($total_results) ?></strong> job order<?= $total_results === 1 ? '' : 's' ?> found
+          <?php if (!empty(array_filter($_GET))): ?>
+            <span>matching your search</span>
+          <?php endif; ?>
+        <?php else: ?>
+          <div style="color: #6c757d; text-align: center; padding: 10px 0;">
+            <i class="fas fa-search fa-2x" style="opacity: 0.4; margin-bottom: 10px; display: block;"></i>
+            No job orders found matching your filters.<br>
+            <span>Try adjusting or removing some filters.</span>
+          </div>
+        <?php endif; ?>
+      </div>
     </div>
 
-    <div class="card">
-      <h3><i class="fas fa-money-bill-wave"></i> Unpaid Job Orders</h3>
-      <?php if (empty($unpaid_orders)): ?>
-        <div class="empty-message">
-          <p>No unpaid job orders</p>
-        </div>
-      <?php else: ?>
-        <?php $orders_to_show = $unpaid_orders;
-        $status_title = 'Unpaid'; ?>
-        <?php include 'job_order_card_renderer.php'; ?>
-      <?php endif; ?>
-    </div>
+    <div class="status-sections-2x2-grid">
 
-    <div class="card">
-      <h3><i class="fas fa-truck"></i> For Delivery Job Orders</h3>
-      <?php if (empty($for_delivery_orders)): ?>
-        <div class="empty-message">
-          <p>No job orders waiting for delivery</p>
+      <div class="status-column pending-column">
+        <div class="card status-card">
+          <h3><i class="fas fa-clock" style="color: #ffc107;"></i> Pending</h3>
+          <?php
+          $orders_to_show = $pending_orders;
+          $status_title = 'Pending';
+          include 'job_order_card_renderer.php';
+          ?>
         </div>
-      <?php else: ?>
-        <?php $orders_to_show = $for_delivery_orders;
-        $status_title = 'For Delivery'; ?>
-        <?php include 'job_order_card_renderer.php'; ?>
-      <?php endif; ?>
-    </div>
+      </div>
 
-    <div class="card">
-      <h3><i class="fas fa-list"></i> Completed Job Orders</h3>
-      <?php if (empty($completed_orders)): ?>
-        <div class="empty-message">
-          <p>No job orders found</p>
+      <div class="status-column unpaid-column">
+        <div class="card status-card">
+          <h3><i class="fas fa-money-bill-wave" style="color: #dc3545;"></i> Unpaid</h3>
+          <?php
+          $orders_to_show = $unpaid_orders;
+          $status_title = 'Unpaid';
+          include 'job_order_card_renderer.php';
+          ?>
         </div>
-      <?php else: ?>
-        <?php $orders_to_show = $completed_orders;
-        $status_title = 'Completed'; ?>
-        <?php include 'job_order_card_renderer.php'; ?>
-      <?php endif; ?>
+      </div>
+
+      <div class="status-column for-delivery-column">
+        <div class="card status-card">
+          <h3><i class="fas fa-truck" style="color: #0d6efd;"></i> For Delivery</h3>
+          <?php
+          $orders_to_show = $for_delivery_orders;
+          $status_title = 'For Delivery';
+          include 'job_order_card_renderer.php';
+          ?>
+        </div>
+      </div>
+
+      <div class="status-column completed-column">
+        <div class="card status-card">
+          <h3><i class="fas fa-check-circle" style="color: #28a745;"></i> Completed</h3>
+          <?php
+          $orders_to_show = $completed_orders;
+          $status_title = 'Completed';
+          include 'job_order_card_renderer.php';
+          ?>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -2207,113 +2544,151 @@ while ($row = $result->fetch_assoc()) {
   </div>
 
   <div id="exportExpensesModal" class="export-modal-overlay">
-      <div class="export-modal-container">
-          <div class="export-modal-header">
-              <h3 class="export-modal-title">Export Expenses Report</h3>
-              <button class="export-modal-close" onclick="document.getElementById('exportExpensesModal').style.display='none'">
-                  &times;
-              </button>
-          </div>
-
-          <div class="export-modal-body">
-              <span style="font-size: 80%; color: lightgray;">Generate and export job order expenses with profit analysis.*</span>
-              <br>
-              <span style="font-size: 80%; color: lightgray;">Will be sent via email as an Excel (.xlsx) attachment.*</span>
-              <br>
-              <span style="font-size: 80%; color: lightgray;"><strong>Includes labor costs, paper costs, printing costs, and profit calculations.</strong>*</span>
-              
-              <form action="../config/export_expenses.php" method="GET" target="_blank" class="export-form">
-                  <div class="export-form-group">
-                      <label class="export-form-label">Start Date</label>
-                      <div class="export-input-wrapper">
-                          <input type="date" name="start_date" id="expenses_start_date" class="export-form-input" required>
-                      </div>
-                  </div>
-
-                  <div class="export-form-group">
-                      <label class="export-form-label">End Date</label>
-                      <div class="export-input-wrapper">
-                          <input type="date" name="end_date" id="expenses_end_date" class="export-form-input" required>
-                      </div>
-                  </div>
-
-                  <div class="export-form-actions">
-                      <button type="submit" class="export-btn export-btn-primary">
-                          <i class="fas fa-file-excel"></i> Generate & Email Report
-                      </button>
-                      <button type="button" class="export-btn export-btn-secondary" onclick="document.getElementById('exportExpensesModal').style.display='none'">
-                          Cancel
-                      </button>
-                  </div>
-              </form>
-              
-              <div class="export-info-box">
-                  <h6><i class="fas fa-info-circle"></i> Report Includes:</h6>
-                  <ul>
-                      <li><strong>Sheet 1:</strong> Expenses Summary with Profit Calculation</li>
-                      <li><strong>Sheet 2:</strong> Detailed Labor Sessions</li>
-                      <li><strong>Sheet 3:</strong> Paper Cost Analysis</li>
-                      <li><strong>Sheet 4:</strong> Financial Summary</li>
-                  </ul>
-                  <p class="mb-0"><small>Email will be sent to: <strong>activemediaprint@gmail.com</strong></small></p>
-              </div>
-          </div>
+    <div class="export-modal-container">
+      <div class="export-modal-header">
+        <h3 class="export-modal-title">Export Expenses Report</h3>
+        <button class="export-modal-close" onclick="document.getElementById('exportExpensesModal').style.display='none'">
+          &times;
+        </button>
       </div>
+
+      <div class="export-modal-body">
+        <span style="font-size: 80%; color: lightgray;">Generate and export job order expenses with profit analysis.*</span>
+        <br>
+        <span style="font-size: 80%; color: lightgray;">Will be sent via email as an Excel (.xlsx) attachment.*</span>
+        <br>
+        <span style="font-size: 80%; color: lightgray;"><strong>Includes labor costs, paper costs, printing costs, and profit calculations.</strong>*</span>
+
+        <form action="../config/export_expenses.php" method="GET" target="_blank" class="export-form">
+          <div class="export-form-group">
+            <label class="export-form-label">Start Date</label>
+            <div class="export-input-wrapper">
+              <input type="date" name="start_date" id="expenses_start_date" class="export-form-input" required>
+            </div>
+          </div>
+
+          <div class="export-form-group">
+            <label class="export-form-label">End Date</label>
+            <div class="export-input-wrapper">
+              <input type="date" name="end_date" id="expenses_end_date" class="export-form-input" required>
+            </div>
+          </div>
+
+          <div class="export-form-actions">
+            <button type="submit" class="export-btn export-btn-primary">
+              <i class="fas fa-file-excel"></i> Generate & Email Report
+            </button>
+            <button type="button" class="export-btn export-btn-secondary" onclick="document.getElementById('exportExpensesModal').style.display='none'">
+              Cancel
+            </button>
+          </div>
+        </form>
+
+        <div class="export-info-box">
+          <h6><i class="fas fa-info-circle"></i> Report Includes:</h6>
+          <ul>
+            <li><strong>Sheet 1:</strong> Expenses Summary with Profit Calculation</li>
+            <li><strong>Sheet 2:</strong> Detailed Labor Sessions</li>
+            <li><strong>Sheet 3:</strong> Paper Cost Analysis</li>
+            <li><strong>Sheet 4:</strong> Financial Summary</li>
+          </ul>
+          <p class="mb-0"><small>Email will be sent to: <strong>activemediaprint@gmail.com</strong></small></p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="setCostModal" class="modal" style="display: none;">
-    <div class="floating-window">
+    <div class="floating-window" style="max-width:480px;width:95%">
       <div class="window-header">
         <div class="window-title">
-          <i class="fas fa-dollar-sign"></i>
+          <i class="fas fa-file-invoice-dollar"></i>
           Set Total Cost
         </div>
         <button class="close-btn" onclick="closeCostModal()">
           <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="window-content">
+      <div class="window-content" style="padding:0">
         <form id="setCostForm">
           <input type="hidden" id="modalJobId" name="job_id">
-          <div class="form-group">
-            <label for="modalClient" class="form-label">Client</label>
-            <input type="text" class="form-control" id="modalClient" readonly>
+
+          <!-- Job info bar -->
+          <div style="background:#f8f9fa;padding:12px 20px;border-bottom:1px solid #e9ecef;font-size:13px">
+            <div style="font-weight:600;color:#1877f2" id="modalClient"></div>
+            <div style="color:#6c757d" id="modalProject"></div>
           </div>
-          <div class="form-group">
-            <label for="modalProject" class="form-label">Project</label>
-            <input type="text" class="form-control" id="modalProject" readonly>
-          </div>
-          <div class="form-group">
-            <label for="modalExpenses" class="form-label">Total Expenses</label>
-            <input type="text" class="form-control" id="modalExpenses" readonly>
-          </div>
-          <div class="form-group">
-            <label for="totalCost" class="form-label">Total Cost to Client (₱)</label>
-            <input type="number" step="0.01" min="0" class="form-control" id="totalCost" name="total_cost" required>
-            <div class="form-text">This is the amount you charged the client</div>
-          </div>
-          <div class="form-group">
-            <div class="card">
-              <div class="card-body">
-                <h6 class="card-subtitle mb-2 text-muted">Profit Preview</h6>
-                <div class="row">
-                  <div class="col-6">
-                    <small>Expenses:</small><br>
-                    <span id="previewExpenses" class="fw-bold">₱ 0.00</span>
-                  </div>
-                  <div class="col-6">
-                    <small>Profit:</small><br>
-                    <span id="previewProfit" class="fw-bold">₱ 0.00</span>
-                  </div>
-                </div>
-                <div class="mt-2">
-                  <small>Profit Margin:</small><br>
-                  <span id="previewMargin" class="fw-bold">0.0%</span>
+
+          <div style="padding:20px">
+
+            <!-- Expenses reference -->
+            <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:10px 14px;border-radius:6px;margin-bottom:18px;font-size:13px">
+              <div style="color:#6c757d;margin-bottom:2px">Production Expenses</div>
+              <div style="font-size:18px;font-weight:700;color:#333" id="modalExpenses">₱ 0.00</div>
+            </div>
+
+            <!-- Pricing inputs -->
+            <div class="form-group">
+              <label style="font-weight:600">Total Cost to Client (₱) <span style="color:#dc3545">*</span></label>
+              <input type="number" step="0.01" min="0" class="form-control" id="totalCost"
+                     name="total_cost" placeholder="0.00" required oninput="updateProfitPreview()">
+              <small style="color:#6c757d">Amount charged to the client</small>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:15px">
+              <div class="form-group" style="margin-bottom:0">
+                <label style="font-weight:600;color:#28a745">+ Layout Fee (₱)</label>
+                <input type="number" step="0.01" min="0" id="modalLayoutFee"
+                       value="0" placeholder="0.00" oninput="updateProfitPreview()">
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label style="font-weight:600;color:#dc3545">− Discount</label>
+                <div style="display:flex;gap:4px">
+                  <select id="modalDiscountType" style="width:60px;flex-shrink:0" onchange="updateProfitPreview()">
+                    <option value="amount">₱</option>
+                    <option value="percent">%</option>
+                  </select>
+                  <input type="number" step="0.01" min="0" id="modalDiscountValue"
+                         value="0" placeholder="0.00" oninput="updateProfitPreview()" style="flex:1">
                 </div>
               </div>
             </div>
+
+            <!-- Summary breakdown -->
+            <div style="margin-top:18px;background:#f8f9fa;border-radius:8px;padding:14px;font-size:13px">
+              <div style="font-weight:600;color:#6c757d;margin-bottom:10px;text-transform:uppercase;font-size:11px;letter-spacing:.5px">Summary</div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+                <span style="color:#555">Total Cost</span>
+                <span id="sumTotalCost" style="font-weight:600">₱ 0.00</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+                <span style="color:#28a745">+ Layout Fee</span>
+                <span id="sumLayoutFee" style="color:#28a745;font-weight:600">₱ 0.00</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+                <span style="color:#dc3545">− Discount</span>
+                <span id="sumDiscount" style="color:#dc3545;font-weight:600">₱ 0.00</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:2px solid #dee2e6;margin-bottom:8px">
+                <span style="font-weight:700">Final Amount</span>
+                <span id="previewFinal" style="font-weight:700;font-size:15px">₱ 0.00</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+                <span style="color:#555">− Expenses</span>
+                <span id="previewExpenses" style="font-weight:600">₱ 0.00</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:2px solid #dee2e6">
+                <span style="font-weight:700">Profit</span>
+                <div style="text-align:right">
+                  <span id="previewProfit" class="fw-bold">₱ 0.00</span>
+                  <br><small id="previewMargin" class="fw-bold">0.0%</small>
+                </div>
+              </div>
+            </div>
+
           </div>
-          <div class="action-buttons">
+
+          <div class="action-buttons" style="padding:14px 20px;border-top:1px solid #e9ecef;margin:0">
             <button type="button" class="btn-edit" onclick="closeCostModal()">Cancel</button>
             <button type="button" class="btn-status" onclick="saveTotalCost()">Save Cost</button>
           </div>
@@ -2323,193 +2698,205 @@ while ($row = $result->fetch_assoc()) {
   </div>
 
   <script>
+    document.querySelectorAll('input[name="search_unpriced"], input[name="search_priced"]').forEach(chk => {
+      chk.addEventListener('change', function() {
+        if (this.checked) {
+          document.querySelectorAll('input[name="search_unpriced"], input[name="search_priced"]')
+            .forEach(other => {
+              if (other !== this) other.checked = false;
+            });
+        }
+      });
+    });
+
     document.addEventListener('DOMContentLoaded', function() {
-        const today = new Date();
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        
-        const startDate = document.getElementById('expenses_start_date');
-        const endDate = document.getElementById('expenses_end_date');
-        
-        if (startDate) {
-            startDate.value = firstDay.toISOString().split('T')[0];
-        }
-        
-        if (endDate) {
-            endDate.value = lastDay.toISOString().split('T')[0];
-        }
-        
-        // Date validation for expenses modal
-        if (startDate && endDate) {
-            endDate.addEventListener('change', function() {
-                if (new Date(startDate.value) > new Date(endDate.value)) {
-                    alert('End date cannot be before start date');
-                    endDate.value = startDate.value;
-                }
-            });
-            
-            startDate.addEventListener('change', function() {
-                if (new Date(startDate.value) > new Date(endDate.value)) {
-                    endDate.value = startDate.value;
-                }
-            });
-        }
-        
-        // Close modal when clicking outside
-        window.addEventListener('click', function(event) {
-            const expensesModal = document.getElementById('exportExpensesModal');
-            const joModal = document.getElementById('exportModal');
-            
-            if (event.target === expensesModal) {
-                expensesModal.style.display = 'none';
-            }
-            
-            if (event.target === joModal) {
-                joModal.style.display = 'none';
-            }
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+      const startDate = document.getElementById('expenses_start_date');
+      const endDate = document.getElementById('expenses_end_date');
+
+      if (startDate) {
+        startDate.value = firstDay.toISOString().split('T')[0];
+      }
+
+      if (endDate) {
+        endDate.value = lastDay.toISOString().split('T')[0];
+      }
+
+      // Date validation for expenses modal
+      if (startDate && endDate) {
+        endDate.addEventListener('change', function() {
+          if (new Date(startDate.value) > new Date(endDate.value)) {
+            alert('End date cannot be before start date');
+            endDate.value = startDate.value;
+          }
         });
+
+        startDate.addEventListener('change', function() {
+          if (new Date(startDate.value) > new Date(endDate.value)) {
+            endDate.value = startDate.value;
+          }
+        });
+      }
+
+      // Close modal when clicking outside
+      window.addEventListener('click', function(event) {
+        const expensesModal = document.getElementById('exportExpensesModal');
+        const joModal = document.getElementById('exportModal');
+
+        if (event.target === expensesModal) {
+          expensesModal.style.display = 'none';
+        }
+
+        if (event.target === joModal) {
+          joModal.style.display = 'none';
+        }
+      });
     });
 
     // Keyboard shortcuts
     document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape') {
-            document.getElementById('exportExpensesModal').style.display = 'none';
-            document.getElementById('exportModal').style.display = 'none';
-        }
+      if (event.key === 'Escape') {
+        document.getElementById('exportExpensesModal').style.display = 'none';
+        document.getElementById('exportModal').style.display = 'none';
+      }
     });
 
     // Quick date range buttons (optional enhancement)
     function setExpensesDateRange(days) {
-        const end = new Date();
-        const start = new Date();
-        start.setDate(start.getDate() - days);
-        
-        document.getElementById('expenses_start_date').value = start.toISOString().split('T')[0];
-        document.getElementById('expenses_end_date').value = end.toISOString().split('T')[0];
+      const end = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - days);
+
+      document.getElementById('expenses_start_date').value = start.toISOString().split('T')[0];
+      document.getElementById('expenses_end_date').value = end.toISOString().split('T')[0];
     }
 
     // Function to open modal and set total cost
-function setTotalCost(jobId, clientName, projectName) {
-    // Fetch current expenses via AJAX
-    fetch(`get_job_expenses.php?id=${jobId}`)
+    function setTotalCost(jobId, clientName, projectName) {
+      fetch(`get_job_expenses.php?id=${jobId}`)
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                document.getElementById('modalJobId').value = jobId;
-                document.getElementById('modalClient').value = clientName;
-                document.getElementById('modalProject').value = projectName;
+          if (data.success) {
+            document.getElementById('modalJobId').value   = jobId;
+            document.getElementById('modalClient').textContent  = clientName;
+            document.getElementById('modalProject').textContent = projectName;
 
-                // Always enable total cost input, but show expenses status
-                const expenses = parseFloat(data.expenses) || 0;
-                if (expenses > 0) {
-                    document.getElementById('modalExpenses').value = '₱ ' + expenses.toFixed(2);
-                    document.getElementById('modalExpenses').classList.remove('text-muted');
-                } else {
-                    document.getElementById('modalExpenses').value = 'Not Computed Yet (₱ 0.00)';
-                    document.getElementById('modalExpenses').classList.add('text-muted');
-                }
+            const expenses = parseFloat(data.expenses) || 0;
+            document.getElementById('modalExpenses').textContent =
+              expenses > 0 ? '₱ ' + expenses.toFixed(2) : 'Not Computed Yet (₱ 0.00)';
+            document.getElementById('modalExpenses').style.color = expenses > 0 ? '#333' : '#aaa';
 
-                // Always enable the input
-                document.getElementById('totalCost').disabled = false;
-                document.getElementById('totalCost').placeholder = '';  // No restrictive placeholder
+            // Populate editable layout fee and discount
+            document.getElementById('modalLayoutFee').value     = (parseFloat(data.layout_fee) || 0).toFixed(2);
+            document.getElementById('modalDiscountType').value  = data.discount_type  || 'amount';
+            document.getElementById('modalDiscountValue').value = (parseFloat(data.discount_value) || 0).toFixed(2);
 
-                // Set current total cost if exists
-                if (data.total_cost && data.total_cost > 0) {
-                    document.getElementById('totalCost').value = data.total_cost;
-                } else {
-                    document.getElementById('totalCost').value = '';
-                }
-
-                // Update preview (profit calculation will handle expenses=0 gracefully)
-                updateProfitPreview();
-
-                // Show modal using your existing system
-                const modal = document.getElementById('setCostModal');
-                modal.style.display = 'flex';
-
+            document.getElementById('totalCost').disabled = false;
+            if (data.total_cost && data.total_cost > 0) {
+              document.getElementById('totalCost').value = data.total_cost;
             } else {
-                alert('Error fetching job data: ' + data.message);
+              document.getElementById('totalCost').value = '';
             }
+
+            updateProfitPreview();
+            document.getElementById('setCostModal').style.display = 'flex';
+          } else {
+            alert('Error fetching job data: ' + data.message);
+          }
         })
         .catch(error => {
-            console.error('Error:', error);
-            alert('Error fetching job data');
+          console.error('Error:', error);
+          alert('Error fetching job data');
         });
-}
+    }
 
     // Close the cost modal
     function closeCostModal() {
       document.getElementById('setCostModal').style.display = 'none';
     }
 
-function updateProfitPreview() {
-    const expensesText = document.getElementById('modalExpenses').value;
-    const expenses = parseFloat(expensesText.replace('₱ ', '').replace('Not Computed Yet (', '').replace(')', '')) || 0;
-    const totalCost = parseFloat(document.getElementById('totalCost').value) || 0;
-    const profit = totalCost - expenses;
-    let profitMargin = 0;
-    let marginText = '0.0%';
+    function updateProfitPreview() {
+      const expensesText = document.getElementById('modalExpenses').textContent;
+      const expenses     = parseFloat(expensesText.replace('₱ ', '').replace('Not Computed Yet (', '').replace(')', '')) || 0;
+      const totalCost    = parseFloat(document.getElementById('totalCost').value)        || 0;
+      const layoutFee    = parseFloat(document.getElementById('modalLayoutFee').value)   || 0;
+      const discountType = document.getElementById('modalDiscountType').value;
+      const discountVal  = parseFloat(document.getElementById('modalDiscountValue').value) || 0;
 
-    if (expenses > 0) {
-        profitMargin = (profit / expenses) * 100;
-        marginText = profitMargin.toFixed(1) + '%';
-    } else {
-        marginText = 'N/A (No Expenses)';  // Handle zero expenses
+      const discountAmount = discountType === 'percent'
+        ? (totalCost + layoutFee) * (discountVal / 100)
+        : discountVal;
+
+      const finalAmount = totalCost + layoutFee - discountAmount;
+      const profit      = finalAmount - expenses;
+      const marginText  = finalAmount > 0
+        ? ((profit / finalAmount) * 100).toFixed(1) + '%'
+        : 'N/A';
+
+      // Summary breakdown
+      document.getElementById('sumTotalCost').textContent  = '₱ ' + totalCost.toFixed(2);
+      document.getElementById('sumLayoutFee').textContent  = '₱ ' + layoutFee.toFixed(2);
+      document.getElementById('sumDiscount').textContent   = discountType === 'percent'
+        ? '₱ ' + discountAmount.toFixed(2) + ' (' + discountVal + '%)'
+        : '₱ ' + discountAmount.toFixed(2);
+      document.getElementById('previewFinal').textContent    = '₱ ' + finalAmount.toFixed(2);
+      document.getElementById('previewExpenses').textContent = '₱ ' + expenses.toFixed(2);
+      document.getElementById('previewProfit').textContent   = '₱ ' + profit.toFixed(2);
+      document.getElementById('previewMargin').textContent   = marginText;
+
+      const profitClass = profit >= 0 ? 'profit-positive' : 'profit-negative';
+      document.getElementById('previewProfit').className = 'fw-bold ' + profitClass;
+      document.getElementById('previewMargin').className = 'fw-bold ' + profitClass;
     }
 
-    document.getElementById('previewExpenses').textContent = '₱ ' + expenses.toFixed(2);
-    document.getElementById('previewProfit').textContent = '₱ ' + profit.toFixed(2);
-    document.getElementById('previewMargin').textContent = marginText;
-
-    // Color coding
-    const profitElement = document.getElementById('previewProfit');
-    const marginElement = document.getElementById('previewMargin');
-
-    if (profit >= 0) {
-        profitElement.className = 'fw-bold profit-positive';
-        marginElement.className = 'fw-bold profit-positive';
-    } else {
-        profitElement.className = 'fw-bold profit-negative';
-        marginElement.className = 'fw-bold profit-negative';
-    }
-}
-
-    // Save total cost via AJAX
     function saveTotalCost() {
-      const jobId = document.getElementById('modalJobId').value;
-      const totalCost = document.getElementById('totalCost').value;
+      const jobId        = document.getElementById('modalJobId').value;
+      const totalCost    = document.getElementById('totalCost').value;
+      const layoutFee    = parseFloat(document.getElementById('modalLayoutFee').value)    || 0;
+      const discountType = document.getElementById('modalDiscountType').value;
+      const discountVal  = parseFloat(document.getElementById('modalDiscountValue').value) || 0;
 
-      if (!totalCost || parseFloat(totalCost) <= 0) {
+      if (!totalCost || parseFloat(totalCost) < 0) {
         alert('Please enter a valid total cost');
         return;
       }
 
+      const body = new URLSearchParams({
+        job_id:         jobId,
+        total_cost:     totalCost,
+        layout_fee:     layoutFee.toFixed(2),
+        discount_type:  discountType,
+        discount_value: discountVal.toFixed(2),
+      });
+
       fetch('save_total_cost.php', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: `job_id=${jobId}&total_cost=${totalCost}`
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString()
         })
         .then(response => response.json())
         .then(data => {
           if (data.success) {
-            // Update the table row
-            const expensesText = document.getElementById('modalExpenses').value;
-            const expenses = parseFloat(expensesText.replace('₱ ', '')) || 0;
-            const profit = totalCost - expenses;
-            const profitMargin = expenses > 0 ? (profit / expenses) * 100 : 0;
+            const expensesText  = document.getElementById('modalExpenses').textContent;
+            const expenses      = parseFloat(expensesText.replace('₱ ', '')) || 0;
+            const tCost         = parseFloat(totalCost) || 0;
+            const lFee          = parseFloat(document.getElementById('modalLayoutFee').value) || 0;
+            const dType         = document.getElementById('modalDiscountType').value;
+            const dVal          = parseFloat(document.getElementById('modalDiscountValue').value) || 0;
+            const dAmount       = dType === 'percent' ? (tCost + lFee) * (dVal / 100) : dVal;
+            const finalAmount   = tCost + lFee - dAmount;
+            const profit        = finalAmount - expenses;
+            const profitMargin  = finalAmount > 0 ? (profit / finalAmount) * 100 : 0;
 
-            // Update cells
-            document.getElementById(`total-cost-${jobId}`).innerHTML = `₱ ${parseFloat(totalCost).toFixed(2)}`;
-
+            document.getElementById(`total-cost-${jobId}`).innerHTML = `₱ ${finalAmount.toFixed(2)}`;
             let profitHtml = `₱ ${profit.toFixed(2)}<br><small class="${profit >= 0 ? 'profit-positive' : 'profit-negative'}">(${profitMargin.toFixed(1)}%)</small>`;
             document.getElementById(`profit-${jobId}`).innerHTML = profitHtml;
-            document.getElementById(`profit-${jobId}`).className = `profit-cell ${profit >= 0 ? 'profit-positive' : 'profit-negative'}`;
+            document.getElementById(`profit-${jobId}`).className  = `profit-cell ${profit >= 0 ? 'profit-positive' : 'profit-negative'}`;
 
-            // Close modal
             closeCostModal();
-
             alert('Total cost saved successfully!');
           } else {
             alert('Error saving total cost: ' + data.message);
@@ -2538,20 +2925,6 @@ function updateProfitPreview() {
         });
       }
     });
-
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        console.log(entry)
-        if (entry.isIntersecting) {
-          entry.target.classList.add('show');
-        } else {
-          entry.target.classList.remove('show');
-        }
-      });
-    });
-
-    const hiddenElements = document.querySelectorAll('.hide');
-    hiddenElements.forEach((el) => observer.observe(el));
 
     document.getElementById('jobOrderForm').addEventListener('submit', function(e) {
       const address = [
@@ -2601,17 +2974,13 @@ function updateProfitPreview() {
         }, 3000);
       }
 
-      console.log("JS loaded");
-
       const urlParams = new URLSearchParams(window.location.search);
       const clientId = urlParams.get('client_id');
-      console.log("client_id:", clientId);
 
       // Delay to allow other sessionStorage or toggle state scripts to finish first
       setTimeout(() => {
         if (clientId) {
           const form = document.getElementById('job-order-form');
-          console.log("form:", form);
           if (form) {
             form.style.display = 'block';
 
@@ -2725,24 +3094,11 @@ function updateProfitPreview() {
       row.addEventListener('click', function() {
         const orderData = JSON.parse(this.dataset.order);
         const userRole = this.dataset.role;
-        console.log(userRole);
         openModal(orderData, userRole);
       });
     });
 
     function openModal(order, userRole) {
-      function applyStatusColor(selectEl) {
-        const status = selectEl.value;
-        selectEl.classList.remove('status-pending', 'status-unpaid', 'status-for_delivery', 'status-completed');
-        selectEl.classList.add(`status-${status}`);
-      }
-
-      // Run for all dropdowns (on initial load or after modal opens)
-      document.querySelectorAll('.status-select').forEach(select => {
-        applyStatusColor(select);
-        select.addEventListener('change', () => applyStatusColor(select));
-      });
-
       const modal = document.getElementById('jobModal');
       const modalBody = document.getElementById('modal-body');
 
@@ -2944,7 +3300,6 @@ function updateProfitPreview() {
             })
             .then(response => response.text())
             .then(data => {
-              console.log(data);
               location.reload();
             })
             .catch(err => {
@@ -3425,21 +3780,6 @@ function updateProfitPreview() {
       }
     }
 
-    function toggleClient(element) {
-      const dateGroup = element.nextElementSibling;
-      dateGroup.style.display = dateGroup.style.display === 'block' ? 'none' : 'block';
-    }
-
-    function toggleDate(element) {
-      const projectGroup = element.nextElementSibling;
-      projectGroup.style.display = projectGroup.style.display === 'block' ? 'none' : 'block';
-    }
-
-    function toggleProject(element) {
-      const orderItem = element.nextElementSibling;
-      orderItem.style.display = orderItem.style.display === 'block' ? 'none' : 'block';
-    }
-
     document.addEventListener('DOMContentLoaded', function() {
       document.querySelectorAll('.date-header, .project-header').forEach(header => {
         header.addEventListener('click', function() {
@@ -3597,7 +3937,6 @@ function updateProfitPreview() {
           })
           .then(response => response.text())
           .then(data => {
-            console.log(data);
             location.reload();
           })
           .catch(err => {

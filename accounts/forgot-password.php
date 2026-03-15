@@ -49,7 +49,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             // Send email using PHPMailer (reused from your export script)
             $base_url = (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'];
-            $reset_link = $base_url . "/inventory/accounts/reset-password.php?token=" . urlencode($token);
+            $reset_link = $base_url . "/accounts/reset-password.php?token=" . urlencode($token);
 
             try {
                 $mail = new PHPMailer(true);
