@@ -28,9 +28,6 @@ $types = 'ss';
 // Get sales report data
 // Get sales report data
 if ($report_type === 'sales') {
-    // Debug: Check what dates are being used
-    error_log("Date range: $start_date to $end_date");
-    
     // Total sales with COALESCE to handle NULL values
     $sales_query = "SELECT 
         COUNT(*) as total_orders,
