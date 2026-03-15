@@ -7,11 +7,6 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once '../config/db.php';
 
-// Enable error reporting for debugging
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
 $product_id = intval($_GET['id'] ?? 0);
 if ($product_id <= 0) {
     echo "<div class='alert alert-danger'>Invalid product ID.</div>";

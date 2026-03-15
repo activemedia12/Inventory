@@ -1,28 +1,48 @@
-ALTER TABLE paper_prices 
-ADD COLUMN price_per_sheet DECIMAL(10,4) NULL;
+-- ============================================================
+-- Migration: Layout Fee, Discount/Commission, Special Paper
+-- Run this once on your database before deploying the new files
+-- ============================================================
 
-ALTER TABLE paper_cut_prices 
-ADD COLUMN price_per_sheet DECIMAL(10,4) NULL;
+-- 1. Add layout_fee, discount_type, discount_value to job_orders
+ALTER TABLE `job_orders`
+    ADD COLUMN `layout_fee`     decimal(10,2)              DEFAULT 0.00  AFTER `custom_paper_cost`,
+    ADD COLUMN `discount_type`  enum('amount','percent')   DEFAULT NULL  AFTER `layout_fee`,
+    ADD COLUMN `discount_value` decimal(10,2)              DEFAULT 0.00  AFTER `discount_type`;
 
-ALTER TABLE job_orders 
-ADD COLUMN paper_pricing_method ENUM('ream', 'piece', 'custom') DEFAULT 'ream',
-ADD COLUMN custom_paper_cost DECIMAL(10,2) DEFAULT 0;
-
--- Add total_cost column to job_orders table
-ALTER TABLE job_orders 
-ADD COLUMN total_cost DECIMAL(10,2) DEFAULT NULL AFTER grand_total;
-
-CREATE VIEW job_profit_view AS
-SELECT 
-    id,
-    client_name,
-    project_name,
-    grand_total,
-    total_cost,
-    COALESCE(total_cost, 0) - COALESCE(grand_total, 0) AS profit,
-    CASE 
-        WHEN COALESCE(grand_total, 0) > 0 
-        THEN ROUND(((COALESCE(total_cost, 0) - COALESCE(grand_total, 0)) / grand_total) * 100, 2)
-        ELSE 0 
-    END AS profit_percentage
-FROM job_orders;
+-- 2. Add missing special paper formats (38X25, 38X26)
+INSERT INTO `paper_formats` (`code`, `display_name`, `width_mm`, `height_mm`, `sheets_per_ream`, `notes`) VALUES
+('38X25', '38 × 25 inches', 965.20, 635.00, 250, 'Kraft / Matt C2S size'),
+('38X26', '38 × 26 inches', 965.20, 660.40, 250, 'Chipboard / Coated Board size');
+ 
+-- 3. Add paper_prices_new rows for the two new formats
+--    Unit prices taken from products.unit_price (per sheet → ream = × 500 or × 250)
+--    38X25: sheets_per_ream=250, so price_per_ream = avg unit_price × 250
+--           Imp Natural Kraft Paper: 4.03 × 250 = 1007.50
+--           Matt C2S 80#:            9.04 × 250 = 2260.00
+--    38X26: sheets_per_ream=250
+--           Chipboard #120:          8.33 × 250 = 2082.50
+--    We insert one representative price per format (the most common/recent).
+--    Update the prices below if needed before running.
+ 
+INSERT INTO `paper_prices_new`
+    (`paper_family_id`, `paper_format_id`, `effective_date`,
+     `price_per_ream`, `price_per_sheet`, `cutting_cost`, `notes`)
+SELECT
+    6,
+    pf.id,
+    CURDATE(),
+    CASE pf.code
+        WHEN '38X25' THEN 1007.50   -- Imp Natural Kraft Paper (se) @ 4.03/sheet × 250
+        WHEN '38X26' THEN 2082.50   -- Chipboard #120 @ 8.33/sheet × 250
+    END,
+    CASE pf.code
+        WHEN '38X25' THEN 4.0300
+        WHEN '38X26' THEN 8.3300
+    END,
+    150.00,  -- default cutting cost — adjust as needed
+    CASE pf.code
+        WHEN '38X25' THEN 'Imp Natural Kraft Paper (se) / Matt C2S 80#'
+        WHEN '38X26' THEN 'Chipboard #120 / Coated Board C2S 220#'
+    END
+FROM paper_formats pf
+WHERE pf.code IN ('38X25', '38X26');

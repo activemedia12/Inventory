@@ -3,6 +3,10 @@
 // 1. clients.php
 // =============================
 session_start();
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../accounts/login.php");
+    exit;
+}
 require_once '../config/db.php';
 
 $search = $_GET['search_client'] ?? '';
