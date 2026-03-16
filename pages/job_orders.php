@@ -2073,7 +2073,7 @@ while ($row = $result->fetch_assoc()) {
           </div>
         </div>
         <button type="submit" class="btn"><i class="fas fa-filter"></i> Filter</button>
-        <a href="job_orders.php" class="btn btn-outline"><i class="fas fa-sync-alt"></i> Reset</a>
+        <a href="job_orders.php" class="btn btn-outline" onclick="sessionStorage.removeItem('jo_filter_url')"><i class="fas fa-sync-alt"></i> Reset</a>
       </form>
     </div>
     <div style="display: flex; gap: 20px;">
@@ -2710,6 +2710,22 @@ while ($row = $result->fetch_assoc()) {
     });
 
     document.addEventListener('DOMContentLoaded', function() {
+      // ── Filter URL persistence ──────────────────────────────────────
+      const FILTER_KEY = 'jo_filter_url';
+      const currentSearch = window.location.search;
+      if (currentSearch && currentSearch !== '?') {
+        // Has filters — save this URL
+        sessionStorage.setItem(FILTER_KEY, window.location.href);
+      } else {
+        // No filters — restore saved filters if any
+        const saved = sessionStorage.getItem(FILTER_KEY);
+        if (saved && saved !== window.location.href) {
+          window.location.replace(saved);
+          return;
+        }
+      }
+      // ────────────────────────────────────────────────────────────────
+
       const today = new Date();
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
       const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -2775,7 +2791,10 @@ while ($row = $result->fetch_assoc()) {
     }
 
     // Function to open modal and set total cost
-    function setTotalCost(jobId, clientName, projectName) {
+    function setTotalCost(btn) {
+      const jobId       = btn.dataset.id;
+      const clientName  = btn.dataset.client;
+      const projectName = btn.dataset.project;
       fetch(`get_job_expenses.php?id=${jobId}`)
         .then(response => response.json())
         .then(data => {

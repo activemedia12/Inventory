@@ -183,7 +183,10 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                                     Show Expenses
                                   </button>
                                   <button class="quick-fill-btn set-cost-btn" 
-                                    onclick="setTotalCost(<?= $order['id'] ?>, '<?= htmlspecialchars($order['client_name']) ?>', '<?= htmlspecialchars($order['project_name']) ?>')"
+                                    onclick="setTotalCost(this)"
+                                    data-id="<?= $order['id'] ?>"
+                                    data-client="<?= htmlspecialchars($order['client_name'], ENT_QUOTES) ?>"
+                                    data-project="<?= htmlspecialchars($order['project_name'], ENT_QUOTES) ?>"
                                     title="Set Total Cost">
                                     Set Total Cost
                                   </button>
