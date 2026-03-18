@@ -160,14 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $used_sheets = (int)$used_stmt->get_result()->fetch_assoc()['total'];
         $used_stmt->close();
 
-        $available = $delivered_sheets - $used_sheets;
-        $required  = $used_sheets_per_product + $spoil;
-
-        if ($available < $required) {
-            $_SESSION['message'] = "<div class='alert alert-danger'>❌ Not enough stock for <strong>" . htmlspecialchars($color) . "</strong>. Available: {$available} sheets, Required: {$required} sheets.</div>";
-            header("Location: edit_job.php?id=$job_id");
-            exit;
-        }
+        // Allow negative stock — no blocking on insufficient stock
     }
 
     // ── Delete old usage logs (prepared statement) ────────────────────
@@ -661,17 +654,15 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        // Show all matching products regardless of stock (negative stock allowed)
         const matching = allProducts.filter(p =>
-            p.product_type === type && p.product_group === size && Number(p.available_sheets) > 0
+            p.product_type === type && p.product_group === size
         );
 
-        const submitBtn = document.getElementById('mainsubBtn');
         if (matching.length === 0) {
-            seqContainer.innerHTML = '<div style="color:var(--danger)">⚠ No available stock for the selected type and size.</div>';
-            submitBtn.disabled = true;
+            seqContainer.innerHTML = '<div style="color:var(--danger)">⚠ No products found for the selected type and size.</div>';
             return;
         }
-        submitBtn.disabled = false;
 
         for (let i = 0; i < copies; i++) {
             const group = document.createElement('div');
@@ -702,8 +693,15 @@ document.addEventListener('DOMContentLoaded', function() {
             matching.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.product_name;
-                const reams = (p.available_sheets / 500).toFixed(2);
-                opt.textContent = `${p.product_name} (${reams} reams available)`;
+                const sheets = Number(p.available_sheets);
+                let stockLabel;
+                if (sheets <= 0) {
+                    stockLabel = 'no stock';
+                    opt.style.color = '#dc3545';
+                } else {
+                    stockLabel = `${(sheets / 500).toFixed(2)} reams available`;
+                }
+                opt.textContent = `${p.product_name} (${stockLabel})`;
                 if (preSeq[i] && preSeq[i].trim() === p.product_name) {
                     opt.selected = true;
                     if (preSpoilage[preSeq[i].trim()] !== undefined) {
@@ -747,6 +745,92 @@ document.addEventListener('DOMContentLoaded', function() {
     updateSizes();
     updateSequence();
 });
+    // ── Insufficient stock confirmation modal ──────────────────────────
+    document.addEventListener('DOMContentLoaded', function() {
+        const editForm    = document.querySelector('.edit-form');
+        const stockModal  = document.getElementById('insufficientStockModal');
+        const stockList   = document.getElementById('insufficientStockList');
+        let   allowSubmit = false;
+
+        editForm.addEventListener('submit', function(e) {
+            if (allowSubmit) return;
+            e.preventDefault();
+
+            const selects = document.querySelectorAll('select[name="paper_sequence[]"]');
+            const noStockItems = [];
+            selects.forEach(sel => {
+                const chosen = sel.options[sel.selectedIndex];
+                if (chosen && chosen.textContent.includes('no stock')) {
+                    noStockItems.push(chosen.value);
+                }
+            });
+
+            if (noStockItems.length === 0) {
+                allowSubmit = true;
+                editForm.submit();
+                return;
+            }
+
+            stockList.innerHTML = noStockItems.map(n => `<li>${n}</li>`).join('');
+            stockModal.style.display = 'flex';
+        });
+
+        document.getElementById('cancelStockModal').addEventListener('click', () => {
+            stockModal.style.display = 'none';
+        });
+
+        document.getElementById('confirmStockModal').addEventListener('click', () => {
+            stockModal.style.display = 'none';
+            allowSubmit = true;
+            editForm.submit();
+        });
+
+        stockModal.addEventListener('click', function(e) {
+            if (e.target === stockModal) stockModal.style.display = 'none';
+        });
+    });
+
+
 </script>
+
+  <!-- ── Insufficient Stock Confirmation Modal ── -->
+  <div id="insufficientStockModal" style="
+    display:none; position:fixed; inset:0; z-index:9999;
+    background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+    <div style="
+      background:#fff; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.2);
+      max-width:460px; width:90%; padding:32px 28px; position:relative;">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+        <div style="
+          background:#fff3cd; border-radius:50%; width:44px; height:44px;
+          display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          <i class="fas fa-exclamation-triangle" style="color:#f59e0b; font-size:20px;"></i>
+        </div>
+        <h5 style="margin:0; font-weight:700; font-size:17px; color:#1a1a1a;">Insufficient Stock</h5>
+      </div>
+      <p style="color:#555; margin-bottom:12px; font-size:14px;">
+        The following paper color(s) have <strong>no available stock</strong>:
+      </p>
+      <ul id="insufficientStockList" style="
+        color:#dc3545; font-size:14px; font-weight:600;
+        margin:0 0 18px 0; padding-left:20px;"></ul>
+      <p style="color:#555; font-size:14px; margin-bottom:24px;">
+        Stock will go negative if you continue. Do you still want to save this job order?
+      </p>
+      <div style="display:flex; gap:12px; justify-content:flex-end;">
+        <button id="cancelStockModal" type="button" style="
+          padding:9px 20px; border-radius:7px; border:1px solid #ccc;
+          background:#fff; color:#555; font-size:14px; cursor:pointer; font-weight:500;">
+          Cancel
+        </button>
+        <button id="confirmStockModal" type="button" style="
+          padding:9px 20px; border-radius:7px; border:none;
+          background:#dc3545; color:#fff; font-size:14px; cursor:pointer; font-weight:600;">
+          <i class="fas fa-check"></i> Yes, Save Anyway
+        </button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
