@@ -70,17 +70,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (isset($_POST['special'])) {
-        $stmt = $inventory->prepare("UPDATE paper_prices_new
-            SET price_per_ream=?, price_per_sheet=?, cutting_cost=?, effective_date=?
-            WHERE id=?");
+        $stmt = $inventory->prepare("UPDATE products SET unit_price=? WHERE id=?");
         foreach ($_POST['special'] as $row) {
-            $price_per_ream  = max(0, floatval($row['price_per_ream']));
-            $price_per_sheet = !empty($row['price_per_sheet']) ? max(0, floatval($row['price_per_sheet'])) : null;
-            $cutting_cost    = max(0, floatval($row['cutting_cost']));
-            $effective_date  = $row['effective_date'];
-            $id              = intval($row['id']);
-            $stmt->bind_param("dddsi",
-                $price_per_ream, $price_per_sheet, $cutting_cost, $effective_date, $id);
+            $unit_price = max(0, floatval($row['unit_price']));
+            $id         = intval($row['id']);
+            $stmt->bind_param("di", $unit_price, $id);
+            $stmt->execute();
+        }
+        $stmt->close();
+    }
+
+    if (isset($_POST['ordinary'])) {
+        $stmt = $inventory->prepare("UPDATE products SET unit_price=? WHERE id=?");
+        foreach ($_POST['ordinary'] as $row) {
+            $unit_price = max(0, floatval($row['unit_price']));
+            $id         = intval($row['id']);
+            $stmt->bind_param("di", $unit_price, $id);
             $stmt->execute();
         }
         $stmt->close();
@@ -117,11 +122,17 @@ $paper_prices   = $inventory->query("SELECT * FROM paper_prices ORDER BY effecti
 $cut_prices     = $inventory->query("SELECT * FROM paper_cut_prices ORDER BY effective_date DESC")->fetch_all(MYSQLI_ASSOC);
 $printing_types = $inventory->query("SELECT * FROM printing_types ORDER BY effective_date DESC")->fetch_all(MYSQLI_ASSOC);
 $special_prices = $inventory->query("
-    SELECT ppn.*, pf.display_name AS format_name, pf.code AS format_code, pf.sheets_per_ream
-    FROM paper_prices_new ppn
-    JOIN paper_formats pf ON ppn.paper_format_id = pf.id
-    WHERE ppn.paper_family_id = 6
-    ORDER BY pf.display_name, ppn.effective_date DESC
+    SELECT id, product_name, product_group, unit_price
+    FROM products
+    WHERE LOWER(product_type) = 'special paper'
+    ORDER BY product_group, product_name
+")->fetch_all(MYSQLI_ASSOC);
+
+$ordinary_prices = $inventory->query("
+    SELECT id, product_name, product_group, unit_price
+    FROM products
+    WHERE LOWER(product_type) = 'ordinary paper'
+    ORDER BY product_group, product_name
 ")->fetch_all(MYSQLI_ASSOC);
 
 $saved   = isset($_GET['saved']);
@@ -303,28 +314,18 @@ $active  = $_GET['tab'] ?? 'manpower-rates';
             <div class="table-responsive">
               <table class="table table-striped table-hover price-table mb-0">
                 <thead><tr>
-                  <th>Paper Type</th><th>Short Price</th><th>Long Price</th>
-                  <th>Price per Piece (₱)</th><th>Cutting Cost</th><th>Effective Date</th>
+                  <th>Paper Name</th><th>Size</th><th>Price / Ream (₱)</th>
                 </tr></thead>
                 <tbody>
-                  <?php foreach ($cut_prices as $row): ?>
+                  <?php foreach ($ordinary_prices as $row): ?>
                   <tr>
-                    <td>
-                      <?= htmlspecialchars($row['paper_type']) ?>
-                      <input type="hidden" name="cut[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
-                      <input type="hidden" name="cut[<?= $row['id'] ?>][paper_type]" value="<?= htmlspecialchars($row['paper_type']) ?>">
+                    <td style="min-width:220px; text-align:left">
+                      <?= htmlspecialchars($row['product_name']) ?>
+                      <input type="hidden" name="ordinary[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
                     </td>
-                    <td><input type="number" step="0.01" min="0" name="cut[<?= $row['id'] ?>][short_price]" value="<?= $row['short_price'] ?>" class="form-control form-control-sm" required></td>
-                    <td><input type="number" step="0.01" min="0" name="cut[<?= $row['id'] ?>][long_price]"  value="<?= $row['long_price'] ?>"  class="form-control form-control-sm" required></td>
-                    <td>
-                      <input type="number" step="0.0001" min="0" name="cut[<?= $row['id'] ?>][price_per_sheet]"
-                             value="<?= htmlspecialchars($row['price_per_sheet'] ?? '') ?>" class="form-control form-control-sm" placeholder="0.0000">
-                      <?php if (($row['price_per_sheet'] ?? 0) <= 0): ?>
-                        <small class="text-muted">Auto: ₱<?= number_format($row['short_price'] / 500, 4) ?></small>
-                      <?php endif; ?>
-                    </td>
-                    <td><input type="number" step="0.01" min="0" name="cut[<?= $row['id'] ?>][cutting_cost]"   value="<?= $row['cutting_cost'] ?>"   class="form-control form-control-sm" required></td>
-                    <td><input type="date" name="cut[<?= $row['id'] ?>][effective_date]" value="<?= $row['effective_date'] ?>" class="form-control form-control-sm" required></td>
+                    <td><?= htmlspecialchars($row['product_group']) ?></td>
+                    <td><input type="number" step="0.01" min="0" name="ordinary[<?= $row['id'] ?>][unit_price]"
+                               value="<?= htmlspecialchars($row['unit_price']) ?>" class="form-control form-control-sm" required></td>
                   </tr>
                   <?php endforeach; ?>
                 </tbody>
@@ -343,31 +344,18 @@ $active  = $_GET['tab'] ?? 'manpower-rates';
             <div class="table-responsive">
               <table class="table table-striped table-hover price-table mb-0">
                 <thead><tr>
-                  <th>Format</th><th>Size Code</th><th>Price / Ream (₱)</th>
-                  <th>Price / Sheet (₱)</th><th>Cutting Cost (₱)</th><th>Effective Date</th>
+                  <th>Paper Name</th><th>Size</th><th>Price / Sheet (₱)</th>
                 </tr></thead>
                 <tbody>
                   <?php foreach ($special_prices as $row): ?>
                   <tr>
-                    <td style="min-width:180px; text-align:left">
-                      <?= htmlspecialchars($row['format_name']) ?>
+                    <td style="min-width:220px; text-align:left">
+                      <?= htmlspecialchars($row['product_name']) ?>
                       <input type="hidden" name="special[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
                     </td>
-                    <td><code><?= htmlspecialchars($row['format_code']) ?></code></td>
-                    <td><input type="number" step="0.0001" min="0" name="special[<?= $row['id'] ?>][price_per_ream]"
-                               value="<?= $row['price_per_ream'] ?>" class="form-control form-control-sm" required></td>
-                    <td>
-                      <input type="number" step="0.0001" min="0" name="special[<?= $row['id'] ?>][price_per_sheet]"
-                             value="<?= htmlspecialchars($row['price_per_sheet'] ?? '') ?>" class="form-control form-control-sm" placeholder="0.000000">
-                      <?php if (($row['price_per_sheet'] ?? 0) <= 0 && !empty($row['price_per_ream'])): ?>
-                        <?php $spr = $row['sheets_per_ream'] > 0 ? $row['sheets_per_ream'] : 500; ?>
-                        <small class="text-muted">Auto: ₱<?= number_format($row['price_per_ream'] / $spr, 4) ?>/sheet &nbsp;·&nbsp; <?= $spr ?> sheets/ream</small>
-                      <?php endif; ?>
-                    </td>
-                    <td><input type="number" step="0.01" min="0" name="special[<?= $row['id'] ?>][cutting_cost]"
-                               value="<?= $row['cutting_cost'] ?>" class="form-control form-control-sm" required></td>
-                    <td><input type="date" name="special[<?= $row['id'] ?>][effective_date]"
-                               value="<?= $row['effective_date'] ?>" class="form-control form-control-sm" required></td>
+                    <td><?= htmlspecialchars($row['product_group']) ?></td>
+                    <td><input type="number" step="0.0001" min="0" name="special[<?= $row['id'] ?>][unit_price]"
+                               value="<?= htmlspecialchars($row['unit_price']) ?>" class="form-control form-control-sm" required></td>
                   </tr>
                   <?php endforeach; ?>
                 </tbody>

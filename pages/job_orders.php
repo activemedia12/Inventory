@@ -84,8 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $reams = $cut_sheets / 500;
   $paper_sequence_str = implode(', ', $paper_sequence);
 
-  $insufficient = [];
   $products_used = [];
+  $not_found = [];
 
   foreach ($paper_sequence as $color) {
     $color = trim($color);
@@ -112,26 +112,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($result && $result->num_rows > 0) {
       $row = $result->fetch_assoc();
-      if ($row['available'] < $cut_sheets) {
-        $needed_sheets = $cut_sheets - $row['available'];
-        $needed_reams = ceil($needed_sheets / 500);
-
-        $insufficient[] = "<i class='fas fa-exclamation-circle'></i> Not enough stock for <strong>$color</strong>. Available: {$row['available']} sheets, Required: $cut_sheets sheets. You need to add at least <strong>{$needed_reams} ream(s)</strong>.";
-      } else {
-        $products_used[] = ['product_id' => $row['id'], 'color' => $color];
-      }
+      // Allow negative stock — just record the product for usage logging
+      $products_used[] = ['product_id' => $row['id'], 'color' => $color];
     } else {
-      $insufficient[] = "<i class='fas fa-exclamation-circle'></i> Product not found for <strong>$color</strong>.";
+      $not_found[] = "<i class='fas fa-exclamation-circle'></i> Product not found for <strong>$color</strong>.";
     }
   }
 
-  if (!empty($insufficient)) {
+  // Only block if a product doesn't exist at all — insufficient stock is allowed
+  if (!empty($not_found)) {
     $_SESSION['form_data'] = $_POST;
-
-    $messages = array_map(function ($msg) {
-      return "<div class='alert alert-danger'>$msg</div>";
-    }, $insufficient);
-
+    $messages = array_map(fn($msg) => "<div class='alert alert-danger'>$msg</div>", $not_found);
     $_SESSION['message'] = implode("", $messages);
     header("Location: job_orders.php");
     exit;
@@ -3861,36 +3852,20 @@ while ($row = $result->fetch_assoc()) {
           return;
         }
 
+        // Show all matching products regardless of available stock (negative stock allowed)
         const matchingProducts = allProducts.filter(p =>
           p.product_type === type &&
-          p.product_group === size &&
-          p.available_sheets > 0
+          p.product_group === size
         );
 
         sequenceContainer.innerHTML = '';
 
         if (matchingProducts.length === 0) {
           const msg = document.createElement('div');
-          const submitBtn = document.getElementById('mainsubBtn');
-
-          msg.textContent = '⚠ No available stock for the selected type and size.';
+          msg.textContent = '⚠ No products found for the selected type and size.';
           msg.style.color = 'var(--danger)';
           sequenceContainer.appendChild(msg);
-
-          if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.classList.add('disabled');
-            submitBtn.title = 'Cannot submit — no stock available';
-          }
-
           return;
-        }
-
-        const submitBtn = document.getElementById('mainsubBtn');
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.classList.remove('disabled');
-          submitBtn.title = '';
         }
 
 
@@ -3922,8 +3897,15 @@ while ($row = $result->fetch_assoc()) {
           matchingProducts.forEach(p => {
             const opt = document.createElement('option');
             opt.value = p.product_name;
-            const reams = (p.available_sheets / 500).toFixed(2);
-            opt.textContent = `${p.product_name} (${reams} reams available)`;
+            const sheets = Number(p.available_sheets);
+            let stockLabel;
+            if (sheets <= 0) {
+              stockLabel = 'no stock';
+              opt.style.color = '#dc3545';
+            } else {
+              stockLabel = `${(sheets / 500).toFixed(2)} reams available`;
+            }
+            opt.textContent = `${p.product_name} (${stockLabel})`;
             select.appendChild(opt);
           });
 
@@ -3939,6 +3921,52 @@ while ($row = $result->fetch_assoc()) {
       });
       paperSizeSelect.addEventListener('change', updatePaperSequenceOptions);
       copiesInput.addEventListener('input', updatePaperSequenceOptions);
+    });
+
+
+    // ── Insufficient stock confirmation modal ──────────────────────────
+    document.addEventListener('DOMContentLoaded', function() {
+      const jobOrderForm = document.getElementById('jobOrderForm');
+      const stockModal   = document.getElementById('insufficientStockModal');
+      const stockList    = document.getElementById('insufficientStockList');
+      let   allowSubmit  = false;
+
+      jobOrderForm.addEventListener('submit', function(e) {
+        if (allowSubmit) return; // already confirmed — let it through
+        e.preventDefault();
+
+        const selects = document.querySelectorAll('#paper-sequence-container select[name="paper_sequence[]"]');
+        const noStockItems = [];
+        selects.forEach(sel => {
+          const chosen = sel.options[sel.selectedIndex];
+          if (chosen && chosen.textContent.includes('no stock')) {
+            noStockItems.push(chosen.value);
+          }
+        });
+
+        if (noStockItems.length === 0) {
+          allowSubmit = true;
+          jobOrderForm.submit();
+          return;
+        }
+
+        stockList.innerHTML = noStockItems.map(n => `<li>${n}</li>`).join('');
+        stockModal.style.display = 'flex';
+      });
+
+      document.getElementById('cancelStockModal').addEventListener('click', () => {
+        stockModal.style.display = 'none';
+      });
+
+      document.getElementById('confirmStockModal').addEventListener('click', () => {
+        stockModal.style.display = 'none';
+        allowSubmit = true;
+        jobOrderForm.submit();
+      });
+
+      stockModal.addEventListener('click', function(e) {
+        if (e.target === stockModal) stockModal.style.display = 'none';
+      });
     });
 
     document.querySelectorAll('.status-toggle-form').forEach(form => {
@@ -3965,6 +3993,46 @@ while ($row = $result->fetch_assoc()) {
       });
     });
   </script>
+
+  <!-- ── Insufficient Stock Confirmation Modal ── -->
+  <div id="insufficientStockModal" style="
+    display:none; position:fixed; inset:0; z-index:9999;
+    background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+    <div style="
+      background:#fff; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.2);
+      max-width:460px; width:90%; padding:32px 28px; position:relative;">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+        <div style="
+          background:#fff3cd; border-radius:50%; width:44px; height:44px;
+          display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          <i class="fas fa-exclamation-triangle" style="color:#f59e0b; font-size:20px;"></i>
+        </div>
+        <h5 style="margin:0; font-weight:700; font-size:17px; color:#1a1a1a;">Insufficient Stock</h5>
+      </div>
+      <p style="color:#555; margin-bottom:12px; font-size:14px;">
+        The following paper color(s) have <strong>no available stock</strong>:
+      </p>
+      <ul id="insufficientStockList" style="
+        color:#dc3545; font-size:14px; font-weight:600;
+        margin:0 0 18px 0; padding-left:20px;"></ul>
+      <p style="color:#555; font-size:14px; margin-bottom:24px;">
+        Stock will go negative if you continue. Do you still want to submit this job order?
+      </p>
+      <div style="display:flex; gap:12px; justify-content:flex-end;">
+        <button id="cancelStockModal" type="button" style="
+          padding:9px 20px; border-radius:7px; border:1px solid #ccc;
+          background:#fff; color:#555; font-size:14px; cursor:pointer; font-weight:500;">
+          Cancel
+        </button>
+        <button id="confirmStockModal" type="button" style="
+          padding:9px 20px; border-radius:7px; border:none;
+          background:#dc3545; color:#fff; font-size:14px; cursor:pointer; font-weight:600;">
+          <i class="fas fa-check"></i> Yes, Submit Anyway
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script src="../assets/js/print.js"></script>
 </body>
 

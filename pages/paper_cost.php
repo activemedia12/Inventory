@@ -138,97 +138,65 @@ if ($paper_type === 'carbonless') {
     }
 
 } elseif ($paper_type === 'special paper') {
-    // Fetch ALL special paper prices into PHP, then match by dimensions with tolerance
-    // This handles cases where product_group (e.g. '11.25X28.5') differs slightly
-    // from paper_formats.code (e.g. '11.25X28.25')
-    $special_all = $inventory->query("
-        SELECT ppn.price_per_ream, ppn.price_per_sheet, ppn.cutting_cost,
-               pf.code, pf.display_name
-        FROM paper_prices_new ppn
-        JOIN paper_formats pf ON ppn.paper_format_id = pf.id
-        WHERE ppn.paper_family_id = 6
-        ORDER BY ppn.effective_date DESC
+    // Fetch all special paper products keyed by product_name (case-insensitive)
+    $special_products = $inventory->query("
+        SELECT product_name, product_group, unit_price
+        FROM products
+        WHERE LOWER(product_type) = 'special paper'
     ")->fetch_all(MYSQLI_ASSOC);
 
-    // Index by code — keep only the most recent per code (already ordered DESC)
-    $special_map = [];
-    foreach ($special_all as $row) {
-        $code = strtoupper($row['code']);
-        if (!isset($special_map[$code])) $special_map[$code] = $row;
-    }
-
-    // Find the best matching price row for a given size string
-    function findSpecialPrice($size, $special_map) {
-        $size = strtoupper($size);
-
-        // 1. Exact match
-        if (isset($special_map[$size])) return $special_map[$size];
-
-        // 2. Approximate match — ±0.5 tolerance for minor decimal differences
-        if (preg_match('/^([\d.]+)X([\d.]+)$/i', $size, $m)) {
-            $w = (float)$m[1];
-            $h = (float)$m[2];
-            foreach ($special_map as $code => $row) {
-                if (preg_match('/^([\d.]+)X([\d.]+)$/i', $code, $cm)) {
-                    if (abs((float)$cm[1] - $w) < 0.5 && abs((float)$cm[2] - $h) < 0.5) {
-                        return $row;
-                    }
-                }
-            }
+    $special_product_map = [];
+    foreach ($special_products as $p) {
+        $key = strtolower(trim($p['product_name']));
+        if (!isset($special_product_map[$key])) {
+            $special_product_map[$key] = $p;
         }
-
-        return null;
     }
 
     foreach ($paper_sequence as $color) {
-        $price = findSpecialPrice($paper_size, $special_map);
+        $key     = strtolower(trim($color));
+        $product = $special_product_map[$key] ?? null;
 
-        if ($price) {
-            $pps         = (float)$price['price_per_sheet'];
-            $pps_missing = ($pps <= 0);
-            if ($pps_missing) $pps = (float)$price['price_per_ream'] / 500; // rough fallback
-
-            // Special paper: always per-sheet × cut_sheets (ream size is irrelevant)
-            $layer_cost  = $pps * $cut_sheets;
+        if ($product) {
+            $pps        = (float)$product['unit_price'];
+            $layer_cost = $pps * $cut_sheets;
             $total_paper_cost_ream += $layer_cost;
 
-            $layer = buildLayerData($color, $price['display_name'], (float)$price['price_per_ream'], $pps, $reams, $layer_cost, $total_sheets);
-            $layer['pps_missing'] = $pps_missing;
-            $layer['is_special']  = true;
+            $layer = buildLayerData($color, $product['product_name'], 0, $pps, $reams, $layer_cost, $total_sheets);
+            $layer['is_special'] = true;
             $layer_data[] = $layer;
         }
     }
 
 } else {
-    // Ordinary paper
-    $unique_types = array_unique(array_map(fn($c) => mapPaperType($c, $paper_type), $paper_sequence));
-    $placeholders = implode(',', array_fill(0, count($unique_types), '?'));
-    $price_stmt = $inventory->prepare(
-        "SELECT paper_type, short_price, long_price, price_per_sheet
-         FROM paper_cut_prices
-         WHERE paper_type IN ($placeholders)
-         ORDER BY effective_date DESC"
-    );
-    $types_str = str_repeat('s', count($unique_types));
-    $price_stmt->bind_param($types_str, ...array_values($unique_types));
-    $price_stmt->execute();
-    $price_rows = $price_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    $price_stmt->close();
+    // Ordinary paper — direct name match from products table, priced per ream
+    $ordinary_products = $inventory->query("
+        SELECT product_name, product_group, unit_price
+        FROM products
+        WHERE LOWER(product_type) = 'ordinary paper'
+    ")->fetch_all(MYSQLI_ASSOC);
 
-    $price_map = [];
-    foreach ($price_rows as $p) {
-        if (!isset($price_map[$p['paper_type']])) $price_map[$p['paper_type']] = $p;
+    $ordinary_product_map = [];
+    foreach ($ordinary_products as $p) {
+        $key = strtolower(trim($p['product_name']));
+        if (!isset($ordinary_product_map[$key])) {
+            $ordinary_product_map[$key] = $p;
+        }
     }
 
     foreach ($paper_sequence as $color) {
-        $mappedType = mapPaperType($color, $paper_type);
-        $price = $price_map[$mappedType] ?? null;
-        if ($price) {
-            $unit_price = determineSizePrice($price, $paper_size);
-            $price_per_sheet = $price['price_per_sheet'] ?? ($unit_price / 500);
+        $key     = strtolower(trim($color));
+        $product = $ordinary_product_map[$key] ?? null;
+
+        if ($product) {
+            $unit_price      = (float)$product['unit_price'];  // price per ream
             $layer_cost_ream = $unit_price * $reams;
+            $price_per_sheet = $reams > 0 ? ($unit_price / 500) : 0;
             $total_paper_cost_ream += $layer_cost_ream;
-            $layer_data[] = buildLayerData($color, $mappedType, $unit_price, $price_per_sheet, $reams, $layer_cost_ream, $total_sheets);
+
+            $layer = buildLayerData($color, $product['product_name'], $unit_price, $price_per_sheet, $reams, $layer_cost_ream, $total_sheets);
+            $layer['is_ordinary_product'] = true;
+            $layer_data[] = $layer;
         }
     }
 }
@@ -506,9 +474,9 @@ $js_reams       = $reams;
             row.classList.add('session-row', 'row', 'g-2', 'align-items-center', 'mt-2');
             row.innerHTML = `
                 <div class="col-md-3"><label class="form-label small">Start</label>
-                    <input type="time" class="form-control" name="sessions[${task}][${idx}][start]" onchange="calculate()" required></div>
+                    <input type="time" class="form-control" name="sessions[${task}][${idx}][start]" onchange="calculate()"></div>
                 <div class="col-md-3"><label class="form-label small">End</label>
-                    <input type="time" class="form-control" name="sessions[${task}][${idx}][end]" onchange="calculate()" required></div>
+                    <input type="time" class="form-control" name="sessions[${task}][${idx}][end]" onchange="calculate()"></div>
                 <div class="col-md-3"><label class="form-label small">Break (mins)</label>
                     <input type="number" class="form-control" name="sessions[${task}][${idx}][break]" min="0" value="0" onchange="calculate()"></div>
                 <div class="col-md-3"><button type="button" class="btn btn-sm btn-outline-danger mt-md-4" onclick="this.parentElement.parentElement.remove();calculate()">
@@ -683,6 +651,8 @@ $js_reams       = $reams;
                                                     <span style="color:#dc3545"> ⚠ price/sheet not set — using ream÷500 estimate</span>
                                                 <?php endif; ?>
                                             </div>
+                                        <?php elseif (!empty($layer['is_ordinary_product'])): ?>
+                                            <div class="small text-muted">₱<?= number_format($layer['unit_price'], 2) ?>/ream × <?= number_format($layer['reams'], 2) ?> reams</div>
                                         <?php else: ?>
                                             <div class="small text-muted">₱<?= number_format($layer['unit_price'], 2) ?> × <?= number_format($layer['reams'], 2) ?> reams</div>
                                         <?php endif; ?>
@@ -744,10 +714,10 @@ $js_reams       = $reams;
                                             <div class="session-row row g-2 align-items-center mt-2">
                                                 <div class="col-md-3"><label class="form-label small">Start</label>
                                                     <input type="time" class="form-control" name="sessions[<?= htmlspecialchars($task) ?>][<?= $i ?>][start]"
-                                                           value="<?= htmlspecialchars($startVal) ?>" onchange="calculate()" required></div>
+                                                           value="<?= htmlspecialchars($startVal) ?>" onchange="calculate()"></div>
                                                 <div class="col-md-3"><label class="form-label small">End</label>
                                                     <input type="time" class="form-control" name="sessions[<?= htmlspecialchars($task) ?>][<?= $i ?>][end]"
-                                                           value="<?= htmlspecialchars($endVal) ?>" onchange="calculate()" required></div>
+                                                           value="<?= htmlspecialchars($endVal) ?>" onchange="calculate()"></div>
                                                 <div class="col-md-3"><label class="form-label small">Break (mins)</label>
                                                     <input type="number" class="form-control" name="sessions[<?= htmlspecialchars($task) ?>][<?= $i ?>][break]"
                                                            min="0" value="<?= htmlspecialchars((string)$s['break_minutes']) ?>" onchange="calculate()"></div>
@@ -760,9 +730,9 @@ $js_reams       = $reams;
                                         <?php else: ?>
                                             <div class="session-row row g-2 align-items-center mt-2">
                                                 <div class="col-md-3"><label class="form-label small">Start</label>
-                                                    <input type="time" class="form-control" name="sessions[<?= htmlspecialchars($task) ?>][0][start]" onchange="calculate()" required></div>
+                                                    <input type="time" class="form-control" name="sessions[<?= htmlspecialchars($task) ?>][0][start]" onchange="calculate()"></div>
                                                 <div class="col-md-3"><label class="form-label small">End</label>
-                                                    <input type="time" class="form-control" name="sessions[<?= htmlspecialchars($task) ?>][0][end]" onchange="calculate()" required></div>
+                                                    <input type="time" class="form-control" name="sessions[<?= htmlspecialchars($task) ?>][0][end]" onchange="calculate()"></div>
                                                 <div class="col-md-3"><label class="form-label small">Break (mins)</label>
                                                     <input type="number" class="form-control" name="sessions[<?= htmlspecialchars($task) ?>][0][break]" min="0" value="0" onchange="calculate()"></div>
                                                 <div class="col-md-3">
