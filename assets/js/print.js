@@ -46,31 +46,31 @@
               font-weight: 600;
               white-space: nowrap;
             }
-            .job-order-date { top: 150px; left: 805px; }
-            .client-name    { top: 150px; left: 150px; }
-            .address        { top: 200px; left: 150px; width: 300px; font-size:13px;}
-            .tin            { top: 250px; left: 70px; }
-            .contact-number { top: 250px; left: 570px; }
-            .client-by      { top: 250px; left: 820px; }
-            .contact-person { top: 250px; left: 300px; }
+            .job-order-date { top: 150px; left: 805px; color: red;}
+            .client-name    { top: 150px; left: 120px; color: red; font-size: 18px; font-weight: bold;}
+            .address        { top: 200px; left: 120px; width: 300px; font-size: 13px; color: red;}
+            .tin            { top: 250px; left: 70px; color: red;}
+            .contact-number { top: 250px; left: 570px; color: red;}
+            .client-by      { top: 250px; left: 820px; color: red;}
+            .contact-person { top: 250px; left: 300px; color: red;}
 
-            .project-name   { top: 337px; left: 70px; }
-            .product-type   { top: 330px; left: 610px; }
-            .quantity       { top: 337px; left: 280px; }
-            .cut-size       { top: 395px; left: 420px; }
-            .serial-range   { top: 395px; left: 70px; }
+            .project-name   { top: 337px; left: 70px; color: red;}
+            .product-type   { top: 335px; left: 730px; font-weight: bold; color: red;}
+            .quantity       { top: 453px; left: 540px; color: red;}
+            .cut-size       { top: 507px; left: 750px; color: red;}
+            .serial-range   { top: 395px; left: 70px; color: red;}
 
-            .paper-size     { top: 372px; left: 420px; font-size: 12px; }
-            .copies-per-set { top: 397px; left: 270px; font-size: 12px; }
-            .binding-type   { top: 337px; left: 483px; }
+            .paper-size     { top: 488px; left: 750px; font-size: 12px; color: red;}
+            .copies-per-set { top: 510px; left: 540px; font-size: 12px; color: red;}
+            .binding-type   { top: 395px; left: 540px; color: red;}
 
-            .color-seq      { top: 366px; left: 610px; font-size: 13px; white-space: nowrap; max-width: 320px }
-            .special-notes  { top: 455px; left: 70px; width: 800px; font-size: 13px; }
+            .color-seq      { top: 360px; left: 730px; font-size: 11px; white-space: nowrap; max-width: 320px; color: red;}
+            .special-notes  { top: 455px; left: 70px; width: 400px; font-size: 13px; color: red; white-space: normal;}
           </style>
         </head>
         <body>
           <div class="form-template">
-            <img src="../assets/images/jo2.jpg" alt="Job Order Form Template" />
+            <img src="../assets/images/jo4.jpg" alt="Job Order Form Template" />
             <div class="field job-order-date">${jobOrderDate}</div>
             <div class="field client-name">${order.client_name || ''}</div>
             <div class="field address">${order.client_address || ''}</div>
