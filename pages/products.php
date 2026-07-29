@@ -13,4 +13,3 @@ if ($last && in_array(basename($last), $allowed)) {
     header("Location: $default");
 }
 exit;
-?>

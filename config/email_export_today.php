@@ -3,6 +3,7 @@ date_default_timezone_set('Asia/Manila');
 
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/config.php';
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -85,7 +86,7 @@ foreach (range('A', 'S') as $col) {
 }
 
 $excelFilename = "Job_Orders_Report_{$today}.xlsx";
-$excelTempPath = '/tmp/' . $excelFilename;
+$excelTempPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $excelFilename;
 
 $writer = new Xlsx($spreadsheet);
 $writer->save($excelTempPath);
@@ -94,20 +95,32 @@ $writer->save($excelTempPath);
 // 3. Generate SQL Backup
 // ------------------------------
 $sqlFilename = "Database_Backup_{$today}.sql";
-$sqlTempPath = '/tmp/' . $sqlFilename;
+$sqlTempPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $sqlFilename;
 
-$dbHost = 'localhost';       // Hostinger usually uses localhost
-$dbUser = 'u382513771_admin';
-$dbPass = 'Amdp@1205';
-$dbName = 'u382513771_inventory';
+$dbHost = BACKUP_DB_HOST;
+$dbUser = BACKUP_DB_USER;
+$dbPass = BACKUP_DB_PASS;
+$dbName = BACKUP_DB_NAME;
 
 // Attempt using mysqldump first
 $dumpPath = '/usr/bin/mysqldump';
 $success = false;
 
 if (function_exists('exec') && is_executable($dumpPath)) {
-    $dumpCommand = "$dumpPath --host=$dbHost --user=$dbUser --password=$dbPass $dbName > $sqlTempPath";
+    // Credentials are passed via a temporary defaults file instead of the
+    // command line so they don't show up in `ps` output or shell history.
+    $defaultsFile = tempnam(sys_get_temp_dir(), 'mycnf');
+    file_put_contents($defaultsFile, "[client]\nhost={$dbHost}\nuser={$dbUser}\npassword={$dbPass}\n");
+    chmod($defaultsFile, 0600);
+
+    $dumpCommand = escapeshellcmd($dumpPath)
+        . ' --defaults-extra-file=' . escapeshellarg($defaultsFile)
+        . ' ' . escapeshellarg($dbName)
+        . ' > ' . escapeshellarg($sqlTempPath);
+
     exec($dumpCommand, $output, $resultCode);
+    unlink($defaultsFile);
+
     if ($resultCode === 0) {
         $success = true;
     }
@@ -229,17 +242,7 @@ if (!$success) {
 // ------------------------------
 $mail = new PHPMailer(true);
 try {
-    $mail->isSMTP();
-    $mail->Host       = 'smtp.gmail.com';
-    $mail->SMTPAuth   = true;
-    $mail->Username   = 'amdpreports@gmail.com';
-    $mail->Password   = 'odyh qgxv iaez fylf'; // App password
-    $mail->SMTPSecure = 'tls';
-    $mail->Port       = 587;
-
-    $mail->setFrom('amdpreports@gmail.com', 'AMDP Reports');
-    $mail->addAddress('activemediaprint@gmail.com', 'Active Media');
-    $mail->addCC('amdpreports@gmail.com');
+    amdp_configure_mailer($mail);
 
     $mail->addAttachment($excelTempPath, $excelFilename);
     $mail->addAttachment($sqlTempPath, $sqlFilename);

@@ -186,41 +186,52 @@ $stmt->close();
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Papers Management</title>
+  <title>Papers Management - Active Media Printing</title>
   <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
   <style>
-        ::-webkit-scrollbar {
-            width: 7px;
-            height: 5px;
-        }
+    /* ==========================================================
+       Papers Management — reskinned to match the shared
+       minimal-SaaS design tokens used across dashboard.php
+       ========================================================== */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
 
-        ::-webkit-scrollbar-thumb {
-            background: #1876f299;
-            border-radius: 10px;
-        }
+    ::-webkit-scrollbar-thumb {
+      background: #cbced3;
+      border-radius: 8px;
+    }
 
     :root {
-      --primary: #1877f2;
-      --secondary: #166fe5;
-      --light: #f0f2f5;
-      --dark: #1c1e21;
-      --gray: #65676b;
-      --light-gray: #e4e6eb;
+      --primary: #4f5eff;
+      --secondary: #4048e0;
+      --primary-bg: #eef1ff;
+      --light: #f6f6f7;
+      --dark: #14171f;
+      --gray: #6b7280;
+      --light-gray: #e2e4e7;
       --card-bg: #ffffff;
-      --success: #42b72a;
-      --danger: #ff4d4f;
-      --warning: #faad14;
+      --success: #1a9c6b;
+      --success-bg: #e3f6ee;
+      --danger: #d9463c;
+      --danger-bg: #fbe9e7;
+      --warning: #b6790a;
+      --warning-bg: #fdf2df;
+      --info: #2a7ade;
+      --info-bg: #e8f1fc;
     }
 
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: "Poppins", sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
 
     body {
@@ -228,64 +239,108 @@ $stmt->close();
       color: var(--dark);
       display: flex;
       min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* Sidebar */
     .sidebar {
-      width: 250px;
+      width: 240px;
       background-color: var(--card-bg);
       height: 100vh;
       position: fixed;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      border-right: 1px solid var(--light-gray);
       padding: 20px 0;
+      overflow-y: auto;
     }
 
     .brand {
-      padding: 0 20px 40px;
+      padding: 0 20px 20px;
       border-bottom: 1px solid var(--light-gray);
-      margin-bottom: 20px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     .brand img {
       height: 100px;
       width: auto;
-      padding-left: 40px;
-      transform: rotate(45deg);
-    }
-
-    .brand h2 {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--dark);
+      padding-left: 0;
+      transform: none;
     }
 
     .nav-menu {
       list-style: none;
+      padding: 0 12px;
     }
 
     .nav-menu li a {
       display: flex;
       align-items: center;
-      padding: 12px 20px;
-      color: var(--dark);
+      padding: 10px 12px;
+      border-radius: 6px;
+      color: var(--gray);
       text-decoration: none;
-      transition: background-color 0.3s;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background-color 0.15s ease, color 0.15s ease;
     }
 
     .nav-menu li a:hover {
-      background-color: var(--light-gray);
+      background-color: var(--light);
+      color: var(--dark);
+    }
+
+    .nav-menu li.active>a,
+    .nav-menu li a.active {
+      background-color: var(--primary-bg);
+      color: var(--secondary);
     }
 
     .nav-menu li a i {
       margin-right: 10px;
+      width: 16px;
+      text-align: center;
       color: var(--gray);
+    }
+
+    .nav-menu li.active>a i,
+    .nav-menu li a:hover i {
+      color: inherit;
+    }
+
+    .submenu {
+      list-style: none;
+      margin: 2px 0 6px 14px;
+      padding-left: 14px;
+      border-left: 2px solid var(--light-gray);
+    }
+
+    .submenu li a {
+      padding: 7px 10px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--gray);
+      border-radius: 6px;
+    }
+
+    .submenu li a:hover {
+      background-color: var(--light);
+      color: var(--dark);
+    }
+
+    .submenu li a.activate {
+      color: var(--secondary);
+      font-weight: 600;
+      background-color: var(--primary-bg);
     }
 
     /* Main Content */
     .main-content {
       flex: 1;
-      margin-left: 250px;
-      padding: 20px;
+      margin-left: 240px;
+      padding: 28px 32px;
     }
 
     /* Header */
@@ -294,12 +349,12 @@ $stmt->close();
       justify-content: space-between;
       align-items: center;
       margin-bottom: 20px;
-      padding-bottom: 15px;
+      padding-bottom: 16px;
       border-bottom: 1px solid var(--light-gray);
     }
 
     .header h1 {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 600;
       color: var(--dark);
     }
@@ -310,74 +365,32 @@ $stmt->close();
     }
 
     .user-info img {
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       margin-right: 10px;
       object-fit: cover;
     }
 
     .user-details h4 {
-      font-weight: 500;
-      font-size: 16px;
+      font-weight: 600;
+      font-size: 14px;
     }
 
     .user-details small {
       color: var(--gray);
-      font-size: 14px;
-    }
-
-    /* Stats Cards */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
-      margin-bottom: 30px;
-    }
-
-    .stat-card {
-      background: var(--card-bg);
-      border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    }
-
-    .stat-card .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-
-    .stat-card .card-icon {
-      width: 50px;
-      height: 50px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-color: rgba(24, 119, 242, 0.1);
-      color: var(--primary);
-    }
-
-    .stat-card h3 {
-      font-size: 28px;
-      font-weight: 600;
-      margin-bottom: 5px;
-    }
-
-    .stat-card p {
-      color: var(--gray);
-      font-size: 14px;
+      font-size: 12px;
     }
 
     /* Alerts */
     .alert {
       padding: 12px 15px;
-      border-radius: 6px;
+      border-radius: 8px;
       margin-bottom: 20px;
       display: flex;
       align-items: center;
+      font-size: 13px;
+      font-weight: 500;
     }
 
     .alert i {
@@ -385,57 +398,111 @@ $stmt->close();
     }
 
     .alert-success {
-      background-color: rgba(40, 167, 69, 0.1);
-      color: #28a745;
-      border: 1px solid rgba(40, 167, 69, 0.2);
+      background-color: var(--success-bg);
+      color: var(--success);
     }
 
     .alert-danger {
-      background-color: rgba(220, 53, 69, 0.1);
-      color: #dc3545;
-      border: 1px solid rgba(220, 53, 69, 0.2);
+      background-color: var(--danger-bg);
+      color: var(--danger);
     }
 
     .alert-warning {
-      background-color: rgba(255, 193, 7, 0.1);
-      color: #ffc107;
-      border: 1px solid rgba(255, 193, 7, 0.2);
+      background-color: var(--warning-bg);
+      color: var(--warning);
     }
 
-    /* Empty State */
-    .empty-message {
-      padding: 30px;
-      text-align: center;
-      color: var(--gray);
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      margin-bottom: 20px;
+      gap: 16px;
+    }
+
+    .stat-card {
       background: var(--card-bg);
+      border: 1px solid var(--light-gray);
       border-radius: 8px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-      margin: 20px 0;
+      padding: 18px;
+      box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
+      min-width: 0;
+    }
+
+    .stat-card .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .stat-card .card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--primary-bg);
+      color: var(--primary);
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .stat-card h3 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .stat-card p {
+      color: var(--gray);
+      font-size: 13px;
+    }
+
+    .stat-card .stat-label {
+      font-size: 11px;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .stat-card .stat-period {
+      font-size: 12px;
+      color: var(--gray);
+      margin-top: 4px;
     }
 
     /* Forms */
     .form-card {
       background: var(--card-bg);
+      border: 1px solid var(--light-gray);
       border-radius: 8px;
       padding: 20px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
       margin-bottom: 20px;
     }
 
     .form-card h3 {
-      margin-bottom: 15px;
+      margin-bottom: 16px;
       display: flex;
       align-items: center;
+      font-size: 15px;
+      font-weight: 600;
       color: var(--dark);
     }
 
     .form-card h3 i {
-      margin-right: 10px;
-      color: var(--primary);
+      margin-right: 8px;
+      color: var(--gray);
     }
 
-    .form-card button {
-      margin-top: 15px;
+    .form-note {
+      font-size: 12px;
+      color: var(--gray);
+      margin: -10px 0 14px;
     }
 
     .form-grid {
@@ -444,15 +511,14 @@ $stmt->close();
       gap: 15px;
     }
 
-    .form-group {
-      margin-bottom: 0;
-    }
-
     .form-group label {
       display: block;
-      margin-bottom: 8px;
-      font-size: 14px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 600;
       color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     .form-group input,
@@ -461,8 +527,10 @@ $stmt->close();
       padding: 10px 12px;
       border: 1px solid var(--light-gray);
       border-radius: 6px;
-      font-size: 14px;
-      transition: border-color 0.3s;
+      font-size: 13px;
+      background: var(--card-bg);
+      color: var(--dark);
+      transition: border-color 0.15s ease;
     }
 
     .form-group input:focus,
@@ -480,10 +548,11 @@ $stmt->close();
       color: white;
       border: none;
       border-radius: 6px;
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
-      transition: background-color 0.3s;
+      transition: background-color 0.15s ease;
+      margin-top: 16px;
     }
 
     .btn:hover {
@@ -497,49 +566,64 @@ $stmt->close();
     /* Tables */
     .table-card {
       background: var(--card-bg);
+      border: 1px solid var(--light-gray);
       border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-      overflow: scroll;
+      padding: 18px;
+      box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
+      width: 100%;
+      margin-bottom: 20px;
+      overflow: auto;
     }
 
     .table-card h3 {
-      margin-bottom: 15px;
+      margin-bottom: 14px;
       display: flex;
       align-items: center;
+      justify-content: space-between;
+      font-size: 15px;
+      font-weight: 600;
       color: var(--dark);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .table-card h3>span:first-child {
+      display: flex;
+      align-items: center;
     }
 
     .table-card h3 i {
-      margin-right: 10px;
-      color: var(--primary);
+      margin-right: 8px;
+      color: var(--gray);
     }
 
     table {
-      width: 100%;
+      min-width: 100%;
       border-collapse: collapse;
     }
 
     th,
     td {
-      padding: 12px 15px;
+      padding: 10px 14px;
       text-align: left;
       border-bottom: 1px solid var(--light-gray);
-      font-size: 14px;
+      font-size: 13px;
     }
 
     th {
-      font-weight: 500;
+      font-weight: 600;
       color: var(--gray);
-      font-size: 14px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     tr td {
-      transition: 0.3s;
+      transition: background-color 0.15s ease;
     }
 
     tr:hover td {
-      background-color: rgba(24, 119, 242, 0.05);
+      background-color: var(--light);
     }
 
     .clickable-row {
@@ -548,127 +632,339 @@ $stmt->close();
 
     .action-cell a {
       color: var(--gray);
-      margin-right: 10px;
-      transition: color 0.3s;
+      margin-right: 12px;
+      transition: color 0.15s ease;
     }
 
     .action-cell a:hover {
       color: var(--primary);
     }
 
-    /* Category headers */
-    .category-header {
-      background-color: var(--light-gray);
+    /* Stock level pill */
+    .stock-pill {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
       font-weight: 600;
     }
 
-    .subcategory-header {
-      background-color: rgba(233, 236, 239, 0.5);
-      font-style: italic;
+    .stock-pill.high {
+      background: var(--success-bg);
+      color: var(--success);
     }
 
-    /* Stock toggle */
+    .stock-pill.mid {
+      background: var(--warning-bg);
+      color: var(--warning);
+    }
+
+    .stock-pill.low {
+      background: var(--danger-bg);
+      color: var(--danger);
+    }
+
+    .badge {
+      background-color: var(--light);
+      color: var(--gray);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    /* Stock unit toggle */
     .stock-toggle {
       display: inline-flex;
       align-items: center;
-      background: var(--light-gray);
+      background: var(--light);
+      border: 1px solid var(--light-gray);
       border-radius: 20px;
       padding: 2px;
-      margin-left: 10px;
     }
 
     .stock-toggle select {
       border: none;
       background: transparent;
-      padding: 4px 8px;
-      font-size: 13px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--dark);
       cursor: pointer;
     }
 
-    /* Modal */
-    .modal {
+    .stock-toggle select:focus {
+      outline: none;
+    }
+
+    /* Collapsible product-type groups */
+    .product-type-block {
+      border: 1px solid var(--light-gray);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .product-type-block:last-child {
+      margin-bottom: 0;
+    }
+
+    .collapsible-header {
+      cursor: pointer;
+      padding: 12px 15px;
+      background-color: var(--card-bg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--dark);
+      transition: background-color 0.15s ease;
+    }
+
+    .collapsible-header:hover {
+      background-color: var(--light);
+    }
+
+    .collapsible-header i {
+      margin-right: 10px;
+      color: var(--gray);
+      transition: transform 0.2s ease;
+    }
+
+    .product-content {
+      padding: 0;
+      overflow: auto;
+      border-top: 1px solid var(--light-gray);
+    }
+
+    .product-content table th,
+    .product-content table td {
+      border: none;
+      border-bottom: 1px solid var(--light-gray);
+    }
+
+    .product-content table tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Modal + floating window (shared with product_info.php content) */
+    @keyframes centerZoomIn {
+      0% {
+        transform: translate(-50%, -50%) scale(0.97);
+        opacity: 0;
+      }
+
+      100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+      }
+    }
+
+    #productModal {
       display: none;
       position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.5);
-      z-index: 1000;
-      justify-content: center;
+      right: 0;
+      bottom: 0;
+      background: rgba(20, 23, 31, 0.35);
+      backdrop-filter: blur(2px);
+      z-index: 999;
       align-items: center;
+      justify-content: center;
     }
 
-    .modal-content {
-      background-color: white;
-      border-radius: 8px;
+    .floating-window {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       width: 90%;
-      max-width: 600px;
+      max-width: 1000px;
       max-height: 80vh;
-      overflow-y: auto;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      animation: modalFadeIn 0.3s;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 12px 32px rgba(20, 23, 31, 0.18);
+      z-index: 1000;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      animation: centerZoomIn 0.18s ease-out forwards;
     }
 
-    @keyframes modalFadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(-20px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .modal-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--light-gray);
+    .window-header {
+      padding: 14px 20px;
+      background: var(--dark);
+      color: white;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
-    .modal-header h3 {
-      font-size: 18px;
+    .window-title {
+      display: flex;
+      align-items: center;
+      font-size: 15px;
       font-weight: 600;
     }
 
-    .modal-header .close {
-      font-size: 24px;
+    .window-title i {
+      margin-right: 10px;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 16px;
       cursor: pointer;
+      padding: 6px;
+      opacity: 0.85;
+    }
+
+    .close-btn:hover {
+      opacity: 1;
+    }
+
+    .window-content {
+      padding: 22px;
+      overflow-y: auto;
+      flex-grow: 1;
+    }
+
+    .product-info-compact {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--light-gray);
+    }
+
+    .info-item-compact strong {
+      display: block;
+      color: var(--gray);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 4px;
+    }
+
+    .info-item-compact span {
+      font-size: 13px;
+      color: var(--dark);
+    }
+
+    .stock-summary-compact {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stock-card-compact {
+      padding: 14px;
+      border-radius: 8px;
+      background: var(--light);
+      text-align: center;
+    }
+
+    .stock-card-compact h4 {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .stock-value-compact {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .stock-unit-compact {
+      color: var(--gray);
+      font-size: 11px;
+    }
+
+    .window-content .section-header {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--dark);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--light-gray);
+      display: flex;
+      align-items: center;
+      margin: 20px 0 14px;
+    }
+
+    .window-content .section-header i {
+      margin-right: 8px;
       color: var(--gray);
     }
 
-    .modal-body {
-      padding: 20px;
+    .compact-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-bottom: 4px;
     }
 
-    .modal-footer {
-      padding: 16px 20px;
-      border-top: 1px solid var(--light-gray);
-      display: flex;
-      justify-content: flex-end;
-    }
-
-    .submenu {
-      font-size: 90%;
-      list-style-type: none;
-      margin-left: 30px;
-      border-left: 2px solid #1c1c1c1a;
-    }
-
-    .submenu li a {
-      padding-left: 30px;
-    }
-
-    .submenu li a.activate {
+    .compact-table th {
+      background: var(--light);
+      padding: 8px 10px;
+      text-align: left;
       font-weight: 600;
-      background-color: #1c1c1c10;
+      font-size: 11px;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .compact-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--light-gray);
+    }
+
+    .compact-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .empty-state {
+      padding: 16px;
+      text-align: center;
+      color: var(--gray);
+      background: var(--light);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .empty-state i {
+      margin-right: 8px;
+    }
+
+    .empty-message {
+      text-align: center;
+      padding: 24px;
+      color: var(--gray);
+      font-size: 13px;
+      background: var(--card-bg);
+      border: 1px solid var(--light-gray);
+      border-radius: 8px;
     }
 
     /* Responsive */
+    @media (max-width: 1200px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
     @media (max-width: 768px) {
       .sidebar-con {
         width: 100%;
@@ -683,34 +979,37 @@ $stmt->close();
         overflow: hidden;
         height: auto;
         width: auto;
-        bottom: 20px;
-        padding: 0;
-        background-color: rgba(255, 255, 255, 0.3);
-        backdrop-filter: blur(2px);
-        box-shadow: 1px 1px 10px rgb(190, 190, 190);
-        cursor: grab;
-        transition: left 0.05s ease-in, top 0.05s ease-in;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 6px;
+        background-color: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(6px);
+        box-shadow: 0 4px 16px rgba(20, 23, 31, 0.12);
+        border-radius: 100px;
         touch-action: manipulation;
         z-index: 9999;
         flex-direction: row;
-        border: 1px solid white;
+        border: 1px solid var(--light-gray);
         justify-content: center;
       }
 
       .sidebar .nav-menu {
         display: flex;
         flex-direction: row;
+        padding: 0;
       }
 
       .sidebar img,
       .sidebar .brand,
-      .sidebar .nav-menu li a span {
+      .sidebar .nav-menu li a span,
+      .sidebar .submenu {
         display: none;
       }
 
       .sidebar .nav-menu li a {
         justify-content: center;
-        padding: 15px;
+        padding: 12px;
       }
 
       .sidebar .nav-menu li a i {
@@ -720,90 +1019,37 @@ $stmt->close();
       .main-content {
         margin-left: 0;
         overflow: auto;
-        margin-bottom: 200px;
+        margin-bottom: 90px;
+        padding: 20px;
       }
 
-      .product-content {
-        font-size: 13px;
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
       }
 
-      .product-content th {
-        font-size: 13px;
-        text-align: center;
-      }
-
-      .sidebar {
-        padding-top: 30px;
-        border-radius: 20px;
-      }
-
-      .submenu {
-        width: 100%;
-        font-size: 70%;
-        list-style-type: none;
-        margin-left: 0;
-        border: none;
-        position: absolute;
-        display: flex;
-        height: 20px;
-        top: 0;
-        left: 23%;
-      }
-
-      .submenu li a {
-        padding-left: 0;
-        height: 1px;
-      }
-
-      .submenu li a.activate {
-        font-weight: 600;
-        background-color: #1c1c1c10;
+      .form-grid {
+        grid-template-columns: 1fr;
       }
     }
 
     @media (max-width: 576px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
       .header {
         flex-direction: column;
         align-items: flex-start;
+        gap: 10px;
       }
 
       .user-info {
-        margin-top: 10px;
+        margin-top: 4px;
       }
-    }
 
-    .collapsible-header {
-      cursor: pointer;
-      padding: 10px;
-      background: #f2f2f2;
-      border: 1px solid #ccc;
-      margin-top: 10px;
-      font-weight: bold;
-    }
-
-    .collapsible-header i {
-      margin-right: 8px;
-      transition: transform 0.2s;
-    }
-
-    .product-content {
-      padding: 10px;
-      overflow: scroll;
-    }
-
-    .table-card table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .table-card table td,
-    .table-card table th {
-      padding: 8px;
-      border: 1px solid #ddd;
-    }
-
-    .nav-menu li.active>a {
-      background-color: var(--light-gray);
+      .table-card {
+        overflow-x: auto;
+      }
     }
   </style>
 </head>
@@ -817,7 +1063,7 @@ $stmt->close();
   <div class="sidebar-con">
     <div class="sidebar">
       <div class="brand">
-        <img src="../assets/images/plainlogo.png" alt="">
+        <img src="../assets/images/plainlogo.png" alt="Active Media Printing Logo">
       </div>
       <ul class="nav-menu">
         <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
@@ -839,10 +1085,15 @@ $stmt->close();
     </div>
   </div>
 
-
   <div class="main-content">
+    <!-- Header -->
     <header class="header">
-      <h1>Papers Management</h1>
+      <div>
+        <h1>Papers Management</h1>
+        <p style="color: var(--gray); font-size: 14px; margin-top: 5px;">
+          <i class="fas fa-calendar-alt" style="margin-right: 5px;"></i> <?= date('l, F j, Y') ?>
+        </p>
+      </div>
       <div class="user-info">
         <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="User">
         <div class="user-details">
@@ -856,36 +1107,33 @@ $stmt->close();
       <?php echo $message; ?>
     <?php endif; ?>
     <?php if (isset($_GET['error'])): ?>
-      <div style="color: red; font-weight: bold;"><?= htmlspecialchars($_GET['error']) ?></div>
+      <div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> <?= htmlspecialchars($_GET['error']) ?></div>
     <?php elseif (isset($_GET['msg'])): ?>
-      <div style="color: green; font-weight: bold;"><?= htmlspecialchars($_GET['msg']) ?></div>
+      <div id="flash-message" class="alert alert-success"><i class="fas fa-check-circle"></i> <?= htmlspecialchars($_GET['msg']) ?></div>
     <?php endif; ?>
-
 
     <!-- Quick Stats -->
     <div class="stats-grid">
       <div class="stat-card">
         <div class="card-header">
           <div>
-            <p>Total Papers</p>
-            <h3><?php echo $total_products; ?></h3>
+            <p class="stat-label">Total Papers</p>
+            <h3><?= number_format($total_products) ?></h3>
           </div>
-          <div class="card-icon">
-            <i class="fas fa-boxes"></i>
-          </div>
+          <div class="card-icon"><i class="fas fa-boxes"></i></div>
         </div>
+        <div class="stat-period">Active paper products</div>
       </div>
 
       <div class="stat-card">
         <div class="card-header">
           <div>
-            <p>Out of Stock</p>
-            <h3><?php echo $out_of_stock; ?></h3>
+            <p class="stat-label">Out of Stock</p>
+            <h3 class="<?= $out_of_stock > 0 ? 'text-danger' : '' ?>" style="<?= $out_of_stock > 0 ? 'color:var(--danger)' : '' ?>"><?= number_format($out_of_stock) ?></h3>
           </div>
-          <div class="card-icon">
-            <i class="fas fa-exclamation-triangle"></i>
-          </div>
+          <div class="card-icon"><i class="fas fa-exclamation-triangle"></i></div>
         </div>
+        <div class="stat-period"><?= $out_of_stock > 0 ? '⚠️ Needs restocking' : '✓ All items in stock' ?></div>
       </div>
     </div>
 
@@ -953,7 +1201,7 @@ $stmt->close();
     <!-- Products Table -->
     <div class="table-card">
       <h3>
-        <i class="fas fa-box-open"></i> Paper Inventory
+        <span><i class="fas fa-box-open"></i> Paper Inventory</span>
         <span class="stock-toggle">
           <form method="get" style="display:inline;">
             <input type="hidden" name="product_type" value="<?= htmlspecialchars($type_filter) ?>">
@@ -973,12 +1221,26 @@ $stmt->close();
       foreach ($products as $prod) {
         $grouped_products[$prod['product_type']][] = $prod;
       }
+
+      // Same thresholds used on the dashboard: <=0 sheets is out of stock,
+      // under 10,000 sheets (20 reams) is running low.
+      function paper_stock_class($sheets)
+      {
+        if ($sheets <= 0) return 'low';
+        if ($sheets < 10000) return 'mid';
+        return 'high';
+      }
       ?>
+
+      <?php if (empty($grouped_products)): ?>
+        <div class="empty-message"><i class="fas fa-info-circle"></i> No papers found for the selected filters.</div>
+      <?php endif; ?>
 
       <?php foreach ($grouped_products as $type => $items): ?>
         <div class="product-type-block">
           <h4 class="collapsible-header" onclick="toggleProductGroup(this)">
-            <i class="fas fa-chevron-down"></i> <?= htmlspecialchars($type) ?>
+            <span><i class="fas fa-chevron-right"></i> <?= htmlspecialchars($type) ?></span>
+            <span class="badge"><?= count($items) ?> item<?= count($items) === 1 ? '' : 's' ?></span>
           </h4>
 
           <div class="product-content">
@@ -1004,13 +1266,15 @@ $stmt->close();
                     <td><?= htmlspecialchars($prod['product_name']) ?></td>
                     <td>₱<?= number_format($prod['unit_price'], 2) ?></td>
                     <td>
-                      <?php
-                      if ($stock_unit === 'reams') {
-                        echo number_format($prod['available_sheets'] / 500, 2) . ' reams';
-                      } else {
-                        echo number_format($prod['available_sheets'], 2) . ' sheets';
-                      }
-                      ?>
+                      <span class="stock-pill <?= paper_stock_class($prod['available_sheets']) ?>">
+                        <?php
+                        if ($stock_unit === 'reams') {
+                          echo number_format($prod['available_sheets'] / 500, 2) . ' reams';
+                        } else {
+                          echo number_format($prod['available_sheets'], 2) . ' sheets';
+                        }
+                        ?>
+                      </span>
                     </td>
                     <?php if ($_SESSION['role'] === 'admin'): ?>
                       <td><?= htmlspecialchars($prod['username'] ?? 'Unknown') ?></td>
@@ -1032,7 +1296,7 @@ $stmt->close();
 
   <!-- Product Info Modal -->
   <div id="productModal">
-    <div id="productModalBody"></div>
+    <div id="productModalBody" class="floating-window"></div>
   </div>
 
   <script>
@@ -1060,9 +1324,16 @@ $stmt->close();
             })
             .catch(err => {
               document.getElementById('productModalBody').innerHTML = `
-              <p style="color:red;">Error loading product info: ${err.message}</p>
-              <p>Requested ID: ${productId}</p>
-              <p>URL: product_info.php?id=${productId}</p>
+              <div class="floating-window" style="max-width:500px;">
+                <div class="window-header">
+                  <div class="window-title"><i class="fas fa-exclamation-circle"></i> Error</div>
+                  <button class="close-btn" onclick="closeModal()"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="window-content">
+                  <p style="color:var(--danger);">Error loading product info: ${err.message}</p>
+                  <p style="color:var(--gray); font-size:13px;">Requested ID: ${productId}</p>
+                </div>
+              </div>
             `;
               document.getElementById('productModal').style.display = 'flex';
             });
@@ -1082,6 +1353,11 @@ $stmt->close();
       document.getElementById('productModal').style.display = 'none';
       document.getElementById('productModalBody').innerHTML = '';
     }
+
+    // Click outside the floating window to close
+    document.getElementById('productModal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
 
     const pageKey = '/papers.php';
 

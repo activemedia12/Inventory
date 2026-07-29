@@ -6,8 +6,68 @@ if (!isset($_SESSION['user_id'])) {
 }
 require_once '../config/db.php';
 
+// Prevent the browser from caching this page (including bfcache), so a
+// client_id-prefilled response can never be resurrected by a later
+// back/forward navigation or plain reuse of a cached response.
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Pragma: no-cache");
+header("Expires: 0");
+
 $prefill = $_SESSION['form_data'] ?? [];
 unset($_SESSION['form_data']);
+
+$active_product_types_result = $inventory->query("
+    SELECT pt.*, COUNT(ptf.id) AS field_count
+    FROM product_types pt
+    LEFT JOIN product_type_fields ptf ON ptf.product_type_id = pt.id
+    WHERE pt.is_active = 1
+    GROUP BY pt.id
+    ORDER BY pt.sort_order ASC, pt.name ASC
+");
+$active_product_types = [];
+while ($row = $active_product_types_result->fetch_assoc()) {
+  $active_product_types[] = $row;
+}
+
+// ── Fetch all fields + options for all active product types ──────
+// We load them all at once so JS can switch without extra requests
+$pt_fields_all = [];
+$pt_options_all = [];
+
+if (!empty($active_product_types)) {
+  $pt_ids = implode(',', array_column($active_product_types, 'id'));
+
+  $fields_result = $inventory->query("
+        SELECT * FROM product_type_fields 
+        WHERE product_type_id IN ($pt_ids) 
+        ORDER BY sort_order ASC
+    ");
+  while ($row = $fields_result->fetch_assoc()) {
+    $pt_fields_all[$row['product_type_id']][] = $row;
+  }
+
+  $options_result = $inventory->query("
+        SELECT o.*, f.product_type_id 
+        FROM product_type_field_options o
+        JOIN product_type_fields f ON o.field_id = f.id
+        WHERE f.product_type_id IN ($pt_ids)
+        ORDER BY o.sort_order ASC
+    ");
+  while ($row = $options_result->fetch_assoc()) {
+    $pt_options_all[$row['field_id']][] = $row;
+  }
+}
+
+// ── Fetch base price per piece per product type (for cost estimate) ──
+$pt_pricing_all = [];
+$pricing_result = $inventory->query("
+    SELECT product_type_id, variant_field_id, variant_value, price_per_piece
+    FROM product_type_pricing
+    ORDER BY product_type_id, effective_date DESC
+");
+while ($row = $pricing_result->fetch_assoc()) {
+  $pt_pricing_all[$row['product_type_id']][] = $row;
+}
 
 if (isset($_GET['client_id'])) {
   $stmt = $inventory->prepare("SELECT * FROM clients WHERE id = ?");
@@ -77,6 +137,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $floor_no = $_POST['floor_no'] ?? '';
   $zip_code = $_POST['zip_code'] ?? '';
 
+  $product_type_id = !empty($_POST['product_type_id']) ? intval($_POST['product_type_id']) : null;
+  $is_non_paper    = ($product_type_id !== null);
+
   $cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, '1/10' => 10, '1/12' => 12, '1/14' => 14, '1/16' => 16, '1/18' => 18, '1/20' => 20, '1/22' => 22, '1/24' => 24, '1/25' => 25, '1/26' => 26, '1/28' => 28, '1/30' => 30, '1/32' => 32, '1/36' => 36, '1/40' => 40, '1/48' => 48, '1/50' => 50, 'whole' => 1];
   $cut_size = $cut_size_map[$product_size] ?? 1;
   $total_sheets = $number_of_sets * $quantity;
@@ -87,35 +150,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $products_used = [];
   $not_found = [];
 
-  foreach ($paper_sequence as $color) {
-    $color = trim($color);
-    $stock_stmt = $inventory->prepare("
-      SELECT p.id, (
-        (
-          SELECT IFNULL(SUM(delivered_reams), 0)
-          FROM delivery_logs
-          WHERE product_id = p.id
-        ) * 500 - (
-          SELECT IFNULL(SUM(used_sheets + spoilage_sheets), 0)
-          FROM usage_logs
-          WHERE product_id = p.id
-        )
-      ) AS available
-      FROM products p
-      WHERE p.product_type = ? AND p.product_group = ? AND p.product_name = ?
-      LIMIT 1
-    ");
-    $stock_stmt->bind_param("sss", $paper_type, $paper_size, $color);
-    $stock_stmt->execute();
-    $result = $stock_stmt->get_result();
-    $stock_stmt->close();
+  if (!$is_non_paper) {
+    foreach ($paper_sequence as $color) {
+      $color = trim($color);
+      $stock_stmt = $inventory->prepare("
+        SELECT p.id, (
+          (
+            SELECT IFNULL(SUM(delivered_reams), 0)
+            FROM delivery_logs
+            WHERE product_id = p.id
+          ) * 500 - (
+            SELECT IFNULL(SUM(used_sheets + spoilage_sheets), 0)
+            FROM usage_logs
+            WHERE product_id = p.id
+          )
+        ) AS available
+        FROM products p
+        WHERE p.product_type = ? AND p.product_group = ? AND p.product_name = ?
+        LIMIT 1
+      ");
+      $stock_stmt->bind_param("sss", $paper_type, $paper_size, $color);
+      $stock_stmt->execute();
+      $result = $stock_stmt->get_result();
+      $stock_stmt->close();
 
-    if ($result && $result->num_rows > 0) {
-      $row = $result->fetch_assoc();
-      // Allow negative stock — just record the product for usage logging
-      $products_used[] = ['product_id' => $row['id'], 'color' => $color];
-    } else {
-      $not_found[] = "<i class='fas fa-exclamation-circle'></i> Product not found for <strong>$color</strong>.";
+      if ($result && $result->num_rows > 0) {
+        $row = $result->fetch_assoc();
+        // Allow negative stock — just record the product for usage logging
+        $products_used[] = ['product_id' => $row['id'], 'color' => $color];
+      } else {
+        $not_found[] = "<i class='fas fa-exclamation-circle'></i> Product not found for <strong>$color</strong>.";
+      }
     }
   }
 
@@ -145,9 +210,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $insert_client->bind_param(
       "ssssssssssssssss",
-      $client_name, $taxpayer_name, $tin, $tax_type, $rdo_code, $client_address,
-      $province, $city, $barangay, $street, $building_no, $floor_no, $zip_code,
-      $contact_person, $contact_number, $client_by,
+      $client_name,
+      $taxpayer_name,
+      $tin,
+      $tax_type,
+      $rdo_code,
+      $client_address,
+      $province,
+      $city,
+      $barangay,
+      $street,
+      $building_no,
+      $floor_no,
+      $zip_code,
+      $contact_person,
+      $contact_number,
+      $client_by,
     );
     $insert_client->execute();
     $insert_client->close();
@@ -161,9 +239,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       WHERE id = ?");
     $update_client->bind_param(
       "ssssssssssssssi",
-      $taxpayer_name, $tin, $tax_type, $rdo_code, $client_address,
-      $province, $city, $barangay, $street, $building_no, $floor_no,
-      $zip_code, $contact_person, $client_by, $existing['id']
+      $taxpayer_name,
+      $tin,
+      $tax_type,
+      $rdo_code,
+      $client_address,
+      $province,
+      $city,
+      $barangay,
+      $street,
+      $building_no,
+      $floor_no,
+      $zip_code,
+      $contact_person,
+      $client_by,
+      $existing['id']
     );
     $update_client->execute();
     $update_client->close();
@@ -173,13 +263,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     log_date, client_name, client_address, contact_person, contact_number, taxpayer_name, tax_type, rdo_code, tin, client_by,
     project_name, ocn_number, date_issued, quantity, number_of_sets, product_size, serial_range,
     paper_size, custom_paper_size, paper_type, copies_per_set, binding_type,
-    custom_binding, paper_sequence, special_instructions, created_by, province, city, barangay, street, building_no, floor_no, zip_code,
+    custom_binding, paper_sequence, special_instructions, created_by, province, city, barangay, street, building_no, floor_no, zip_code, product_type_id,
     status
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
 
   if ($stmt) {
     $stmt->bind_param(
-      "sssssssssssssiisssssissssisssssss",
+      "sssssssssssssiisssssissssisssssssi",
       $log_date,
       $client_name,
       $client_address,
@@ -213,6 +303,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $building_no,
       $floor_no,
       $zip_code,
+      $product_type_id,
     );
 
     if ($stmt->execute()) {
@@ -233,6 +324,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->close();
   } else {
     $_SESSION['message'] = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Failed to prepare job order insert.</div>";
+  }
+
+  // Save dynamic field values for non-paper jobs
+  if ($is_non_paper && !empty($_POST['pt_field'])) {
+    $fv_stmt = $inventory->prepare(
+      "INSERT INTO job_order_field_values (job_order_id, field_id, field_value)
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE field_value = VALUES(field_value)"
+    );
+    foreach ($_POST['pt_field'] as $field_id => $value) {
+      $fid = intval($field_id);
+      $val = trim($value);
+      $fv_stmt->bind_param("iis", $job_order_id, $fid, $val);
+      $fv_stmt->execute();
+    }
+    $fv_stmt->close();
+  }
+
+  // Auto-save estimated total cost for non-paper jobs (from JS calculation)
+  if ($is_non_paper && !empty($_POST['np_estimated_cost'])) {
+    $np_cost = floatval($_POST['np_estimated_cost']);
+    if ($np_cost > 0) {
+      $update_cost = $inventory->prepare("UPDATE job_orders SET total_cost = ? WHERE id = ?");
+      $update_cost->bind_param("di", $np_cost, $job_order_id);
+      $update_cost->execute();
+      $update_cost->close();
+    }
   }
 
   header("Location: job_orders.php");
@@ -439,6 +557,26 @@ $result = $inventory->query("SELECT DISTINCT province FROM locations ORDER BY pr
 while ($row = $result->fetch_assoc()) {
   $provinces[] = $row['province'];
 }
+
+// ── Product type lookup (id => name/icon) for display ────────────
+$pt_lookup = [];
+$pt_lookup_result = $inventory->query("SELECT id, name, icon FROM product_types");
+while ($row = $pt_lookup_result->fetch_assoc()) {
+  $pt_lookup[$row['id']] = $row;
+}
+
+// ── Dynamic field values for non-paper job orders ─────────────────
+// Only fetch for job orders that actually have a product_type_id set.
+$job_field_values = [];
+$fv_result = $inventory->query("
+    SELECT v.job_order_id, f.field_label, v.field_value, f.field_type
+    FROM job_order_field_values v
+    JOIN product_type_fields f ON v.field_id = f.id
+    ORDER BY f.sort_order ASC
+");
+while ($row = $fv_result->fetch_assoc()) {
+  $job_field_values[$row['job_order_id']][] = $row;
+}
 ?>
 
 
@@ -452,39 +590,44 @@ while ($row = $result->fetch_assoc()) {
   <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
   <style>
     ::-webkit-scrollbar {
-      width: 7px;
-      height: 10px;
+      width: 8px;
+      height: 8px;
     }
 
     ::-webkit-scrollbar-thumb {
-      background: #1876f299;
-      border-radius: 10px;
-      cursor: ew-resize;
+      background: #cbced3;
+      border-radius: 8px;
     }
 
     :root {
-      --primary: #1877f2;
-      --primary-light: #eef2ff;
-      --secondary: #166fe5;
-      --light: #f0f2f5;
-      --dark: #1c1e21;
-      --gray: #65676b;
-      --light-gray: #e4e6eb;
+      --primary: #4f5eff;
+      --primary-bg: #eef1ff;
+      --secondary: #4048e0;
+      --light: #f6f6f7;
+      --dark: #14171f;
+      --gray: #6b7280;
+      --light-gray: #e2e4e7;
       --card-bg: #ffffff;
-      --success: #42b72a;
-      --danger: #ff4d4f;
+      --success: #1a9c6b;
+      --success-bg: #e3f6ee;
+      --danger: #d9463c;
+      --danger-bg: #fbe9e7;
+      --warning: #b6790a;
+      --warning-bg: #fdf2df;
+      --info: #2a7ade;
+      --info-bg: #e8f1fc;
     }
 
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
 
     body {
@@ -492,65 +635,81 @@ while ($row = $result->fetch_assoc()) {
       color: var(--dark);
       display: flex;
       min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* Sidebar */
     .sidebar {
-      width: 250px;
+      width: 240px;
       background-color: var(--card-bg);
       height: 100vh;
       position: fixed;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      border-right: 1px solid var(--light-gray);
       padding: 20px 0;
+      overflow-y: auto;
     }
 
     .brand {
-      padding: 0 20px 40px;
+      padding: 0 20px 20px;
       border-bottom: 1px solid var(--light-gray);
-      margin-bottom: 20px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     .brand img {
       height: 100px;
       width: auto;
-      padding-left: 40px;
-      transform: rotate(45deg);
-    }
-
-    .brand h2 {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--dark);
+      padding-left: 0;
+      transform: none;
     }
 
     .nav-menu {
       list-style: none;
+      padding: 0 12px;
     }
 
     .nav-menu li a {
       display: flex;
       align-items: center;
-      padding: 12px 20px;
-      color: var(--dark);
+      padding: 10px 12px;
+      border-radius: 6px;
+      color: var(--gray);
       text-decoration: none;
-      transition: background-color 0.3s;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background-color 0.15s ease, color 0.15s ease;
     }
 
-    .nav-menu li a:hover,
+    .nav-menu li a:hover {
+      background-color: var(--light);
+      color: var(--dark);
+    }
+
     .nav-menu li a.active {
-      background-color: var(--light-gray);
+      background-color: var(--primary-bg);
+      color: var(--secondary);
     }
 
     .nav-menu li a i {
       margin-right: 10px;
+      width: 16px;
+      text-align: center;
       color: var(--gray);
+    }
+
+    .nav-menu li a.active i,
+    .nav-menu li a:hover i {
+      color: inherit;
     }
 
     /* Main Content */
     .main-content {
       flex: 1;
-      margin-left: 250px;
-      padding: 20px;
+      margin-left: 240px;
+      padding: 28px 32px;
       overflow: auto;
     }
 
@@ -560,12 +719,12 @@ while ($row = $result->fetch_assoc()) {
       justify-content: space-between;
       align-items: center;
       margin-bottom: 20px;
-      padding-bottom: 15px;
+      padding-bottom: 16px;
       border-bottom: 1px solid var(--light-gray);
     }
 
     .header h1 {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 600;
       color: var(--dark);
     }
@@ -576,96 +735,110 @@ while ($row = $result->fetch_assoc()) {
     }
 
     .user-info img {
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       margin-right: 10px;
       object-fit: cover;
     }
 
     .user-details h4 {
-      font-weight: 500;
-      font-size: 16px;
+      font-weight: 600;
+      font-size: 14px;
     }
 
     .user-details small {
       color: var(--gray);
-      font-size: 14px;
+      font-size: 12px;
     }
 
-    /* Alert */
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      background-color: var(--primary-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--secondary);
+      font-weight: 600;
+      font-size: 13px;
+      margin-right: 10px;
+    }
+
+    /* Alerts */
     .alert {
-      padding: 12px 16px;
+      padding: 12px 15px;
       border-radius: 6px;
-      margin-bottom: 1rem;
-      font-size: 15px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      font-weight: 500;
       display: flex;
       align-items: center;
       gap: 10px;
     }
 
     .alert i {
-      font-size: 18px;
+      font-size: 15px;
     }
 
     .alert-success {
-      background-color: #e6f4ea;
-      border: 1px solid #b8e0c2;
-      color: #276738;
+      background-color: var(--success-bg);
+      color: var(--success);
     }
 
     .alert-danger {
-      background-color: #fdecea;
-      border: 1px solid #f5c6cb;
-      color: #a92828;
+      background-color: var(--danger-bg);
+      color: var(--danger);
     }
 
     .alert-warning {
-      background-color: #fff8e1;
-      border: 1px solid #ffecb5;
-      color: #8c6d1f;
+      background-color: var(--warning-bg);
+      color: var(--warning);
     }
 
     .alert-info {
-      background-color: #e7f3fe;
-      border: 1px solid #bee3f8;
-      color: #0b5394;
+      background-color: var(--info-bg);
+      color: var(--info);
     }
-
 
     /* Forms */
     .card {
       background: var(--card-bg);
+      border: 1px solid var(--light-gray);
       border-radius: 8px;
       padding: 20px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
       margin-bottom: 20px;
     }
 
     .card h3 {
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       display: flex;
       align-items: center;
+      font-size: 15px;
+      font-weight: 600;
       color: var(--dark);
     }
 
     .card h3 i {
-      margin-right: 10px;
-      color: var(--primary);
+      margin-right: 8px;
+      color: var(--gray);
     }
 
     .form-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
       grid-template-rows: 1fr;
-      gap: 15px;
+      gap: 14px;
     }
 
     .vat-group label {
       margin-bottom: 8px;
-      font-size: 14px;
+      font-size: 12px;
       color: var(--gray);
-      margin-right: 25px;
+      margin-right: 20px;
     }
 
     .vatlabels {
@@ -680,25 +853,30 @@ while ($row = $result->fetch_assoc()) {
     }
 
     .form-group {
-      margin-bottom: 15px;
+      margin-bottom: 14px;
     }
 
     .form-group label {
       display: block;
-      margin-bottom: 8px;
-      font-size: 14px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 600;
       color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     .form-group input,
     .form-group select,
     .form-group textarea {
       width: 100%;
-      padding: 10px 12px;
+      padding: 9px 12px;
       border: 1px solid var(--light-gray);
       border-radius: 6px;
-      font-size: 14px;
-      transition: border 0.3s;
+      font-size: 13px;
+      color: var(--dark);
+      background: var(--card-bg);
+      transition: border-color 0.15s ease;
     }
 
     .form-group input:focus,
@@ -709,7 +887,7 @@ while ($row = $result->fetch_assoc()) {
     }
 
     .form-group textarea {
-      min-height: 100px;
+      min-height: 90px;
     }
 
     /* Buttons */
@@ -717,15 +895,15 @@ while ($row = $result->fetch_assoc()) {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 10px 16px;
+      padding: 9px 16px;
       background-color: var(--primary);
       color: white;
       border: none;
       border-radius: 6px;
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
-      transition: background-color 0.3s;
+      transition: background-color 0.15s ease;
     }
 
     .btn:hover {
@@ -743,13 +921,13 @@ while ($row = $result->fetch_assoc()) {
     }
 
     .btn-outline:hover {
-      background-color: var(--light-gray);
+      background-color: var(--light);
     }
 
-    /* Job Orders List */
+    /* Job Orders List (legacy non-compact view) */
     .client-block {
-      margin-bottom: 25px;
-      padding-bottom: 15px;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
       border-bottom: 1px solid var(--light-gray);
     }
 
@@ -758,15 +936,15 @@ while ($row = $result->fetch_assoc()) {
     }
 
     .client-name {
-      font-size: 18px;
+      font-size: 15px;
       font-weight: 600;
       color: var(--dark);
-      margin-bottom: 15px;
+      margin-bottom: 12px;
     }
 
     .date-group {
-      margin-left: 15px;
-      margin-bottom: 20px;
+      margin-left: 14px;
+      margin-bottom: 16px;
     }
 
     .date-header {
@@ -775,12 +953,13 @@ while ($row = $result->fetch_assoc()) {
       cursor: pointer;
       padding: 8px 12px;
       border-radius: 6px;
-      transition: background 0.2s;
+      transition: background 0.15s ease;
       font-weight: 500;
+      font-size: 13px;
     }
 
     .date-header:hover {
-      background: rgba(24, 119, 242, 0.05);
+      background: var(--primary-bg);
     }
 
     .date-header i {
@@ -794,7 +973,7 @@ while ($row = $result->fetch_assoc()) {
     }
 
     .project-group {
-      margin-left: 20px;
+      margin-left: 18px;
       margin-top: 10px;
       display: none;
     }
@@ -809,12 +988,13 @@ while ($row = $result->fetch_assoc()) {
       cursor: pointer;
       padding: 8px 12px;
       border-radius: 6px;
-      transition: background 0.2s;
+      transition: background 0.15s ease;
       font-weight: 500;
+      font-size: 13px;
     }
 
     .project-header:hover {
-      background: rgba(24, 119, 242, 0.05);
+      background: var(--primary-bg);
     }
 
     .project-header i {
@@ -823,12 +1003,12 @@ while ($row = $result->fetch_assoc()) {
     }
 
     .order-details {
-      margin-left: 25px;
+      margin-left: 20px;
       margin-top: 10px;
       display: none;
-      background: rgba(24, 119, 242, 0.03);
+      background: var(--light);
       border-radius: 8px;
-      padding: 15px;
+      padding: 14px;
     }
 
     .project-header:not(.collapsed)+.order-details {
@@ -836,24 +1016,25 @@ while ($row = $result->fetch_assoc()) {
     }
 
     .order-item {
-      margin-bottom: 15px;
+      margin-bottom: 14px;
     }
 
     .order-item p {
       margin-bottom: 8px;
-      font-size: 14px;
+      font-size: 13px;
     }
 
     .order-item strong {
       color: var(--gray);
-      font-weight: 500;
+      font-weight: 600;
     }
 
     /* Empty State */
     .empty-message {
       text-align: center;
-      padding: 40px 20px;
+      padding: 32px 20px;
       color: var(--gray);
+      font-size: 13px;
     }
 
     .hidden {
@@ -884,19 +1065,20 @@ while ($row = $result->fetch_assoc()) {
       justify-content: space-between;
       align-items: center;
       cursor: pointer;
-      padding: 8px;
+      padding: 8px 10px;
       border-radius: 6px;
-      transition: 0.3s;
-      background: rgba(24, 119, 242, 0.05);
+      transition: background-color 0.15s ease;
+      background: var(--primary-bg);
     }
 
     .compact-client-header:hover {
-      background: rgba(24, 119, 242, 0.1);
+      background: var(--light-gray);
     }
 
     .compact-client-name {
-      font-weight: 500;
+      font-weight: 600;
       color: var(--dark);
+      font-size: 13px;
     }
 
     .compact-client-count {
@@ -904,11 +1086,12 @@ while ($row = $result->fetch_assoc()) {
       color: white;
       padding: 2px 8px;
       border-radius: 20px;
-      font-size: 12px;
+      font-size: 11px;
+      font-weight: 600;
     }
 
     .compact-date-group {
-      margin-left: 15px;
+      margin-left: 14px;
       display: none;
     }
 
@@ -919,21 +1102,21 @@ while ($row = $result->fetch_assoc()) {
       cursor: pointer;
       padding: 6px 8px;
       margin-top: 5px;
-      border-radius: 4px;
-      transition: 0.3s;
+      border-radius: 6px;
+      transition: background-color 0.15s ease;
     }
 
     .compact-date-header:hover {
-      background: rgba(24, 119, 242, 0.05);
+      background: var(--light);
     }
 
     .compact-date-text {
-      font-size: 14px;
+      font-size: 13px;
       color: var(--dark);
     }
 
     .compact-project-group {
-      margin-left: 15px;
+      margin-left: 14px;
       display: none;
     }
 
@@ -944,7 +1127,7 @@ while ($row = $result->fetch_assoc()) {
       cursor: pointer;
       padding: 6px 8px;
       margin-top: 5px;
-      font-size: 13px;
+      font-size: 12.5px;
       color: var(--gray);
     }
 
@@ -953,12 +1136,11 @@ while ($row = $result->fetch_assoc()) {
     }
 
     .compact-order-item {
-      margin-left: 15px;
-      padding: 8px;
-      background: rgba(24, 119, 242, 0.03);
+      margin-left: 14px;
+      background: var(--light);
       border-radius: 6px;
       margin-top: 5px;
-      font-size: 13px;
+      font-size: 12.5px;
     }
 
     .compact-order-item p {
@@ -976,6 +1158,8 @@ while ($row = $result->fetch_assoc()) {
       color: white;
       border-radius: 8px;
       margin-bottom: 0;
+      font-size: 13px;
+      font-weight: 600;
     }
 
     .collapsible-form-header:hover {
@@ -990,7 +1174,7 @@ while ($row = $result->fetch_assoc()) {
       border-radius: 0 0 8px 8px;
     }
 
-    /* Small status indicators */
+    /* Small status indicators (dot form, legacy) */
     .status-indicator {
       display: inline-block;
       width: 10px;
@@ -999,23 +1183,11 @@ while ($row = $result->fetch_assoc()) {
       margin-right: 5px;
     }
 
-    .status-active {
-      background: var(--success);
-    }
-
-    .status-completed {
-      background: var(--primary);
-    }
-
-    .status-pending {
-      background: var(--danger);
-    }
-
     /* Order Details Table */
     .order-details-table-container {
-      overflow-x: scroll;
-      margin-top: 10px;
-      border: 1px solid rgb(0, 0, 0, 0.05);
+      overflow-x: auto;
+      margin-bottom: 20px;
+      border: 2px solid var(--light-gray);
       border-radius: 8px;
     }
 
@@ -1027,34 +1199,39 @@ while ($row = $result->fetch_assoc()) {
 
     .order-details-table th,
     .order-details-table td {
-      transition: 0.3s;
-      padding: 8px 12px;
+      transition: background-color 0.15s ease;
+      padding: 10px 12px;
       text-align: center;
-      border-bottom: 1px solid rgb(0, 0, 0, 0.05);
-      vertical-align: center;
-      border-right: 1px solid rgb(0, 0, 0, 0.05);
+      border-bottom: 1px solid var(--light-gray);
+      vertical-align: middle;
+      border-right: 1px solid var(--light-gray);
     }
 
     .order-details-table th {
-      background-color: rgba(0, 0, 0, 0.05);
-      color: var(--dark);
-      font-weight: 500;
+      background-color: var(--light);
+      color: var(--gray);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
       white-space: nowrap;
       text-align: center;
     }
 
     .order-details-table tr:hover td {
-      background-color: rgba(0, 0, 0, 0.03);
+      background-color: var(--light);
       cursor: pointer;
     }
 
     .sequence-item {
       display: inline-block;
-      padding: 2px 6px;
-      background: #0060b41a;
-      border-radius: 4px;
+      padding: 2px 7px;
+      background: var(--primary-bg);
+      color: var(--secondary);
+      border-radius: 6px;
       margin: 2px;
-      font-size: 12px;
+      font-size: 11px;
+      font-weight: 500;
     }
 
     fieldset {
@@ -1070,7 +1247,7 @@ while ($row = $result->fetch_assoc()) {
     .action-cell a {
       color: var(--gray);
       margin-right: 10px;
-      transition: color 0.3s;
+      transition: color 0.15s ease;
     }
 
     .action-cell a:hover {
@@ -1078,11 +1255,12 @@ while ($row = $result->fetch_assoc()) {
     }
 
     legend {
-      font-size: 120%;
+      font-size: 15px;
+      font-weight: 600;
     }
 
     input::placeholder {
-      opacity: 0.3;
+      opacity: 0.5;
     }
 
     #jobModal {
@@ -1091,15 +1269,15 @@ while ($row = $result->fetch_assoc()) {
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.1);
-      backdrop-filter: blur(3px);
+      background: rgba(20, 23, 31, 0.35);
+      backdrop-filter: blur(2px);
       z-index: 999;
       display: none;
     }
 
     @keyframes centerZoomIn {
       0% {
-        transform: translate(-50%, -50%) scale(0.5);
+        transform: translate(-50%, -50%) scale(0.97);
         opacity: 0;
       }
 
@@ -1118,18 +1296,18 @@ while ($row = $result->fetch_assoc()) {
       max-width: 1000px;
       max-height: 80vh;
       background: white;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+      box-shadow: 0 12px 32px rgba(20, 23, 31, 0.18);
       z-index: 1000;
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      animation: centerZoomIn 0.3s ease-in-out forwards;
+      animation: centerZoomIn 0.18s ease-out forwards;
     }
 
     .window-header {
-      padding: 0.5rem 1.5rem;
-      background: var(--primary);
+      padding: 14px 20px;
+      background: var(--dark);
       color: white;
       display: flex;
       justify-content: space-between;
@@ -1139,26 +1317,32 @@ while ($row = $result->fetch_assoc()) {
     .window-title {
       display: flex;
       align-items: center;
-      font-size: 1.2rem;
-      font-weight: 500;
+      font-size: 15px;
+      font-weight: 600;
     }
 
     .window-title i {
-      margin-right: 0.8rem;
+      margin-right: 10px;
     }
 
     .close-btn {
       background: none;
       border: none;
       color: white;
-      font-size: 1rem;
+      font-size: 16px;
       cursor: pointer;
-      padding: 0.5rem;
+      padding: 6px;
+      opacity: 0.85;
+    }
+
+    .close-btn:hover {
+      opacity: 1;
     }
 
     .window-content {
-      padding: 1.5rem;
+      padding: 22px;
       overflow-y: auto;
+      overflow-x: hidden;
       flex-grow: 1;
     }
 
@@ -1166,88 +1350,99 @@ while ($row = $result->fetch_assoc()) {
     .product-info-compact {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-      padding-bottom: 1.5rem;
-      border-bottom: 1px solid #eee;
+      gap: 16px;
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--light-gray);
     }
 
     .info-item-compact {
-      margin-bottom: 0.5rem;
+      margin-bottom: 0;
     }
 
     .info-item-compact strong {
       display: block;
       color: var(--gray);
-      font-size: 100%;
-      margin-bottom: 0.2rem;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 4px;
     }
 
     .info-item-compact span {
-      font-size: 85%;
+      font-size: 13px;
+      color: var(--dark);
     }
 
     /* Stock Summary Cards */
     .stock-summary-compact {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 1rem;
-      margin-bottom: 1.5rem;
+      gap: 12px;
+      margin-bottom: 20px;
     }
 
     .stock-card-compact {
-      padding: 0.8rem;
+      padding: 14px;
       border-radius: 8px;
-      background: rgba(67, 97, 238, 0.05);
+      background: var(--light);
       text-align: center;
     }
 
     .stock-card-compact h4 {
-      font-size: 0.9rem;
-      margin-bottom: 0.5rem;
-      color: var(--primary);
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     .stock-value-compact {
-      font-size: 1.2rem;
+      font-size: 18px;
       font-weight: 700;
     }
 
     .stock-unit-compact {
       color: var(--gray);
-      font-size: 0.75rem;
+      font-size: 11px;
     }
 
     /* Section Headers */
     .section-header {
-      font-size: 1.1rem;
-      font-weight: 500;
-      color: var(--primary);
-      margin: 1.5rem 0 0.5rem 0;
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid #eee;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--dark);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin: 20px 0 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--light-gray);
       display: flex;
       align-items: center;
     }
 
     .section-header i {
-      margin-right: 0.5rem;
+      margin-right: 8px;
+      color: var(--gray);
     }
 
     /* Special Instructions */
     .special-instructions {
-      padding: 1rem;
-      background: #f9f9f9;
+      padding: 14px;
+      background: var(--light);
       border-radius: 8px;
-      font-size: 0.9rem;
+      font-size: 13px;
       line-height: 1.6;
-      margin-bottom: 1.5rem;
+      margin-bottom: 20px;
     }
 
     /* Action Buttons */
     .action-buttons {
       display: flex;
-      margin-top: 1rem;
+      margin-top: 14px;
+      flex-wrap: wrap;
     }
 
     .status-toggle-form {
@@ -1255,112 +1450,627 @@ while ($row = $result->fetch_assoc()) {
     }
 
     .btn-status {
-      padding: 0.5rem 1rem;
+      padding: 8px 14px;
       border-radius: 6px;
-      font-size: 0.85rem;
+      font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
-      background: rgba(67, 238, 76, 0.1);
-      color: #28a745;
-      border: 1px solid #28a745;
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid transparent;
       display: inline-flex;
       align-items: center;
-      transition: all 0.2s;
+      transition: opacity 0.15s ease;
       margin: 6px 6px;
       gap: 6px;
     }
 
+    .btn-status:hover {
+      opacity: 0.8;
+    }
+
     .btn-edit,
     .btn-delete {
-      padding: 0.5rem 1rem;
+      padding: 8px 14px;
       border-radius: 6px;
-      font-size: 0.85rem;
+      font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      transition: all 0.2s;
+      gap: 8px;
+      transition: opacity 0.15s ease;
       margin: 6px 6px;
     }
 
     .btn-edit {
-      background: rgba(67, 97, 238, 0.1);
-      color: var(--primary);
-      border: 1px solid var(--primary);
+      background: var(--primary-bg);
+      color: var(--secondary);
+      border: 1px solid transparent;
     }
 
     .btn-delete {
-      background: rgba(244, 67, 54, 0.1);
-      color: #f44336;
-      border: 1px solid #f44336;
+      background: var(--danger-bg);
+      color: var(--danger);
+      border: 1px solid transparent;
     }
 
-    .btn-status:hover {
-      background: rgba(40, 167, 69, 0.2);
-    }
-
-    .btn-status.pending:hover {
-      background: rgba(255, 152, 0, 0.2);
-    }
-
-    .btn-status.completed:hover {
-      background: rgba(40, 167, 69, 0.2);
-    }
-
-    .btn-edit:hover {
-      background: rgba(67, 97, 238, 0.2);
-    }
-
+    .btn-edit:hover,
     .btn-delete:hover {
-      background: rgba(244, 67, 54, 0.2);
+      opacity: 0.8;
     }
 
     .empty-status-state {
-      padding: 2.5rem 1.5rem;
+      padding: 32px 20px;
       text-align: center;
-      color: #6c757d;
-      background: rgba(248, 249, 250, 0.6);
-      min-height: 160px;
+      color: var(--gray);
+      background: var(--light);
+      min-height: 150px;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      gap: 0.7rem;
+      gap: 10px;
       border-radius: 0 0 10px 10px;
     }
 
     .empty-icon {
-      color: #adb5bd;
-      margin-bottom: 0.5rem;
+      color: var(--gray);
+      opacity: 0.5;
+      margin-bottom: 4px;
     }
 
     .empty-status-state p {
       margin: 0;
-      font-size: 1.05rem;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--dark);
     }
 
     .empty-status-state small {
-      font-size: 0.9rem;
-      opacity: 0.85;
+      font-size: 12px;
+      color: var(--gray);
     }
 
     /* Empty State */
     .empty-state {
-      padding: 1rem;
+      padding: 16px;
       text-align: center;
       color: var(--gray);
-      background: #f9f9f9;
+      background: var(--light);
       border-radius: 8px;
+      font-size: 13px;
     }
 
     .empty-state i {
-      margin-right: 0.5rem;
+      margin-right: 8px;
     }
 
     /* Form Elements */
     .status-form {
       display: inline;
+    }
+
+    .disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .quick-fill-btn {
+      color: var(--dark);
+      height: 100%;
+      width: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      background-color: var(--light);
+      border: 1px solid var(--light-gray);
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+      padding: 6px;
+      margin-bottom: 5px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .quick-fill-btn:hover {
+      background-color: var(--light-gray);
+    }
+
+    .status-select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .status-select {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      background: var(--card-bg);
+      color: var(--dark);
+      border: 1px solid var(--light-gray);
+      display: inline-flex;
+      text-align: center;
+      gap: 8px;
+      transition: border-color 0.15s ease;
+      margin: 6px 6px;
+    }
+
+    /* Status pill badges — one definition per status, no collisions */
+    .status-pending {
+      background: var(--warning-bg);
+      color: var(--warning);
+      border-color: transparent;
+    }
+
+    .status-unpaid {
+      background: var(--danger-bg);
+      color: var(--danger);
+      border-color: transparent;
+    }
+
+    .status-for_delivery {
+      background: var(--info-bg);
+      color: var(--info);
+      border-color: transparent;
+    }
+
+    .status-completed {
+      background: var(--success-bg);
+      color: var(--success);
+      border-color: transparent;
+    }
+
+    .status-active {
+      background: var(--success);
+    }
+
+    /* Overlay */
+    .export-modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(20, 23, 31, 0.35);
+      backdrop-filter: blur(2px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      animation: exportFadeIn 0.2s ease-out;
+    }
+
+    .export-modal-container {
+      background: var(--card-bg);
+      border-radius: 10px;
+      box-shadow: 0 12px 32px rgba(20, 23, 31, 0.18);
+      width: 100%;
+      max-width: 420px;
+      overflow: hidden;
+      margin: 20px;
+    }
+
+    .export-modal-header {
+      padding: 16px 20px;
+      background: var(--dark);
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .export-modal-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .export-modal-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      opacity: 0.85;
+    }
+
+    .export-modal-close:hover {
+      opacity: 1;
+    }
+
+    .export-modal-body {
+      padding: 6px 20px 20px;
+      font-size: 13px;
+    }
+
+    .export-form-group {
+      margin-top: 16px;
+      margin-bottom: 16px;
+    }
+
+    .export-form-label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .export-input-wrapper {
+      position: relative;
+    }
+
+    .export-form-input {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--light-gray);
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--dark);
+      transition: border-color 0.15s ease;
+    }
+
+    .export-form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-bg);
+    }
+
+    input[type="date"].export-form-input {
+      padding-right: 30px;
+    }
+
+    .export-info-box {
+      background: var(--light);
+      border-left: 3px solid var(--info);
+      padding: 14px;
+      margin-top: 20px;
+      border-radius: 6px;
+    }
+
+    .export-info-box h6 {
+      color: var(--info);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .export-info-box ul {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 12px;
+      color: var(--gray);
+    }
+
+    .export-info-box li {
+      margin-bottom: 5px;
+    }
+
+    .export-btn i {
+      margin-right: 8px;
+    }
+
+    .export-form-actions {
+      display: flex;
+      justify-content: flex-start;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .export-btn {
+      padding: 9px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .export-btn-primary {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid transparent;
+    }
+
+    .export-btn-primary:hover {
+      opacity: 0.8;
+    }
+
+    .export-btn-secondary {
+      text-decoration: none;
+      background: var(--danger-bg);
+      color: var(--danger);
+      border: 1px solid transparent;
+    }
+
+    .export-btn-secondary:hover {
+      opacity: 0.8;
+    }
+
+    .export-btn-icon {
+      font-size: 15px;
+    }
+
+    @keyframes exportFadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    .export1,
+    .export {
+      background-color: var(--card-bg);
+      border: 1px solid var(--light-gray);
+      box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
+      border-radius: 8px;
+      padding: 16px 18px;
+      margin-bottom: 20px;
+      width: fit-content;
+    }
+
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(20, 23, 31, 0.35);
+      backdrop-filter: blur(2px);
+      z-index: 999;
+      display: none;
+    }
+
+    .profit-positive {
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    .profit-negative {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    .profit-cell {
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .set-cost-btn,
+    .set-expenses-btn {
+      background-color: var(--warning-bg);
+      border-color: transparent;
+      color: var(--warning);
+      margin-top: 5px;
+      justify-self: center;
+    }
+
+    .set-cost-btn:hover,
+    .set-expenses-btn:hover {
+      opacity: 0.8;
+    }
+
+    .edit-icon-btn {
+      background: none;
+      border: none;
+      color: var(--gray);
+      cursor: pointer;
+      padding: 2px 5px;
+      margin-left: 4px;
+      font-size: 11px;
+      border-radius: 4px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      vertical-align: middle;
+      transition: color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .edit-icon-btn:hover {
+      color: var(--secondary);
+      background: var(--primary-bg);
+    }
+
+    .total-cost-cell {
+      font-weight: 600;
+      color: var(--secondary);
+    }
+
+    /* Optional: color tint per status */
+    .pending-column .status-card {
+      border-left: 4px solid var(--warning);
+    }
+
+    .unpaid-column .status-card {
+      border-left: 4px solid var(--danger);
+    }
+
+    .for-delivery-column .status-card {
+      border-left: 4px solid var(--info);
+    }
+
+    .completed-column .status-card {
+      border-left: 4px solid var(--success);
+    }
+
+    @media (max-width: 992px) {
+      .status-sections-2x2-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .status-card h3 {
+        font-size: 15px;
+        padding: 12px 14px;
+      }
+    }
+
+    .noprice,
+    .withprice {
+      grid-row: 2;
+      padding: 10px 10px 0 10px;
+      border: 1px solid var(--light-gray);
+      border-radius: 6px;
+      background: var(--light);
+      justify-content: center;
+    }
+
+    .noprice {
+      grid-column: 1 / 3;
+    }
+
+    .withprice {
+      grid-column: 3 / 5;
+    }
+
+    .noprice label,
+    .withprice label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      color: var(--gray);
+      user-select: none;
+    }
+
+    .pagination-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 20px 0 10px;
+      flex-wrap: wrap;
+    }
+
+    .page-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      color: var(--dark);
+      background: var(--card-bg);
+      border: 1px solid var(--light-gray);
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+      cursor: pointer;
+    }
+
+    .page-btn:hover:not(.disabled):not(.active) {
+      background: var(--light);
+    }
+
+    .page-btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .page-btn.disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    .page-ellipsis {
+      padding: 7px 4px;
+      color: var(--gray);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1640px) {
+      .noprice {
+        grid-row: 1;
+        grid-column: 1;
+      }
+
+      .withprice {
+        grid-row: 2;
+        grid-column: 1;
+      }
+    }
+
+    /* Print Type Selector */
+    .print-type-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px 18px;
+      border: 2px solid var(--light-gray);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+      min-width: 80px;
+      background: var(--card-bg);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--gray);
+    }
+
+    .print-type-card i {
+      font-size: 18px;
+      color: var(--gray);
+    }
+
+    .print-type-card.active {
+      border-color: var(--primary);
+      background: var(--primary-bg);
+      color: var(--secondary);
+    }
+
+    .print-type-card.active i {
+      color: var(--secondary);
+    }
+
+    .print-type-card:hover {
+      border-color: var(--primary);
+    }
+
+    .badge {
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .badge-success {
+      background: var(--success-bg);
+      color: var(--success);
+    }
+
+    .badge-secondary {
+      background: var(--light);
+      color: var(--gray);
+    }
+
+    .text-muted {
+      color: var(--gray) !important;
     }
 
     @media (max-width: 768px) {
@@ -1377,24 +2087,25 @@ while ($row = $result->fetch_assoc()) {
         overflow: hidden;
         height: auto;
         width: auto;
-        bottom: 20px;
-        padding: 0;
-        background-color: rgba(255, 255, 255, 0.3);
-        backdrop-filter: blur(2px);
-        box-shadow: 1px 1px 10px rgb(190, 190, 190);
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 6px;
+        background-color: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(6px);
+        box-shadow: 0 4px 16px rgba(20, 23, 31, 0.12);
         border-radius: 100px;
-        cursor: grab;
-        transition: left 0.05s ease-in, top 0.05s ease-in;
         touch-action: manipulation;
         z-index: 9999;
         flex-direction: row;
-        border: 1px solid white;
+        border: 1px solid var(--light-gray);
         justify-content: center;
       }
 
       .sidebar .nav-menu {
         display: flex;
         flex-direction: row;
+        padding: 0;
       }
 
       .sidebar img,
@@ -1405,7 +2116,7 @@ while ($row = $result->fetch_assoc()) {
 
       .sidebar .nav-menu li a {
         justify-content: center;
-        padding: 15px;
+        padding: 12px;
       }
 
       .sidebar .nav-menu li a i {
@@ -1414,7 +2125,8 @@ while ($row = $result->fetch_assoc()) {
 
       .main-content {
         margin-left: 0;
-        margin-bottom: 200px;
+        margin-bottom: 90px;
+        padding: 20px;
       }
 
       .job-info-grid {
@@ -1458,519 +2170,25 @@ while ($row = $result->fetch_assoc()) {
       .header {
         flex-direction: column;
         align-items: flex-start;
+        gap: 10px;
       }
 
       .user-info {
-        margin-top: 10px;
+        margin-top: 4px;
       }
 
       .compact-client-count {
         font-size: 10px;
-        min-width: 50.5px;
+        min-width: 50px;
       }
 
       .order-details-table {
-        font-size: 10px;
+        font-size: 11px;
       }
 
       .sequence-item {
         font-size: 10px;
         text-align: center;
-      }
-    }
-
-    .disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .user-avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      object-fit: cover;
-      background-color: #1c1c1c27;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--primary);
-      font-weight: 600;
-      margin-right: 0.75rem;
-    }
-
-    .quick-fill-btn {
-      color: black;
-      height: 100%;
-      width: 120px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 6px;
-      background-color: rgba(0, 0, 0, 0.05);
-      border: 2px solid rgba(0, 0, 0, 0.05);
-      cursor: pointer;
-      transition: 0.3s;
-      padding: 5px;
-      margin-bottom: 5px;
-    }
-
-    .quick-fill-btn:hover {
-      background-color: rgba(0, 0, 0, 0.2);
-    }
-
-    .status-select:focus {
-      outline: none;
-    }
-
-    .status-select {
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      cursor: pointer;
-      background: rgba(67, 97, 238, 0.1);
-      color: white;
-      border: 1px solid var(--primary);
-      display: inline-flex;
-      text-align: center;
-      gap: 0.5rem;
-      transition: all 0.2s;
-      margin: 6px 6px;
-    }
-
-    .status-pending {
-      background: rgba(255, 152, 0, 0.1);
-      color: #ff9800;
-      border-color: #ff9800;
-    }
-
-    .status-unpaid {
-      background: rgba(255, 0, 0, 0.1);
-      color: #ff0000ff;
-      border-color: #ff0000ff;
-    }
-
-    .status-for_delivery {
-      background: rgba(0, 38, 255, 0.1);
-      color: var(--primary);
-      border-color: var(--primary);
-    }
-
-    .status-completed {
-      background: rgba(40, 167, 69, 0.1);
-      color: #28a745;
-      border-color: #28a745;
-    }
-
-    /* Overlay */
-    .export-modal-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.1);
-      backdrop-filter: blur(2px);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-      animation: exportFadeIn 0.3s ease-out;
-    }
-
-    /* Container */
-    .export-modal-container {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-      width: 100%;
-      max-width: 420px;
-      overflow: hidden;
-      margin: 20px;
-    }
-
-    /* Header */
-    .export-modal-header {
-      padding: 18px 24px;
-      background: var(--primary);
-      color: white;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .export-modal-title {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 600;
-    }
-
-    .export-modal-close {
-      background: none;
-      border: none;
-      color: white;
-      font-size: 24px;
-      cursor: pointer;
-      padding: 0;
-      line-height: 1;
-    }
-
-    /* Body */
-    .export-modal-body {
-      padding: 8px 24px 24px;
-    }
-
-    /* Form Styles */
-    .export-form-group {
-      margin-top: 20px;
-      margin-bottom: 20px;
-    }
-
-    .export-form-label {
-      display: block;
-      margin-bottom: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      color: #555;
-    }
-
-    .export-input-wrapper {
-      position: relative;
-    }
-
-    .export-form-input {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-size: 14px;
-      transition: all 0.3s;
-    }
-
-    .export-form-input:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(74, 111, 220, 0.2);
-    }
-
-    input[type="date"].export-form-input {
-      padding-right: 30px;
-    }
-
-    /* Buttons */
-    .export-info-box {
-      background: #f8f9fa;
-      border-left: 4px solid #4F81BD;
-      padding: 15px;
-      margin-top: 20px;
-      border-radius: 4px;
-    }
-
-    .export-info-box h6 {
-      color: #4F81BD;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .export-info-box ul {
-      margin: 0;
-      padding-left: 20px;
-      font-size: 14px;
-    }
-
-    .export-info-box li {
-      margin-bottom: 5px;
-    }
-
-    .export-btn i {
-      margin-right: 8px;
-    }
-
-    .export-form-actions {
-      display: flex;
-      justify-content: flex-start;
-      gap: 12px;
-      margin-top: 24px;
-    }
-
-    .export-btn {
-      padding: 10px 16px;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.3s;
-      border: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .export-btn-primary {
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      cursor: pointer;
-      background: rgba(67, 238, 76, 0.1);
-      color: #28a745;
-      border: 1px solid #28a745;
-      display: inline-flex;
-      align-items: center;
-      transition: all 0.2s;
-    }
-
-    .export-btn-primary:hover {
-      background: rgba(40, 167, 69, 0.2);
-    }
-
-    .export-btn-secondary {
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      transition: all 0.2s;
-      background: rgba(244, 67, 54, 0.1);
-      color: #f44336;
-      border: 1px solid #f44336;
-    }
-
-    .export-btn-secondary:hover {
-      background: rgba(244, 67, 54, 0.2);
-    }
-
-    .export-btn-icon {
-      font-size: 16px;
-    }
-
-    /* Animation */
-    @keyframes exportFadeIn {
-      from {
-        opacity: 0;
-      }
-
-      to {
-        opacity: 1;
-      }
-    }
-
-    /* Responsive */
-    @media (max-width: 480px) {
-      .export-modal-container {
-        margin: 10px;
-      }
-
-      .export-modal-body {
-        padding: 8px 20px 20px 20px;
-      }
-
-      .export-form-actions {
-        flex-direction: column;
-        gap: 10px;
-      }
-
-      .export-btn {
-        width: 100%;
-      }
-    }
-
-    .export1 {
-      background-color: var(--card-bg);
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-      width: 234.3px;
-    }
-
-    .export {
-      background-color: var(--card-bg);
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-      width: 216.3px;
-    }
-
-    .modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.1);
-      backdrop-filter: blur(3px);
-      z-index: 999;
-      display: none;
-    }
-
-    .profit-positive {
-      color: #28a745;
-      font-weight: bold;
-    }
-
-    .profit-negative {
-      color: #dc3545;
-      font-weight: bold;
-    }
-
-    .profit-cell {
-      text-align: center;
-      vertical-align: middle;
-    }
-
-    .set-cost-btn {
-      background-color: #ffc107;
-      border-color: #d39e00;
-      color: #212529;
-      margin-top: 5px;
-    }
-
-    .set-cost-btn:hover {
-      background-color: #e0a800;
-      border-color: #d39e00;
-    }
-
-    .total-cost-cell {
-      font-weight: 600;
-      color: #0d6efd;
-    }
-
-    /* Optional: color tint per status */
-    .pending-column .status-card {
-      border-left: 5px solid #ffc107;
-    }
-
-    /* yellow */
-    .unpaid-column .status-card {
-      border-left: 5px solid #dc3545;
-    }
-
-    /* red */
-    .for-delivery-column .status-card {
-      border-left: 5px solid #0d6efd;
-    }
-
-    /* blue */
-    .completed-column .status-card {
-      border-left: 5px solid #28a745;
-    }
-
-    /* green */
-
-
-    /* Responsive ─────────────────────────────────────── */
-    @media (max-width: 992px) {
-      .status-sections-2x2-grid {
-        grid-template-columns: 1fr;
-        /* stack on smaller tablets */
-        gap: 1.8rem;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .status-card h3 {
-        font-size: 1.15rem;
-        padding: 0.9rem 1rem;
-      }
-    }
-
-    .noprice {
-      grid-row: 2;
-      grid-column: 1 / 3;
-      padding: 10px 10px 0 10px;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      background: #f9f9f9;
-      justify-content: center;
-    }
-
-    .withprice {
-      grid-row: 2;
-      grid-column: 3 / 5;
-      padding: 10px 10px 0 10px;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      background: #f9f9f9;
-      justify-content: center;
-    }
-
-    .pagination-bar {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 20px 0 10px;
-      flex-wrap: wrap;
-    }
-
-    .page-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 7px 13px;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 500;
-      text-decoration: none;
-      color: var(--dark);
-      background: var(--card-bg);
-      border: 1px solid var(--light-gray);
-      transition: background 0.2s, border-color 0.2s;
-      cursor: pointer;
-    }
-
-    .page-btn:hover:not(.disabled):not(.active) {
-      background: var(--light-gray);
-    }
-
-    .page-btn.active {
-      background: var(--primary);
-      color: white;
-      border-color: var(--primary);
-    }
-
-    .page-btn.disabled {
-      opacity: 0.4;
-      cursor: default;
-    }
-
-    .page-ellipsis {
-      padding: 7px 4px;
-      color: var(--gray);
-      font-size: 14px;
-    }
-
-    .noprice label {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      cursor: pointer;
-      color: #444;
-      user-select: none;
-    }
-
-    .withprice label {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      cursor: pointer;
-      color: #444;
-      user-select: none;
-    }
-
-    @media (max-width: 1640px) {
-      .noprice {
-        grid-row: 1;
-        grid-column: 1;
-      }
-
-      .withprice {
-        grid-row: 2;
-        grid-column: 1;
       }
     }
   </style>
@@ -1995,13 +2213,19 @@ while ($row = $result->fetch_assoc()) {
   </div>
 
   <div class="main-content">
+    <!-- Header -->
     <header class="header">
-      <h1>Job Orders Management</h1>
+      <div>
+        <h1>Job Orders Management</h1>
+        <p style="color: var(--gray); font-size: 14px; margin-top: 5px;">
+          <i class="fas fa-calendar-alt" style="margin-right: 5px;"></i> <?= date('l, F j, Y') ?>
+        </p>
+      </div>
       <div class="user-info">
-        <img src="https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['username']) ?>&background=random" alt="User">
+        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="User">
         <div class="user-details">
-          <h4><?= htmlspecialchars($_SESSION['username']) ?></h4>
-          <small><?= $_SESSION['role'] ?></small>
+          <h4><?php echo htmlspecialchars($_SESSION['username']); ?></h4>
+          <small><?php echo $_SESSION['role']; ?></small>
         </div>
       </div>
     </header>
@@ -2039,7 +2263,7 @@ while ($row = $result->fetch_assoc()) {
             <div style="display: flex; gap: 8px;">
               <input type="date" name="search_date_from"
                 value="<?= htmlspecialchars($search_date_from ?? '') ?>">
-              <span style="align-self: center; color: #666;">to</span>
+              <span style="align-self: center; color: var(--gray);">to</span>
               <input type="date" name="search_date_to"
                 value="<?= htmlspecialchars($search_date_to ?? '') ?>">
             </div>
@@ -2086,7 +2310,7 @@ while ($row = $result->fetch_assoc()) {
         <i class="fas fa-chevron-down" id="form-chevron"></i>
       </div>
       <div class="collapsible-form-content" id="job-order-form">
-        <form id="jobOrderForm" method="post">
+        <form id="jobOrderForm" method="post" autocomplete="off">
           <fieldset class="form-section">
             <legend><i class="fas fa-user"></i> Client Details</legend>
             <div class="form-grid">
@@ -2262,7 +2486,7 @@ while ($row = $result->fetch_assoc()) {
               </div>
               <div class="form-group" style="position: relative;">
                 <label for="barangay">Barangay</label>
-                <span style="position: absolute; top: 70%; left: 12px; transform: translateY(-50%); color: #6c757d; pointer-events: none; font-size: 14px;">Brgy.</span>
+                <span style="position: absolute; top: 70%; left: 12px; transform: translateY(-50%); color: var(--gray); pointer-events: none; font-size: 14px;">Brgy.</span>
                 <input type="text" id="barangay" name="barangay" class="form-control" placeholder="e.g. San Isidro" style="padding-left: 60px;" pattern="[^,]*" title="Commas are not allowed" value="<?= htmlspecialchars($prefill['barangay'] ?? '') ?>">
               </div>
               <div class="form-group">
@@ -2328,6 +2552,40 @@ while ($row = $result->fetch_assoc()) {
           </fieldset>
 
           <fieldset class="form-section">
+            <legend><i class="fas fa-tags"></i> Print Type</legend>
+            <div class="form-grid">
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label>What are you printing on? *</label>
+                <div id="print-type-selector" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;">
+                  <!-- Paper option (existing behavior) -->
+                  <label class="print-type-option" data-type="paper">
+                    <input type="radio" name="print_category" value="paper" checked style="display:none;">
+                    <div class="print-type-card active">
+                      <i class="fas fa-file-alt"></i>
+                      <span>Paper</span>
+                    </div>
+                  </label>
+                  <?php foreach ($active_product_types as $pt): ?>
+                    <label class="print-type-option" data-type="pt_<?= $pt['id'] ?>">
+                      <input type="radio" name="print_category" value="pt_<?= $pt['id'] ?>" style="display:none;">
+                      <div class="print-type-card">
+                        <i class="fas <?= htmlspecialchars($pt['icon'] ?? 'fa-print') ?>"></i>
+                        <span><?= htmlspecialchars($pt['name']) ?></span>
+                      </div>
+                    </label>
+                  <?php endforeach; ?>
+                </div>
+                <?php if ($_SESSION['role'] === 'admin'): ?>
+                  <a href="product_types.php" class="btn" style="text-decoration:none;">
+                    <i class="fas fa-tags"></i> Manage Product Types
+                  </a>
+                <?php endif; ?>
+                <input type="hidden" name="product_type_id" id="selected_product_type_id" value="">
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="form-section" id="paper-specs-section">
             <legend><i class="fas fa-tasks"></i> Job Specifications</legend>
             <div class="form-grid">
               <div class="form-group">
@@ -2343,11 +2601,11 @@ while ($row = $result->fetch_assoc()) {
                 <select id="product_size" name="product_size" required>
                   <option value="">Select</option>
                   <option value="whole" <?= ($prefill['product_size'] ?? '') === 'whole' ? 'selected' : '' ?>>Whole</option>
-                  <option value="1/2"  <?= ($prefill['product_size'] ?? '') === '1/2'  ? 'selected' : '' ?>>1/2</option>
-                  <option value="1/3"  <?= ($prefill['product_size'] ?? '') === '1/3'  ? 'selected' : '' ?>>1/3</option>
-                  <option value="1/4"  <?= ($prefill['product_size'] ?? '') === '1/4'  ? 'selected' : '' ?>>1/4</option>
-                  <option value="1/6"  <?= ($prefill['product_size'] ?? '') === '1/6'  ? 'selected' : '' ?>>1/6</option>
-                  <option value="1/8"  <?= ($prefill['product_size'] ?? '') === '1/8'  ? 'selected' : '' ?>>1/8</option>
+                  <option value="1/2" <?= ($prefill['product_size'] ?? '') === '1/2'  ? 'selected' : '' ?>>1/2</option>
+                  <option value="1/3" <?= ($prefill['product_size'] ?? '') === '1/3'  ? 'selected' : '' ?>>1/3</option>
+                  <option value="1/4" <?= ($prefill['product_size'] ?? '') === '1/4'  ? 'selected' : '' ?>>1/4</option>
+                  <option value="1/6" <?= ($prefill['product_size'] ?? '') === '1/6'  ? 'selected' : '' ?>>1/6</option>
+                  <option value="1/8" <?= ($prefill['product_size'] ?? '') === '1/8'  ? 'selected' : '' ?>>1/8</option>
                   <option value="1/10" <?= ($prefill['product_size'] ?? '') === '1/10' ? 'selected' : '' ?>>1/10</option>
                   <option value="1/12" <?= ($prefill['product_size'] ?? '') === '1/12' ? 'selected' : '' ?>>1/12</option>
                   <option value="1/14" <?= ($prefill['product_size'] ?? '') === '1/14' ? 'selected' : '' ?>>1/14</option>
@@ -2372,14 +2630,13 @@ while ($row = $result->fetch_assoc()) {
                 <select id="paper_type" name="paper_type" required value="<?= htmlspecialchars($prefill['paper_type'] ?? '') ?>">
                   <option value="">Select</option>
                   <?php
-                  $product_types = $inventory->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
-                  while ($type = $product_types->fetch_assoc()):
+                  $product_types_q = $inventory->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
+                  while ($type = $product_types_q->fetch_assoc()):
                   ?>
                     <option value="<?= htmlspecialchars($type['product_type']) ?>" <?= ($prefill['paper_type'] ?? '') === $type['product_type'] ? 'selected' : '' ?>><?= htmlspecialchars($type['product_type']) ?></option>
                   <?php endwhile; ?>
                 </select>
               </div>
-
               <div class="form-group">
                 <label for="paper_size">Paper Size *</label>
                 <select id="paper_size" name="paper_size" required value="<?= htmlspecialchars($prefill['paper_size'] ?? '') ?>">
@@ -2413,7 +2670,37 @@ while ($row = $result->fetch_assoc()) {
             </div>
           </fieldset>
 
+          <!-- ── Non-paper Dynamic Fields Section ── -->
+          <fieldset class="form-section" id="nonpaper-specs-section" style="display:none;">
+            <legend><i class="fas fa-sliders-h"></i> Job Specifications</legend>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="np_quantity">Order Quantity *</label>
+                <input type="number" id="np_quantity" name="np_quantity" min="1" value="<?= htmlspecialchars($prefill['np_quantity'] ?? '') ?>">
+              </div>
+            </div>
+
+            <!-- Dynamic fields rendered here by JS -->
+            <div id="dynamic-fields-container" class="form-grid" style="margin-top:12px;"></div>
+
+            <!-- Cost estimate display -->
+            <div id="np-cost-estimate" style="display:none;margin-top:16px;padding:14px 18px;background:var(--light);border-radius:10px;border-left:4px solid var(--primary);">
+              <strong style="font-size:13px;color:var(--gray);">Estimated Project Price</strong>
+              <div style="font-size:20px;font-weight:700;color:var(--primary);margin-top:4px;">
+                ₱<span id="np-cost-value">0.00</span>
+              </div>
+              <small style="color:var(--gray);font-size:11px;">This price will be auto-saved as the initial project cost. Adjust later via "Set Total Cost".</small>
+            </div>
+            <input type="hidden" name="np_estimated_cost" id="np_estimated_cost" value="0">
+
+            <div class="form-group" style="margin-top:16px;">
+              <label for="np_special_instructions">Special Instructions</label>
+              <textarea name="np_special_instructions" id="np_special_instructions" rows="3"><?= htmlspecialchars($prefill['np_special_instructions'] ?? '') ?></textarea>
+            </div>
+          </fieldset>
+
           <button id="mainsubBtn" type="submit" class="btn"><i class="fas fa-save"></i>Submit Job Order</button>
+          <button type="button" id="clearFormBtn" class="btn btn-outline" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger);margin-left:8px;"><i class="fas fa-eraser"></i> Clear Form</button>
         </form>
       </div>
     </div>
@@ -2426,7 +2713,7 @@ while ($row = $result->fetch_assoc()) {
             <span>matching your search</span>
           <?php endif; ?>
         <?php else: ?>
-          <div style="color: #6c757d; text-align: center; padding: 10px 0;">
+          <div style="color: var(--gray); text-align: center; padding: 10px 0;">
             <i class="fas fa-search fa-2x" style="opacity: 0.4; margin-bottom: 10px; display: block;"></i>
             No job orders found matching your filters.<br>
             <span>Try adjusting or removing some filters.</span>
@@ -2439,7 +2726,7 @@ while ($row = $result->fetch_assoc()) {
 
       <div class="status-column pending-column">
         <div class="card status-card">
-          <h3><i class="fas fa-clock" style="color: #ffc107;"></i> Pending</h3>
+          <h3><i class="fas fa-clock" style="color: var(--warning);"></i> Pending</h3>
           <?php
           $orders_to_show = $pending_orders;
           $status_title = 'Pending';
@@ -2450,7 +2737,7 @@ while ($row = $result->fetch_assoc()) {
 
       <div class="status-column unpaid-column">
         <div class="card status-card">
-          <h3><i class="fas fa-money-bill-wave" style="color: #dc3545;"></i> Unpaid</h3>
+          <h3><i class="fas fa-money-bill-wave" style="color: var(--danger);"></i> Unpaid</h3>
           <?php
           $orders_to_show = $unpaid_orders;
           $status_title = 'Unpaid';
@@ -2461,7 +2748,7 @@ while ($row = $result->fetch_assoc()) {
 
       <div class="status-column for-delivery-column">
         <div class="card status-card">
-          <h3><i class="fas fa-truck" style="color: #0d6efd;"></i> For Delivery</h3>
+          <h3><i class="fas fa-truck" style="color: var(--info);"></i> For Delivery</h3>
           <?php
           $orders_to_show = $for_delivery_orders;
           $status_title = 'For Delivery';
@@ -2472,7 +2759,7 @@ while ($row = $result->fetch_assoc()) {
 
       <div class="status-column completed-column">
         <div class="card status-card">
-          <h3><i class="fas fa-check-circle" style="color: #28a745;"></i> Completed</h3>
+          <h3><i class="fas fa-check-circle" style="color: var(--success);"></i> Completed</h3>
           <?php
           $orders_to_show = $completed_orders;
           $status_title = 'Completed';
@@ -2605,70 +2892,70 @@ while ($row = $result->fetch_assoc()) {
           <input type="hidden" id="modalJobId" name="job_id">
 
           <!-- Job info bar -->
-          <div style="background:#f8f9fa;padding:12px 20px;border-bottom:1px solid #e9ecef;font-size:13px">
-            <div style="font-weight:600;color:#1877f2" id="modalClient"></div>
-            <div style="color:#6c757d" id="modalProject"></div>
+          <div style="background:var(--light);padding:12px 20px;border-bottom:1px solid var(--light-gray);font-size:13px">
+            <div style="font-weight:600;color:var(--primary)" id="modalClient"></div>
+            <div style="color:var(--gray)" id="modalProject"></div>
           </div>
 
           <div style="padding:20px">
 
             <!-- Expenses reference -->
-            <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:10px 14px;border-radius:6px;margin-bottom:18px;font-size:13px">
-              <div style="color:#6c757d;margin-bottom:2px">Production Expenses</div>
-              <div style="font-size:18px;font-weight:700;color:#333" id="modalExpenses">₱ 0.00</div>
+            <div style="background:var(--warning-bg);border-left:4px solid var(--warning);padding:10px 14px;border-radius:6px;margin-bottom:18px;font-size:13px">
+              <div style="color:var(--gray);margin-bottom:2px">Production Expenses</div>
+              <div style="font-size:18px;font-weight:700;color:var(--dark)" id="modalExpenses">₱ 0.00</div>
             </div>
 
             <!-- Pricing inputs -->
             <div class="form-group">
-              <label style="font-weight:600">Total Cost to Client (₱) <span style="color:#dc3545">*</span></label>
+              <label style="font-weight:600">Total Cost to Client (₱) <span style="color:var(--danger)">*</span></label>
               <input type="number" step="0.01" min="0" class="form-control" id="totalCost"
-                     name="total_cost" placeholder="0.00" required oninput="updateProfitPreview()">
-              <small style="color:#6c757d">Amount charged to the client</small>
+                name="total_cost" placeholder="0.00" required oninput="updateProfitPreview()">
+              <small style="color:var(--gray)">Amount charged to the client</small>
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:15px">
               <div class="form-group" style="margin-bottom:0">
-                <label style="font-weight:600;color:#28a745">+ Layout Fee (₱)</label>
+                <label style="font-weight:600;color:var(--success)">+ Layout Fee (₱)</label>
                 <input type="number" step="0.01" min="0" id="modalLayoutFee"
-                       value="0" placeholder="0.00" oninput="updateProfitPreview()">
+                  value="0" placeholder="0.00" oninput="updateProfitPreview()">
               </div>
               <div class="form-group" style="margin-bottom:0">
-                <label style="font-weight:600;color:#dc3545">− Discount</label>
+                <label style="font-weight:600;color:var(--danger)">− Discount</label>
                 <div style="display:flex;gap:4px">
                   <select id="modalDiscountType" style="width:60px;flex-shrink:0" onchange="updateProfitPreview()">
                     <option value="amount">₱</option>
                     <option value="percent">%</option>
                   </select>
                   <input type="number" step="0.01" min="0" id="modalDiscountValue"
-                         value="0" placeholder="0.00" oninput="updateProfitPreview()" style="flex:1">
+                    value="0" placeholder="0.00" oninput="updateProfitPreview()" style="flex:1">
                 </div>
               </div>
             </div>
 
             <!-- Summary breakdown -->
-            <div style="margin-top:18px;background:#f8f9fa;border-radius:8px;padding:14px;font-size:13px">
-              <div style="font-weight:600;color:#6c757d;margin-bottom:10px;text-transform:uppercase;font-size:11px;letter-spacing:.5px">Summary</div>
+            <div style="margin-top:18px;background:var(--light);border-radius:8px;padding:14px;font-size:13px">
+              <div style="font-weight:600;color:var(--gray);margin-bottom:10px;text-transform:uppercase;font-size:11px;letter-spacing:.5px">Summary</div>
               <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-                <span style="color:#555">Total Cost</span>
+                <span style="color:var(--gray)">Total Cost</span>
                 <span id="sumTotalCost" style="font-weight:600">₱ 0.00</span>
               </div>
               <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-                <span style="color:#28a745">+ Layout Fee</span>
-                <span id="sumLayoutFee" style="color:#28a745;font-weight:600">₱ 0.00</span>
+                <span style="color:var(--success)">+ Layout Fee</span>
+                <span id="sumLayoutFee" style="color:var(--success);font-weight:600">₱ 0.00</span>
               </div>
               <div style="display:flex;justify-content:space-between;margin-bottom:10px">
-                <span style="color:#dc3545">− Discount</span>
-                <span id="sumDiscount" style="color:#dc3545;font-weight:600">₱ 0.00</span>
+                <span style="color:var(--danger)">− Discount</span>
+                <span id="sumDiscount" style="color:var(--danger);font-weight:600">₱ 0.00</span>
               </div>
-              <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:2px solid #dee2e6;margin-bottom:8px">
+              <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:2px solid var(--light-gray);margin-bottom:8px">
                 <span style="font-weight:700">Final Amount</span>
                 <span id="previewFinal" style="font-weight:700;font-size:15px">₱ 0.00</span>
               </div>
               <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-                <span style="color:#555">− Expenses</span>
+                <span style="color:var(--gray)">− Expenses</span>
                 <span id="previewExpenses" style="font-weight:600">₱ 0.00</span>
               </div>
-              <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:2px solid #dee2e6">
+              <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:2px solid var(--light-gray)">
                 <span style="font-weight:700">Profit</span>
                 <div style="text-align:right">
                   <span id="previewProfit" class="fw-bold">₱ 0.00</span>
@@ -2679,7 +2966,7 @@ while ($row = $result->fetch_assoc()) {
 
           </div>
 
-          <div class="action-buttons" style="padding:14px 20px;border-top:1px solid #e9ecef;margin:0">
+          <div class="action-buttons" style="padding:14px 20px;border-top:1px solid var(--light-gray);margin:0">
             <button type="button" class="btn-edit" onclick="closeCostModal()">Cancel</button>
             <button type="button" class="btn-status" onclick="saveTotalCost()">Save Cost</button>
           </div>
@@ -2783,25 +3070,25 @@ while ($row = $result->fetch_assoc()) {
 
     // Function to open modal and set total cost
     function setTotalCost(btn) {
-      const jobId       = btn.dataset.id;
-      const clientName  = btn.dataset.client;
+      const jobId = btn.dataset.id;
+      const clientName = btn.dataset.client;
       const projectName = btn.dataset.project;
       fetch(`get_job_expenses.php?id=${jobId}`)
         .then(response => response.json())
         .then(data => {
           if (data.success) {
-            document.getElementById('modalJobId').value   = jobId;
-            document.getElementById('modalClient').textContent  = clientName;
+            document.getElementById('modalJobId').value = jobId;
+            document.getElementById('modalClient').textContent = clientName;
             document.getElementById('modalProject').textContent = projectName;
 
             const expenses = parseFloat(data.expenses) || 0;
             document.getElementById('modalExpenses').textContent =
               expenses > 0 ? '₱ ' + expenses.toFixed(2) : 'Not Computed Yet (₱ 0.00)';
-            document.getElementById('modalExpenses').style.color = expenses > 0 ? '#333' : '#aaa';
+            document.getElementById('modalExpenses').style.color = expenses > 0 ? 'var(--dark)' : 'var(--gray)';
 
             // Populate editable layout fee and discount
-            document.getElementById('modalLayoutFee').value     = (parseFloat(data.layout_fee) || 0).toFixed(2);
-            document.getElementById('modalDiscountType').value  = data.discount_type  || 'amount';
+            document.getElementById('modalLayoutFee').value = (parseFloat(data.layout_fee) || 0).toFixed(2);
+            document.getElementById('modalDiscountType').value = data.discount_type || 'amount';
             document.getElementById('modalDiscountValue').value = (parseFloat(data.discount_value) || 0).toFixed(2);
 
             document.getElementById('totalCost').disabled = false;
@@ -2830,44 +3117,187 @@ while ($row = $result->fetch_assoc()) {
 
     function updateProfitPreview() {
       const expensesText = document.getElementById('modalExpenses').textContent;
-      const expenses     = parseFloat(expensesText.replace('₱ ', '').replace('Not Computed Yet (', '').replace(')', '')) || 0;
-      const totalCost    = parseFloat(document.getElementById('totalCost').value)        || 0;
-      const layoutFee    = parseFloat(document.getElementById('modalLayoutFee').value)   || 0;
+      const expenses = parseFloat(expensesText.replace('₱ ', '').replace('Not Computed Yet (', '').replace(')', '')) || 0;
+      const totalCost = parseFloat(document.getElementById('totalCost').value) || 0;
+      const layoutFee = parseFloat(document.getElementById('modalLayoutFee').value) || 0;
       const discountType = document.getElementById('modalDiscountType').value;
-      const discountVal  = parseFloat(document.getElementById('modalDiscountValue').value) || 0;
+      const discountVal = parseFloat(document.getElementById('modalDiscountValue').value) || 0;
 
-      const discountAmount = discountType === 'percent'
-        ? (totalCost + layoutFee) * (discountVal / 100)
-        : discountVal;
+      const discountAmount = discountType === 'percent' ?
+        (totalCost + layoutFee) * (discountVal / 100) :
+        discountVal;
 
       const finalAmount = totalCost + layoutFee - discountAmount;
-      const profit      = finalAmount - expenses;
-      const marginText  = finalAmount > 0
-        ? ((profit / finalAmount) * 100).toFixed(1) + '%'
-        : 'N/A';
+      const profit = finalAmount - expenses;
+      const marginText = finalAmount > 0 ?
+        ((profit / finalAmount) * 100).toFixed(1) + '%' :
+        'N/A';
 
       // Summary breakdown
-      document.getElementById('sumTotalCost').textContent  = '₱ ' + totalCost.toFixed(2);
-      document.getElementById('sumLayoutFee').textContent  = '₱ ' + layoutFee.toFixed(2);
-      document.getElementById('sumDiscount').textContent   = discountType === 'percent'
-        ? '₱ ' + discountAmount.toFixed(2) + ' (' + discountVal + '%)'
-        : '₱ ' + discountAmount.toFixed(2);
-      document.getElementById('previewFinal').textContent    = '₱ ' + finalAmount.toFixed(2);
+      document.getElementById('sumTotalCost').textContent = '₱ ' + totalCost.toFixed(2);
+      document.getElementById('sumLayoutFee').textContent = '₱ ' + layoutFee.toFixed(2);
+      document.getElementById('sumDiscount').textContent = discountType === 'percent' ?
+        '₱ ' + discountAmount.toFixed(2) + ' (' + discountVal + '%)' :
+        '₱ ' + discountAmount.toFixed(2);
+      document.getElementById('previewFinal').textContent = '₱ ' + finalAmount.toFixed(2);
       document.getElementById('previewExpenses').textContent = '₱ ' + expenses.toFixed(2);
-      document.getElementById('previewProfit').textContent   = '₱ ' + profit.toFixed(2);
-      document.getElementById('previewMargin').textContent   = marginText;
+      document.getElementById('previewProfit').textContent = '₱ ' + profit.toFixed(2);
+      document.getElementById('previewMargin').textContent = marginText;
 
       const profitClass = profit >= 0 ? 'profit-positive' : 'profit-negative';
       document.getElementById('previewProfit').className = 'fw-bold ' + profitClass;
       document.getElementById('previewMargin').className = 'fw-bold ' + profitClass;
     }
 
+    // ── Manual Expenses Modal Functions ─────────────────────────
+    function setManualExpenses(btn) {
+      const jobId = btn.dataset.id;
+      document.getElementById('manualExpJobId').value = jobId;
+      document.getElementById('manualExpClient').textContent = btn.dataset.client || '';
+      document.getElementById('manualExpProject').textContent = btn.dataset.project || '';
+
+      // Fetch current grand_total if any
+      fetch('get_job_expenses.php?id=' + jobId)
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            const exp = parseFloat(data.expenses) || 0;
+            document.getElementById('manualExpAmount').value = exp > 0 ? exp : '';
+          } else {
+            document.getElementById('manualExpAmount').value = '';
+          }
+          document.getElementById('manualExpensesModal').style.display = 'flex';
+        })
+        .catch(() => {
+          document.getElementById('manualExpAmount').value = '';
+          document.getElementById('manualExpensesModal').style.display = 'flex';
+        });
+    }
+
+    function closeManualExpensesModal() {
+      document.getElementById('manualExpensesModal').style.display = 'none';
+    }
+
+    function saveManualExpenses() {
+      const jobId = document.getElementById('manualExpJobId').value;
+      const amount = parseFloat(document.getElementById('manualExpAmount').value);
+
+      if (isNaN(amount) || amount < 0) {
+        alert('Please enter a valid expense amount');
+        return;
+      }
+
+      const body = new URLSearchParams({
+        job_id: jobId,
+        grand_total: amount.toFixed(2)
+      });
+
+      fetch('save_grand_total.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: body.toString()
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            location.reload();
+          } else {
+            alert('Error: ' + (data.message || 'Failed to save expenses'));
+          }
+        })
+        .catch(err => {
+          alert('Error saving expenses');
+          console.error(err);
+        });
+    }
+
+    // Manual Expenses functions
+    function setManualExpenses(btn) {
+      document.getElementById('manualExpJobId').value = btn.dataset.id;
+      document.getElementById('manualExpClient').textContent = btn.dataset.client || '';
+      document.getElementById('manualExpProject').textContent = btn.dataset.project || '';
+      fetch('get_job_expenses.php?id=' + btn.dataset.id)
+        .then(r => r.json()).then(d => {
+          document.getElementById('manualExpAmount').value = (d.success && parseFloat(d.expenses) > 0) ? d.expenses : '';
+          document.getElementById('manualExpensesModal').style.display = 'flex';
+        }).catch(() => {
+          document.getElementById('manualExpAmount').value = '';
+          document.getElementById('manualExpensesModal').style.display = 'flex';
+        });
+    }
+
+    function closeManualExpensesModal() {
+      document.getElementById('manualExpensesModal').style.display = 'none';
+    }
+
+    function saveManualExpenses() {
+      const id = document.getElementById('manualExpJobId').value;
+      const amt = parseFloat(document.getElementById('manualExpAmount').value);
+      if (isNaN(amt) || amt < 0) {
+        alert('Enter a valid amount');
+        return;
+      }
+      fetch('save_grand_total.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: 'job_id=' + id + '&grand_total=' + amt.toFixed(2)
+        })
+        .then(r => r.json()).then(d => {
+          if (d.success) location.reload();
+          else alert('Error: ' + d.message);
+        })
+        .catch(() => alert('Error saving expenses'));
+    }
+    // Manual Expenses functions
+    function setManualExpenses(btn) {
+      document.getElementById('manualExpJobId').value = btn.dataset.id;
+      document.getElementById('manualExpClient').textContent = btn.dataset.client || '';
+      document.getElementById('manualExpProject').textContent = btn.dataset.project || '';
+      fetch('get_job_expenses.php?id=' + btn.dataset.id)
+        .then(r => r.json()).then(d => {
+          document.getElementById('manualExpAmount').value = (d.success && parseFloat(d.expenses) > 0) ? d.expenses : '';
+          document.getElementById('manualExpensesModal').style.display = 'flex';
+        }).catch(() => {
+          document.getElementById('manualExpAmount').value = '';
+          document.getElementById('manualExpensesModal').style.display = 'flex';
+        });
+    }
+
+    function closeManualExpensesModal() {
+      document.getElementById('manualExpensesModal').style.display = 'none';
+    }
+
+    function saveManualExpenses() {
+      const id = document.getElementById('manualExpJobId').value;
+      const amt = parseFloat(document.getElementById('manualExpAmount').value);
+      if (isNaN(amt) || amt < 0) {
+        alert('Enter a valid amount');
+        return;
+      }
+      fetch('save_grand_total.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: 'job_id=' + id + '&grand_total=' + amt.toFixed(2)
+        })
+        .then(r => r.json()).then(d => {
+          if (d.success) location.reload();
+          else alert('Error: ' + d.message);
+        })
+        .catch(() => alert('Error saving expenses'));
+    }
+
     function saveTotalCost() {
-      const jobId        = document.getElementById('modalJobId').value;
-      const totalCost    = document.getElementById('totalCost').value;
-      const layoutFee    = parseFloat(document.getElementById('modalLayoutFee').value)    || 0;
+      const jobId = document.getElementById('modalJobId').value;
+      const totalCost = document.getElementById('totalCost').value;
+      const layoutFee = parseFloat(document.getElementById('modalLayoutFee').value) || 0;
       const discountType = document.getElementById('modalDiscountType').value;
-      const discountVal  = parseFloat(document.getElementById('modalDiscountValue').value) || 0;
+      const discountVal = parseFloat(document.getElementById('modalDiscountValue').value) || 0;
 
       if (!totalCost || parseFloat(totalCost) < 0) {
         alert('Please enter a valid total cost');
@@ -2875,36 +3305,38 @@ while ($row = $result->fetch_assoc()) {
       }
 
       const body = new URLSearchParams({
-        job_id:         jobId,
-        total_cost:     totalCost,
-        layout_fee:     layoutFee.toFixed(2),
-        discount_type:  discountType,
+        job_id: jobId,
+        total_cost: totalCost,
+        layout_fee: layoutFee.toFixed(2),
+        discount_type: discountType,
         discount_value: discountVal.toFixed(2),
       });
 
       fetch('save_total_cost.php', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
           body: body.toString()
         })
         .then(response => response.json())
         .then(data => {
           if (data.success) {
-            const expensesText  = document.getElementById('modalExpenses').textContent;
-            const expenses      = parseFloat(expensesText.replace('₱ ', '')) || 0;
-            const tCost         = parseFloat(totalCost) || 0;
-            const lFee          = parseFloat(document.getElementById('modalLayoutFee').value) || 0;
-            const dType         = document.getElementById('modalDiscountType').value;
-            const dVal          = parseFloat(document.getElementById('modalDiscountValue').value) || 0;
-            const dAmount       = dType === 'percent' ? (tCost + lFee) * (dVal / 100) : dVal;
-            const finalAmount   = tCost + lFee - dAmount;
-            const profit        = finalAmount - expenses;
-            const profitMargin  = finalAmount > 0 ? (profit / finalAmount) * 100 : 0;
+            const expensesText = document.getElementById('modalExpenses').textContent;
+            const expenses = parseFloat(expensesText.replace('₱ ', '')) || 0;
+            const tCost = parseFloat(totalCost) || 0;
+            const lFee = parseFloat(document.getElementById('modalLayoutFee').value) || 0;
+            const dType = document.getElementById('modalDiscountType').value;
+            const dVal = parseFloat(document.getElementById('modalDiscountValue').value) || 0;
+            const dAmount = dType === 'percent' ? (tCost + lFee) * (dVal / 100) : dVal;
+            const finalAmount = tCost + lFee - dAmount;
+            const profit = finalAmount - expenses;
+            const profitMargin = finalAmount > 0 ? (profit / finalAmount) * 100 : 0;
 
             document.getElementById(`total-cost-${jobId}`).innerHTML = `₱ ${finalAmount.toFixed(2)}`;
             let profitHtml = `₱ ${profit.toFixed(2)}<br><small class="${profit >= 0 ? 'profit-positive' : 'profit-negative'}">(${profitMargin.toFixed(1)}%)</small>`;
             document.getElementById(`profit-${jobId}`).innerHTML = profitHtml;
-            document.getElementById(`profit-${jobId}`).className  = `profit-cell ${profit >= 0 ? 'profit-positive' : 'profit-negative'}`;
+            document.getElementById(`profit-${jobId}`).className = `profit-cell ${profit >= 0 ? 'profit-positive' : 'profit-negative'}`;
 
             closeCostModal();
             alert('Total cost saved successfully!');
@@ -2987,13 +3419,16 @@ while ($row = $result->fetch_assoc()) {
       const urlParams = new URLSearchParams(window.location.search);
       const clientId = urlParams.get('client_id');
 
-      // Delay to allow other sessionStorage or toggle state scripts to finish first
+      // When loading from client_id, clear stale localStorage so PHP prefill takes priority
+      if (clientId) {
+        localStorage.removeItem('jobOrderFormData');
+        sessionStorage.setItem('clientIdLoading', '1');
+      }
       setTimeout(() => {
         if (clientId) {
           const form = document.getElementById('job-order-form');
           if (form) {
             form.style.display = 'block';
-
             // Smooth scroll to form
             window.scrollTo({
               top: form.offsetTop - 100,
@@ -3001,99 +3436,100 @@ while ($row = $result->fetch_assoc()) {
             });
           }
         }
-      }, 300); // Adjust delay as needed if you still notice conflicts
+      }, 300);
     });
 
     function quickFillUp(order) {
       const form = document.getElementById('jobOrderForm');
       if (!form) return;
-
-      // Basic Project Info
-      form.project_name.value = order.project_name || '';
-      form.quantity.value = order.quantity || '';
-      form.number_of_sets.value = order.number_of_sets || '';
-      form.copies_per_set.value = order.copies_per_set || '';
-      form.special_instructions.value = order.special_instructions || '';
-      form.serial_range.value = order.serial_range || '';
-      form.product_size.value = order.product_size || '';
-
-      // Client Info
-      form.client_name.value = order.client_name || '';
-      form.taxpayer_name.value = order.taxpayer_name || '';
-      form.tin.value = order.tin || '';
-      form.rdo_code.value = order.rdo_code || '';
-      form.contact_person.value = order.contact_person || '';
-      form.contact_number.value = order.contact_number || '';
-      form.client_by.value = order.client_by || '';
-
-      // Tax Type (radio buttons)
+      const sv = (id, val, isF) => {
+        const el = isF ? form.elements[id] : document.getElementById(id);
+        if (el) el.value = val || '';
+      };
+      sv('project_name', order.project_name, true);
+      sv('quantity', order.quantity, true);
+      sv('number_of_sets', order.number_of_sets, true);
+      sv('copies_per_set', order.copies_per_set, true);
+      sv('serial_range', order.serial_range, true);
+      sv('product_size', order.product_size, true);
+      sv('special_instructions', order.special_instructions, true);
+      sv('client_name', order.client_name, true);
+      sv('taxpayer_name', order.taxpayer_name, true);
+      sv('tin', order.tin, true);
+      sv('rdo_code', order.rdo_code, true);
+      sv('contact_person', order.contact_person, true);
+      sv('contact_number', order.contact_number, true);
+      sv('client_by', order.client_by, true);
+      sv('floor_no', order.floor_no, false);
+      sv('building_no', order.building_no, false);
+      sv('street', order.street, false);
+      sv('barangay', order.barangay, false);
+      sv('zip_code', order.zip_code, false);
       if (order.tax_type) {
-        const taxRadio = document.querySelector(`input[name="tax_type"][value="${order.tax_type}"]`);
-        if (taxRadio) taxRadio.checked = true;
+        var tr = document.querySelector('input[name="tax_type"][value="' + order.tax_type + '"]');
+        if (tr) tr.checked = true;
       }
-
-      document.getElementById('floor_no').value = order.floor_no || '';
-      document.getElementById('building_no').value = order.building_no || '';
-      document.getElementById('street').value = order.street || '';
-      document.getElementById('barangay').value = order.barangay || '';
-      document.getElementById('city').value = order.city || '';
-      document.getElementById('province').value = order.province || '';
-      document.getElementById('zip_code').value = order.zip_code || '';
-
-      const provinceSelect = document.getElementById('province');
-      const citySelect = document.getElementById('city');
-
-      provinceSelect.value = order.province || '';
-      provinceSelect.dispatchEvent(new Event('change'));
-
-      setTimeout(() => {
-        citySelect.value = order.city || '';
-        citySelect.dispatchEvent(new Event('change'));
-      }, 300);
-
-      // Paper Settings
-      form.paper_type.value = order.paper_type || '';
-      form.paper_type.dispatchEvent(new Event('change'));
-
-      setTimeout(() => {
-        const paperSize = order.paper_size === 'custom' ? 'custom' : order.paper_size;
-        form.paper_size.value = paperSize || '';
-        form.paper_size.dispatchEvent(new Event('change'));
-
-        if (paperSize === 'custom') {
-          document.getElementById('custom_paper_size').value = order.custom_paper_size || '';
+      // Province cascade
+      var pSel = document.getElementById('province');
+      var cSel = document.getElementById('city');
+      if (pSel && cSel) {
+        pSel.value = order.province || '';
+        pSel.dispatchEvent(new Event('change', {
+          bubbles: true
+        }));
+      }
+      // Paper cascade
+      var ptSel = form.elements['paper_type'];
+      if (ptSel) {
+        ptSel.value = order.paper_type || '';
+        ptSel.dispatchEvent(new Event('change', {
+          bubbles: true
+        }));
+      }
+      // Wait for cascades, set remaining fields
+      setTimeout(function() {
+        if (cSel && order.city) {
+          cSel.value = order.city;
+          cSel.dispatchEvent(new Event('change', {
+            bubbles: true
+          }));
         }
-
-        const binding = order.binding_type === 'Custom' ? 'Custom' : order.binding_type;
-        form.binding_type.value = binding || '';
-        form.binding_type.dispatchEvent(new Event('change'));
-
-        if (binding === 'Custom') {
-          document.getElementById('custom_binding').value = order.custom_binding || '';
+        var psSel = form.elements['paper_size'];
+        if (psSel) {
+          var paperSize = order.paper_size === 'custom' ? 'custom' : (order.paper_size || '');
+          psSel.value = paperSize;
+          if (order.paper_size) psSel.dispatchEvent(new Event('change', {
+            bubbles: true
+          }));
+          if (paperSize === 'custom') sv('custom_paper_size', order.custom_paper_size, false);
         }
-
-        // Paper Sequence
-        const sequenceContainer = document.getElementById('paper-sequence-container');
-        const sequence = order.paper_sequence ? order.paper_sequence.split(',') : [];
-
-        const copies = parseInt(order.copies_per_set) || 0;
-        form.copies_per_set.value = copies;
-        form.copies_per_set.dispatchEvent(new Event('input'));
-
-        setTimeout(() => {
-          const selects = sequenceContainer.querySelectorAll('select[name="paper_sequence[]"]');
-          selects.forEach((select, index) => {
-            if (sequence[index]) {
-              select.value = sequence[index].trim();
-            }
+        var bSel = form.elements['binding_type'];
+        if (bSel) {
+          var binding = order.binding_type === 'Custom' ? 'Custom' : (order.binding_type || '');
+          bSel.value = binding;
+          if (order.binding_type) bSel.dispatchEvent(new Event('change', {
+            bubbles: true
+          }));
+          if (binding === 'Custom') sv('custom_binding', order.custom_binding, false);
+        }
+        var copies = parseInt(order.copies_per_set) || 0;
+        if (copies > 0 && form.elements['copies_per_set']) {
+          form.elements['copies_per_set'].value = copies;
+          form.elements['copies_per_set'].dispatchEvent(new Event('input', {
+            bubbles: true
+          }));
+        }
+        // Set sequence after a short delay for options to render
+        setTimeout(function() {
+          var seq = order.paper_sequence ? order.paper_sequence.split(',') : [];
+          var sels = document.querySelectorAll('select[name="paper_sequence[]"]');
+          sels.forEach(function(s, i) {
+            if (seq[i]) s.value = seq[i].trim();
           });
-        }, 300);
-      }, 300);
-
-      const Tform = document.getElementById('job-order-form');
+        }, 500);
+      }, 600);
+      var Tform = document.getElementById('job-order-form');
       Tform.style.display = 'block';
-
-      // Scroll to form
       window.scrollTo({
         top: Tform.offsetTop - 100,
         behavior: 'smooth'
@@ -3101,7 +3537,13 @@ while ($row = $result->fetch_assoc()) {
     }
 
     document.querySelectorAll('.clickable-row').forEach(row => {
-      row.addEventListener('click', function() {
+      row.addEventListener('click', function(e) {
+        // Don't open the job order modal if the click originated from an
+        // interactive control inside the row (Set Expenses, Edit total cost,
+        // Load to Form, Print, Compute Now link, etc.)
+        if (e.target.closest('button, a, input, select, textarea, label')) {
+          return;
+        }
         const orderData = JSON.parse(this.dataset.order);
         const userRole = this.dataset.role;
         openModal(orderData, userRole);
@@ -3468,8 +3910,10 @@ while ($row = $result->fetch_assoc()) {
         sessionStorage.setItem(scrollKey, window.scrollY);
       });
 
-      // Restore form data
-      const saved = localStorage.getItem(storageKey);
+      // Restore form data - skip when loading from client_id to let PHP prefill take priority
+      const clientIdLoading = sessionStorage.getItem('clientIdLoading') === '1';
+      if (clientIdLoading) sessionStorage.removeItem('clientIdLoading');
+      const saved = (!clientIdLoading) ? localStorage.getItem(storageKey) : null;
       if (saved && form) {
         const data = JSON.parse(saved);
         for (const [name, value] of Object.entries(data)) {
@@ -3489,6 +3933,7 @@ while ($row = $result->fetch_assoc()) {
             document.getElementById('custom_binding').style.display = 'block';
           }
         }
+
       }
 
       // Save form inputs on change
@@ -3511,6 +3956,65 @@ while ($row = $result->fetch_assoc()) {
           localStorage.removeItem(storageKey);
         });
       }
+
+      // Clear form function - resets all fields and removes stored draft
+      function clearJobOrderForm() {
+        if (!confirm('Are you sure you want to clear the entire form? All unsaved data will be lost.')) return;
+
+        const form = document.getElementById("jobOrderForm");
+        if (!form) return;
+
+        // Reset all input, select, textarea elements
+        const elements = form.querySelectorAll("input, select, textarea");
+        elements.forEach(el => {
+          if (el.type === "checkbox" || el.type === "radio") {
+            el.checked = false;
+          } else if (el.type === "hidden") {
+            // skip hidden fields or clear if appropriate
+          } else {
+            el.value = "";
+          }
+        });
+
+        // Reset date fields to today
+        const logDate = document.getElementById("log_date");
+        if (logDate) logDate.value = "<?php echo date('Y-m-d'); ?>";
+
+        // Reset paper sequence chips container
+        const seqContainer = document.getElementById("sequenceContainer");
+        if (seqContainer) seqContainer.innerHTML = "";
+
+        // Reset hidden paper sequence input
+        const paperSeqInput = document.getElementById("paper_sequence");
+        if (paperSeqInput) paperSeqInput.value = "";
+
+        // Reset product type selection
+        const ptSelect = document.getElementById("product_type_id");
+        if (ptSelect) ptSelect.value = "";
+
+        // Reset dynamic product type fields area
+        const ptFieldsContainer = document.getElementById("pt_fields_container");
+        if (ptFieldsContainer) ptFieldsContainer.innerHTML = "";
+
+        // Reset non-paper cost estimate
+        const npCostEl = document.getElementById("np_estimated_cost");
+        if (npCostEl) npCostEl.value = "";
+
+        // Reset calculated total
+        const totalCostEl = document.getElementById("totalCostDisplay");
+        if (totalCostEl) totalCostEl.textContent = "";
+
+        // Remove saved localStorage draft
+        localStorage.removeItem(storageKey);
+
+        // Navigate to a fresh, cache-busted URL (not just reload/pathname) so
+        // the browser can't reuse a cached or bfcache'd response that still
+        // has the old client_id-prefilled values baked into it.
+        window.location.href = window.location.pathname + "?cleared=" + Date.now();
+      }
+
+      // Wire up the clear form button
+      document.getElementById("clearFormBtn")?.addEventListener("click", clearJobOrderForm);
 
       // Province → City dynamic dropdown (with restore)
       const province = document.getElementById("province");
@@ -3901,7 +4405,7 @@ while ($row = $result->fetch_assoc()) {
             let stockLabel;
             if (sheets <= 0) {
               stockLabel = 'no stock';
-              opt.style.color = '#dc3545';
+              opt.style.color = 'var(--danger)';
             } else {
               stockLabel = `${(sheets / 500).toFixed(2)} reams available`;
             }
@@ -3927,9 +4431,9 @@ while ($row = $result->fetch_assoc()) {
     // ── Insufficient stock confirmation modal ──────────────────────────
     document.addEventListener('DOMContentLoaded', function() {
       const jobOrderForm = document.getElementById('jobOrderForm');
-      const stockModal   = document.getElementById('insufficientStockModal');
-      const stockList    = document.getElementById('insufficientStockList');
-      let   allowSubmit  = false;
+      const stockModal = document.getElementById('insufficientStockModal');
+      const stockList = document.getElementById('insufficientStockList');
+      let allowSubmit = false;
 
       jobOrderForm.addEventListener('submit', function(e) {
         if (allowSubmit) return; // already confirmed — let it through
@@ -3997,36 +4501,36 @@ while ($row = $result->fetch_assoc()) {
   <!-- ── Insufficient Stock Confirmation Modal ── -->
   <div id="insufficientStockModal" style="
     display:none; position:fixed; inset:0; z-index:9999;
-    background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+    background:rgba(20, 23, 31, 0.5); align-items:center; justify-content:center;">
     <div style="
-      background:#fff; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.2);
+      background:var(--card-bg); border-radius:12px; box-shadow:0 8px 32px rgba(20, 23, 31, 0.15);
       max-width:460px; width:90%; padding:32px 28px; position:relative;">
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
         <div style="
-          background:#fff3cd; border-radius:50%; width:44px; height:44px;
+          background:var(--warning-bg); border-radius:50%; width:44px; height:44px;
           display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-          <i class="fas fa-exclamation-triangle" style="color:#f59e0b; font-size:20px;"></i>
+          <i class="fas fa-exclamation-triangle" style="color:var(--warning); font-size:20px;"></i>
         </div>
-        <h5 style="margin:0; font-weight:700; font-size:17px; color:#1a1a1a;">Insufficient Stock</h5>
+        <h5 style="margin:0; font-weight:700; font-size:17px; color:var(--dark);">Insufficient Stock</h5>
       </div>
-      <p style="color:#555; margin-bottom:12px; font-size:14px;">
+      <p style="color:var(--gray); margin-bottom:12px; font-size:14px;">
         The following paper color(s) have <strong>no available stock</strong>:
       </p>
       <ul id="insufficientStockList" style="
-        color:#dc3545; font-size:14px; font-weight:600;
+        color:var(--danger); font-size:14px; font-weight:600;
         margin:0 0 18px 0; padding-left:20px;"></ul>
-      <p style="color:#555; font-size:14px; margin-bottom:24px;">
+      <p style="color:var(--gray); font-size:14px; margin-bottom:24px;">
         Stock will go negative if you continue. Do you still want to submit this job order?
       </p>
       <div style="display:flex; gap:12px; justify-content:flex-end;">
         <button id="cancelStockModal" type="button" style="
-          padding:9px 20px; border-radius:7px; border:1px solid #ccc;
-          background:#fff; color:#555; font-size:14px; cursor:pointer; font-weight:500;">
+          padding:9px 20px; border-radius:7px; border:1px solid var(--light-gray);
+          background:var(--card-bg); color:var(--gray); font-size:14px; cursor:pointer; font-weight:500;">
           Cancel
         </button>
         <button id="confirmStockModal" type="button" style="
           padding:9px 20px; border-radius:7px; border:none;
-          background:#dc3545; color:#fff; font-size:14px; cursor:pointer; font-weight:600;">
+          background:var(--danger); color:white; font-size:14px; cursor:pointer; font-weight:600;">
           <i class="fas fa-check"></i> Yes, Submit Anyway
         </button>
       </div>
@@ -4034,6 +4538,259 @@ while ($row = $result->fetch_assoc()) {
   </div>
 
   <script src="../assets/js/print.js"></script>
+
+  <!-- Manual Expenses Modal -->
+  <div id="manualExpensesModal" class="modal" style="display: none;">
+    <div class="floating-window" style="max-width:420px;width:95%">
+      <div class="window-header">
+        <div class="window-title">
+          <i class="fas fa-coins"></i>
+          Set Manual Expenses
+        </div>
+        <button class="close-btn" onclick="closeManualExpensesModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="window-content">
+        <div style="background:var(--light);padding:12px 20px;border-bottom:1px solid var(--light-gray);font-size:13px;margin:-1.5rem -1.5rem 1.5rem -1.5rem;">
+          <div style="font-weight:600;color:var(--primary)" id="manualExpClient"></div>
+          <div style="color:var(--gray)" id="manualExpProject"></div>
+        </div>
+        <div class="form-group">
+          <label style="font-weight:600">Total Expenses (₱) <span style="color:var(--danger)">*</span></label>
+          <input type="number" step="0.01" min="0" class="form-control" id="manualExpAmount"
+            placeholder="0.00" required>
+          <small style="color:var(--gray); font-size: 70%;">Enter the total production/manufacturing expenses for this job.</small>
+        </div>
+        <div class="action-buttons" style="margin-top:20px">
+          <button type="button" class="btn-edit" onclick="closeManualExpensesModal()">Cancel</button>
+          <button type="button" class="btn-status" onclick="saveManualExpenses()">Save Expenses</button>
+        </div>
+        <input type="hidden" id="manualExpJobId" value="">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Product Type Field Data (from PHP) ───────────────────────────
+    const ptFieldsAll = <?= json_encode($pt_fields_all) ?>;
+    const ptOptionsAll = <?= json_encode($pt_options_all) ?>;
+    const ptPricingAll = <?= json_encode($pt_pricing_all) ?>;
+
+    // ── Print Type Selector ──────────────────────────────────────────
+    document.querySelectorAll('.print-type-option').forEach(label => {
+      label.addEventListener('click', function() {
+        // Update card styles
+        document.querySelectorAll('.print-type-card').forEach(c => c.classList.remove('active'));
+        this.querySelector('.print-type-card').classList.add('active');
+
+        const type = this.dataset.type;
+        switchPrintType(type);
+      });
+    });
+
+    function switchPrintType(type) {
+      const paperSection = document.getElementById('paper-specs-section');
+      const nonPaperSection = document.getElementById('nonpaper-specs-section');
+      const hiddenTypeId = document.getElementById('selected_product_type_id');
+
+      // Toggle required on paper fields
+      const paperRequiredFields = paperSection.querySelectorAll('[required]');
+
+      if (type === 'paper') {
+        paperSection.style.display = '';
+        nonPaperSection.style.display = 'none';
+        hiddenTypeId.value = '';
+        paperRequiredFields.forEach(f => f.required = true);
+        // Clear dynamic fields
+        document.getElementById('dynamic-fields-container').innerHTML = '';
+      } else {
+        const ptId = parseInt(type.replace('pt_', ''));
+        paperSection.style.display = 'none';
+        nonPaperSection.style.display = '';
+        hiddenTypeId.value = ptId;
+        paperRequiredFields.forEach(f => f.required = false);
+        renderDynamicFields(ptId);
+      }
+    }
+
+    // Restore print type on page load if localStorage had a non-paper type saved
+    document.addEventListener('DOMContentLoaded', function restorePrintTypeOnLoad() {
+      const ptId = document.getElementById('selected_product_type_id')?.value;
+      if (ptId) {
+        document.querySelectorAll('.print-type-card').forEach(c => c.classList.remove('active'));
+        const target = document.querySelector(`.print-type-option[data-type="pt_${ptId}"]`);
+        if (target) {
+          target.querySelector('.print-type-card')?.classList.add('active');
+        }
+        switchPrintType('pt_' + ptId);
+      }
+    });
+
+    function renderDynamicFields(ptId) {
+      const container = document.getElementById('dynamic-fields-container');
+      container.innerHTML = '';
+
+      const fields = ptFieldsAll[ptId] || [];
+
+      if (fields.length === 0) {
+        container.innerHTML = '<p style="color:var(--gray);font-size:13px;grid-column:1/-1;">No fields configured for this product type. Add fields in Product Types manager.</p>';
+        return;
+      }
+
+      fields.forEach(field => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'form-group';
+
+        const label = document.createElement('label');
+        label.innerHTML = field.field_label + (field.is_required == 1 ? ' <span style="color:var(--danger)">*</span>' : '');
+        wrapper.appendChild(label);
+
+        let input;
+
+        if (field.field_type === 'dropdown') {
+          input = document.createElement('select');
+          input.name = `pt_field[${field.id}]`;
+          if (field.is_required == 1) input.required = true;
+          input.className = 'form-control';
+          input.style.cssText = 'width:100%;padding:10px 12px;border:1px solid var(--light-gray);border-radius:6px;font-family:Inter,sans-serif;font-size:13px;';
+
+          const defaultOpt = document.createElement('option');
+          defaultOpt.value = '';
+          defaultOpt.textContent = 'Select ' + field.field_label;
+          input.appendChild(defaultOpt);
+
+          const options = ptOptionsAll[field.id] || [];
+          options.forEach(opt => {
+            const o = document.createElement('option');
+            o.value = opt.value;
+            o.textContent = opt.label;
+            input.appendChild(o);
+          });
+
+          // Update cost estimate when variant changes
+          input.addEventListener('change', () => updateCostEstimate(ptId));
+
+        } else if (field.field_type === 'textarea') {
+          input = document.createElement('textarea');
+          input.name = `pt_field[${field.id}]`;
+          input.rows = 3;
+          input.style.cssText = 'width:100%;padding:10px 12px;border:1px solid var(--light-gray);border-radius:6px;font-family:Inter,sans-serif;font-size:13px;resize:vertical;';
+          if (field.is_required == 1) input.required = true;
+
+        } else if (field.field_type === 'checkbox') {
+          const checkLabel = document.createElement('label');
+          checkLabel.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;';
+          input = document.createElement('input');
+          input.type = 'checkbox';
+          input.name = `pt_field[${field.id}]`;
+          input.value = '1';
+          input.style.width = '16px';
+          checkLabel.appendChild(input);
+          checkLabel.appendChild(document.createTextNode(field.field_label));
+          wrapper.appendChild(checkLabel);
+          container.appendChild(wrapper);
+          return; // already appended
+
+        } else {
+          input = document.createElement('input');
+          input.type = field.field_type === 'number' ? 'number' : 'text';
+          input.name = `pt_field[${field.id}]`;
+          if (field.is_required == 1) input.required = true;
+          input.style.cssText = 'width:100%;padding:10px 12px;border:1px solid var(--light-gray);border-radius:6px;font-family:Inter,sans-serif;font-size:13px;';
+          input.placeholder = field.field_label;
+          if (field.field_type === 'number') input.min = 0;
+        }
+
+        wrapper.appendChild(input);
+        container.appendChild(wrapper);
+      });
+
+      updateCostEstimate(ptId);
+    }
+
+    function updateCostEstimate(ptId) {
+      const qty = parseInt(document.getElementById('np_quantity')?.value) || 0;
+      const pricing = ptPricingAll[ptId] || [];
+      const estimate = document.getElementById('np-cost-estimate');
+      const costEl = document.getElementById('np-cost-value');
+      const hiddenCost = document.getElementById('np_estimated_cost');
+      if (pricing.length === 0 || qty <= 0) {
+        estimate.style.display = 'none';
+        if (hiddenCost) hiddenCost.value = '0';
+        return;
+      }
+      let price = null;
+      const dynContainer = document.getElementById('dynamic-fields-container');
+      pricing.forEach(p => {
+        if (p.variant_field_id && p.variant_value) {
+          const sel = dynContainer.querySelector(`select[name="pt_field[${p.variant_field_id}]"]`);
+          if (sel && sel.value === p.variant_value) {
+            price = parseFloat(p.price_per_piece);
+          }
+        }
+      });
+      if (price === null) {
+        const base = pricing.find(p => !p.variant_field_id && !p.variant_value);
+        if (base) price = parseFloat(base.price_per_piece);
+      }
+      if (price !== null) {
+        const total = qty * price;
+        costEl.textContent = total.toLocaleString('en-PH', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+        if (hiddenCost) hiddenCost.value = total.toFixed(2);
+        estimate.style.display = 'block';
+      } else {
+        estimate.style.display = 'none';
+        if (hiddenCost) hiddenCost.value = '0';
+      }
+    }
+
+    // Update estimate when quantity changes
+    document.getElementById('np_quantity')?.addEventListener('input', function() {
+      const hiddenTypeId = document.getElementById('selected_product_type_id').value;
+      if (hiddenTypeId) updateCostEstimate(parseInt(hiddenTypeId));
+    });
+
+    // Handle np_special_instructions → map to special_instructions on submit
+    document.getElementById('jobOrderForm')?.addEventListener('submit', function() {
+      const npSpecial = document.getElementById('np_special_instructions')?.value;
+      const npQty = document.getElementById('np_quantity')?.value;
+
+      // Copy np values to the paper fields so they go through the same INSERT
+      if (document.getElementById('selected_product_type_id').value) {
+        if (npSpecial) {
+          let si = document.getElementById('special_instructions');
+          if (si) si.value = npSpecial;
+        }
+        if (npQty) {
+          let q = document.getElementById('quantity');
+          if (q) q.value = npQty;
+        }
+        // Set dummy values for paper-required fields that are now hidden/not-required
+        // so the existing INSERT doesn't fail on NOT NULL columns
+        setDummyPaperFields();
+      }
+    });
+
+    function setDummyPaperFields() {
+      const dummies = {
+        'paper_size': 'N/A',
+        'paper_type': 'N/A',
+        'binding_type': 'N/A',
+        'product_size': 'whole',
+        'copies_per_set': '1',
+        'number_of_sets': '1',
+        'serial_range': 'N/A',
+      };
+      Object.entries(dummies).forEach(([name, val]) => {
+        const el = document.querySelector(`[name="${name}"]`);
+        if (el && (!el.value || el.value === '')) el.value = val;
+      });
+    }
+  </script>
 </body>
 
 </html>

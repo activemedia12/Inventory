@@ -65,136 +65,342 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Delivery</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Edit Delivery - Active Media Printing</title>
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         ::-webkit-scrollbar {
-            width: 5px;
-            height: 5px;
+            width: 8px;
+            height: 8px;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: rgb(140, 140, 140);
-            border-radius: 10px;
+            background: #cbced3;
+            border-radius: 8px;
         }
 
         :root {
-            --primary: #1877f2;
-            --secondary: #166fe5;
-            --light: #f0f2f5;
-            --dark: #1c1e21;
-            --gray: #65676b;
-            --light-gray: #e4e6eb;
+            --primary: #4f5eff;
+            --secondary: #4048e0;
+            --primary-bg: #eef1ff;
+            --light: #f6f6f7;
+            --dark: #14171f;
+            --gray: #6b7280;
+            --light-gray: #e2e4e7;
             --card-bg: #ffffff;
-            --success: #42b72a;
-            --warning: #faad14;
-            --danger: #ff4d4f;
+            --success: #1a9c6b;
+            --success-bg: #e3f6ee;
+            --danger: #d9463c;
+            --danger-bg: #fbe9e7;
+            --warning: #b6790a;
+            --warning-bg: #fdf2df;
+            --info: #2a7ade;
+            --info-bg: #e8f1fc;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
         body {
             background-color: var(--light);
             color: var(--dark);
+            display: flex;
             min-height: 100vh;
-            padding-left: 70px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Sidebar styles (same as delete page) */
+        /* Sidebar */
         .sidebar {
-            width: 70px;
+            width: 240px;
             background-color: var(--card-bg);
             height: 100vh;
             position: fixed;
-            left: 0;
-            top: 0;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            z-index: 1000;
-            transition: width 0.3s ease;
-            overflow: hidden;
+            border-right: 1px solid var(--light-gray);
+            padding: 20px 0;
+            overflow-y: auto;
+        }
+
+        .brand {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid var(--light-gray);
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .brand img {
+            height: 100px;
+            width: auto;
+            padding-left: 0;
+            transform: none;
+        }
+
+        .nav-menu {
+            list-style: none;
+            padding: 0 12px;
+        }
+
+        .nav-menu li a {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: 6px;
+            color: var(--gray);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .nav-menu li a:hover {
+            background-color: var(--light);
+            color: var(--dark);
+        }
+
+        .nav-menu li.active>a,
+        .nav-menu li a.active {
+            background-color: var(--primary-bg);
+            color: var(--secondary);
+        }
+
+        .nav-menu li a i {
+            margin-right: 10px;
+            width: 16px;
+            text-align: center;
+            color: var(--gray);
+        }
+
+        .nav-menu li.active>a i,
+        .nav-menu li a:hover i {
+            color: inherit;
+        }
+
+        .submenu {
+            list-style: none;
+            margin: 2px 0 6px 14px;
+            padding-left: 14px;
+            border-left: 2px solid var(--light-gray);
+        }
+
+        .submenu li a {
+            padding: 7px 10px;
+            font-size: 12.5px;
+            font-weight: 500;
+            color: var(--gray);
+            border-radius: 6px;
+        }
+
+        .submenu li a:hover {
+            background-color: var(--light);
+            color: var(--dark);
+        }
+
+        .submenu li a.activate {
+            color: var(--secondary);
+            font-weight: 600;
+            background-color: var(--primary-bg);
         }
 
         /* Main Content */
         .main-content {
-            padding: 30px;
-            max-width: 800px;
-            margin: 0 auto;
+            flex: 1;
+            margin-left: 240px;
+            padding: 28px 32px;
+            max-width: 900px;
         }
 
-        /* Edit Card */
-        .edit-card {
-            background: var(--card-bg);
-            border-radius: 8px;
-            padding: 30px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        }
-
-        .edit-header {
+        /* Header */
+        .header {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--light-gray);
         }
 
-        .edit-icon {
-            font-size: 32px;
-            color: var(--warning);
-            margin-right: 15px;
+        .header-title {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
         }
 
-        .edit-title {
-            font-size: 24px;
+        .header-title h1 {
+            font-size: 22px;
             font-weight: 600;
             color: var(--dark);
         }
 
-        /* Product Info */
-        .product-info {
-            background: rgba(250, 173, 20, 0.05);
-            border-radius: 6px;
-            padding: 15px;
-            margin-bottom: 25px;
-            border-left: 3px solid var(--warning);
-        }
-
-        .product-name {
-            font-weight: 500;
-            margin-bottom: 5px;
-        }
-
-        .product-details {
+        .breadcrumb {
+            font-size: 12.5px;
             color: var(--gray);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .breadcrumb a {
+            color: var(--gray);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--primary);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+        }
+
+        .user-info img {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            margin-right: 10px;
+            object-fit: cover;
+        }
+
+        .user-details h4 {
+            font-weight: 600;
             font-size: 14px;
         }
 
-        /* Form Styles */
-        .form-group {
+        .user-details small {
+            color: var(--gray);
+            font-size: 12px;
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .alert i {
+            margin-right: 10px;
+        }
+
+        .alert-success {
+            background-color: var(--success-bg);
+            color: var(--success);
+        }
+
+        .alert-danger {
+            background-color: var(--danger-bg);
+            color: var(--danger);
+        }
+
+        /* Info / stock summary card */
+        .info-banner {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: var(--primary-bg);
+            border-radius: 8px;
+            padding: 16px 18px;
             margin-bottom: 20px;
         }
 
-        .form-label {
-            display: block;
-            font-weight: 500;
-            margin-bottom: 8px;
+        .info-banner .icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: var(--card-bg);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 17px;
+            flex-shrink: 0;
+        }
+
+        .info-banner .value {
+            font-size: 18px;
+            font-weight: 700;
             color: var(--dark);
+        }
+
+        .info-banner .label {
+            font-size: 12px;
+            color: var(--gray);
+        }
+
+        /* Form card */
+        .form-card {
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
+            overflow: hidden;
+        }
+
+        .form-card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--light-gray);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-card-header i {
+            color: var(--gray);
+        }
+
+        .form-card-header h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .form-card-body {
+            padding: 20px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 4px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
 
         .form-control {
             width: 100%;
-            padding: 12px 15px;
+            padding: 10px 12px;
             border: 1px solid var(--light-gray);
             border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.3s;
+            font-size: 13px;
+            background: var(--card-bg);
+            color: var(--dark);
+            transition: border-color 0.15s ease;
         }
 
         .form-control:focus {
@@ -202,64 +408,122 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-color: var(--primary);
         }
 
-        textarea.form-control {
-            min-height: 100px;
-            resize: vertical;
-        }
-
-        /* Buttons */
-        .btn-group {
+        .form-actions {
             display: flex;
-            justify-content: flex-start;
-            gap: 15px;
-            margin-top: 30px;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 24px;
+            padding-top: 18px;
+            border-top: 1px solid var(--light-gray);
         }
 
         .btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 12px 24px;
+            padding: 10px 18px;
             border-radius: 6px;
-            font-weight: 500;
+            font-size: 13px;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
-            text-decoration: none;
-            font-size: 14px;
+            transition: background-color 0.15s ease, color 0.15s ease;
             border: none;
+            gap: 8px;
+            text-decoration: none;
         }
 
-        .btn-warning {
-            background-color: var(--warning);
+        .btn-primary {
+            background-color: var(--primary);
             color: white;
         }
 
-        .btn-warning:hover {
-            background-color: #d48806;
+        .btn-primary:hover {
+            background-color: var(--secondary);
         }
 
         .btn-outline {
             background-color: transparent;
             border: 1px solid var(--light-gray);
-            color: var(--dark);
+            color: var(--gray);
         }
 
         .btn-outline:hover {
-            background-color: var(--light-gray);
+            background-color: var(--light);
+            color: var(--dark);
         }
 
-        /* Responsive Adjustments */
+        /* Responsive */
         @media (max-width: 768px) {
-            body {
-                padding-left: 0;
+            .sidebar-con {
+                width: 100%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: fixed;
+            }
+
+            .sidebar {
+                position: fixed;
+                overflow: hidden;
+                height: auto;
+                width: auto;
+                bottom: 12px;
+                left: 50%;
+                transform: translateX(-50%);
+                padding: 6px;
+                background-color: rgba(255, 255, 255, 0.85);
+                backdrop-filter: blur(6px);
+                box-shadow: 0 4px 16px rgba(20, 23, 31, 0.12);
+                border-radius: 100px;
+                touch-action: manipulation;
+                z-index: 9999;
+                flex-direction: row;
+                border: 1px solid var(--light-gray);
+                justify-content: center;
+            }
+
+            .sidebar .nav-menu {
+                display: flex;
+                flex-direction: row;
+                padding: 0;
+            }
+
+            .sidebar img,
+            .sidebar .brand,
+            .sidebar .nav-menu li a span,
+            .sidebar .submenu {
+                display: none;
+            }
+
+            .sidebar .nav-menu li a {
+                justify-content: center;
+                padding: 12px;
+            }
+
+            .sidebar .nav-menu li a i {
+                margin-right: 0;
             }
 
             .main-content {
+                margin-left: 0;
+                margin-bottom: 90px;
                 padding: 20px;
             }
 
-            .btn-group {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .header {
                 flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .form-actions {
+                flex-direction: column-reverse;
             }
 
             .btn {
@@ -270,74 +534,106 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 
 <body>
-    <!-- Include your sidebar navigation here -->
+    <div class="sidebar-con">
+        <div class="sidebar">
+            <div class="brand">
+                <img src="../assets/images/plainlogo.png" alt="Active Media Printing Logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
+                <li>
+                    <a href="papers.php">
+                        <i class="fas fa-boxes"></i> <span>Products</span>
+                    </a>
+                </li>
+                <li class="active"><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
+                <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+                <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
+                <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
+                <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
+            </ul>
+        </div>
+    </div>
 
     <div class="main-content">
-        <div class="edit-card">
-            <div class="edit-header">
-                <div class="edit-icon">
-                    <i class="fas fa-edit"></i>
-                </div>
-                <h1 class="edit-title">Edit Delivery Record</h1>
-            </div>
-
-            <div class="product-info">
-                <div class="product-name">
-                    <?= htmlspecialchars($delivery['product_type']) ?> -
-                    <?= htmlspecialchars($delivery['product_group']) ?> -
-                    <?= htmlspecialchars($delivery['product_name']) ?>
-                </div>
-                <div class="product-details">
-                    Original delivery on <?= date('M j, Y', strtotime($delivery['delivery_date'])) ?>
+        <header class="header">
+            <div class="header-title">
+                <h1>Edit Delivery Record</h1>
+                <div class="breadcrumb">
+                    <a href="delivery.php?id=<?= $product_id ?>&tab=delivery">Deliveries</a> <i class="fas fa-chevron-right" style="font-size:9px;"></i> <span>Edit</span>
                 </div>
             </div>
-
-            <form method="POST">
-                <div class="form-group">
-                    <label class="form-label">Delivery Date</label>
-                    <input type="date" name="delivery_date" class="form-control"
-                        value="<?= htmlspecialchars($delivery['delivery_date']) ?>" required>
+            <div class="user-info">
+                <img src="https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['username']) ?>&background=random" alt="User">
+                <div class="user-details">
+                    <h4><?= htmlspecialchars($_SESSION['username']) ?></h4>
+                    <small><?= $_SESSION['role'] ?></small>
                 </div>
+            </div>
+        </header>
 
-                <div class="form-group">
-                    <label class="form-label">Delivered Quantity</label>
-                    <input type="number" step="0.01" name="delivered_reams" class="form-control"
-                        value="<?= htmlspecialchars($delivery['delivered_reams']) ?>" required>
-                </div>
-                
-                <div class="form-group">
-                <label class="form-label">Unit</label>
-                <input type="text" name="unit" class="form-control"
-                    value="<?= htmlspecialchars($delivery['unit'] ?? '') ?>">
-                </div>
+        <div class="info-banner">
+            <div class="icon"><i class="fas fa-box"></i></div>
+            <div>
+                <div class="value"><?= htmlspecialchars($delivery['product_type']) ?> — <?= htmlspecialchars($delivery['product_group']) ?> — <?= htmlspecialchars($delivery['product_name']) ?></div>
+                <div class="label">Original delivery on <?= date('M j, Y', strtotime($delivery['delivery_date'])) ?></div>
+            </div>
+        </div>
 
+        <div class="form-card">
+            <div class="form-card-header">
+                <i class="fas fa-truck"></i>
+                <h3>Delivery Details</h3>
+            </div>
+            <div class="form-card-body">
+                <form method="POST">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Delivery Date</label>
+                            <input type="date" name="delivery_date" class="form-control"
+                                value="<?= htmlspecialchars($delivery['delivery_date']) ?>" required>
+                        </div>
 
-                <div class="form-group">
-                    <label class="form-label">Supplier Name</label>
-                    <input type="text" name="supplier_name" class="form-control"
-                        value="<?= htmlspecialchars($delivery['supplier_name']) ?>" required>
-                </div>
+                        <div class="form-group">
+                            <label>Delivered Quantity</label>
+                            <input type="number" step="0.01" name="delivered_reams" class="form-control"
+                                value="<?= htmlspecialchars($delivery['delivered_reams']) ?>" required>
+                        </div>
 
-                <div class="form-group">
-                    <label class="form-label">Amount per Unit (₱)</label>
-                    <input type="number" step="0.01" name="amount_per_ream" class="form-control"
-                        value="<?= htmlspecialchars($delivery['amount_per_ream']) ?>" required>
-                </div>
+                        <div class="form-group">
+                            <label>Unit</label>
+                            <input type="text" name="unit" class="form-control"
+                                value="<?= htmlspecialchars($delivery['unit'] ?? '') ?>">
+                        </div>
 
-                <div class="form-group">
-                    <label class="form-label">Delivery Note</label>
-                    <textarea name="delivery_note" class="form-control"><?= htmlspecialchars($delivery['delivery_note']) ?></textarea>
-                </div>
+                        <div class="form-group">
+                            <label>Supplier Name</label>
+                            <input type="text" name="supplier_name" class="form-control"
+                                value="<?= htmlspecialchars($delivery['supplier_name']) ?>" required>
+                        </div>
 
-                <div class="btn-group">
-                    <button type="submit" class="btn btn-warning">
-                        Save Changes
-                    </button>
-                    <a href="delivery.php?id=<?= $product_id ?>&tab=delivery" class="btn btn-outline">
-                        Cancel
-                    </a>
-                </div>
-            </form>
+                        <div class="form-group">
+                            <label>Amount per Unit (₱)</label>
+                            <input type="number" step="0.01" name="amount_per_ream" class="form-control"
+                                value="<?= htmlspecialchars($delivery['amount_per_ream']) ?>" required>
+                        </div>
+
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label>Delivery Note</label>
+                            <textarea name="delivery_note" class="form-control" rows="3" style="resize:vertical;"><?= htmlspecialchars($delivery['delivery_note']) ?></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <a href="delivery.php?id=<?= $product_id ?>&tab=delivery" class="btn btn-outline">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </body>

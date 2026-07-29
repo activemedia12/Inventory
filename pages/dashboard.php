@@ -277,36 +277,6 @@ if ($result && $result->num_rows > 0) {
     }
 }
 
-// Add friendly messages based on data
-
-
-$greetings = [
-    "Welcome back",
-    "Good to see you again",
-    "Glad you're here",
-    "Hoping you have a great day",
-    "Nice to have you back",
-    "Your presence makes today better",
-    "Let's make today productive",
-    "Ready to achieve great things today",
-    "Another day, another opportunity to excel",
-    "Let's make progress together",
-    "Your effort makes a difference",
-    "Small steps today, big results tomorrow",
-    "Every challenge is a chance to grow",
-    "Let's turn ideas into action",
-    "Teamwork makes the dream work",
-    "Your contribution matters",
-    "Stay positive, stay focused",
-    "Let's make this day count",
-    "Consistency builds success",
-    "Strive for progress, not perfection"
-];
-
-// pick greeting based on day of the year
-$dayOfYear = date("z"); // 0 to 365
-$greeting = $greetings[$dayOfYear % count($greetings)];
-
 // format username
 $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
 ?>
@@ -320,40 +290,50 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
     <style>
-        /* Your existing CSS remains exactly the same */
+        /* ==========================================================
+           Active Media Printing — Dashboard
+           Reskinned to the shared minimal-SaaS design tokens.
+           Same class names as before (so no HTML/JS was touched),
+           consolidated to remove duplicate/conflicting rules.
+           ========================================================== */
         ::-webkit-scrollbar {
-            width: 7px;
-            height: 5px;
+            width: 8px;
+            height: 8px;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: #1876f299;
-            border-radius: 10px;
+            background: #cbced3;
+            border-radius: 8px;
         }
 
         :root {
-            --primary: #1877f2;
-            --secondary: #166fe5;
-            --light: #f0f2f5;
-            --dark: #1c1e21;
-            --gray: #65676b;
-            --light-gray: #e4e6eb;
+            --primary: #4f5eff;
+            --secondary: #4048e0;
+            --primary-bg: #eef1ff;
+            --light: #f6f6f7;
+            --dark: #14171f;
+            --gray: #6b7280;
+            --light-gray: #e2e4e7;
             --card-bg: #ffffff;
-            --success: #28a745;
-            --danger: #dc3545;
-            --warning: #ffc107;
-            --info: #17a2b8;
+            --success: #1a9c6b;
+            --success-bg: #e3f6ee;
+            --danger: #d9463c;
+            --danger-bg: #fbe9e7;
+            --warning: #b6790a;
+            --warning-bg: #fdf2df;
+            --info: #2a7ade;
+            --info-bg: #e8f1fc;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
         body {
@@ -361,65 +341,86 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             color: var(--dark);
             display: flex;
             min-height: 100vh;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }
 
         /* Sidebar */
         .sidebar {
-            width: 250px;
+            width: 240px;
             background-color: var(--card-bg);
             height: 100vh;
             position: fixed;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-right: 1px solid var(--light-gray);
             padding: 20px 0;
         }
 
         .brand {
-            padding: 0 20px 40px;
+            padding: 0 20px 20px;
             border-bottom: 1px solid var(--light-gray);
-            margin-bottom: 20px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         .brand img {
             height: 100px;
             width: auto;
-            padding-left: 40px;
-            transform: rotate(45deg);
+            padding-left: 0;
+            transform: none;
         }
 
         .brand h2 {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
             color: var(--dark);
         }
 
         .nav-menu {
             list-style: none;
+            padding: 0 12px;
         }
 
         .nav-menu li a {
             display: flex;
             align-items: center;
-            padding: 12px 20px;
-            color: var(--dark);
+            padding: 10px 12px;
+            border-radius: 6px;
+            color: var(--gray);
             text-decoration: none;
-            transition: background-color 0.3s;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background-color 0.15s ease, color 0.15s ease;
         }
 
-        .nav-menu li a:hover,
+        .nav-menu li a:hover {
+            background-color: var(--light);
+            color: var(--dark);
+        }
+
         .nav-menu li a.active {
-            background-color: var(--light-gray);
+            background-color: var(--primary-bg);
+            color: var(--secondary);
         }
 
         .nav-menu li a i {
             margin-right: 10px;
+            width: 16px;
+            text-align: center;
             color: var(--gray);
+        }
+
+        .nav-menu li a.active i,
+        .nav-menu li a:hover i {
+            color: inherit;
         }
 
         /* Main Content */
         .main-content {
             flex: 1;
-            margin-left: 250px;
-            padding: 20px;
+            margin-left: 240px;
+            padding: 28px 32px;
         }
 
         /* Header */
@@ -428,12 +429,12 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
-            padding-bottom: 15px;
+            padding-bottom: 16px;
             border-bottom: 1px solid var(--light-gray);
         }
 
         .header h1 {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 600;
             color: var(--dark);
         }
@@ -444,40 +445,68 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         }
 
         .user-info img {
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             margin-right: 10px;
             object-fit: cover;
         }
 
         .user-details h4 {
-            font-weight: 500;
-            font-size: 16px;
+            font-weight: 600;
+            font-size: 14px;
         }
 
         .user-details small {
             color: var(--gray);
-            font-size: 14px;
+            font-size: 12px;
+        }
+
+        /* Welcome banner — kept, de-glossed to fit the calmer palette */
+        .welcome {
+            font-style: normal;
+            font-size: 22px;
+            font-weight: 600;
+            margin: 0 0 20px;
+            color: var(--dark);
+            display: block;
+        }
+
+        /* Notice / quick tip */
+        .quick-tip {
+            background: var(--info-bg);
+            border-left: 3px solid var(--info);
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .quick-tip i {
+            color: var(--info);
+            font-size: 16px;
         }
 
         /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             margin-bottom: 20px;
-            gap: 20px;
+            gap: 16px;
         }
 
         .stat-card {
             background: var(--card-bg);
+            border: 1px solid var(--light-gray);
             border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s, box-shadow 0.2s;
-            min-width: 600px;
+            padding: 18px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
+            min-width: 0;
         }
-        
+
         .ss {
             max-width: 600px;
         }
@@ -485,45 +514,47 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         .stat-card .card-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
+            align-items: flex-start;
+            margin-bottom: 12px;
         }
 
         .stat-card .card-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background-color: rgba(24, 119, 242, 0.1);
+            background-color: var(--primary-bg);
             color: var(--primary);
-            font-size: 24px;
+            font-size: 16px;
+            flex-shrink: 0;
         }
 
         .stat-card h3 {
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 5px;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 2px;
         }
 
         .stat-card p {
             color: var(--gray);
-            font-size: 14px;
-            margin-bottom: 10px;
+            font-size: 13px;
         }
 
         .stat-card .stat-label {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--gray);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.04em;
+            font-weight: 600;
+            margin-bottom: 6px;
         }
 
         .stat-card .stat-period {
-            font-size: 11px;
+            font-size: 12px;
             color: var(--gray);
-            margin-top: 5px;
+            margin-top: 4px;
         }
 
         .profit-positive {
@@ -538,56 +569,59 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         .finance-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
+            gap: 16px;
             margin-bottom: 20px;
         }
 
         .finance-card {
             background: var(--card-bg);
+            border: 1px solid var(--light-gray);
             border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            border-top: 4px solid var(--primary);
+            padding: 18px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
         }
 
-        .finance-card.week {
-            border-top-color: #4CAF50;
-        }
-
-        .finance-card.month {
-            border-top-color: #FF9800;
-        }
-
+        /* Week/month/year are told apart by icon + label, not a loud stripe */
+        .finance-card.week,
+        .finance-card.month,
         .finance-card.year {
-            border-top-color: #9C27B0;
+            border-top: 1px solid var(--light-gray);
         }
 
         .finance-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 14px;
         }
 
         .finance-title {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
             color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .finance-title i {
+            color: var(--gray);
         }
 
         .finance-badge {
-            background: rgba(24, 119, 242, 0.1);
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
+            background: var(--light);
+            color: var(--gray);
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
         }
 
         .finance-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 10px;
-            font-size: 14px;
+            margin-bottom: 8px;
+            font-size: 13px;
         }
 
         .finance-label {
@@ -600,9 +634,9 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
 
         .finance-profit {
             padding-top: 10px;
-            margin-top: 10px;
+            margin-top: 8px;
             border-top: 1px solid var(--light-gray);
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 700;
             display: flex;
             justify-content: space-between;
@@ -611,63 +645,65 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         /* Monthly Breakdown */
         .monthly-breakdown {
             background: var(--card-bg);
+            border: 1px solid var(--light-gray);
             border-radius: 8px;
             padding: 20px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
             margin-bottom: 20px;
-            overflow: scroll;
+            overflow: auto;
         }
 
         .section-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
 
         .section-title {
-            font-size: 18px;
+            font-size: 15px;
             font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
+            color: var(--dark);
         }
 
         .section-title i {
-            color: var(--primary);
+            color: var(--gray);
         }
 
         .monthly-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
         }
 
         .month-card {
             background: var(--light);
             border-radius: 6px;
-            padding: 15px;
-            transition: transform 0.2s;
+            padding: 14px;
+            transition: box-shadow 0.15s ease;
         }
 
         .month-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.06);
         }
 
         .month-name {
             font-weight: 600;
-            margin-bottom: 10px;
-            color: var(--primary);
+            margin-bottom: 8px;
+            color: var(--dark);
             border-bottom: 1px solid var(--light-gray);
-            padding-bottom: 5px;
+            padding-bottom: 6px;
+            font-size: 13px;
         }
 
         .month-stat {
             display: flex;
             justify-content: space-between;
-            margin: 5px 0;
-            font-size: 13px;
+            margin: 4px 0;
+            font-size: 12px;
         }
 
         .month-stat .label {
@@ -675,7 +711,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         }
 
         .month-stat .value {
-            font-weight: 500;
+            font-weight: 600;
         }
 
         .stock-cards {
@@ -688,36 +724,40 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             min-width: 300px;
             max-height: 120px;
             background: var(--card-bg);
+            border: 1px solid var(--light-gray);
             border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            padding: 18px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
             margin-bottom: 20px;
         }
 
         .recent-tables td {
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         .table-card {
             background: var(--card-bg);
+            border: 1px solid var(--light-gray);
             border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            padding: 18px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
             width: 100%;
             margin-bottom: 20px;
         }
 
         .table-card h3 {
-            margin-bottom: 15px;
+            margin-bottom: 14px;
             display: flex;
             align-items: center;
+            font-size: 15px;
+            font-weight: 600;
             color: var(--dark);
         }
 
         .table-card h3 i {
-            margin-right: 10px;
-            color: var(--primary);
+            margin-right: 8px;
+            color: var(--gray);
         }
 
         table {
@@ -727,31 +767,35 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
 
         th,
         td {
-            padding: 12px 15px;
+            padding: 10px 14px;
             text-align: left;
             border-bottom: 1px solid var(--light-gray);
+            font-size: 13px;
         }
 
         th {
-            font-weight: 500;
+            font-weight: 600;
             color: var(--gray);
-            font-size: 14px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
 
         tr td {
-            transition: 0.3s;
+            transition: background-color 0.15s ease;
         }
 
         tr:hover td {
-            background-color: rgba(24, 119, 242, 0.05);
+            background-color: var(--light);
         }
 
         .view-all {
             display: inline-block;
-            margin-top: 15px;
+            margin-top: 14px;
             color: var(--primary);
             text-decoration: none;
-            font-weight: 500;
+            font-weight: 600;
+            font-size: 13px;
         }
 
         .view-all:hover {
@@ -766,6 +810,10 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
 
             .finance-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
 
@@ -783,24 +831,25 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
                 overflow: hidden;
                 height: auto;
                 width: auto;
-                bottom: 20px;
-                padding: 0;
-                background-color: rgba(255, 255, 255, 0.3);
-                backdrop-filter: blur(2px);
-                box-shadow: 1px 1px 10px rgb(190, 190, 190);
+                bottom: 12px;
+                left: 50%;
+                transform: translateX(-50%);
+                padding: 6px;
+                background-color: rgba(255, 255, 255, 0.85);
+                backdrop-filter: blur(6px);
+                box-shadow: 0 4px 16px rgba(20, 23, 31, 0.12);
                 border-radius: 100px;
-                cursor: grab;
-                transition: left 0.05s ease-in, top 0.05s ease-in;
                 touch-action: manipulation;
                 z-index: 9999;
                 flex-direction: row;
-                border: 1px solid white;
+                border: 1px solid var(--light-gray);
                 justify-content: center;
             }
 
             .sidebar .nav-menu {
                 display: flex;
                 flex-direction: row;
+                padding: 0;
             }
 
             .sidebar img,
@@ -811,7 +860,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
 
             .sidebar .nav-menu li a {
                 justify-content: center;
-                padding: 15px;
+                padding: 12px;
             }
 
             .sidebar .nav-menu li a i {
@@ -821,11 +870,16 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             .main-content {
                 margin-left: 0;
                 overflow: auto;
-                margin-bottom: 200px;
+                margin-bottom: 90px;
+                padding: 20px;
             }
 
             .stat-card {
                 min-width: 100%;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
 
             .out-card {
@@ -833,7 +887,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             }
 
             .recent-tables {
-                overflow: scroll;
+                overflow: auto;
             }
 
             .tables-section {
@@ -842,7 +896,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             }
 
             .welcome {
-                font-size: 200% !important;
+                font-size: 20px !important;
             }
 
             .finance-grid {
@@ -862,10 +916,11 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             .header {
                 flex-direction: column;
                 align-items: flex-start;
+                gap: 10px;
             }
 
             .user-info {
-                margin-top: 10px;
+                margin-top: 4px;
             }
 
             .recent-tables table {
@@ -875,40 +930,50 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             .monthly-grid {
                 grid-template-columns: 1fr;
             }
+
+            .recent-tables table {
+                min-width: 800px;
+            }
+
+            .recent-tables td,
+            .recent-tables th {
+                font-size: 12px;
+                padding: 8px 10px;
+            }
         }
 
         .stat-card table th,
         .stat-card table td {
-            font-size: 14px;
+            font-size: 13px;
             border-bottom: 1px solid var(--light-gray);
             white-space: nowrap;
         }
 
         .stat-card table span.low {
-            color: red;
+            color: var(--danger);
             font-weight: 600;
         }
 
         .stat-card table span.mid {
-            color: orange;
+            color: var(--warning);
             font-weight: 600;
         }
 
         .stat-card table span.high {
-            color: green;
+            color: var(--success);
             font-weight: 600;
         }
 
         /* Stock Summary Styles */
         .stock-summary {
-            margin-top: 15px;
-            overflow: scroll;
+            margin-top: 12px;
+            overflow: auto;
         }
 
         .product-category {
             border: 1px solid var(--light-gray);
             border-radius: 8px;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             overflow: visible;
         }
 
@@ -920,6 +985,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             justify-content: space-between;
             align-items: center;
             min-width: 500px;
+            border-radius: 8px;
         }
 
         .category-title {
@@ -929,45 +995,47 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         }
 
         .category-title h4 {
-            font-weight: 500;
+            font-weight: 600;
             color: var(--dark);
-            margin: 0;
+            font-size: 13px;
         }
 
         .toggle-icon {
             color: var(--gray);
-            font-size: 14px;
+            font-size: 12px;
             transition: transform 0.2s ease;
         }
 
         .badge {
-            background-color: var(--light-gray);
+            background-color: var(--light);
             color: var(--gray);
-            font-size: 12px;
-            padding: 2px 8px;
-            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
         }
 
         .category-summary {
             display: flex;
-            gap: 15px;
+            align-items: center;
+            gap: 12px;
         }
 
         .summary-item {
-            font-size: 13px;
+            font-size: 12px;
             color: var(--gray);
         }
 
         .summary-item strong {
             color: var(--dark);
-            margin-left: 5px;
+            margin-left: 4px;
         }
 
         .stock-table-container {
             display: none;
             background-color: var(--card-bg);
             max-height: 250px;
-            overflow: scroll;
+            overflow: auto;
         }
 
         .stock-table-container table {
@@ -976,16 +1044,16 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         }
 
         .stock-table-container th {
-            font-weight: 500;
-            font-size: 13px;
+            font-weight: 600;
+            font-size: 12px;
             color: var(--gray);
             padding: 8px 10px;
             text-align: left;
             position: sticky;
             top: 0;
-            background-color: #fff;
+            background-color: var(--card-bg);
             z-index: 2;
-            box-shadow: 0 2px 2px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 1px 0 var(--light-gray);
         }
 
         .stock-table-container th.text-center {
@@ -998,7 +1066,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         }
 
         .product-name {
-            font-weight: 500;
+            font-weight: 600;
             color: var(--dark);
             min-width: 150px;
         }
@@ -1010,7 +1078,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
 
         .stock-value {
             font-weight: 600;
-            font-size: 14px;
+            font-size: 13px;
             text-align: center;
         }
 
@@ -1030,7 +1098,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         }
 
         .stock-label {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--gray);
             text-align: center;
             text-transform: uppercase;
@@ -1038,15 +1106,15 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
 
         /* Stock level colors */
         .stock-indicator.high .bar-fill {
-            background-color: #4CAF50;
+            background-color: var(--success);
         }
 
         .stock-indicator.mid .bar-fill {
-            background-color: #FFC107;
+            background-color: var(--warning);
         }
 
         .stock-indicator.low .bar-fill {
-            background-color: #F44336;
+            background-color: var(--danger);
         }
 
         .na {
@@ -1056,19 +1124,16 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         /* Modal Styles */
         @keyframes centerZoomIn {
             0% {
-                transform: translate(-50%, -50%) scale(0.5);
+                transform: translate(-50%, -50%) scale(0.97);
                 opacity: 0;
-                animation-delay: 1000;
             }
 
             100% {
                 transform: translate(-50%, -50%) scale(1);
                 opacity: 1;
-                animation-delay: 1000;
             }
         }
 
-        /* Modernized modal overlay */
         .modal {
             display: none;
             position: fixed;
@@ -1077,29 +1142,28 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             width: 100%;
             height: 100%;
             z-index: 1000;
-            background: rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(3px);
+            background: rgba(20, 23, 31, 0.35);
+            backdrop-filter: blur(2px);
             align-items: center;
             justify-content: center;
         }
 
-        /* Improved header section */
         .modal-content h3 {
             margin: 0;
-            padding: 18px 20px;
-            background: #e74c3c;
+            padding: 16px 20px;
+            background: var(--dark);
             color: white;
-            font-size: 1.2rem;
+            font-size: 16px;
+            font-weight: 600;
             display: flex;
             align-items: center;
             gap: 10px;
         }
 
-        /* Better close button */
         .close {
             position: absolute;
             color: white;
-            font-size: 28px;
+            font-size: 22px;
             font-weight: normal;
             opacity: 0.8;
             transition: opacity 0.2s;
@@ -1112,30 +1176,31 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             color: white;
         }
 
-        /* Content area improvements */
         #lowStockItems {
-            overflow: scroll;
+            overflow: auto;
         }
 
-        /* Modern table styling */
         #lowStockItems table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.9rem;
+            font-size: 13px;
         }
 
         #lowStockItems th {
             text-align: left;
-            padding: 12px 15px;
-            background: #f8f9fa;
-            color: #495057;
+            padding: 10px 15px;
+            background: var(--light);
+            color: var(--gray);
             font-weight: 600;
-            border-bottom: 2px solid #e9ecef;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            border-bottom: 1px solid var(--light-gray);
         }
 
         #lowStockItems td {
-            padding: 12px 15px;
-            border-bottom: 1px solid #eee;
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--light-gray);
         }
 
         #lowStockItems tr:last-child td {
@@ -1143,10 +1208,9 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         }
 
         #lowStockItems tr:hover {
-            background: #f8f9fa;
+            background: var(--light);
         }
 
-        /* Animation */
         @keyframes fadeInUp {
             from {
                 opacity: 0;
@@ -1159,11 +1223,10 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             }
         }
 
-        /* Loading state */
         .loading-message {
             padding: 30px;
             text-align: center;
-            color: #666;
+            color: var(--gray);
         }
 
         #jobModal {
@@ -1172,8 +1235,8 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(3px);
+            background: rgba(20, 23, 31, 0.35);
+            backdrop-filter: blur(2px);
             z-index: 999;
             display: none;
         }
@@ -1187,18 +1250,18 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             max-width: 1000px;
             height: 80vh;
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            box-shadow: 0 12px 32px rgba(20, 23, 31, 0.18);
             z-index: 1000;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            animation: centerZoomIn 0.3s ease-in-out forwards;
+            animation: centerZoomIn 0.18s ease-out forwards;
         }
 
         .window-header {
-            padding: 0.5rem 1.5rem;
-            background: var(--primary);
+            padding: 14px 20px;
+            background: var(--dark);
             color: white;
             display: flex;
             justify-content: space-between;
@@ -1208,25 +1271,30 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         .window-title {
             display: flex;
             align-items: center;
-            font-size: 1.2rem;
-            font-weight: 500;
+            font-size: 15px;
+            font-weight: 600;
         }
 
         .window-title i {
-            margin-right: 0.8rem;
+            margin-right: 10px;
         }
 
         .close-btn {
             background: none;
             border: none;
             color: white;
-            font-size: 1rem;
+            font-size: 16px;
             cursor: pointer;
-            padding: 0.5rem;
+            padding: 6px;
+            opacity: 0.85;
+        }
+
+        .close-btn:hover {
+            opacity: 1;
         }
 
         .window-content {
-            padding: 1.5rem;
+            padding: 22px;
             overflow-y: auto;
             flex-grow: 1;
         }
@@ -1235,231 +1303,203 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         .product-info-compact {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-            padding-bottom: 1.5rem;
-            border-bottom: 1px solid #eee;
-        }
-
-        .info-item-compact {
-            margin-bottom: 0.5rem;
+            gap: 16px;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--light-gray);
         }
 
         .info-item-compact strong {
             display: block;
             color: var(--gray);
-            font-size: 100%;
-            margin-bottom: 0.2rem;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 4px;
         }
 
         .info-item-compact span {
-            font-size: 85%;
+            font-size: 13px;
+            color: var(--dark);
         }
 
         /* Stock Summary Cards */
         .stock-summary-compact {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
+            gap: 12px;
+            margin-bottom: 20px;
         }
 
         .stock-card-compact {
-            padding: 0.8rem;
+            padding: 14px;
             border-radius: 8px;
-            background: rgba(67, 97, 238, 0.05);
+            background: var(--light);
             text-align: center;
         }
 
         .stock-card-compact h4 {
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
-            color: var(--primary);
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
 
         .stock-value-compact {
-            font-size: 1.2rem;
+            font-size: 18px;
             font-weight: 700;
         }
 
         .stock-unit-compact {
             color: var(--gray);
-            font-size: 0.75rem;
+            font-size: 11px;
         }
 
-        /* Section Headers */
-        .section-header {
-            font-size: 1.1rem;
-            font-weight: 500;
-            color: var(--primary);
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid #eee;
+        /* Job modal section headers */
+        .window-content .section-header {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--dark);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--light-gray);
             display: flex;
             align-items: center;
+            margin-top: 20px;
         }
 
-        .section-header i {
-            margin-right: 0.5rem;
+        .window-content .section-header i {
+            margin-right: 8px;
+            color: var(--gray);
         }
 
-        /* Special Instructions */
         .special-instructions {
-            padding: 1rem;
-            background: #f9f9f9;
+            padding: 14px;
+            background: var(--light);
             border-radius: 8px;
-            font-size: 0.9rem;
+            font-size: 13px;
             line-height: 1.6;
-            margin-bottom: 1.5rem;
+            margin-bottom: 20px;
         }
 
-        /* Action Buttons */
         .action-buttons {
             display: flex;
-            margin-top: 1rem;
-        }
-
-        .status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 5px;
-        }
-
-        .status-active {
-            background: var(--success);
-        }
-
-        .status-completed {
-            background: var(--primary);
-        }
-
-        .status-pending {
-            background: var(--danger);
+            margin-top: 14px;
         }
 
         .status-toggle-form {
             display: flex;
         }
 
+        .status-select {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            border: 1px solid var(--light-gray);
+            background: var(--card-bg);
+            color: var(--dark);
+        }
+
         .status-select:focus {
             outline: none;
-        }
-
-        .status-select {
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            background: rgba(67, 97, 238, 0.1);
-            color: white;
-            border: 1px solid var(--primary);
-            display: inline-flex;
-            text-align: center;
-            gap: 0.5rem;
-            transition: all 0.2s;
-            margin: 6px 6px;
-        }
-
-        .status-pending {
-            background: rgba(255, 152, 0, 0.1);
-            color: #ff9800;
-            border-color: #ff9800;
-        }
-
-        .status-unpaid {
-            background: rgba(255, 0, 0, 0.1);
-            color: #ff0000ff;
-            border-color: #ff0000ff;
-        }
-
-        .status-for_delivery {
-            background: rgba(0, 38, 255, 0.1);
-            color: var(--primary);
             border-color: var(--primary);
         }
 
+        /* Status pill badges — one definition per status, no collisions */
+        .status-pending {
+            background: var(--warning-bg);
+            color: var(--warning);
+            border: 1px solid transparent;
+        }
+
+        .status-unpaid {
+            background: var(--danger-bg);
+            color: var(--danger);
+            border: 1px solid transparent;
+        }
+
+        .status-for_delivery,
+        .status-for-delivery {
+            background: var(--info-bg);
+            color: var(--info);
+            border: 1px solid transparent;
+        }
+
         .status-completed {
-            background: rgba(40, 167, 69, 0.1);
-            color: #28a745;
-            border-color: #28a745;
+            background: var(--success-bg);
+            color: var(--success);
+            border: 1px solid transparent;
         }
 
         .btn-status {
-            padding: 0.5rem 1rem;
+            padding: 8px 14px;
             border-radius: 6px;
-            font-size: 0.85rem;
+            font-size: 13px;
+            font-weight: 600;
             cursor: pointer;
-            background: rgba(40, 167, 69, 0.1);
-            color: #28a745;
-            border: 1px solid #28a745;
+            background: var(--success-bg);
+            color: var(--success);
+            border: 1px solid transparent;
             display: inline-flex;
             align-items: center;
-            transition: all 0.2s;
-            margin: 6px 6px;
             gap: 6px;
+            transition: opacity 0.15s ease;
+        }
+
+        .btn-status:hover {
+            opacity: 0.8;
         }
 
         .btn-edit,
         .btn-delete {
-            padding: 0.5rem 1rem;
+            padding: 8px 14px;
             border-radius: 6px;
-            font-size: 0.85rem;
+            font-size: 13px;
+            font-weight: 600;
             cursor: pointer;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            transition: all 0.2s;
-            margin: 6px 6px;
+            gap: 6px;
+            transition: opacity 0.15s ease;
         }
 
         .btn-edit {
-            background: rgba(67, 97, 238, 0.1);
-            color: var(--primary);
-            border: 1px solid var(--primary);
+            background: var(--primary-bg);
+            color: var(--secondary);
+            border: 1px solid transparent;
         }
 
         .btn-delete {
-            background: rgba(244, 67, 54, 0.1);
-            color: #f44336;
-            border: 1px solid #f44336;
+            background: var(--danger-bg);
+            color: var(--danger);
+            border: 1px solid transparent;
         }
 
-        .btn-status:hover {
-            background: rgba(40, 167, 69, 0.2);
-        }
-
-        .btn-status.pending:hover {
-            background: rgba(255, 152, 0, 0.2);
-        }
-
-        .btn-status.completed:hover {
-            background: rgba(40, 167, 69, 0.2);
-        }
-
-        .btn-edit:hover {
-            background: rgba(67, 97, 238, 0.2);
-        }
-
+        .btn-edit:hover,
         .btn-delete:hover {
-            background: rgba(244, 67, 54, 0.2);
+            opacity: 0.8;
         }
 
         /* Empty State */
         .empty-state {
-            padding: 1rem;
+            padding: 16px;
             text-align: center;
             color: var(--gray);
-            background: #f9f9f9;
+            background: var(--light);
             border-radius: 8px;
+            font-size: 13px;
         }
 
         .empty-state i {
-            margin-right: 0.5rem;
+            margin-right: 8px;
         }
 
-        /* Form Elements */
         .status-form {
             display: inline;
         }
@@ -1470,104 +1510,27 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             margin-bottom: 20px;
         }
 
-        .welcome {
-            font-style: italic;
-            font-size: 300%;
-            font-weight: 600;
-            margin: 50px;
-            color: #1c1c1cca;
-            position: relative;
-            display: inline-block;
-            overflow: hidden;
-            padding: 0 20px;
-        }
-
-        .welcome::before {
-            content: attr(data-text);
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(120deg,
-                    rgba(255, 255, 255, 0) 40%,
-                    rgba(255, 255, 255, 0.8) 50%,
-                    rgba(255, 255, 255, 0) 60%);
-            background-size: 200% 100%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: shine 5s linear infinite;
-            padding: 0 20px;
-        }
-
-        @keyframes shine {
-            0% {
-                background-position: 100%;
-            }
-
-            100% {
-                background-position: -100%;
-            }
-        }
-
-        .profit-positive {
-            color: #28a745 !important;
-        }
-
-        .profit-negative {
-            color: #dc3545 !important;
-        }
-
         .fw-bold {
             font-weight: 600 !important;
         }
 
         .text-muted {
-            color: #6c757d !important;
+            color: var(--gray) !important;
+        }
+
+        .status-badge {
+            transition: opacity 0.15s ease;
         }
 
         .status-badge:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
-            transition: all 0.2s;
-        }
-
-        @media (max-width: 768px) {
-            .recent-tables table {
-                min-width: 800px;
-            }
-
-            .recent-tables td,
-            .recent-tables th {
-                font-size: 13px;
-                padding: 8px 10px;
-            }
-        }
-        
-
-        /* New user-friendly additions - subtle improvements */
-        .quick-tip {
-            background: #e8f4fd;
-            border-left: 4px solid var(--primary);
-            padding: 12px 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .quick-tip i {
-            color: var(--primary);
-            font-size: 18px;
+            opacity: 0.85;
         }
 
         .empty-message {
             text-align: center;
-            padding: 30px;
+            padding: 24px;
             color: var(--gray);
-            font-style: italic;
+            font-size: 13px;
         }
 
         .text-success {
@@ -1597,7 +1560,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             color: white;
             padding: 4px 8px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 11px;
             white-space: nowrap;
             z-index: 1000;
         }
@@ -1612,7 +1575,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             }
 
             50% {
-                opacity: 0.7;
+                opacity: 0.6;
             }
 
             100% {
@@ -1660,13 +1623,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             </div>
         </header>
 
-        <div class="welcome animate__animated animate__fadeInUp"
-            data-text="<?= $greeting ?>, <?= $username ?>!">
-            <?= $greeting ?>, <?= $username ?>!
-        </div>
-
-
-        <!-- Stats Cards        <!-- Stats Cards - Complete Fixed Version -->
+        <!-- Stats Cards         Stats Cards - Complete Fixed Version -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="card-header">
@@ -1716,35 +1673,35 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
                 </div>
             </div>
         </div>
-        
-<?php
-// Scope to current month only
-$missing_costs = (int)($inventory->query("
+
+        <?php
+        // Scope to current month only
+        $missing_costs = (int)($inventory->query("
     SELECT COUNT(*) AS cnt FROM job_orders
     WHERE MONTH(log_date) = MONTH(CURDATE()) AND YEAR(log_date) = YEAR(CURDATE())
     AND (grand_total IS NULL OR grand_total <= 0)
 ")->fetch_assoc()['cnt'] ?? 0);
 
-$missing_revenue = (int)($inventory->query("
+        $missing_revenue = (int)($inventory->query("
     SELECT COUNT(*) AS cnt FROM job_orders
     WHERE MONTH(log_date) = MONTH(CURDATE()) AND YEAR(log_date) = YEAR(CURDATE())
     AND grand_total > 0
     AND (total_cost IS NULL OR total_cost <= 0)
 ")->fetch_assoc()['cnt'] ?? 0);
 
-$notice_parts = [];
-if ($missing_costs > 0)    $notice_parts[] = "<strong>{$missing_costs}</strong> job" . ($missing_costs != 1 ? 's' : '') . " missing production cost";
-if ($missing_revenue > 0)  $notice_parts[] = "<strong>{$missing_revenue}</strong> job" . ($missing_revenue != 1 ? 's' : '') . " missing selling price";
-?>
-<?php if (!empty($notice_parts)): ?>
-    <div style="display:flex; align-items:center; gap:10px; background:#fff8e1; border-left:4px solid var(--warning); padding:10px 16px; border-radius:6px; font-size:13px; margin-bottom:20px;">
-        <i class="fas fa-exclamation-triangle" style="color:var(--warning); flex-shrink:0;"></i>
-        <span style="color:#5a4000;">
-            This month: <?= implode(' &amp; ', $notice_parts) ?> —
-            <a href="job_orders.php" style="color:var(--primary); font-weight:600;">complete them to see accurate figures</a>
-        </span>
-    </div>
-<?php endif; ?>
+        $notice_parts = [];
+        if ($missing_costs > 0)    $notice_parts[] = "<strong>{$missing_costs}</strong> job" . ($missing_costs != 1 ? 's' : '') . " missing production cost";
+        if ($missing_revenue > 0)  $notice_parts[] = "<strong>{$missing_revenue}</strong> job" . ($missing_revenue != 1 ? 's' : '') . " missing selling price";
+        ?>
+        <?php if (!empty($notice_parts)): ?>
+            <div style="display:flex; align-items:center; gap:10px; background:var(--warning-bg); border-left:3px solid var(--warning); padding:10px 16px; border-radius:6px; font-size:13px; margin-bottom:20px;">
+                <i class="fas fa-exclamation-triangle" style="color:var(--warning); flex-shrink:0;"></i>
+                <span style="color:var(--warning);">
+                    This month: <?= implode(' &amp; ', $notice_parts) ?> —
+                    <a href="job_orders.php" style="color:var(--primary); font-weight:600;">complete them to see accurate figures</a>
+                </span>
+            </div>
+        <?php endif; ?>
 
         <!-- Financial Summary Cards -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -1752,67 +1709,69 @@ if ($missing_revenue > 0)  $notice_parts[] = "<strong>{$missing_revenue}</strong
         </div>
 
         <div class="finance-grid">
-            <?php foreach ([
-                ['data' => $weekly_finance,  'class' => 'week',  'icon' => 'fa-calendar-week', 'label' => 'This Week'],
-                ['data' => $monthly_finance, 'class' => 'month', 'icon' => 'fa-calendar-alt',  'label' => 'This Month'],
-                ['data' => $yearly_finance,  'class' => 'year',  'icon' => 'fa-calendar',       'label' => 'This Year'],
-            ] as $card):
+            <?php foreach (
+                [
+                    ['data' => $weekly_finance,  'class' => 'week',  'icon' => 'fa-calendar-week', 'label' => 'This Week'],
+                    ['data' => $monthly_finance, 'class' => 'month', 'icon' => 'fa-calendar-alt',  'label' => 'This Month'],
+                    ['data' => $yearly_finance,  'class' => 'year',  'icon' => 'fa-calendar',       'label' => 'This Year'],
+                ] as $card
+            ):
                 $f = $card['data'];
                 $has_data = $f['jobs'] > 0;
             ?>
-            <div class="finance-card <?= $card['class'] ?>">
-                <div class="finance-header">
-                    <span class="finance-title">
-                        <i class="fas <?= $card['icon'] ?>"></i> <?= $card['label'] ?>
-                    </span>
-                    <span class="finance-badge"><?= $f['total_jobs'] ?> Job<?= $f['total_jobs'] != 1 ? 's' : '' ?></span>
-                </div>
-
-                <?php if (!$has_data && $f['total_jobs'] == 0): ?>
-                    <!-- No jobs at all -->
-                    <div style="text-align:center; padding: 20px 0; color: var(--gray); font-size: 13px;">
-                        <i class="fas fa-inbox" style="font-size: 24px; opacity: 0.3; display: block; margin-bottom: 8px;"></i>
-                        No job orders <?= strtolower($card['label']) ?>
-                    </div>
-
-                <?php elseif (!$has_data && $f['excluded'] > 0): ?>
-                    <!-- Jobs exist but none are priced yet -->
-                    <div style="text-align:center; padding: 16px 0; color: var(--gray); font-size: 13px;">
-                        <i class="fas fa-clock" style="font-size: 24px; color: var(--warning); display: block; margin-bottom: 8px;"></i>
-                        <strong style="color: var(--dark);"><?= $f['excluded'] ?> job<?= $f['excluded'] != 1 ? 's' : '' ?> logged</strong><br>
-                        <span style="font-size: 12px;">Awaiting cost &amp; price entry</span>
-                        <br><br>
-                        <a href="job_orders.php" style="font-size: 12px; color: var(--primary); font-weight: 600;">
-                            &rarr; Enter missing data
-                        </a>
-                    </div>
-
-                <?php else: ?>
-                    <!-- Has complete financial data -->
-                    <div class="finance-row">
-                        <span class="finance-label">Revenue:</span>
-                        <span class="finance-value">&#8369; <?= number_format($f['revenue'], 2) ?></span>
-                    </div>
-                    <div class="finance-row">
-                        <span class="finance-label">Expenses:</span>
-                        <span class="finance-value">&#8369; <?= number_format($f['expenses'], 2) ?></span>
-                    </div>
-                    <div class="finance-profit">
-                        <span>Profit:</span>
-                        <span class="<?= $f['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
-                            &#8369; <?= number_format($f['profit'], 2) ?>
-                            <small>(<?= number_format($f['profit_percent'], 1) ?>% margin)</small>
+                <div class="finance-card <?= $card['class'] ?>">
+                    <div class="finance-header">
+                        <span class="finance-title">
+                            <i class="fas <?= $card['icon'] ?>"></i> <?= $card['label'] ?>
                         </span>
+                        <span class="finance-badge"><?= $f['total_jobs'] ?> Job<?= $f['total_jobs'] != 1 ? 's' : '' ?></span>
                     </div>
-                    <?php if ($f['excluded'] > 0): ?>
-                        <div style="margin-top: 8px; font-size: 11px; color: var(--gray); border-top: 1px solid var(--light-gray); padding-top: 8px;">
-                            <i class="fas fa-info-circle"></i>
-                            <?= $f['jobs'] ?> of <?= $f['total_jobs'] ?> jobs priced &mdash;
-                            <a href="job_orders.php" style="color: var(--primary);"><?= $f['excluded'] ?> incomplete</a>
+
+                    <?php if (!$has_data && $f['total_jobs'] == 0): ?>
+                        <!-- No jobs at all -->
+                        <div style="text-align:center; padding: 20px 0; color: var(--gray); font-size: 13px;">
+                            <i class="fas fa-inbox" style="font-size: 24px; opacity: 0.3; display: block; margin-bottom: 8px;"></i>
+                            No job orders <?= strtolower($card['label']) ?>
                         </div>
+
+                    <?php elseif (!$has_data && $f['excluded'] > 0): ?>
+                        <!-- Jobs exist but none are priced yet -->
+                        <div style="text-align:center; padding: 16px 0; color: var(--gray); font-size: 13px;">
+                            <i class="fas fa-clock" style="font-size: 24px; color: var(--warning); display: block; margin-bottom: 8px;"></i>
+                            <strong style="color: var(--dark);"><?= $f['excluded'] ?> job<?= $f['excluded'] != 1 ? 's' : '' ?> logged</strong><br>
+                            <span style="font-size: 12px;">Awaiting cost &amp; price entry</span>
+                            <br><br>
+                            <a href="job_orders.php" style="font-size: 12px; color: var(--primary); font-weight: 600;">
+                                &rarr; Enter missing data
+                            </a>
+                        </div>
+
+                    <?php else: ?>
+                        <!-- Has complete financial data -->
+                        <div class="finance-row">
+                            <span class="finance-label">Revenue:</span>
+                            <span class="finance-value">&#8369; <?= number_format($f['revenue'], 2) ?></span>
+                        </div>
+                        <div class="finance-row">
+                            <span class="finance-label">Expenses:</span>
+                            <span class="finance-value">&#8369; <?= number_format($f['expenses'], 2) ?></span>
+                        </div>
+                        <div class="finance-profit">
+                            <span>Profit:</span>
+                            <span class="<?= $f['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                                &#8369; <?= number_format($f['profit'], 2) ?>
+                                <small>(<?= number_format($f['profit_percent'], 1) ?>% margin)</small>
+                            </span>
+                        </div>
+                        <?php if ($f['excluded'] > 0): ?>
+                            <div style="margin-top: 8px; font-size: 11px; color: var(--gray); border-top: 1px solid var(--light-gray); padding-top: 8px;">
+                                <i class="fas fa-info-circle"></i>
+                                <?= $f['jobs'] ?> of <?= $f['total_jobs'] ?> jobs priced &mdash;
+                                <a href="job_orders.php" style="color: var(--primary);"><?= $f['excluded'] ?> incomplete</a>
+                            </div>
+                        <?php endif; ?>
                     <?php endif; ?>
-                <?php endif; ?>
-            </div>
+                </div>
             <?php endforeach; ?>
         </div>
 
@@ -1842,30 +1801,30 @@ if ($missing_revenue > 0)  $notice_parts[] = "<strong>{$missing_revenue}</strong
                         <?php if ($month['jobs'] == 0): ?>
                             <div style="font-size: 12px; color: var(--gray); margin-top: 8px; font-style: italic;">No complete data</div>
                         <?php else: ?>
-                        <div class="month-stat">
-                            <span class="label">Jobs:</span>
-                            <span class="value"><?= $month['jobs'] ?></span>
-                        </div>
-                        <div class="month-stat">
-                            <span class="label">Revenue:</span>
-                            <span class="value">₱ <?= number_format($month['revenue'], 0) ?></span>
-                        </div>
-                        <div class="month-stat">
-                            <span class="label">Expenses:</span>
-                            <span class="value">₱ <?= number_format($month['expenses'], 0) ?></span>
-                        </div>
-                        <div class="month-stat">
-                            <span class="label">Profit:</span>
-                            <span class="value <?= $month['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
-                                ₱ <?= number_format($month['profit'], 0) ?>
-                            </span>
-                        </div>
-                        <div class="month-stat">
-                            <span class="label">Margin:</span>
-                            <span class="value <?= $month['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
-                                <?= number_format($month['profit_percent'], 1) ?>%
-                            </span>
-                        </div>
+                            <div class="month-stat">
+                                <span class="label">Jobs:</span>
+                                <span class="value"><?= $month['jobs'] ?></span>
+                            </div>
+                            <div class="month-stat">
+                                <span class="label">Revenue:</span>
+                                <span class="value">₱ <?= number_format($month['revenue'], 0) ?></span>
+                            </div>
+                            <div class="month-stat">
+                                <span class="label">Expenses:</span>
+                                <span class="value">₱ <?= number_format($month['expenses'], 0) ?></span>
+                            </div>
+                            <div class="month-stat">
+                                <span class="label">Profit:</span>
+                                <span class="value <?= $month['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                                    ₱ <?= number_format($month['profit'], 0) ?>
+                                </span>
+                            </div>
+                            <div class="month-stat">
+                                <span class="label">Margin:</span>
+                                <span class="value <?= $month['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                                    <?= number_format($month['profit_percent'], 1) ?>%
+                                </span>
+                            </div>
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
@@ -1964,7 +1923,7 @@ if ($missing_revenue > 0)  $notice_parts[] = "<strong>{$missing_revenue}</strong
                                         }
                                         ?>
                                         <?php if ($has_low): ?>
-                                            <span class="badge" style="background: #fff3cd; color: #856404;">⚠️ Low stock</span>
+                                            <span class="badge" style="background: var(--warning-bg); color: var(--warning);">⚠️ Low stock</span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -2158,8 +2117,7 @@ if ($missing_revenue > 0)  $notice_parts[] = "<strong>{$missing_revenue}</strong
 
     <!-- Product Modal -->
     <div id="productModal" class="modal">
-        <button class="close-btn" onclick="closeModal('product')"><i class="fas fa-times"></i></button>
-        <div class="window-content" id="productModalBody"></div>
+        <div class="floating-window" id="productModalBody"></div>
     </div>
 
     <div id="jobModal" class="modal">
@@ -2199,71 +2157,71 @@ if ($missing_revenue > 0)  $notice_parts[] = "<strong>{$missing_revenue}</strong
             });
         });
 
-// Close modal function - simplified and more robust
-function closeModal() {
-    const productModal = document.getElementById('productModal');
-    const jobModal = document.getElementById('jobModal');
-    
-    if (productModal) {
-        productModal.style.display = 'none';
-        document.getElementById('productModalBody').innerHTML = ''; // Clear content
-    }
-    if (jobModal) {
-        jobModal.style.display = 'none';
-        // Clear job modal if needed
-    }
-}
+        // Close modal function - simplified and more robust
+        function closeModal() {
+            const productModal = document.getElementById('productModal');
+            const jobModal = document.getElementById('jobModal');
 
-// Click outside modal to close
-window.addEventListener('click', function(event) {
-    if (event.target.classList.contains('modal')) {
-        closeModal();
-    }
-});
+            if (productModal) {
+                productModal.style.display = 'none';
+                document.getElementById('productModalBody').innerHTML = ''; // Clear content
+            }
+            if (jobModal) {
+                jobModal.style.display = 'none';
+                // Clear job modal if needed
+            }
+        }
 
-// Event delegation for ALL close buttons (static + dynamic from loaded content)
-document.addEventListener('click', function(e) {
-    // Check if clicked element is the close button or inside it
-    const closeBtn = e.target.closest('.close-btn');
-    if (closeBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        closeModal();
-        return;
-    }
-});
+        // Click outside modal to close
+        window.addEventListener('click', function(event) {
+            if (event.target.classList.contains('modal')) {
+                closeModal();
+            }
+        });
 
-// Clickable rows for product details (keep your existing fetch logic, just make sure it's not conflicting)
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.clickable-row[data-id]').forEach(row => {
-        row.addEventListener('click', function(e) {
-            if (e.target.closest('.status-badge')) return;
-            const productId = this.dataset.id;
-            if (!productId) return;
+        // Event delegation for ALL close buttons (static + dynamic from loaded content)
+        document.addEventListener('click', function(e) {
+            // Check if clicked element is the close button or inside it
+            const closeBtn = e.target.closest('.close-btn');
+            if (closeBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeModal();
+                return;
+            }
+        });
 
-            fetch(`product_info.php?id=${productId}`)
-                .then(res => {
-                    if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
-                    return res.text();
-                })
-                .then(html => {
-                    const modalBody = document.getElementById('productModalBody');
-                    modalBody.innerHTML = html;
-                    document.getElementById('productModal').style.display = 'flex';
-                })
-                .catch(err => {
-                    document.getElementById('productModalBody').innerHTML = `
-                        <div style="text-align:center; padding:40px; color:#dc3545;">
+        // Clickable rows for product details (keep your existing fetch logic, just make sure it's not conflicting)
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.clickable-row[data-id]').forEach(row => {
+                row.addEventListener('click', function(e) {
+                    if (e.target.closest('.status-badge')) return;
+                    const productId = this.dataset.id;
+                    if (!productId) return;
+
+                    fetch(`product_info.php?id=${productId}`)
+                        .then(res => {
+                            if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
+                            return res.text();
+                        })
+                        .then(html => {
+                            const modalBody = document.getElementById('productModalBody');
+                            modalBody.innerHTML = html;
+                            document.getElementById('productModal').style.display = 'flex';
+                        })
+                        .catch(err => {
+                            document.getElementById('productModalBody').innerHTML = `
+                        <div style="text-align:center; padding:40px; color:var(--danger);">
                             <i class="fas fa-exclamation-circle fa-3x" style="margin-bottom:20px;"></i>
                             <p><strong>Error loading product details</strong></p>
                             <small>${err.message}</small>
                         </div>
                     `;
-                    document.getElementById('productModal').style.display = 'flex';
+                            document.getElementById('productModal').style.display = 'flex';
+                        });
                 });
+            });
         });
-    });
-});
 
         // Scroll position persistence
         const scrollKey = `scroll-position-/dashboard.php`;

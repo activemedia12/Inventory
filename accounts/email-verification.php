@@ -1,6 +1,7 @@
 <?php
 require_once '../config/db.php';
 require_once '../config/vendor/autoload.php';
+require_once '../config/config.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -28,11 +29,11 @@ if (!empty($token)) {
     if ($stmt->num_rows === 1) {
         $stmt->bind_result($user_id, $email);
         $stmt->fetch();
-        
+
         // Mark email as verified
         $update_stmt = $inventory->prepare("UPDATE users SET email_verified = TRUE, verification_token = NULL WHERE id = ?");
         $update_stmt->bind_param("i", $user_id);
-        
+
         if ($update_stmt->execute()) {
             $success = "Your email has been verified successfully! You can now <a href='login.php'>login</a> to your account.";
             $show_form = false;
@@ -50,7 +51,7 @@ if (!empty($token)) {
 // Resend verification email
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['email'])) {
     $email = trim($_POST['email']);
-    
+
     if (empty($email)) {
         $error = "Please enter your email address";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -69,38 +70,27 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['email'])) {
         if ($stmt->num_rows === 1) {
             $stmt->bind_result($user_id, $email_verified);
             $stmt->fetch();
-            
+
             // Generate new verification token
             $new_token = bin2hex(random_bytes(32));
             $expires = date('Y-m-d H:i:s', strtotime('+24 hours'));
-            
+
             $update_stmt = $inventory->prepare("
                 UPDATE users 
                 SET verification_token = ?, verification_expires = ? 
                 WHERE id = ?
             ");
             $update_stmt->bind_param("ssi", $new_token, $expires, $user_id);
-            
+
             if ($update_stmt->execute()) {
                 // Send verification email
                 $base_url = (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'];
                 $verify_link = $base_url . "/accounts/email-verification.php?token=" . urlencode($new_token);
-                
+
                 try {
                     $mail = new PHPMailer(true);
-                    
-                    // SMTP Configuration
-                    $mail->isSMTP();
-                    $mail->Host       = 'smtp.gmail.com';
-                    $mail->SMTPAuth   = true;
-                    $mail->Username   = 'activemediaprint@gmail.com';
-                    $mail->Password   = 'qbfk abbn tzio uqze';
-                    $mail->SMTPSecure = 'tls';
-                    $mail->Port       = 587;
+                    amdp_configure_transactional_mailer($mail, 'auth', $email);
 
-                    $mail->setFrom('activemediaprint@gmail.com', 'Active Media');
-                    $mail->addAddress($email);
-                    
                     $mail->isHTML(true);
                     $mail->Subject = "Verify Your Email Address - Active Media";
                     $mail->Body    = "
@@ -115,11 +105,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['email'])) {
                         <br>
                         <p>Regards,<br>Active Media Designs and Printing</p>
                     ";
-                    
+
                     $mail->send();
                     $success = "A new verification link has been sent to your email address.";
                     $show_form = false;
-                    
                 } catch (Exception $e) {
                     $error = "Failed to send verification email. Please try again later.";
                 }
@@ -136,6 +125,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['email'])) {
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -184,12 +174,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['email'])) {
         .header {
             text-align: center;
             padding: 20px;
-            background: linear-gradient(90deg, 
-                rgba(176, 0, 176, 1) 0%, 
-                rgba(0, 0, 0, 1) 30%, 
-                rgba(0, 0, 0, 1) 40%, 
-                rgba(0, 145, 255, 1) 70%, 
-                rgba(255, 255, 0, 1) 100%);
+            background: linear-gradient(90deg,
+                    rgba(176, 0, 176, 1) 0%,
+                    rgba(0, 0, 0, 1) 30%,
+                    rgba(0, 0, 0, 1) 40%,
+                    rgba(0, 145, 255, 1) 70%,
+                    rgba(255, 255, 0, 1) 100%);
             color: white;
         }
 
@@ -359,6 +349,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['email'])) {
         }
     </style>
 </head>
+
 <body>
     <div class="verification-container">
         <div class="header">
@@ -385,7 +376,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['email'])) {
 
                 <?php if ($show_form): ?>
                     <h2>Verify Your Email</h2>
-                    
+
                     <?php if (empty($token)): ?>
                         <p style="text-align: center; margin-bottom: 20px; color: #666;">
                             Enter your email to receive a verification link.
@@ -419,12 +410,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['email'])) {
             if (form) {
                 form.addEventListener('submit', function(e) {
                     e.preventDefault();
-                    
+
                     if (submitBtn) {
                         submitBtn.classList.add('loading');
                         submitBtn.disabled = true;
                     }
-                    
+
                     setTimeout(() => {
                         form.submit();
                     }, 500);
@@ -433,4 +424,5 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['email'])) {
         });
     </script>
 </body>
+
 </html>

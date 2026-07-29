@@ -3,7 +3,7 @@ session_start();
 require_once '../../config/db.php';
 
 // Check if user is logged in and is admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
     header("Location: ../../accounts/login.php");
     exit;
 }
@@ -281,31 +281,51 @@ $stats = $stats_result->fetch_assoc();
     <title>Customer Management - Active Media</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        :root {
+            --primary: #4f5eff;
+            --secondary: #4048e0;
+            --primary-bg: #eef1ff;
+            --light: #f6f6f7;
+            --dark: #14171f;
+            --gray: #6b7280;
+            --light-gray: #e2e4e7;
+            --card-bg: #ffffff;
+            --success: #1a9c6b;
+            --success-bg: #e3f6ee;
+            --danger: #d9463c;
+            --danger-bg: #fbe9e7;
+            --warning: #b6790a;
+            --warning-bg: #fdf2df;
+            --info: #2a7ade;
+            --info-bg: #e8f1fc;
+        }
+
         ::-webkit-scrollbar {
-            width: 7px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: #1876f299;
-            border-radius: 10px;
+            background: #cbced3;
+            border-radius: 8px;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
         body {
-            background-color: #f8f9fa;
-            color: #333;
-            line-height: 1.6;
+            background-color: var(--light);
+            color: var(--dark);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }
 
         .admin-container {
@@ -313,83 +333,29 @@ $stats = $stats_result->fetch_assoc();
             min-height: 100vh;
         }
 
-        /* Sidebar */
-        .sidebar {
-            width: 250px;
-            background: #2c3e50;
-            color: white;
-            padding: 20px 0;
-        }
-
-        .sidebar-header {
-            padding: 0 20px 20px;
-            border-bottom: 1px solid #34495e;
-            margin-bottom: 20px;
-        }
-
-        .sidebar-header h2 {
-            color: #3498db;
-            font-size: 1.3em;
-            margin-bottom: 5px;
-        }
-
-        .sidebar-header small {
-            font-size: 0.85em;
-            color: #bdc3c7;
-        }
-
-        .sidebar-menu {
-            list-style: none;
-        }
-
-        .sidebar-menu li {
-            margin-bottom: 5px;
-        }
-
-        .sidebar-menu a {
-            display: flex;
-            align-items: center;
-            padding: 12px 20px;
-            color: #bdc3c7;
-            text-decoration: none;
-            transition: all 0.3s;
-        }
-
-        .sidebar-menu a:hover,
-        .sidebar-menu a.active {
-            background: #34495e;
-            color: white;
-            border-left: 4px solid #3498db;
-        }
-
-        .sidebar-menu i {
-            margin-right: 10px;
-            width: 20px;
-            text-align: center;
-        }
-
         /* Main Content */
         .main-content {
             flex: 1;
-            padding: 20px;
-            background: #f0f2f5;
-            padding-bottom: 110px;
+            padding: 28px 32px;
+            background: var(--light);
+            padding-bottom: 90px;
         }
 
         .header {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            margin-bottom: 25px;
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            padding: 18px 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
+            margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         .header h1 {
-            color: #1c1e21;
-            font-size: 1.8em;
+            color: var(--dark);
+            font-size: 22px;
             margin: 0;
             font-weight: 600;
         }
@@ -401,138 +367,156 @@ $stats = $stats_result->fetch_assoc();
         }
 
         .logout-btn {
-            background: #e74c3c;
-            color: white;
-            padding: 10px 18px;
+            background: var(--danger-bg);
+            color: var(--danger);
+            padding: 8px 14px;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             text-decoration: none;
-            font-size: 14px;
-            transition: background 0.3s;
+            font-size: 13px;
+            font-weight: 600;
+            transition: opacity 0.15s ease;
         }
 
         .logout-btn:hover {
-            background: #c0392b;
+            opacity: 0.8;
         }
 
         /* Messages */
         .message {
-            padding: 15px;
-            background: #d4edda;
-            color: #155724;
-            border-radius: 5px;
+            padding: 12px 15px;
+            background: var(--success-bg);
+            color: var(--success);
+            border-radius: 6px;
             margin-bottom: 20px;
-            border: 1px solid #c3e6cb;
+            font-size: 13px;
+            font-weight: 500;
         }
 
         .error {
-            padding: 15px;
-            background: #f8d7da;
-            color: #721c24;
-            border-radius: 5px;
+            padding: 12px 15px;
+            background: var(--danger-bg);
+            color: var(--danger);
+            border-radius: 6px;
             margin-bottom: 20px;
-            border: 1px solid #f5c6cb;
+            font-size: 13px;
+            font-weight: 500;
         }
 
         /* Stats Cards */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
+            gap: 16px;
             margin-bottom: 20px;
         }
 
         .stat-card {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            padding: 18px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
             text-align: center;
-            transition: transform 0.3s;
+            transition: box-shadow 0.15s ease;
         }
 
         .stat-card:hover {
-            transform: translateY(-5px);
+            box-shadow: 0 4px 12px rgba(20, 23, 31, 0.08);
         }
 
         .stat-card i {
-            font-size: 2em;
-            margin-bottom: 15px;
+            font-size: 22px;
+            margin-bottom: 10px;
         }
 
         .stat-card.customers i {
-            color: #3498db;
+            color: var(--primary);
         }
 
         .stat-card.active i {
-            color: #27ae60;
+            color: var(--success);
         }
 
         .stat-card.inactive i {
-            color: #e74c3c;
+            color: var(--danger);
         }
 
         .stat-card.orders i {
-            color: #f39c12;
+            color: var(--warning);
         }
 
         .stat-number {
-            font-size: 2em;
-            font-weight: 600;
-            margin: 10px 0;
+            font-size: 22px;
+            font-weight: 700;
+            margin: 6px 0;
         }
 
         .stat-label {
-            color: #7f8c8d;
-            font-size: 0.9em;
+            color: var(--gray);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 600;
         }
 
         /* Search and Filter */
         .search-filter {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            padding: 16px 18px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
             margin-bottom: 20px;
             display: flex;
-            gap: 15px;
+            gap: 12px;
             align-items: center;
             flex-wrap: wrap;
         }
 
         .search-filter input,
         .search-filter select {
-            padding: 10px;
-            border: 1px solid #ddd;
+            padding: 9px 12px;
+            border: 1px solid var(--light-gray);
             border-radius: 6px;
-            font-size: 14px;
+            font-size: 13px;
+            color: var(--dark);
+            background: var(--card-bg);
+        }
+
+        .search-filter input:focus,
+        .search-filter select:focus {
+            outline: none;
+            border-color: var(--primary);
         }
 
         .search-btn {
-            background: #3498db;
+            background: var(--primary);
             color: white;
             border: none;
-            padding: 10px 18px;
+            padding: 9px 16px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
-            transition: background 0.3s;
+            font-size: 13px;
+            font-weight: 600;
+            transition: background-color 0.15s ease;
             display: inline-flex;
             align-items: center;
             gap: 8px;
         }
 
         .search-btn:hover {
-            background: #2980b9;
+            background: var(--secondary);
         }
 
         /* Customers Table */
         .customers-table {
-            background: white;
-            border-radius: 12px;
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
         }
 
         .table {
@@ -542,86 +526,91 @@ $stats = $stats_result->fetch_assoc();
 
         .table th,
         .table td {
-            padding: 15px;
+            padding: 10px 14px;
             text-align: left;
-            border-bottom: 1px solid #ecf0f1;
+            border-bottom: 1px solid var(--light-gray);
+            font-size: 13px;
         }
 
         .table th {
-            background: #f8f9fa;
+            background: var(--light);
             font-weight: 600;
-            color: #2c3e50;
+            color: var(--gray);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
 
         .status-badge {
-            padding: 6px 12px;
+            padding: 3px 10px;
             border-radius: 20px;
-            font-size: 0.8em;
+            font-size: 11px;
             font-weight: 600;
         }
 
         .status-active {
-            background: #d4edda;
-            color: #155724;
+            background: var(--success-bg);
+            color: var(--success);
         }
 
         .status-inactive {
-            background: #f8d7da;
-            color: #721c24;
+            background: var(--danger-bg);
+            color: var(--danger);
         }
 
         .action-buttons {
             display: flex;
-            gap: 8px;
+            gap: 6px;
         }
 
         .btn {
-            padding: 8px 12px;
+            padding: 7px 12px;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-size: 12px;
+            font-weight: 600;
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            transition: all 0.3s;
+            transition: opacity 0.15s ease;
             text-decoration: none;
         }
 
         .btn-primary {
-            background: #3498db;
-            color: white;
+            background: var(--primary-bg);
+            color: var(--secondary);
         }
 
         .btn-primary:hover {
-            background: #2980b9;
+            opacity: 0.8;
         }
 
         .btn-warning {
-            background: #f39c12;
-            color: white;
+            background: var(--warning-bg);
+            color: var(--warning);
         }
 
         .btn-warning:hover {
-            background: #e67e22;
+            opacity: 0.8;
         }
 
         .btn-danger {
-            background: #e74c3c;
-            color: white;
+            background: var(--danger-bg);
+            color: var(--danger);
         }
 
         .btn-danger:hover {
-            background: #c0392b;
+            opacity: 0.8;
         }
 
         .btn-info {
-            background: #17a2b8;
-            color: white;
+            background: var(--info-bg);
+            color: var(--info);
         }
 
         .btn-info:hover {
-            background: #138496;
+            opacity: 0.8;
         }
 
         /* Modal */
@@ -633,85 +622,85 @@ $stats = $stats_result->fetch_assoc();
             top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.05);
-            backdrop-filter: blur(3px);
-            animation: fadeIn 0.3s ease-out;
+            backdrop-filter: blur(2px);
+            animation: fadeIn 0.2s ease-out;
         }
 
         .modal-content {
-            background-color: white;
-            margin: 2% auto;
+            background-color: var(--card-bg);
+            margin: 4% auto;
             padding: 0;
-            border-radius: 16px;
+            border-radius: 10px;
             width: 90%;
             max-width: 700px;
-            max-height: 90vh;
+            max-height: 88vh;
             overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            animation: slideUp 0.3s ease-out;
+            box-shadow: 0 12px 32px rgba(20, 23, 31, 0.18);
+            animation: slideUp 0.2s ease-out;
             position: relative;
         }
 
         .modal-header {
-            padding: 25px 30px 20px;
-            border-bottom: 1px solid #eef2f7;
-            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+            padding: 18px 20px;
+            border-bottom: 1px solid var(--light-gray);
+            background: var(--dark);
             position: relative;
         }
 
         .modal-header h2 {
-            color: #2c3e50;
-            font-size: 1.5em;
-            font-weight: 700;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
             margin: 0;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
         }
 
         .modal-header h2 i {
-            color: #3498db;
-            font-size: 1.2em;
+            color: white;
+            font-size: 14px;
         }
 
         .modal-body {
-            padding: 30px;
-            max-height: calc(90vh - 140px);
+            padding: 20px;
+            max-height: calc(88vh - 130px);
             overflow-y: auto;
         }
 
         .modal-footer {
-            padding: 20px 30px;
-            border-top: 1px solid #eef2f7;
-            background: #f8fafc;
+            padding: 16px 20px;
+            border-top: 1px solid var(--light-gray);
+            background: var(--light);
             display: flex;
             justify-content: flex-end;
-            gap: 12px;
+            gap: 10px;
         }
 
         .close {
             position: absolute;
-            right: 25px;
-            top: 25px;
-            color: #94a3b8;
-            font-size: 24px;
-            font-weight: 300;
+            right: 14px;
+            top: 14px;
+            color: white;
+            font-size: 18px;
+            font-weight: 400;
             cursor: pointer;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
+            transition: opacity 0.15s ease;
             background: transparent;
             border: none;
+            opacity: 0.85;
         }
 
         .close:hover {
-            background: #f1f5f9;
-            color: #64748b;
-            transform: rotate(90deg);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            opacity: 1;
         }
 
         /* Modal Animations */
@@ -728,157 +717,160 @@ $stats = $stats_result->fetch_assoc();
         @keyframes slideUp {
             from {
                 opacity: 0;
-                transform: translateY(30px) scale(0.95);
+                transform: translateY(16px);
             }
 
             to {
                 opacity: 1;
-                transform: translateY(0) scale(1);
+                transform: translateY(0);
             }
         }
 
-        /* Enhanced Form Styles */
-        .modal .form-group {
-            margin-bottom: 24px;
+        /* Form Styles (shared, inside and outside modal) */
+        .form-group {
+            margin-bottom: 16px;
         }
 
+        .modal .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label,
         .modal .form-group label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
+            font-size: 12px;
             font-weight: 600;
-            color: #374151;
-            font-size: 14px;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
 
+        .form-control,
         .modal .form-control {
             width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.3s ease;
-            background: #ffffff;
+            padding: 9px 12px;
+            border: 1px solid var(--light-gray);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--dark);
+            background: var(--card-bg);
+            transition: border-color 0.15s ease;
         }
 
+        .form-control:focus,
         .modal .form-control:focus {
             outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-            background: #ffffff;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-bg);
         }
 
-        /* Enhanced Button Styles */
+        /* Buttons inside modal */
         .modal .btn {
-            padding: 12px 24px;
+            padding: 9px 18px;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            transition: all 0.3s ease;
+            transition: opacity 0.15s ease;
             text-decoration: none;
             min-width: 100px;
             justify-content: center;
         }
 
         .modal .btn-primary {
-            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            background: var(--primary);
             color: white;
-            box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
         }
 
         .modal .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+            background: var(--secondary);
         }
 
         .modal .btn-secondary {
-            background: #64748b;
-            color: white;
+            background: var(--light);
+            color: var(--dark);
+            border: 1px solid var(--light-gray);
         }
 
         .modal .btn-secondary:hover {
-            background: #475569;
-            transform: translateY(-2px);
+            background: var(--light-gray);
         }
 
         .modal .btn-success {
-            background: linear-gradient(135deg, #27ae60 0%, #219a52 100%);
+            background: var(--success);
             color: white;
-            box-shadow: 0 2px 4px rgba(39, 174, 96, 0.2);
         }
 
         .modal .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+            opacity: 0.85;
         }
 
         /* Customer Stats in Modal */
         .customer-stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 16px;
-            margin: 25px 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin: 18px 0;
+            padding: 16px;
+            background: var(--light);
+            border-radius: 8px;
+            border: 1px solid var(--light-gray);
         }
 
         .stat-box {
             text-align: center;
-            padding: 16px;
-            background: white;
+            padding: 14px;
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
             border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-            transition: transform 0.2s ease;
-        }
-
-        .stat-box:hover {
-            transform: translateY(-2px);
         }
 
         .stat-value {
-            font-size: 1.5em;
+            font-size: 18px;
             font-weight: 700;
-            color: #1e293b;
+            color: var(--dark);
             margin-bottom: 4px;
         }
 
-        .stat-label {
-            font-size: 0.85em;
-            color: #64748b;
-            font-weight: 500;
+        .stat-box .stat-label {
+            font-size: 11px;
+            color: var(--gray);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
 
-        /* Enhanced Table in Modal */
+        /* Table in Modal */
         .modal .table {
             width: 100%;
             border-collapse: collapse;
-            margin: 20px 0;
-            background: white;
+            margin: 16px 0;
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
             border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         }
 
         .modal .table th {
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            padding: 16px;
+            background: var(--light);
+            padding: 10px 14px;
             font-weight: 600;
-            color: #374151;
-            font-size: 13px;
+            color: var(--gray);
+            font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.03em;
         }
 
         .modal .table td {
-            padding: 14px 16px;
-            border-bottom: 1px solid #f1f5f9;
-            color: #475569;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--light-gray);
+            color: var(--dark);
+            font-size: 13px;
         }
 
         .modal .table tr:last-child td {
@@ -887,73 +879,45 @@ $stats = $stats_result->fetch_assoc();
 
         /* Customer Info Section */
         .customer-info {
-            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-            padding: 25px;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            margin-bottom: 25px;
+            background: var(--light);
+            padding: 18px;
+            border-radius: 8px;
+            border: 1px solid var(--light-gray);
+            margin-bottom: 18px;
         }
 
         .customer-info h3 {
-            color: #1e293b;
-            margin-bottom: 16px;
-            font-size: 1.3em;
-            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 12px;
+            font-size: 15px;
+            font-weight: 600;
         }
 
         .customer-info p {
             margin-bottom: 8px;
-            color: #475569;
+            color: var(--gray);
             display: flex;
             align-items: center;
             gap: 8px;
+            font-size: 13px;
         }
 
         .customer-info strong {
-            color: #374151;
+            color: var(--dark);
             min-width: 120px;
             display: inline-block;
         }
 
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-        }
-
         /* Responsive */
         @media (max-width: 768px) {
+            .main-content {
+                padding: 20px;
+            }
+
             .modal-content {
-                margin: 5% auto;
+                margin: 6% auto;
                 width: 95%;
-                max-height: 95vh;
-            }
-
-            .admin-container {
-                flex-direction: column;
-            }
-
-            .sidebar {
-                width: 100%;
+                max-height: 92vh;
             }
 
             .search-filter {
@@ -995,9 +959,9 @@ $stats = $stats_result->fetch_assoc();
                             showConfirmButton: false,
                             timer: 3000,
                             timerProgressBar: true,
-                            background: '#d4edda',
-                            iconColor: '#155724',
-                            color: '#155724'
+                            background: 'var(--success-bg)',
+                            iconColor: 'var(--success)',
+                            color: 'var(--success)'
                         });
                         <?php unset($_SESSION['message']); ?>
                     });
@@ -1016,9 +980,9 @@ $stats = $stats_result->fetch_assoc();
                             showConfirmButton: false,
                             timer: 4000,
                             timerProgressBar: true,
-                            background: '#f8d7da',
-                            iconColor: '#721c24',
-                            color: '#721c24'
+                            background: 'var(--danger-bg)',
+                            iconColor: 'var(--danger)',
+                            color: 'var(--danger)'
                         });
                         <?php unset($_SESSION['error']); ?>
                     });
@@ -1063,7 +1027,7 @@ $stats = $stats_result->fetch_assoc();
                         <i class="fas fa-search"></i> Search
                     </button>
 
-                    <a href="admin_customers.php" class="btn" style="background: #95a5a6; color: white; text-decoration: none; padding: 10px 15px;">
+                    <a href="admin_customers.php" class="btn" style="background: var(--gray); color: white; text-decoration: none; padding: 10px 15px;">
                         <i class="fas fa-times"></i> Clear
                     </a>
                 </form>
@@ -1100,12 +1064,12 @@ $stats = $stats_result->fetch_assoc();
                                         ?>
                                     </strong>
                                     <br>
-                                    <small style="color: #666;">
+                                    <small style="color: var(--gray);">
                                         <i class="fas fa-envelope"></i> <?php echo htmlspecialchars($customer['username']); ?>
                                     </small>
                                     <?php if (!empty($customer['middle_name'])): ?>
                                         <br>
-                                        <small style="color: #888;">Middle: <?php echo htmlspecialchars($customer['middle_name']); ?></small>
+                                        <small style="color: var(--gray);">Middle: <?php echo htmlspecialchars($customer['middle_name']); ?></small>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -1119,7 +1083,7 @@ $stats = $stats_result->fetch_assoc();
                                         <i class="fas fa-map-marker-alt"></i>
                                         <?php echo htmlspecialchars($customer['city'] ?: $customer['company_city']); ?>
                                     <?php else: ?>
-                                        <span style="color: #999;">No location info</span>
+                                        <span style="color: var(--gray);">No location info</span>
                                     <?php endif; ?>
                                 </td>
 
@@ -1133,7 +1097,7 @@ $stats = $stats_result->fetch_assoc();
                                     <?php if ($customer['last_order_date']): ?>
                                         <?php echo date('M j, Y', strtotime($customer['last_order_date'])); ?>
                                     <?php else: ?>
-                                        <span style="color: #999;">No orders yet</span>
+                                        <span style="color: var(--gray);">No orders yet</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -1172,63 +1136,63 @@ $stats = $stats_result->fetch_assoc();
         </div>
     </div>
 
-<!-- Edit Customer Modal -->
-<div id="editCustomerModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2><i class="fas fa-edit"></i> Edit Customer</h2>
-            <button class="close" onclick="closeModal('editCustomerModal')">&times;</button>
+    <!-- Edit Customer Modal -->
+    <div id="editCustomerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-edit"></i> Edit Customer</h2>
+                <button class="close" onclick="closeModal('editCustomerModal')">&times;</button>
+            </div>
+            <form id="editCustomerForm" method="post">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="update_customer">
+                    <input type="hidden" name="user_id" id="editUserId">
+
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-group">
+                            <label><i class="fas fa-envelope"></i> Username/Email</label>
+                            <input type="email" name="username" id="editUsername" class="form-control" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-phone"></i> Phone Number</label>
+                            <input type="text" name="contact_number" id="editContactNumber" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-group">
+                            <label><i class="fas fa-user"></i> First Name</label>
+                            <input type="text" name="first_name" id="editFirstName" class="form-control" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-user"></i> Last Name</label>
+                            <input type="text" name="last_name" id="editLastName" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-map-marker-alt"></i> Address Line 1</label>
+                        <input type="text" name="address_line1" id="editAddressLine1" class="form-control">
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-city"></i> City</label>
+                        <input type="text" name="city" id="editCity" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('editCustomerModal')">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save"></i> Update Customer
+                    </button>
+                </div>
+            </form>
         </div>
-        <form id="editCustomerForm" method="post">
-            <div class="modal-body">
-                <input type="hidden" name="action" value="update_customer">
-                <input type="hidden" name="user_id" id="editUserId">
-
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                    <div class="form-group">
-                        <label><i class="fas fa-envelope"></i> Username/Email</label>
-                        <input type="email" name="username" id="editUsername" class="form-control" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label><i class="fas fa-phone"></i> Phone Number</label>
-                        <input type="text" name="contact_number" id="editContactNumber" class="form-control">
-                    </div>
-                </div>
-
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                    <div class="form-group">
-                        <label><i class="fas fa-user"></i> First Name</label>
-                        <input type="text" name="first_name" id="editFirstName" class="form-control" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label><i class="fas fa-user"></i> Last Name</label>
-                        <input type="text" name="last_name" id="editLastName" class="form-control" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label><i class="fas fa-map-marker-alt"></i> Address Line 1</label>
-                    <input type="text" name="address_line1" id="editAddressLine1" class="form-control">
-                </div>
-
-                <div class="form-group">
-                    <label><i class="fas fa-city"></i> City</label>
-                    <input type="text" name="city" id="editCity" class="form-control">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('editCustomerModal')">
-                    <i class="fas fa-times"></i> Cancel
-                </button>
-                <button type="submit" class="btn btn-success">
-                    <i class="fas fa-save"></i> Update Customer
-                </button>
-            </div>
-        </form>
     </div>
-</div>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
@@ -1259,7 +1223,7 @@ $stats = $stats_result->fetch_assoc();
                             </tr>
                         `).join('');
                             } else {
-                                ordersHtml = '<tr><td colspan="4" style="text-align: center; color: #999;">No orders found</td></tr>';
+                                ordersHtml = '<tr><td colspan="4" style="text-align: center; color: var(--gray);">No orders found</td></tr>';
                             }
 
                             // --- Build Customer Info depending on type ---
@@ -1365,8 +1329,8 @@ $stats = $stats_result->fetch_assoc();
                 text: `You are about to delete customer "${username}". This action cannot be undone!`,
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
+                confirmButtonColor: 'var(--danger)',
+                cancelButtonColor: 'var(--secondary)',
                 confirmButtonText: 'Yes, delete it!',
                 cancelButtonText: 'Cancel'
             }).then((result) => {

@@ -3,6 +3,7 @@ date_default_timezone_set('Asia/Manila');
 
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/config.php';
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -498,17 +499,7 @@ $startFormatted = (new DateTime($start_date))->format('F j, Y');
 $endFormatted   = (new DateTime($end_date))->format('F j, Y');
 
 try {
-    $mail->isSMTP();
-    $mail->Host       = 'smtp.gmail.com';
-    $mail->SMTPAuth   = true;
-    $mail->Username   = 'amdpreports@gmail.com';
-    $mail->Password   = 'odyh qgxv iaez fylf'; // App password
-    $mail->SMTPSecure = 'tls';
-    $mail->Port       = 587;
-
-    $mail->setFrom('amdpreports@gmail.com', 'AMDP Reports');
-    $mail->addAddress('activemediaprint@gmail.com', 'Active Media');
-    $mail->addCC('amdpreports@gmail.com');
+    amdp_configure_mailer($mail);
 
     $mail->addAttachment($tempPath, $filename);
 

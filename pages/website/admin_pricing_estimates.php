@@ -3,7 +3,7 @@ session_start();
 require_once '../../config/db.php';
 
 // Check if user is logged in and is admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
     header("Location: ../accounts/login.php");
     exit;
 }
@@ -154,30 +154,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
     <title>Pricing Estimates Management - Active Media</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --primary: #4f5eff;
+            --secondary: #4048e0;
+            --primary-bg: #eef1ff;
+            --light: #f6f6f7;
+            --dark: #14171f;
+            --gray: #6b7280;
+            --light-gray: #e2e4e7;
+            --card-bg: #ffffff;
+            --success: #1a9c6b;
+            --success-bg: #e3f6ee;
+            --danger: #d9463c;
+            --danger-bg: #fbe9e7;
+            --warning: #b6790a;
+            --warning-bg: #fdf2df;
+            --info: #2a7ade;
+            --info-bg: #e8f1fc;
+        }
+
         ::-webkit-scrollbar {
-            width: 7px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: #1876f299;
-            border-radius: 10px;
+            background: #cbced3;
+            border-radius: 8px;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
         body {
-            background-color: #f8f9fa;
-            color: #333;
-            line-height: 1.6;
+            background-color: var(--light);
+            color: var(--dark);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }
 
         .admin-container {
@@ -185,83 +205,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
             min-height: 100vh;
         }
 
-        /* Sidebar */
-        .sidebar {
-            width: 250px;
-            background: #2c3e50;
-            color: white;
-            padding: 20px 0;
-        }
-
-        .sidebar-header {
-            padding: 0 20px 20px;
-            border-bottom: 1px solid #34495e;
-            margin-bottom: 20px;
-        }
-
-        .sidebar-header h2 {
-            color: #3498db;
-            font-size: 1.3em;
-            margin-bottom: 5px;
-        }
-
-        .sidebar-header small {
-            font-size: 0.85em;
-            color: #bdc3c7;
-        }
-
-        .sidebar-menu {
-            list-style: none;
-        }
-
-        .sidebar-menu li {
-            margin-bottom: 5px;
-        }
-
-        .sidebar-menu a {
-            display: flex;
-            align-items: center;
-            padding: 12px 20px;
-            color: #bdc3c7;
-            text-decoration: none;
-            transition: all 0.3s;
-        }
-
-        .sidebar-menu a:hover,
-        .sidebar-menu a.active {
-            background: #34495e;
-            color: white;
-            border-left: 4px solid #3498db;
-        }
-
-        .sidebar-menu i {
-            margin-right: 10px;
-            width: 20px;
-            text-align: center;
-        }
-
         /* Main Content */
         .main-content {
             flex: 1;
-            padding: 20px;
-            background: #f0f2f5;
-            padding-bottom: 130px;
+            padding: 28px 32px;
+            background: var(--light);
+            padding-bottom: 90px;
         }
 
         .header {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            margin-bottom: 25px;
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            padding: 18px 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
+            margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         .header h1 {
-            color: #1c1e21;
-            font-size: 1.8em;
+            color: var(--dark);
+            font-size: 22px;
             margin: 0;
             font-weight: 600;
         }
@@ -273,310 +239,342 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
         }
 
         .logout-btn {
-            background: #e74c3c;
-            color: white;
-            padding: 10px 18px;
+            background: var(--danger-bg);
+            color: var(--danger);
+            padding: 8px 14px;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             text-decoration: none;
-            font-size: 14px;
-            transition: background 0.3s;
+            font-size: 13px;
+            font-weight: 600;
+            transition: opacity 0.15s ease;
         }
 
         .logout-btn:hover {
-            background: #c0392b;
+            opacity: 0.8;
         }
 
         /* Statistics Cards */
         .stats-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 25px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
         }
 
         .stat-card {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            padding: 18px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
             text-align: center;
         }
 
         .stat-card i {
-            font-size: 2.5em;
-            margin-bottom: 15px;
+            font-size: 22px;
+            margin-bottom: 10px;
         }
 
         .stat-card.pending i {
-            color: #f39c12;
+            color: var(--warning);
         }
 
         .stat-card.reviewed i {
-            color: #3498db;
+            color: var(--primary);
         }
 
         .stat-card.quoted i {
-            color: #9b59b6;
+            color: var(--secondary);
         }
 
         .stat-card.completed i {
-            color: #27ae60;
+            color: var(--success);
         }
 
         .stat-card.cancelled i {
-            color: #e74c3c;
+            color: var(--danger);
         }
 
         .stat-card.total i {
-            color: #2c3e50;
+            color: var(--dark);
         }
 
         .stat-number {
-            font-size: 2em;
+            font-size: 22px;
             font-weight: 700;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
 
         .stat-label {
-            color: #7f8c8d;
-            font-size: 0.9em;
+            color: var(--gray);
+            font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.04em;
+            font-weight: 600;
         }
 
         /* Messages */
         .message {
-            padding: 15px;
-            background: #d4edda;
-            color: #155724;
-            border-radius: 5px;
+            padding: 12px 15px;
+            background: var(--success-bg);
+            color: var(--success);
+            border-radius: 6px;
             margin-bottom: 20px;
-            border: 1px solid #c3e6cb;
+            font-size: 13px;
+            font-weight: 500;
         }
 
         .error {
-            padding: 15px;
-            background: #f8d7da;
-            color: #721c24;
-            border-radius: 5px;
+            padding: 12px 15px;
+            background: var(--danger-bg);
+            color: var(--danger);
+            border-radius: 6px;
             margin-bottom: 20px;
-            border: 1px solid #f5c6cb;
+            font-size: 13px;
+            font-weight: 500;
         }
 
         /* Search and Filter */
         .search-filter {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            margin-bottom: 25px;
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            padding: 16px 18px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
+            margin-bottom: 20px;
             display: flex;
-            gap: 15px;
+            gap: 12px;
             align-items: center;
             flex-wrap: wrap;
         }
 
         .search-filter input,
         .search-filter select {
-            padding: 10px;
-            border: 1px solid #ddd;
+            padding: 9px 12px;
+            border: 1px solid var(--light-gray);
             border-radius: 6px;
-            font-size: 14px;
+            font-size: 13px;
+            color: var(--dark);
+            background: var(--card-bg);
+        }
+
+        .search-filter input:focus,
+        .search-filter select:focus {
+            outline: none;
+            border-color: var(--primary);
         }
 
         .search-btn {
-            background: #3498db;
+            background: var(--primary);
             color: white;
             border: none;
-            padding: 10px 18px;
+            padding: 9px 16px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
-            transition: background 0.3s;
+            font-size: 13px;
+            font-weight: 600;
+            transition: background-color 0.15s ease;
             display: inline-flex;
             align-items: center;
             gap: 8px;
         }
 
         .search-btn:hover {
-            background: #2980b9;
+            background: var(--secondary);
         }
 
         /* Pricing Requests Table */
         .pricing-table {
-            background: white;
-            border-radius: 12px;
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
         }
 
         .table {
             width: 100%;
-            border-collapse: collapse
+            border-collapse: collapse;
         }
 
         .table th,
         .table td {
-            padding: 15px;
+            padding: 10px 14px;
             text-align: center;
-            border-bottom: 1px solid #ecf0f1;
+            border-bottom: 1px solid var(--light-gray);
+            font-size: 13px;
         }
 
         .table th {
-            background: #f8f9fa;
+            background: var(--light);
             font-weight: 600;
-            color: #2c3e50;
+            color: var(--gray);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
 
         /* Pricing Actions */
         .pricing-actions {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
         }
 
         .status-form {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             align-items: center;
         }
 
         .status-select,
         .price-input,
         .notes-input {
-            padding: 8px;
+            padding: 7px 10px;
             border-radius: 6px;
-            border: 1px solid #ddd;
-            background: white;
-            font-size: 14px;
+            border: 1px solid var(--light-gray);
+            background: var(--card-bg);
+            font-size: 12px;
+            color: var(--dark);
+        }
+
+        .status-select:focus,
+        .price-input:focus,
+        .notes-input:focus {
+            outline: none;
+            border-color: var(--primary);
         }
 
         .price-input {
-            width: 120px;
+            width: 110px;
         }
 
         .notes-input {
-            width: 200px;
+            width: 180px;
         }
 
         .update-btn {
-            background: #3498db;
-            color: white;
+            background: var(--primary-bg);
+            color: var(--secondary);
             border: none;
-            padding: 8px 12px;
+            padding: 7px 12px;
             border-radius: 6px;
             cursor: pointer;
             font-size: 12px;
-            transition: background 0.3s;
+            font-weight: 600;
+            transition: opacity 0.15s ease;
             display: inline-flex;
             align-items: center;
             gap: 5px;
         }
 
         .update-btn:hover {
-            background: #2980b9;
+            opacity: 0.8;
         }
 
         .view-details {
-            background: #27ae60;
-            color: white;
-            padding: 8px 12px;
+            background: var(--success-bg);
+            color: var(--success);
+            padding: 7px 12px;
             border-radius: 6px;
             text-decoration: none;
             font-size: 12px;
+            font-weight: 600;
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            transition: background 0.3s;
+            transition: opacity 0.15s ease;
             border: none;
             cursor: pointer;
         }
 
         .view-details:hover {
-            background: #219a52;
+            opacity: 0.8;
         }
 
         .delete-btn {
-            background: #e74c3c;
-            color: white;
+            background: var(--danger-bg);
+            color: var(--danger);
             border: none;
-            padding: 8px 12px;
+            padding: 7px 12px;
             border-radius: 6px;
             cursor: pointer;
             font-size: 12px;
-            transition: background 0.3s;
+            font-weight: 600;
+            transition: opacity 0.15s ease;
             display: inline-flex;
             align-items: center;
             gap: 5px;
         }
 
         .delete-btn:hover {
-            background: #c0392b;
+            opacity: 0.8;
         }
 
         .status-badge {
-            padding: 6px 12px;
+            padding: 3px 10px;
             border-radius: 20px;
-            font-size: 0.8em;
+            font-size: 11px;
             font-weight: 600;
             text-align: center;
         }
 
         .status-pending {
-            background: #fff3cd;
-            color: #856404;
+            background: var(--warning-bg);
+            color: var(--warning);
         }
 
         .status-reviewed {
-            background: #d1ecf1;
-            color: #0c5460;
+            background: var(--info-bg);
+            color: var(--info);
         }
 
         .status-quoted {
-            background: #d4edda;
-            color: #155724;
+            background: var(--success-bg);
+            color: var(--success);
         }
 
         .status-completed {
-            background: #d1f7c4;
-            color: #0f5132;
+            background: var(--success-bg);
+            color: var(--success);
         }
 
         .status-cancelled {
-            background: #f7c4c4ff;
-            color: #e74c3c;
+            background: var(--danger-bg);
+            color: var(--danger);
         }
 
         .price-comparison {
-            font-size: 0.9em;
+            font-size: 12px;
         }
 
         .price-increase {
-            color: #e74c3c;
+            color: var(--danger);
         }
 
         .price-decrease {
-            color: #27ae60;
+            color: var(--success);
         }
 
         .price-same {
-            color: #7f8c8d;
+            color: var(--gray);
         }
 
         .request-details {
-            background: #f8f9fa;
-            padding: 20px;
+            background: var(--light);
+            padding: 16px;
             border-radius: 8px;
             margin-bottom: 20px;
+            font-size: 13px;
         }
 
         .detail-row {
             display: flex;
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--light-gray);
         }
 
         .detail-row:last-child {
@@ -586,23 +584,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
 
         .detail-label {
             font-weight: 600;
-            color: #2c3e50;
+            color: var(--gray);
             min-width: 150px;
         }
 
         .detail-value {
-            color: #5a6c7d;
+            color: var(--dark);
             flex: 1;
         }
 
         /* Responsive */
         @media (max-width: 768px) {
-            .admin-container {
-                flex-direction: column;
-            }
-
-            .sidebar {
-                width: 100%;
+            .main-content {
+                padding: 20px;
             }
 
             .search-filter {
@@ -633,14 +627,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
             top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.05);
-            backdrop-filter: blur(3px);
-            animation: fadeIn 0.3s ease;
+            backdrop-filter: blur(2px);
+            animation: fadeIn 0.2s ease;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
         }
 
         .modal-content {
-            animation: slideIn 0.3s ease;
-            overflow-y: scroll;
+            position: relative;
+            animation: slideIn 0.2s ease;
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 920px;
+            max-height: 820px;
+            overflow-y: auto;
+            border-radius: 12px;
+            box-shadow: 0 20px 45px rgba(20, 23, 31, 0.25);
+            flex-shrink: 0;
+        }
+
+        .modal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .modal-content::-webkit-scrollbar-thumb {
+            background: var(--light-gray);
+            border-radius: 8px;
         }
 
         @keyframes fadeIn {
@@ -656,7 +669,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
         @keyframes slideIn {
             from {
                 opacity: 0;
-                transform: translateY(-50px) scale(0.9);
+                transform: translateY(-20px) scale(0.97);
             }
 
             to {
@@ -667,50 +680,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
 
         .modal-header h2 {
             margin: 0;
-            font-size: 1.5em;
+            font-size: 18px;
+            font-weight: 600;
         }
 
         .modal-close {
             position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 0, 0, 0.6);
+            top: 16px;
+            right: 16px;
+            background: rgba(255, 255, 255, 0.15);
             border: none;
             color: white;
-            width: 40px;
-            height: 40px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            font-size: 1.2em;
-            backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
+            font-size: 16px;
+            transition: background-color 0.15s ease;
             z-index: 10001;
         }
 
         .modal-close:hover {
             background: rgba(255, 255, 255, 0.3);
-            transform: rotate(90deg);
         }
 
         .modal-body {
-            max-height: 90vh;
-            overflow-y: auto;
-            scale: 0.9;
-            border-radius: 28px;
+            border-radius: 12px;
         }
 
-        /* Request Details Styles */
+        /* Request Details Styles (legacy / simple modal) */
         .request-details {
-            font-size: 14px;
+            font-size: 13px;
         }
 
         .details-section {
-            margin-bottom: 25px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #eee;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--light-gray);
         }
 
         .details-section:last-child {
@@ -718,58 +727,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
         }
 
         .details-section h3 {
-            color: var(--primary-color);
-            margin-bottom: 15px;
-            font-size: 1.2em;
+            color: var(--primary);
+            margin-bottom: 12px;
+            font-size: 15px;
+            font-weight: 600;
         }
 
         .request-item {
-            background: #f8f9fa;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-radius: 6px;
-            border-left: 4px solid var(--primary-color);
+            background: var(--light);
+            padding: 14px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            border-left: 3px solid var(--primary);
         }
 
         .item-header {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 10px;
         }
 
         .item-header h4 {
             margin: 0;
-            color: var(--text-dark);
+            color: var(--dark);
             flex-grow: 1;
+            font-size: 14px;
+            font-weight: 600;
         }
 
         .item-category {
-            background: var(--primary-color);
+            background: var(--primary);
             color: white;
-            padding: 4px 8px;
+            padding: 3px 8px;
             border-radius: 4px;
-            font-size: 0.8em;
+            font-size: 10px;
+            font-weight: 600;
         }
 
         .item-details {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 10px;
             margin-bottom: 10px;
         }
 
         .customization-details {
-            background: white;
+            background: var(--card-bg);
             padding: 10px;
-            border-radius: 4px;
+            border-radius: 6px;
             margin-top: 10px;
-            border: 1px solid #dee2e6;
+            border: 1px solid var(--light-gray);
         }
 
         .customization-details p {
-            margin: 5px 0;
-            font-size: 0.9em;
+            margin: 4px 0;
+            font-size: 12px;
         }
 
         .design-preview {
@@ -778,65 +791,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
         }
 
         .design-preview img {
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 5px;
-        }
-
-        .status-pending {
-            color: #856404;
-            background: #fff3cd;
-            padding: 4px 8px;
-            border-radius: 4px;
+            border: 1px solid var(--light-gray);
+            border-radius: 6px;
+            padding: 4px;
         }
 
         .status-approved {
-            color: #155724;
-            background: #d4edda;
-            padding: 4px 8px;
+            color: var(--success);
+            background: var(--success-bg);
+            padding: 3px 8px;
             border-radius: 4px;
         }
 
-        -status-rejected {
-            color: #721c24;
-            background: #f8d7da;
-            padding: 4px 8px;
+        .status-rejected {
+            color: var(--danger);
+            background: var(--danger-bg);
+            padding: 3px 8px;
             border-radius: 4px;
         }
 
         .error-message {
             text-align: center;
-            padding: 40px;
-            color: #dc3545;
+            padding: 60px 32px;
+            color: var(--danger);
         }
 
         .error-message i {
-            font-size: 3em;
-            margin-bottom: 20px;
+            font-size: 32px;
+            margin-bottom: 16px;
+        }
+
+        .error-message h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 6px;
+        }
+
+        .error-message p {
+            font-size: 13px;
+            color: var(--gray);
+        }
+
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            padding: 90px 32px;
+            color: var(--gray);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .loading-spinner i {
+            font-size: 28px;
+            color: var(--primary);
         }
 
         .btn {
-            padding: 10px 20px;
+            padding: 9px 16px;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
+            font-size: 13px;
             font-weight: 600;
         }
 
         .btn-secondary {
-            background: #6c757d;
-            color: white;
+            background: var(--light);
+            color: var(--dark);
+            border: 1px solid var(--light-gray);
         }
 
         .btn-secondary:hover {
-            background: #5a6268;
+            background: var(--light-gray);
         }
 
         /* Responsive */
         @media (max-width: 768px) {
+            .modal {
+                padding: 12px;
+            }
+
             .modal-content {
-                width: 95%;
-                margin: 10% auto;
+                width: 100%;
+                height: 94vh;
+                max-height: none;
             }
 
             .item-header {
@@ -855,14 +897,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
 
         /* Professional Modal Styles */
         .professional-modal {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: #2c3e50;
+            font-family: 'Inter', sans-serif;
+            color: var(--dark);
         }
 
         .modal-header-section {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--dark);
             color: white;
-            padding: 30px;
+            padding: 22px 52px 22px 22px;
             border-radius: 12px 12px 0 0;
         }
 
@@ -870,183 +912,194 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            flex-wrap: wrap;
+            row-gap: 8px;
+            margin-bottom: 12px;
         }
 
         .header-content h2 {
             margin: 0;
             font-weight: 600;
-            font-size: 1.8em;
+            font-size: 18px;
         }
 
         .header-badges {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
         }
 
         .request-id {
-            background: rgba(255, 255, 255, 0.2);
-            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 6px 12px;
             border-radius: 20px;
             font-weight: 600;
-            backdrop-filter: blur(10px);
+            font-size: 12px;
+            white-space: nowrap;
         }
 
         .status-badge {
-            padding: 8px 16px;
+            padding: 5px 12px;
             border-radius: 20px;
             font-weight: 600;
-            font-size: 0.85em;
+            font-size: 11px;
             display: flex;
             align-items: center;
             gap: 6px;
-        }
-
-        .status-pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status-reviewed {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-
-        .status-quoted {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status-completed {
-            background: #d1f7c4;
-            color: #0f5132;
+            white-space: nowrap;
         }
 
         .header-meta {
             display: flex;
-            gap: 20px;
+            gap: 16px;
+            flex-wrap: wrap;
         }
 
         .meta-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 0.9em;
-            opacity: 0.9;
+            gap: 6px;
+            font-size: 12px;
+            opacity: 0.85;
         }
 
         .modal-body-section {
-            padding: 30px;
-            background: #f8f9fa;
+            padding: 22px;
+            background: var(--light);
         }
 
         .content-grid {
             display: grid;
             grid-template-columns: 1fr 1.5fr;
-            gap: 30px;
+            gap: 20px;
+            min-width: 0;
+        }
+
+        .left-column,
+        .right-column {
+            min-width: 0;
         }
 
         /* Info Cards */
         .info-card {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
-            margin-bottom: 20px;
-            border: 1px solid #e9ecef;
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
+            margin-bottom: 16px;
+            border: 1px solid var(--light-gray);
             display: flex;
-            gap: 15px;
+            gap: 14px;
+            min-width: 0;
         }
 
         .info-icon {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            border-radius: 10px;
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 1.2em;
+            font-size: 16px;
             flex-shrink: 0;
         }
 
+        .info-content {
+            min-width: 0;
+            flex: 1;
+        }
+
         .info-content h4 {
-            margin: 0 0 15px 0;
-            color: #2c3e50;
+            margin: 0 0 12px 0;
+            color: var(--dark);
             font-weight: 600;
+            font-size: 14px;
         }
 
         .info-grid {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
         }
 
         .info-item {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
+            gap: 12px;
         }
 
         .info-label {
             font-weight: 600;
-            color: #6c757d;
-            min-width: 200px;
+            color: var(--gray);
+            min-width: 110px;
+            flex-shrink: 0;
+            font-size: 13px;
         }
 
         .info-value {
-            color: #2c3e50;
+            color: var(--dark);
             font-weight: 500;
+            font-size: 13px;
+            flex: 1;
+            min-width: 0;
+            text-align: right;
+            word-break: break-word;
+            overflow-wrap: anywhere;
         }
 
         /* Pricing Summary */
         .pricing-summary {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
         }
 
         .price-row {
+            display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid #f1f3f4;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--light-gray);
+            font-size: 13px;
         }
 
         .price-row.final {
             border-bottom: none;
             font-weight: 600;
-            font-size: 1.1em;
-            color: #2c3e50;
+            font-size: 15px;
+            color: var(--dark);
         }
 
         .price-label {
-            color: #6c757d;
+            color: var(--gray);
         }
 
         .price-value {
             font-weight: 600;
-            color: #2c3e50;
+            color: var(--dark);
         }
 
         .price-difference {
             display: flex;
             justify-content: space-between;
-            padding: 12px;
-            border-radius: 8px;
-            margin-top: 10px;
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-top: 8px;
             gap: 12px;
+            font-size: 13px;
         }
 
         .price-difference.increase {
-            background: #f8d7da;
-            color: #721c24;
+            background: var(--danger-bg);
+            color: var(--danger);
         }
 
         .price-difference.decrease {
-            background: #d1f7c4;
-            color: #0f5132;
+            background: var(--success-bg);
+            color: var(--success);
         }
 
         .difference-label {
@@ -1059,186 +1112,228 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
 
         /* Items Section */
         .items-section {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
-            border: 1px solid #e9ecef;
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
+            border: 1px solid var(--light-gray);
         }
 
         .section-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #f1f3f4;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--light-gray);
         }
 
         .section-header h3 {
             margin: 0;
-            color: #2c3e50;
+            color: var(--dark);
             font-weight: 600;
+            font-size: 15px;
         }
 
         .items-count {
-            background: #e9ecef;
-            padding: 6px 12px;
-            border-radius: 15px;
-            font-size: 0.85em;
+            background: var(--light);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
             font-weight: 600;
-            color: #6c757d;
+            color: var(--gray);
         }
 
         .items-container {
             display: flex;
             flex-direction: column;
-            gap: 16px;
-            max-height: 500px;
-            overflow-y: auto;
-            padding-right: 10px;
+            gap: 14px;
         }
 
         /* Request Items */
         .request-item {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            border-left: 4px solid #667eea;
-            transition: transform 0.2s, box-shadow 0.2s;
+            background: var(--light);
+            border-radius: 8px;
+            padding: 16px;
+            border-left: 3px solid var(--primary);
         }
 
         .item-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 15px;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .item-title {
+            min-width: 0;
+            flex: 1;
         }
 
         .item-title h4 {
-            margin: 0 0 5px 0;
-            color: #2c3e50;
+            margin: 0 0 4px 0;
+            color: var(--dark);
             font-weight: 600;
+            font-size: 14px;
+            word-break: break-word;
+            overflow-wrap: anywhere;
         }
 
         .item-category {
-            background: #667eea;
+            display: inline-block;
+            background: var(--primary);
             color: white;
-            padding: 4px 8px;
+            padding: 3px 8px;
             border-radius: 6px;
-            font-size: 0.75em;
+            font-size: 10px;
             font-weight: 600;
+            max-width: 100%;
+            word-break: break-word;
+        }
+
+        .item-price {
+            flex-shrink: 0;
+            text-align: right;
         }
 
         .item-price .subtotal {
             font-weight: 700;
-            color: #2c3e50;
-            font-size: 1.1em;
+            color: var(--dark);
+            font-size: 15px;
+            white-space: nowrap;
         }
 
         .item-details-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 12px;
-            margin-bottom: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
         }
 
         .detail-group {
             display: flex;
             flex-direction: column;
             gap: 4px;
+            min-width: 0;
         }
 
         .detail-group label {
-            font-size: 0.8em;
-            color: #6c757d;
+            font-size: 11px;
+            color: var(--gray);
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
 
         .detail-group span {
             font-weight: 500;
-            color: #2c3e50;
+            color: var(--dark);
+            font-size: 13px;
+            word-break: break-word;
+            overflow-wrap: anywhere;
         }
 
         .detail-group.quoted-price span {
-            color: #28a745;
+            color: var(--success);
             font-weight: 600;
         }
 
         /* Customization Section */
         .customization-section {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #e9ecef;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--light-gray);
         }
 
         .customization-section h5 {
-            margin: 0 0 12px 0;
-            color: #495057;
+            margin: 0 0 10px 0;
+            color: var(--gray);
             font-weight: 600;
-            font-size: 0.9em;
+            font-size: 12px;
         }
 
         .customization-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 10px;
         }
 
         .customization-item {
             display: flex;
             justify-content: space-between;
+            gap: 10px;
             padding: 8px 12px;
-            background: white;
+            background: var(--card-bg);
             border-radius: 6px;
-            border: 1px solid #e9ecef;
-            text-transform: uppercase
+            border: 1px solid var(--light-gray);
+            min-width: 0;
+        }
+
+        .customization-item.full-width {
+            grid-column: 1 / -1;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .layout-details-value {
+            width: 100%;
+            max-height: 140px;
+            overflow-y: auto;
+            text-align: left;
+            white-space: pre-wrap;
+            margin-top: 4px;
         }
 
         .customization {
             justify-content: space-between;
             padding: 8px 12px;
-            background: white;
+            background: var(--card-bg);
             border-radius: 6px;
-            border: 1px solid #e9ecef;
+            border: 1px solid var(--light-gray);
         }
 
         .custom-label {
             font-weight: 600;
-            color: #6c757d;
-            font-size: 0.85em;
+            color: var(--gray);
+            font-size: 12px;
+            flex-shrink: 0;
         }
 
         .custom-value {
-            color: #2c3e50;
+            color: var(--dark);
             font-weight: 500;
-            font-size: 0.85em;
+            font-size: 12px;
+            text-align: right;
+            min-width: 0;
+            word-break: break-word;
+            overflow-wrap: anywhere;
         }
 
         /* Design Preview Section */
         .design-preview-section {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 2px dashed #007bff;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed var(--light-gray);
         }
 
         .design-preview-section h5 {
-            margin: 0 0 12px 0;
-            color: #007bff;
+            margin: 0 0 10px 0;
+            color: var(--primary);
             font-weight: 600;
-            font-size: 0.95em;
+            font-size: 12px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
         .design-preview-section h5 i {
-            font-size: 0.9em;
+            font-size: 11px;
         }
 
         .design-previews {
             display: flex;
-            gap: 15px;
+            gap: 12px;
             flex-wrap: wrap;
             justify-content: flex-start;
         }
@@ -1250,19 +1345,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
         }
 
         .design-image {
-            width: 100px;
-            height: 100px;
+            width: 84px;
+            height: 84px;
             object-fit: contain;
-            border-radius: 8px;
-            border: 2px solid #007bff;
-            padding: 5px;
-            background: white;
-            transition: transform 0.3s ease;
+            border-radius: 6px;
+            border: 1px solid var(--light-gray);
+            padding: 4px;
+            background: var(--card-bg);
+            transition: transform 0.15s ease;
         }
 
         .design-preview a:hover .design-image {
             transform: scale(1.05);
-            border-color: #0056b3;
+            border-color: var(--primary);
         }
 
         .design-overlay {
@@ -1271,14 +1366,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(20, 23, 31, 0.6);
             display: flex;
             align-items: center;
             justify-content: center;
             opacity: 0;
-            transition: opacity 0.3s;
+            transition: opacity 0.15s ease;
             color: white;
-            font-size: 1.2em;
+            font-size: 15px;
             border-radius: 6px;
         }
 
@@ -1287,119 +1382,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
         }
 
         .design-label {
-            font-size: 0.75em;
-            color: #666;
-            margin-top: 8px;
+            font-size: 10px;
+            color: var(--gray);
+            margin-top: 6px;
             font-weight: 500;
-            max-width: 100px;
+            max-width: 84px;
             word-wrap: break-word;
         }
 
         .design-file-missing {
-            width: 100px;
-            height: 100px;
-            background: #f8f9fa;
+            width: 84px;
+            height: 84px;
+            background: var(--light);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            border-radius: 8px;
-            border: 2px dashed #dee2e6;
-            color: #6c757d;
+            border-radius: 6px;
+            border: 1px dashed var(--light-gray);
+            color: var(--gray);
         }
 
         .design-file-missing i {
-            font-size: 1.5em;
-            margin-bottom: 5px;
+            font-size: 18px;
+            margin-bottom: 4px;
         }
 
         /* Color coding for different file types */
         .design-preview:has(img[alt*="Original"]) .design-image {
-            border-color: #28a745;
+            border-color: var(--success);
         }
 
         .design-preview:has(img[alt*="Mockup"]) .design-image {
-            border-color: #007bff;
+            border-color: var(--primary);
         }
 
         .design-preview:has(.design-file-missing) .design-label {
-            color: #dc3545;
+            color: var(--danger);
         }
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .design-previews {
                 justify-content: center;
-                gap: 12px;
+                gap: 10px;
             }
 
             .design-image {
-                width: 80px;
-                height: 80px;
+                width: 70px;
+                height: 70px;
             }
 
             .design-file-missing {
-                width: 80px;
-                height: 80px;
+                width: 70px;
+                height: 70px;
             }
 
             .design-label {
-                max-width: 80px;
-                font-size: 0.7em;
+                max-width: 70px;
+                font-size: 10px;
             }
         }
 
         /* Total Section */
         .total-section {
-            margin-top: 25px;
-            padding-top: 20px;
-            border-top: 2px solid #e9ecef;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--light-gray);
         }
 
         .total-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 15px 20px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            border-radius: 10px;
+            padding: 14px 18px;
+            background: var(--dark);
+            border-radius: 8px;
             color: white;
         }
 
         .total-label {
             font-weight: 600;
-            font-size: 1.1em;
+            font-size: 14px;
         }
 
         .total-amount {
             font-weight: 700;
-            font-size: 1.3em;
-        }
-
-        /* Scrollbar Styling */
-        .items-container::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .items-container::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 3px;
-        }
-
-        .items-container::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 3px;
-        }
-
-        .items-container::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
+            font-size: 18px;
         }
 
         /* Responsive Design */
         @media (max-width: 768px) {
             .content-grid {
                 grid-template-columns: 1fr;
-                gap: 20px;
+                gap: 16px;
             }
 
             .header-content {
@@ -1432,21 +1508,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
         }
 
         .layout-details {
-            font-size: 0.9em;
-            color: #666;
+            font-size: 12px;
+            color: var(--gray);
             margin-top: 2px;
         }
 
         .layout-files {
             margin-top: 8px;
             padding-top: 8px;
-            border-top: 1px dashed #ddd;
+            border-top: 1px dashed var(--light-gray);
         }
 
         .files-label {
-            font-size: 0.85em;
-            color: #ffc107;
-            font-weight: bold;
+            font-size: 12px;
+            color: var(--warning);
+            font-weight: 600;
             margin-bottom: 4px;
         }
 
@@ -1457,22 +1533,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
         .layout-images {
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 12px;
             margin-top: 5px;
         }
 
         .layout-image-preview {
             position: relative;
-            width: 120px;
+            width: 100px;
             text-align: center;
         }
 
         .layout-thumbnail {
-            width: 120px;
-            height: 120px;
+            width: 100px;
+            height: 100px;
             object-fit: cover;
-            border-radius: 8px;
-            border: 1px solid #ddd;
+            border-radius: 6px;
+            border: 1px solid var(--light-gray);
         }
 
         .image-link {
@@ -1487,13 +1563,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0,0,0,0.5);
+            background: rgba(20, 23, 31, 0.5);
             display: flex;
             align-items: center;
             justify-content: center;
             opacity: 0;
-            transition: opacity 0.3s;
-            border-radius: 8px;
+            transition: opacity 0.15s ease;
+            border-radius: 6px;
         }
 
         .layout-image-preview:hover .image-overlay {
@@ -1502,54 +1578,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
 
         .image-overlay i {
             color: white;
-            font-size: 1.5em;
+            font-size: 15px;
         }
 
         .image-actions {
-            margin-top: 8px;
+            margin-top: 6px;
         }
 
         .download-btn {
             display: inline-block;
-            background: #007bff;
+            background: var(--primary);
             color: white;
-            padding: 5px 10px;
+            padding: 4px 10px;
             border-radius: 4px;
             text-decoration: none;
-            font-size: 0.8em;
-            transition: background 0.3s;
+            font-size: 11px;
+            transition: background-color 0.15s ease;
         }
 
         .download-btn:hover {
-            background: #0056b3;
+            background: var(--secondary);
             color: white;
             text-decoration: none;
         }
 
         .image-filename {
-            font-size: 0.75em;
+            font-size: 10px;
             margin-top: 5px;
             word-break: break-all;
-            color: #666;
-            line-height: 1.2;
+            color: var(--gray);
+            line-height: 1.3;
         }
 
         .layout-file {
-            font-size: 0.8em;
+            font-size: 11px;
             margin: 2px 0;
         }
 
         .layout-file a {
-            color: #007bff;
+            color: var(--primary);
             text-decoration: none;
         }
 
         .file-missing {
-            color: #e74c3c;
-            font-size: 0.8em;
+            color: var(--danger);
+            font-size: 11px;
         }
-
-
     </style>
 </head>
 
@@ -1610,7 +1684,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                 <button class="search-btn" onclick="filterRequests()">
                     <i class="fas fa-search"></i> Filter
                 </button>
-                <button class="search-btn" onclick="clearFilters()" style="background: #95a5a6;">
+                <button class="search-btn" onclick="clearFilters()" style="background: var(--gray);">
                     <i class="fas fa-times"></i> Clear
                 </button>
             </div>
@@ -1641,14 +1715,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                                     <div>
                                         <strong><?php echo htmlspecialchars($customer_name); ?></strong>
                                         <br>
-                                        <small style="color: #666;"><?php echo htmlspecialchars($request['username']); ?></small>
+                                        <small style="color: var(--gray);"><?php echo htmlspecialchars($request['username']); ?></small>
                                         <br>
                                     </div>
                                 </td>
                                 <td>
                                     <strong>₱<?php echo number_format($request['estimated_total'], 2); ?></strong>
                                     <br>
-                                    <small style="color: #666;"><?php echo count($selected_items); ?> items</small>
+                                    <small style="color: var(--gray);"><?php echo count($selected_items); ?> items</small>
                                 </td>
                                 <td>
                                     <?php if ($request['final_price']): ?>
@@ -1666,7 +1740,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                                             <?php endif; ?>
                                         </div>
                                     <?php else: ?>
-                                        <span style="color: #999;">Not set</span>
+                                        <span style="color: var(--gray);">Not set</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -1677,7 +1751,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                                 <td>
                                     <?php echo date('M j, Y', strtotime($request['request_date'])); ?>
                                     <br>
-                                    <small style="color: #666;"><?php echo date('g:i A', strtotime($request['request_date'])); ?></small>
+                                    <small style="color: var(--gray);"><?php echo date('g:i A', strtotime($request['request_date'])); ?></small>
                                 </td>
                                 <td>
                                     <div class="pricing-actions">
@@ -1776,7 +1850,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                 modal.querySelector('.modal-content').prepend(closeBtn);
             }
 
-            modal.style.display = 'block';
+            modal.style.display = 'flex';
 
             // Fetch request details via AJAX
             fetch(`get_pricing_request_details.php?id=${requestId}`)

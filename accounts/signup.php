@@ -1,5 +1,14 @@
 <?php
+session_start();
 require_once '../config/db.php';
+
+// SECURITY: this page creates employee/admin accounts, so only an already
+// logged-in admin may use it. Without this check, anyone who finds this
+// URL could POST role=admin and grant themselves full access.
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
+  header("Location: login.php");
+  exit;
+}
 
 $message = '';
 $success = false;
@@ -10,7 +19,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   $confirm_password = $_POST['confirm_password'];
   $role = $_POST['role'];
 
-  if (!empty($username) && !empty($password) && !empty($confirm_password)) {
+  // Whitelist roles server-side — never trust the dropdown value alone
+  $allowed_roles = ['employee', 'admin'];
+  if (!in_array($role, $allowed_roles, true)) {
+    $message = "Invalid role selected.";
+    $role = null;
+  }
+
+  if ($role === null) {
+    // invalid role — $message already set above, fall through to display it
+  } elseif (!empty($username) && !empty($password) && !empty($confirm_password)) {
     // Check if passwords match
     if ($password !== $confirm_password) {
       $message = "Passwords do not match.";

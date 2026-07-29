@@ -3,7 +3,7 @@ session_start();
 require_once '../../config/db.php';
 
 // Check if user is logged in and is admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
     header("Location: ../../accounts/login.php");
     exit;
 }
@@ -106,31 +106,51 @@ while ($row = $status_distribution_result->fetch_assoc()) {
     <title>Admin Dashboard - Active Media</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        :root {
+            --primary: #4f5eff;
+            --secondary: #4048e0;
+            --primary-bg: #eef1ff;
+            --light: #f6f6f7;
+            --dark: #14171f;
+            --gray: #6b7280;
+            --light-gray: #e2e4e7;
+            --card-bg: #ffffff;
+            --success: #1a9c6b;
+            --success-bg: #e3f6ee;
+            --danger: #d9463c;
+            --danger-bg: #fbe9e7;
+            --warning: #b6790a;
+            --warning-bg: #fdf2df;
+            --info: #2a7ade;
+            --info-bg: #e8f1fc;
+        }
+
         ::-webkit-scrollbar {
-            width: 7px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: #1876f299;
-            border-radius: 10px;
+            background: #cbced3;
+            border-radius: 8px;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
         body {
-            background-color: #f8f9fa;
-            color: #333;
-            line-height: 1.6;
+            background-color: var(--light);
+            color: var(--dark);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }
 
         .admin-container {
@@ -138,83 +158,29 @@ while ($row = $status_distribution_result->fetch_assoc()) {
             min-height: 100vh;
         }
 
-        /* Sidebar */
-        .sidebar {
-            width: 250px;
-            background: #2c3e50;
-            color: white;
-            padding: 20px 0;
-        }
-
-        .sidebar-header {
-            padding: 0 20px 20px;
-            border-bottom: 1px solid #34495e;
-            margin-bottom: 20px;
-        }
-
-        .sidebar-header h2 {
-            color: #3498db;
-            font-size: 1.3em;
-            margin-bottom: 5px;
-        }
-
-        .sidebar-header small {
-            font-size: 0.85em;
-            color: #bdc3c7;
-        }
-
-        .sidebar-menu {
-            list-style: none;
-        }
-
-        .sidebar-menu li {
-            margin-bottom: 5px;
-        }
-
-        .sidebar-menu a {
-            display: flex;
-            align-items: center;
-            padding: 12px 20px;
-            color: #bdc3c7;
-            text-decoration: none;
-            transition: all 0.3s;
-        }
-
-        .sidebar-menu a:hover,
-        .sidebar-menu a.active {
-            background: #34495e;
-            color: white;
-            border-left: 4px solid #3498db;
-        }
-
-        .sidebar-menu i {
-            margin-right: 10px;
-            width: 20px;
-            text-align: center;
-        }
-
         /* Main Content */
         .main-content {
             flex: 1;
-            padding: 20px;
-            background: #f0f2f5;
-            padding-bottom: 110px;
+            padding: 28px 32px;
+            background: var(--light);
+            padding-bottom: 90px;
         }
 
         .header {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            margin-bottom: 25px;
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            padding: 18px 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
+            margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         .header h1 {
-            color: #1c1e21;
-            font-size: 1.8em;
+            color: var(--dark);
+            font-size: 22px;
             margin: 0;
             font-weight: 600;
         }
@@ -226,106 +192,113 @@ while ($row = $status_distribution_result->fetch_assoc()) {
         }
 
         .logout-btn {
-            background: #e74c3c;
-            color: white;
-            padding: 10px 18px;
+            background: var(--danger-bg);
+            color: var(--danger);
+            padding: 8px 14px;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             text-decoration: none;
-            font-size: 14px;
-            transition: background 0.3s;
+            font-size: 13px;
+            font-weight: 600;
+            transition: opacity 0.15s ease;
         }
 
         .logout-btn:hover {
-            background: #c0392b;
+            opacity: 0.8;
         }
 
         /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
             margin-bottom: 20px;
         }
 
         .stat-card {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            padding: 18px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
             text-align: center;
-            transition: transform 0.3s;
+            transition: box-shadow 0.15s ease;
         }
 
         .stat-card:hover {
-            transform: translateY(-5px);
+            box-shadow: 0 4px 12px rgba(20, 23, 31, 0.08);
         }
 
         .stat-card i {
-            font-size: 2em;
-            margin-bottom: 15px;
+            font-size: 22px;
+            margin-bottom: 10px;
         }
 
         .stat-card.orders i {
-            color: #3498db;
+            color: var(--primary);
         }
 
         .stat-card.revenue i {
-            color: #27ae60;
+            color: var(--success);
         }
 
         .stat-card.pending i {
-            color: #f39c12;
+            color: var(--warning);
         }
 
         .stat-card.completed i {
-            color: #2ecc71;
+            color: var(--success);
         }
 
         .stat-card.customers i {
-            color: #9b59b6;
+            color: var(--secondary);
         }
 
         .stat-number {
-            font-size: 2em;
-            font-weight: 600;
-            margin: 10px 0;
+            font-size: 22px;
+            font-weight: 700;
+            margin: 6px 0;
         }
 
         .stat-label {
-            color: #7f8c8d;
-            font-size: 0.9em;
+            color: var(--gray);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 600;
         }
 
         /* Charts Section */
         .charts-section {
             display: grid;
             grid-template-columns: 2fr 1fr;
-            gap: 20px;
+            gap: 16px;
             margin-bottom: 20px;
         }
 
         .chart-container {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            padding: 18px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
         }
 
         .chart-title {
-            margin-bottom: 20px;
-            color: #2c3e50;
-            font-size: 1.2em;
+            margin-bottom: 16px;
+            color: var(--dark);
+            font-size: 15px;
             font-weight: 600;
         }
 
         /* Recent Orders */
         .recent-orders {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            padding: 18px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
         }
 
         .table {
@@ -335,60 +308,83 @@ while ($row = $status_distribution_result->fetch_assoc()) {
 
         .table th,
         .table td {
-            padding: 15px;
+            padding: 10px 14px;
             text-align: left;
-            border-bottom: 1px solid #ecf0f1;
+            border-bottom: 1px solid var(--light-gray);
+            font-size: 13px;
         }
 
         .table th {
-            background: #f8f9fa;
+            background: var(--light);
             font-weight: 600;
-            color: #2c3e50;
+            color: var(--gray);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
 
         .status-badge {
-            padding: 6px 12px;
+            padding: 3px 10px;
             border-radius: 20px;
-            font-size: 0.8em;
+            font-size: 11px;
             font-weight: 600;
         }
 
         .status-pending {
-            background: #fff3cd;
-            color: #856404;
+            background: var(--warning-bg);
+            color: var(--warning);
         }
 
         .status-paid {
-            background: #d1ecf1;
-            color: #0c5460;
+            background: var(--info-bg);
+            color: var(--info);
         }
 
         .status-processing {
-            background: #d4edda;
-            color: #155724;
+            background: var(--success-bg);
+            color: var(--success);
         }
 
         .status-ready_for_pickup {
-            background: #cce7ff;
-            color: #004085;
+            background: var(--primary-bg);
+            color: var(--secondary);
         }
 
         .status-completed {
-            background: #d1f7c4;
-            color: #0f5132;
+            background: var(--success-bg);
+            color: var(--success);
         }
 
         .view-all {
             display: block;
             text-align: center;
-            margin-top: 20px;
-            color: #3498db;
+            margin-top: 16px;
+            color: var(--primary);
             text-decoration: none;
             font-weight: 600;
+            font-size: 13px;
         }
 
         .view-all:hover {
             text-decoration: underline;
+        }
+
+        @media (max-width: 992px) {
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .main-content {
+                padding: 20px;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
         }
     </style>
 </head>
@@ -516,8 +512,8 @@ while ($row = $status_distribution_result->fetch_assoc()) {
                 datasets: [{
                     label: 'Cumulative Revenue (₱)',
                     data: <?php echo json_encode(array_column($cumulative_revenue, 'cumulative_revenue')); ?>,
-                    borderColor: '#3498db',
-                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    borderColor: '#4f5eff',
+                    backgroundColor: 'rgba(79, 94, 255, 0.1)',
                     borderWidth: 2,
                     fill: true,
                     tension: 0.4
@@ -554,18 +550,18 @@ while ($row = $status_distribution_result->fetch_assoc()) {
                 datasets: [{
                     data: <?php echo json_encode(array_column($status_distribution, 'count')); ?>,
                     backgroundColor: [
-                        '#fff3cd', // pending
-                        '#d1ecf1', // paid
-                        '#d4edda', // processing
-                        '#cce7ff', // ready_for_pickup
-                        '#d1f7c4' // completed
+                        '#fdf2df', // pending
+                        '#e8f1fc', // paid
+                        '#e3f6ee', // processing
+                        '#eef1ff', // ready_for_pickup
+                        '#e3f6ee' // completed
                     ],
                     borderColor: [
-                        '#856404',
-                        '#0c5460',
-                        '#155724',
-                        '#004085',
-                        '#0f5132'
+                        '#b6790a',
+                        '#2a7ade',
+                        '#1a9c6b',
+                        '#4048e0',
+                        '#1a9c6b'
                     ],
                     borderWidth: 1
                 }]

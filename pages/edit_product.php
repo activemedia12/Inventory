@@ -69,78 +69,196 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Product</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Edit Paper - Active Media Printing</title>
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         ::-webkit-scrollbar {
-            width: 5px;
-            height: 5px;
+            width: 8px;
+            height: 8px;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: rgb(140, 140, 140);
-            border-radius: 10px;
+            background: #cbced3;
+            border-radius: 8px;
         }
 
         :root {
-            --primary: #1877f2;
-            --secondary: #166fe5;
-            --light: #f0f2f5;
-            --dark: #1c1e21;
-            --gray: #65676b;
-            --light-gray: #e4e6eb;
+            --primary: #4f5eff;
+            --secondary: #4048e0;
+            --primary-bg: #eef1ff;
+            --light: #f6f6f7;
+            --dark: #14171f;
+            --gray: #6b7280;
+            --light-gray: #e2e4e7;
             --card-bg: #ffffff;
-            --success: #42b72a;
-            --warning: #faad14;
-            --danger: #ff4d4f;
+            --success: #1a9c6b;
+            --success-bg: #e3f6ee;
+            --danger: #d9463c;
+            --danger-bg: #fbe9e7;
+            --warning: #b6790a;
+            --warning-bg: #fdf2df;
+            --info: #2a7ade;
+            --info-bg: #e8f1fc;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
         body {
             background-color: var(--light);
             color: var(--dark);
+            display: flex;
             min-height: 100vh;
-            padding-left: 70px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 240px;
+            background-color: var(--card-bg);
+            height: 100vh;
+            position: fixed;
+            border-right: 1px solid var(--light-gray);
+            padding: 20px 0;
+            overflow-y: auto;
+        }
+
+        .brand {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid var(--light-gray);
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .brand img {
+            height: 100px;
+            width: auto;
+            padding-left: 0;
+            transform: none;
+        }
+
+        .nav-menu {
+            list-style: none;
+            padding: 0 12px;
+        }
+
+        .nav-menu li a {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: 6px;
+            color: var(--gray);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .nav-menu li a:hover {
+            background-color: var(--light);
+            color: var(--dark);
+        }
+
+        .nav-menu li.active>a,
+        .nav-menu li a.active {
+            background-color: var(--primary-bg);
+            color: var(--secondary);
+        }
+
+        .nav-menu li a i {
+            margin-right: 10px;
+            width: 16px;
+            text-align: center;
+            color: var(--gray);
+        }
+
+        .nav-menu li.active>a i,
+        .nav-menu li a:hover i {
+            color: inherit;
+        }
+
+        .submenu {
+            list-style: none;
+            margin: 2px 0 6px 14px;
+            padding-left: 14px;
+            border-left: 2px solid var(--light-gray);
+        }
+
+        .submenu li a {
+            padding: 7px 10px;
+            font-size: 12.5px;
+            font-weight: 500;
+            color: var(--gray);
+            border-radius: 6px;
+        }
+
+        .submenu li a:hover {
+            background-color: var(--light);
+            color: var(--dark);
+        }
+
+        .submenu li a.activate {
+            color: var(--secondary);
+            font-weight: 600;
+            background-color: var(--primary-bg);
         }
 
         /* Main Content */
         .main-content {
-            padding: 30px;
-            max-width: 800px;
-            margin: 0 auto;
+            flex: 1;
+            margin-left: 240px;
+            padding: 28px 32px;
+            max-width: 900px;
         }
 
         /* Header */
-        .page-header {
+        .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
             border-bottom: 1px solid var(--light-gray);
         }
 
-        .page-title {
-            font-size: 24px;
-            font-weight: 600;
-            color: var(--dark);
+        .header-title {
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            gap: 4px;
         }
 
-        .page-title i {
-            margin-right: 12px;
+        .header-title h1 {
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .breadcrumb {
+            font-size: 12.5px;
+            color: var(--gray);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .breadcrumb a {
+            color: var(--gray);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
             color: var(--primary);
         }
 
@@ -149,153 +267,173 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             align-items: center;
         }
 
-        .user-avatar {
-            width: 40px;
-            height: 40px;
+        .user-info img {
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             margin-right: 10px;
             object-fit: cover;
-            background-color: var(--primary);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
         }
 
         .user-details h4 {
-            font-weight: 500;
-            font-size: 16px;
-            margin-bottom: 2px;
+            font-weight: 600;
+            font-size: 14px;
         }
 
         .user-details small {
             color: var(--gray);
-            font-size: 14px;
+            font-size: 12px;
         }
 
-        /* Alert */
+        /* Alerts */
         .alert {
-            padding: 12px 16px;
-            border-radius: 6px;
-            margin-bottom: 25px;
-            font-size: 14px;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
             display: flex;
             align-items: center;
-            border-left: 4px solid transparent;
+            font-size: 13px;
+            font-weight: 500;
         }
 
         .alert i {
             margin-right: 10px;
-            font-size: 18px;
         }
 
         .alert-success {
-            background-color: rgba(66, 183, 42, 0.1);
+            background-color: var(--success-bg);
             color: var(--success);
-            border-left-color: var(--success);
         }
 
         .alert-danger {
-            background-color: rgba(255, 77, 79, 0.1);
+            background-color: var(--danger-bg);
             color: var(--danger);
-            border-left-color: var(--danger);
         }
 
-        /* Form Card */
-        .form-card {
-            background: var(--card-bg);
+        /* Info / stock summary card */
+        .info-banner {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: var(--primary-bg);
             border-radius: 8px;
-            padding: 30px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            padding: 16px 18px;
             margin-bottom: 20px;
         }
 
-        .form-header {
+        .info-banner .icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: var(--card-bg);
+            color: var(--primary);
             display: flex;
             align-items: center;
-            margin-bottom: 25px;
+            justify-content: center;
+            font-size: 17px;
+            flex-shrink: 0;
         }
 
-        .form-icon {
-            font-size: 28px;
-            color: var(--primary);
-            margin-right: 15px;
+        .info-banner .value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--dark);
         }
 
-        .form-title {
-            font-size: 20px;
+        .info-banner .label {
+            font-size: 12px;
+            color: var(--gray);
+        }
+
+        /* Form card */
+        .form-card {
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
+            overflow: hidden;
+        }
+
+        .form-card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--light-gray);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-card-header i {
+            color: var(--gray);
+        }
+
+        .form-card-header h3 {
+            font-size: 15px;
             font-weight: 600;
             color: var(--dark);
         }
 
-        /* Stock Info */
-        .stock-info {
-            background: rgba(24, 119, 242, 0.05);
-            border-radius: 6px;
-            padding: 15px;
-            margin-bottom: 25px;
-            border-left: 3px solid var(--primary);
+        .form-card-body {
+            padding: 20px;
         }
 
-        .stock-value {
-            font-weight: 500;
-            color: var(--dark);
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
         }
 
-        .stock-label {
-            color: var(--gray);
-            font-size: 14px;
-        }
-
-        /* Form Elements */
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 4px;
         }
 
-        .form-label {
+        .form-group label {
             display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            font-weight: 600;
             color: var(--gray);
-            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
 
         .form-control {
             width: 100%;
-            padding: 12px 15px;
+            padding: 10px 12px;
             border: 1px solid var(--light-gray);
             border-radius: 6px;
-            font-size: 14px;
-            transition: border 0.3s;
+            font-size: 13px;
+            background: var(--card-bg);
+            color: var(--dark);
+            transition: border-color 0.15s ease;
         }
 
         .form-control:focus {
             outline: none;
             border-color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(24, 119, 242, 0.2);
         }
 
-        /* Buttons */
-        .btn-group {
+        .form-actions {
             display: flex;
-            justify-content: flex-start;
-            gap: 15px;
-            margin-top: 30px;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 24px;
+            padding-top: 18px;
+            border-top: 1px solid var(--light-gray);
         }
 
         .btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 12px 24px;
+            padding: 10px 18px;
             border-radius: 6px;
-            font-weight: 500;
+            font-size: 13px;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
-            text-decoration: none;
-            font-size: 14px;
+            transition: background-color 0.15s ease, color 0.15s ease;
             border: none;
+            gap: 8px;
+            text-decoration: none;
         }
 
         .btn-primary {
@@ -310,118 +448,196 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .btn-outline {
             background-color: transparent;
             border: 1px solid var(--light-gray);
-            color: var(--dark);
+            color: var(--gray);
         }
 
         .btn-outline:hover {
-            background-color: var(--light-gray);
+            background-color: var(--light);
+            color: var(--dark);
         }
 
-        .btn i {
-            margin-right: 8px;
-        }
-
-        /* Responsive Adjustments */
+        /* Responsive */
         @media (max-width: 768px) {
-            body {
-                padding-left: 0;
+            .sidebar-con {
+                width: 100%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: fixed;
+            }
+
+            .sidebar {
+                position: fixed;
+                overflow: hidden;
+                height: auto;
+                width: auto;
+                bottom: 12px;
+                left: 50%;
+                transform: translateX(-50%);
+                padding: 6px;
+                background-color: rgba(255, 255, 255, 0.85);
+                backdrop-filter: blur(6px);
+                box-shadow: 0 4px 16px rgba(20, 23, 31, 0.12);
+                border-radius: 100px;
+                touch-action: manipulation;
+                z-index: 9999;
+                flex-direction: row;
+                border: 1px solid var(--light-gray);
+                justify-content: center;
+            }
+
+            .sidebar .nav-menu {
+                display: flex;
+                flex-direction: row;
+                padding: 0;
+            }
+
+            .sidebar img,
+            .sidebar .brand,
+            .sidebar .nav-menu li a span,
+            .sidebar .submenu {
+                display: none;
+            }
+
+            .sidebar .nav-menu li a {
+                justify-content: center;
+                padding: 12px;
+            }
+
+            .sidebar .nav-menu li a i {
+                margin-right: 0;
             }
 
             .main-content {
+                margin-left: 0;
+                margin-bottom: 90px;
                 padding: 20px;
             }
 
-            .page-header {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .header {
                 flex-direction: column;
                 align-items: flex-start;
+                gap: 10px;
             }
 
-            .user-info {
-                margin-top: 15px;
-            }
-
-            .btn-group {
-                flex-direction: column;
+            .form-actions {
+                flex-direction: column-reverse;
             }
 
             .btn {
                 width: 100%;
             }
         }
-
-        @media (max-width: 576px) {
-            .form-card {
-                padding: 20px;
-            }
-        }
     </style>
 </head>
 
 <body>
-    <!-- Include your sidebar navigation here -->
+    <div class="sidebar-con">
+        <div class="sidebar">
+            <div class="brand">
+                <img src="../assets/images/plainlogo.png" alt="Active Media Printing Logo">
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
+                <li class="active">
+                    <a href="papers.php">
+                        <i class="fas fa-boxes"></i> <span>Products</span>
+                    </a>
+                    <ul class="submenu">
+                        <li><a href="papers.php" class="activate">Papers</a></li>
+                        <li><a href="insuances.php">Consumables</a></li>
+                    </ul>
+                </li>
+                <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
+                <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+                <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
+                <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
+                <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
+            </ul>
+        </div>
+    </div>
 
     <div class="main-content">
-        <header class="page-header">
-            <h1 class="page-title"><i class="fas fa-box-open"></i> Edit Product</h1>
+        <header class="header">
+            <div class="header-title">
+                <h1>Edit Paper</h1>
+                <div class="breadcrumb">
+                    <a href="papers.php">Papers</a> <i class="fas fa-chevron-right" style="font-size:9px;"></i> <span>Edit</span>
+                </div>
+            </div>
+            <div class="user-info">
+                <img src="https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['username']) ?>&background=random" alt="User">
+                <div class="user-details">
+                    <h4><?= htmlspecialchars($_SESSION['username']) ?></h4>
+                    <small><?= $_SESSION['role'] ?></small>
+                </div>
+            </div>
         </header>
 
         <?php if ($message): ?>
             <div class="alert <?= strpos($message, '❌') !== false ? 'alert-danger' : 'alert-success' ?>">
                 <i class="fas <?= strpos($message, '❌') !== false ? 'fa-exclamation-circle' : 'fa-check-circle' ?>"></i>
-                <?= $message ?>
+                <?= str_replace('❌ ', '', $message) ?>
             </div>
         <?php endif; ?>
 
+        <div class="info-banner">
+            <div class="icon"><i class="fas fa-warehouse"></i></div>
+            <div>
+                <div class="value"><?= number_format($remaining_sheets) ?> sheets <span style="font-weight:400; color:var(--gray); font-size:13px;">(<?= number_format($remaining_sheets / 500, 2) ?> reams)</span></div>
+                <div class="label">Current stock on hand</div>
+            </div>
+        </div>
+
         <div class="form-card">
-            <div class="form-header">
-                <div class="form-icon">
-                    <i class="fas fa-edit"></i>
-                </div>
-                <h2 class="form-title">Product Information</h2>
+            <div class="form-card-header">
+                <i class="fas fa-box"></i>
+                <h3><?= htmlspecialchars($product['product_type']) ?> — <?= htmlspecialchars($product['product_name']) ?></h3>
             </div>
+            <div class="form-card-body">
+                <form method="POST">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Product Type</label>
+                            <input type="text" name="product_type" class="form-control"
+                                value="<?= htmlspecialchars($product['product_type']) ?>" required>
+                        </div>
 
-            <div class="stock-info">
-                <div class="stock-value">
-                    <?= number_format($remaining_sheets) ?> sheets remaining
-                    (<?= number_format($remaining_sheets / 500, 2) ?> reams)
-                </div>
-                <div class="stock-label">Current stock level</div>
+                        <div class="form-group">
+                            <label>Product Group / Size</label>
+                            <input type="text" name="product_group" class="form-control"
+                                value="<?= htmlspecialchars($product['product_group']) ?>" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Product Name</label>
+                            <input type="text" name="product_name" class="form-control"
+                                value="<?= htmlspecialchars($product['product_name']) ?>" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Unit Price (₱)</label>
+                            <input type="number" step="0.01" name="unit_price" class="form-control"
+                                value="<?= htmlspecialchars($product['unit_price']) ?>" required>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <a href="papers.php" class="btn btn-outline">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
             </div>
-
-            <form method="POST">
-                <div class="form-group">
-                    <label class="form-label">Product Type</label>
-                    <input type="text" name="product_type" class="form-control"
-                        value="<?= htmlspecialchars($product['product_type']) ?>" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Product Group</label>
-                    <input type="text" name="product_group" class="form-control"
-                        value="<?= htmlspecialchars($product['product_group']) ?>" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Product Name</label>
-                    <input type="text" name="product_name" class="form-control"
-                        value="<?= htmlspecialchars($product['product_name']) ?>" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Unit Price (₱)</label>
-                    <input type="number" step="0.01" name="unit_price" class="form-control"
-                        value="<?= htmlspecialchars($product['unit_price']) ?>" required>
-                </div>
-
-                <div class="btn-group">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Save Changes
-                    </button>
-                    <a href="products.php" class="btn btn-outline">
-                        <i class="fas fa-arrow-left"></i> Back to Products
-                    </a>
-                </div>
-            </form>
         </div>
     </div>
 </body>

@@ -2,7 +2,7 @@
 session_start();
 require_once '../../config/db.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
     header('HTTP/1.1 403 Forbidden');
     echo json_encode(['error' => 'Access denied']);
     exit;
@@ -84,8 +84,8 @@ try {
             <div class='request-item'>
                 <div class='item-header'>
                     <div class='item-title'>
-                        <h4>{$item['product_name']}</h4>
-                        <span class='item-category'>{$item['category']}</span>
+                        <h4>" . htmlspecialchars($item['product_name']) . "</h4>
+                        <span class='item-category'>" . htmlspecialchars($item['category']) . "</span>
                     </div>
                     <div class='item-price'>
                         <span class='subtotal'>₱" . number_format($subtotal, 2) . "</span>
@@ -160,8 +160,9 @@ try {
                     $items_html .= "</div></div>";
 
                     if (!empty($item['layout_details'])) {
-                        $items_html .= "<div class='customization-item'>
-        <span class='custom-value' style='overflow: scroll;'>" . htmlspecialchars($item['layout_details']) . "</span></div>";
+                        $items_html .= "<div class='customization-item full-width'>
+        <span class='custom-label'>Layout Details</span>
+        <div class='custom-value layout-details-value'>" . nl2br(htmlspecialchars($item['layout_details'])) . "</div></div>";
                     }
 
                     // User Layout Files in separate customization item - show images with download
@@ -426,15 +427,15 @@ try {
                 <div class='info-grid'>
                     <div class='info-item'>
                         <span class='info-label'>Company</span>
-                        <span class='info-value'>{$request['company_name']}</span>
+                        <span class='info-value'>" . htmlspecialchars($request['company_name']) . "</span>
                     </div>
                     <div class='info-item'>
                         <span class='info-label'>Contact Person</span>
-                        <span class='info-value'>{$request['contact_person']}</span>
+                        <span class='info-value'>" . htmlspecialchars($request['contact_person']) . "</span>
                     </div>
                     <div class='info-item'>
                         <span class='info-label'>Contact No.</span>
-                        <span class='info-value'>{$request['company_contact']}</span>
+                        <span class='info-value'>" . htmlspecialchars($request['company_contact']) . "</span>
                     </div>
                 </div>
             </div>
@@ -450,15 +451,15 @@ try {
                 <div class='info-grid'>
                     <div class='info-item'>
                         <span class='info-label'>Full Name</span>
-                        <span class='info-value'>{$request['first_name']} {$request['last_name']}</span>
+                        <span class='info-value'>" . htmlspecialchars($request['first_name'] . ' ' . $request['last_name']) . "</span>
                     </div>
                     <div class='info-item'>
                         <span class='info-label'>Contact No.</span>
-                        <span class='info-value'>{$request['personal_contact']}</span>
+                        <span class='info-value'>" . htmlspecialchars($request['personal_contact']) . "</span>
                     </div>
                     <div class='info-item'>
                         <span class='info-label'>Email</span>
-                        <span class='info-value'>{$request['username']}</span>
+                        <span class='info-value'>" . htmlspecialchars($request['username']) . "</span>
                     </div>
                 </div>
             </div>
@@ -474,7 +475,7 @@ try {
                 <div class='info-grid'>
                     <div class='info-item'>
                         <span class='info-label'>Username</span>
-                        <span class='info-value'>{$request['username']}</span>
+                        <span class='info-value'>" . htmlspecialchars($request['username']) . "</span>
                     </div>
                 </div>
             </div>
@@ -538,7 +539,9 @@ try {
                                     <span class='difference-value'>
                                         " . ($request['final_price'] > $request['estimated_total'] ? '+' : '') . "₱" .
         number_format($request['final_price'] - $request['estimated_total'], 2) . "
-                                        (" . number_format((($request['final_price'] - $request['estimated_total']) / $request['estimated_total']) * 100, 1) . "%)
+                                        (" . ($request['estimated_total'] > 0
+            ? number_format((($request['final_price'] - $request['estimated_total']) / $request['estimated_total']) * 100, 1)
+            : '0.0') . "%)
                                     </span>
                                 </div>" : "") . "
                             </div>
@@ -570,6 +573,7 @@ try {
 
     echo json_encode(['html' => $html]);
 } catch (Exception $e) {
+    error_log('get_pricing_request_details.php error: ' . $e->getMessage());
     header('HTTP/1.1 500 Internal Server Error');
-    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    echo json_encode(['error' => 'Something went wrong while loading this request. Please try again.']);
 }

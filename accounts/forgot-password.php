@@ -2,6 +2,7 @@
 require_once '../config/db.php';
 
 require_once '../config/vendor/autoload.php';
+require_once '../config/config.php';
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -53,18 +54,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             try {
                 $mail = new PHPMailer(true);
-
-                // SMTP Configuration (same as your export script)
-                $mail->isSMTP();
-                $mail->Host       = 'smtp.gmail.com';
-                $mail->SMTPAuth   = true;
-                $mail->Username   = 'activemediaprint@gmail.com';
-                $mail->Password   = 'qbfk abbn tzio uqze';
-                $mail->SMTPSecure = 'tls';
-                $mail->Port       = 587;
-
-                $mail->setFrom('activemediaprint@gmail.com', 'Active Media');
-                $mail->addAddress($email); // Send to the user's email
+                amdp_configure_transactional_mailer($mail, 'auth', $email);
 
                 $mail->isHTML(true);
                 $mail->Subject = "Password Reset Request";

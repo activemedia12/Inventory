@@ -135,14 +135,14 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
   <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
     .hide {
       opacity: 0;
       filter: blur(5px);
-      transform: translateY(100%);
-      transition: all 0.5s;
+      transform: translateY(40px);
+      transition: all 0.4s ease;
     }
 
     .show {
@@ -158,30 +158,37 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     }
 
     ::-webkit-scrollbar {
-      width: 7px;
-      height: 5px;
+      width: 8px;
+      height: 8px;
     }
 
     ::-webkit-scrollbar-thumb {
-      background: #1876f299;
-      border-radius: 10px;
+      background: #cbced3;
+      border-radius: 8px;
     }
 
     :root {
-      --primary: #1877f2;
-      --secondary: #166fe5;
-      --light: #f0f2f5;
-      --dark: #1c1e21;
-      --gray: #65676b;
-      --light-gray: #e4e6eb;
+      --primary: #4f5eff;
+      --secondary: #4048e0;
+      --primary-bg: #eef1ff;
+      --light: #f6f6f7;
+      --dark: #14171f;
+      --gray: #6b7280;
+      --light-gray: #e2e4e7;
       --card-bg: #ffffff;
+      --success: #1a9c6b;
+      --success-bg: #e3f6ee;
+      --danger: #d9463c;
+      --danger-bg: #fbe9e7;
+      --warning: #b6790a;
+      --warning-bg: #fdf2df;
     }
 
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
 
     body {
@@ -189,65 +196,85 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       color: var(--dark);
       display: flex;
       min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* Sidebar */
     .sidebar {
-      width: 250px;
+      width: 240px;
       background-color: var(--card-bg);
       height: 100vh;
       position: fixed;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      border-right: 1px solid var(--light-gray);
       padding: 20px 0;
     }
 
     .brand {
-      padding: 0 20px 40px;
+      padding: 0 20px 20px;
       border-bottom: 1px solid var(--light-gray);
-      margin-bottom: 20px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     .brand img {
       height: 100px;
       width: auto;
-      padding-left: 40px;
-      transform: rotate(45deg);
+      padding-left: 0;
+      transform: none;
     }
 
     .brand h2 {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 600;
       color: var(--dark);
     }
 
     .nav-menu {
       list-style: none;
+      padding: 0 12px;
     }
 
     .nav-menu li a {
       display: flex;
       align-items: center;
-      padding: 12px 20px;
-      color: var(--dark);
+      padding: 10px 12px;
+      border-radius: 6px;
+      color: var(--gray);
       text-decoration: none;
-      transition: background-color 0.3s;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background-color 0.15s ease, color 0.15s ease;
     }
 
-    .nav-menu li a:hover,
+    .nav-menu li a:hover {
+      background-color: var(--light);
+      color: var(--dark);
+    }
+
     .nav-menu li a.active {
-      background-color: var(--light-gray);
+      background-color: var(--primary-bg);
+      color: var(--secondary);
     }
 
     .nav-menu li a i {
       margin-right: 10px;
+      width: 16px;
+      text-align: center;
       color: var(--gray);
+    }
+
+    .nav-menu li a.active i {
+      color: var(--secondary);
     }
 
     /* Main Content */
     .main-content {
       flex: 1;
-      margin-left: 250px;
-      padding: 20px;
+      margin-left: 240px;
+      padding: 28px 32px;
     }
 
     /* Header */
@@ -256,12 +283,12 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       justify-content: space-between;
       align-items: center;
       margin-bottom: 20px;
-      padding-bottom: 15px;
+      padding-bottom: 16px;
       border-bottom: 1px solid var(--light-gray);
     }
 
     .header h1 {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 600;
       color: var(--dark);
     }
@@ -272,71 +299,80 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     }
 
     .user-info img {
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       margin-right: 10px;
       object-fit: cover;
     }
 
     .user-details h4 {
-      font-weight: 500;
-      font-size: 16px;
+      font-weight: 600;
+      font-size: 14px;
     }
 
     .user-details small {
       color: var(--gray);
-      font-size: 14px;
+      font-size: 12px;
     }
 
     /* Form Styles */
     .delivery-form {
       background: var(--card-bg);
+      border: 1px solid var(--light-gray);
       border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-      margin-bottom: 30px;
+      padding: 18px;
+      box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
+      margin-bottom: 20px;
     }
 
     .delivery-form h3 {
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       display: flex;
       align-items: center;
+      font-size: 15px;
+      font-weight: 600;
       color: var(--dark);
     }
 
     .delivery-form h3 i {
-      margin-right: 10px;
-      color: var(--primary);
+      margin-right: 8px;
+      color: var(--gray);
     }
 
     .form-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-      gap: 20px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 14px;
     }
 
     .form-group {
-      margin-bottom: 15px;
+      margin-bottom: 14px;
     }
 
     .form-group label {
       display: block;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       color: var(--gray);
-      font-size: 14px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     .form-group input,
     .form-group select,
     .form-group textarea {
       width: 100%;
-      padding: 12px;
+      padding: 9px 12px;
       border: 1px solid var(--light-gray);
       border-radius: 6px;
       font-family: inherit;
-      transition: border-color 0.3s;
+      font-size: 13px;
+      color: var(--dark);
+      background: var(--card-bg);
+      transition: border-color 0.15s ease;
     }
 
     .form-group input:focus,
@@ -347,22 +383,22 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     }
 
     .form-group textarea {
-      min-height: 100px;
+      min-height: 90px;
       resize: vertical;
     }
 
     .btn {
-      padding: 12px 24px;
+      padding: 9px 18px;
       background: var(--primary);
       color: white;
       border: none;
       border-radius: 6px;
       cursor: pointer;
-      font-weight: 500;
-      transition: background-color 0.3s;
+      font-weight: 600;
+      transition: background-color 0.15s ease;
       display: inline-flex;
       align-items: center;
-      font-size: 14px;
+      font-size: 13px;
     }
 
     .btn:hover {
@@ -376,21 +412,24 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     /* Table Styles */
     .table-card {
       background: var(--card-bg);
+      border: 1px solid var(--light-gray);
       border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      padding: 18px;
+      box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
     }
 
     .table-card h3 {
-      margin-bottom: 15px;
+      margin-bottom: 14px;
       display: flex;
       align-items: center;
+      font-size: 15px;
+      font-weight: 600;
       color: var(--dark);
     }
 
     .table-card h3 i {
-      margin-right: 10px;
-      color: var(--primary);
+      margin-right: 8px;
+      color: var(--gray);
     }
 
     table {
@@ -400,35 +439,36 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
 
     th,
     td {
-      padding: 12px 15px;
+      padding: 10px 14px;
       text-align: left;
       border-bottom: 1px solid var(--light-gray);
-      font-size: 14px;
+      font-size: 13px;
     }
 
     th {
-      font-weight: 500;
+      font-weight: 600;
       color: var(--gray);
-      font-size: 14px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     tr td {
-      transition: 0.3s;
+      transition: background-color 0.15s ease;
     }
 
     tr:hover td {
-      background-color: rgba(24, 119, 242, 0.05);
+      background-color: var(--light);
     }
 
     .view-all {
-      display: inline-block;
-      margin-top: 15px;
-      color: var(--primary);
-      text-decoration: none;
-      font-weight: 500;
-      font-size: 14px;
       display: inline-flex;
       align-items: center;
+      margin-top: 14px;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 13px;
     }
 
     .view-all:hover {
@@ -450,6 +490,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       margin-bottom: 20px;
       display: flex;
       align-items: center;
+      font-size: 13px;
     }
 
     .alert i {
@@ -457,32 +498,33 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     }
 
     .alert-success {
-      background-color: rgba(40, 167, 69, 0.1);
-      color: #28a745;
-      border: 1px solid rgba(40, 167, 69, 0.2);
+      background-color: var(--success-bg);
+      color: var(--success);
+      border: 1px solid transparent;
     }
 
     .alert-danger {
-      background-color: rgba(220, 53, 69, 0.1);
-      color: #dc3545;
-      border: 1px solid rgba(220, 53, 69, 0.2);
+      background-color: var(--danger-bg);
+      color: var(--danger);
+      border: 1px solid transparent;
     }
 
     .alert-warning {
-      background-color: rgba(255, 193, 7, 0.1);
-      color: #ffc107;
-      border: 1px solid rgba(255, 193, 7, 0.2);
+      background-color: var(--warning-bg);
+      color: var(--warning);
+      border: 1px solid transparent;
     }
 
     /* Empty State */
     .empty-message {
-      padding: 30px;
+      padding: 24px;
       text-align: center;
       color: var(--gray);
       background: var(--card-bg);
+      border: 1px solid var(--light-gray);
       border-radius: 8px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
       margin: 20px 0;
+      font-size: 13px;
     }
 
     /* Delivery Summary */
@@ -512,24 +554,25 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
         overflow: hidden;
         height: auto;
         width: auto;
-        bottom: 20px;
-        padding: 0;
-        background-color: rgba(255, 255, 255, 0.3);
-        backdrop-filter: blur(2px);
-        box-shadow: 1px 1px 10px rgb(190, 190, 190);
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 6px;
+        background-color: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(6px);
+        box-shadow: 0 4px 16px rgba(20, 23, 31, 0.12);
         border-radius: 100px;
-        cursor: grab;
-        transition: left 0.05s ease-in, top 0.05s ease-in;
         touch-action: manipulation;
         z-index: 9999;
         flex-direction: row;
-        border: 1px solid white;
+        border: 1px solid var(--light-gray);
         justify-content: center;
       }
 
       .sidebar .nav-menu {
         display: flex;
         flex-direction: row;
+        padding: 0;
       }
 
       .sidebar img,
@@ -540,7 +583,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
 
       .sidebar .nav-menu li a {
         justify-content: center;
-        padding: 15px;
+        padding: 12px;
       }
 
       .sidebar .nav-menu li a i {
@@ -550,7 +593,8 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       .main-content {
         margin-left: 0;
         overflow: auto;
-        margin-bottom: 200px;
+        margin-bottom: 90px;
+        padding: 20px;
       }
 
       .form-grid {
@@ -566,10 +610,11 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       .header {
         flex-direction: column;
         align-items: flex-start;
+        gap: 10px;
       }
 
       .user-info {
-        margin-top: 10px;
+        margin-top: 4px;
       }
 
       .delivery-summary {
@@ -585,7 +630,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     .action-cell a {
       color: var(--gray);
       margin-right: 10px;
-      transition: color 0.3s;
+      transition: color 0.15s ease;
     }
 
     .action-cell a:hover {
@@ -594,23 +639,25 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
 
     .toggle-btn {
       width: 100%;
-      padding: 10px 15px;
-      background: #f0f2f5;
-      border: none;
+      padding: 10px 14px;
+      background: var(--light);
+      border: 1px solid var(--light-gray);
       text-align: left;
       cursor: pointer;
-      border-radius: 5px;
+      border-radius: 6px;
       margin-top: 10px;
-      font-size: 90%;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--dark);
     }
 
     .group-content {
-      margin-top: 5px;
-      padding: 0 10px;
-      overflow: scroll;
+      margin-top: 6px;
+      padding: 0 4px;
+      overflow: auto;
     }
 
-    /* Overlay */
+    /* Export report modal */
     .export-modal-overlay {
       display: none;
       position: fixed;
@@ -618,29 +665,27 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.1);
+      background: rgba(20, 23, 31, 0.35);
       backdrop-filter: blur(2px);
       z-index: 1000;
       align-items: center;
       justify-content: center;
-      animation: exportFadeIn 0.3s ease-out;
+      animation: exportFadeIn 0.2s ease-out;
     }
 
-    /* Container */
     .export-modal-container {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      background: var(--card-bg);
+      border-radius: 10px;
+      box-shadow: 0 12px 32px rgba(20, 23, 31, 0.18);
       width: 100%;
       max-width: 450px;
       overflow: hidden;
       margin: 20px;
     }
 
-    /* Header */
     .export-modal-header {
-      padding: 18px 24px;
-      background: var(--primary);
+      padding: 16px 20px;
+      background: var(--dark);
       color: white;
       display: flex;
       justify-content: space-between;
@@ -649,7 +694,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
 
     .export-modal-title {
       margin: 0;
-      font-size: 18px;
+      font-size: 15px;
       font-weight: 600;
     }
 
@@ -657,29 +702,35 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       background: none;
       border: none;
       color: white;
-      font-size: 24px;
+      font-size: 20px;
       cursor: pointer;
       padding: 0;
       line-height: 1;
+      opacity: 0.85;
     }
 
-    /* Body */
+    .export-modal-close:hover {
+      opacity: 1;
+    }
+
     .export-modal-body {
-      padding: 8px 24px 24px;
+      padding: 6px 20px 20px;
+      font-size: 13px;
     }
 
-    /* Form Styles */
     .export-form-group {
-      margin-top: 20px;
-      margin-bottom: 20px;
+      margin-top: 16px;
+      margin-bottom: 16px;
     }
 
     .export-form-label {
       display: block;
-      margin-bottom: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      color: #555;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     .export-input-wrapper {
@@ -688,38 +739,38 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
 
     .export-form-input {
       width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #ddd;
+      padding: 9px 12px;
+      border: 1px solid var(--light-gray);
       border-radius: 6px;
-      font-size: 14px;
-      transition: all 0.3s;
+      font-size: 13px;
+      color: var(--dark);
+      transition: border-color 0.15s ease;
     }
 
     .export-form-input:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(74, 111, 220, 0.2);
+      box-shadow: 0 0 0 3px var(--primary-bg);
     }
 
     input[type="date"].export-form-input {
       padding-right: 30px;
     }
 
-    /* Buttons */
     .export-form-actions {
       display: flex;
       justify-content: flex-start;
-      gap: 12px;
-      margin-top: 24px;
+      gap: 10px;
+      margin-top: 20px;
     }
 
     .export-btn {
-      padding: 10px 16px;
+      padding: 9px 14px;
       border-radius: 6px;
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: opacity 0.15s ease;
       border: none;
       display: inline-flex;
       align-items: center;
@@ -727,45 +778,30 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     }
 
     .export-btn-primary {
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      cursor: pointer;
-      background: rgba(67, 238, 76, 0.1);
-      color: #28a745;
-      border: 1px solid #28a745;
-      display: inline-flex;
-      align-items: center;
-      transition: all 0.2s;
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid transparent;
     }
 
     .export-btn-primary:hover {
-      background: rgba(40, 167, 69, 0.2);
+      opacity: 0.8;
     }
 
     .export-btn-secondary {
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      cursor: pointer;
       text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      transition: all 0.2s;
-      background: rgba(244, 67, 54, 0.1);
-      color: #f44336;
-      border: 1px solid #f44336;
+      background: var(--danger-bg);
+      color: var(--danger);
+      border: 1px solid transparent;
     }
 
     .export-btn-secondary:hover {
-      background: rgba(244, 67, 54, 0.2);
+      opacity: 0.8;
     }
 
     .export-btn-icon {
-      font-size: 16px;
+      font-size: 15px;
     }
 
-    /* Animation */
     @keyframes exportFadeIn {
       from {
         opacity: 0;
@@ -776,14 +812,13 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       }
     }
 
-    /* Responsive */
     @media (max-width: 480px) {
       .export-modal-container {
         margin: 10px;
       }
 
       .export-modal-body {
-        padding: 8px 20px 20px 20px;
+        padding: 6px 16px 16px 16px;
       }
 
       .export-form-actions {
@@ -798,44 +833,50 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
 
     .export {
       background-color: var(--card-bg);
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      border: 1px solid var(--light-gray);
+      box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
       border-radius: 8px;
-      padding: 20px;
+      padding: 16px 18px;
       margin-bottom: 20px;
-      width: 255.4px;
+      width: fit-content;
     }
 
+    /* Paper picker tree */
     .product-selector {
       max-height: 300px;
       overflow-y: auto;
-      padding: 5px;
-      font-size: 12px
+      padding: 4px;
+      font-size: 12px;
+      border: 1px solid var(--light-gray);
+      border-radius: 6px;
     }
 
     .product-type,
     .product-group {
-      margin-bottom: 5px;
+      margin-bottom: 4px;
     }
 
     .type-header,
     .group-header {
       padding: 8px 10px;
-      background-color: #f5f5f5;
-      border-radius: 3px;
+      background-color: var(--light);
+      border-radius: 6px;
       cursor: pointer;
       display: flex;
       align-items: center;
-      transition: background-color 0.2s;
+      transition: background-color 0.15s ease;
     }
 
     .type-header:hover,
     .group-header:hover {
-      background-color: #e9e9e9;
+      background-color: var(--light-gray);
     }
 
     .type-header {
-      font-size: 1.1em;
-      background-color: #e0e0e0;
+      font-size: 1em;
+      font-weight: 600;
+      background-color: var(--light);
+      color: var(--dark);
     }
 
     .toggle-icon {
@@ -843,11 +884,12 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       width: 15px;
       display: inline-block;
       text-align: center;
+      color: var(--gray);
     }
 
     .type-groups {
       margin-left: 15px;
-      margin-top: 5px;
+      margin-top: 4px;
     }
 
     .group-items {
@@ -857,22 +899,239 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     .product-item {
       padding: 6px 10px 6px 25px;
       cursor: pointer;
-      border-radius: 3px;
+      border-radius: 6px;
     }
 
     .product-item:hover {
-      background-color: #e6f7ff;
+      background-color: var(--light);
     }
 
     .product-item.selected {
-      background-color: #d4edff;
-      font-weight: bold;
+      background-color: var(--primary-bg);
+      color: var(--secondary);
+      font-weight: 600;
     }
 
     .form-label {
       display: block;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       font-weight: 600;
+      font-size: 12px;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    /* ===== Usage / details modal (shared visual language with dashboard.php) ===== */
+    @keyframes centerZoomIn {
+      0% {
+        transform: translate(-50%, -50%) scale(0.97);
+        opacity: 0;
+      }
+
+      100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+      }
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(20, 23, 31, 0.35);
+      backdrop-filter: blur(2px);
+      z-index: 999;
+    }
+
+    .floating-window {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 1000px;
+      max-height: 80vh;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 12px 32px rgba(20, 23, 31, 0.18);
+      z-index: 1000;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      animation: centerZoomIn 0.18s ease-out forwards;
+    }
+
+    .window-header {
+      padding: 14px 20px;
+      background: var(--dark);
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .window-title {
+      display: flex;
+      align-items: center;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .window-title i {
+      margin-right: 10px;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 6px;
+      opacity: 0.85;
+    }
+
+    .close-btn:hover {
+      opacity: 1;
+    }
+
+    .window-content {
+      padding: 22px;
+      overflow-y: auto;
+      flex-grow: 1;
+    }
+
+    .product-info-compact {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--light-gray);
+    }
+
+    .info-item-compact strong {
+      display: block;
+      color: var(--gray);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 4px;
+    }
+
+    .info-item-compact span {
+      font-size: 13px;
+      color: var(--dark);
+    }
+
+    .stock-summary-compact {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stock-card-compact {
+      padding: 14px;
+      border-radius: 8px;
+      background: var(--light);
+      text-align: center;
+    }
+
+    .stock-card-compact h4 {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .stock-value-compact {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .stock-unit-compact {
+      color: var(--gray);
+      font-size: 11px;
+    }
+
+    .section-header {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--dark);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin: 20px 0 8px 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--light-gray);
+      display: flex;
+      align-items: center;
+    }
+
+    .section-header i {
+      margin-right: 8px;
+      color: var(--gray);
+    }
+
+    .compact-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    .compact-table th {
+      background: var(--light);
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--gray);
+    }
+
+    .compact-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--light-gray);
+    }
+
+    .compact-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .empty-state {
+      padding: 24px;
+      text-align: center;
+      color: var(--gray);
+      background: var(--light);
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 13px;
+    }
+
+    .container {
+      overflow: auto;
+    }
+
+    @media (max-width: 768px) {
+      .floating-window {
+        width: 90%;
+      }
+
+      .product-info-compact {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .stock-summary-compact {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -896,8 +1155,14 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
   </div>
 
   <div class="main-content">
+    <!-- Header -->
     <header class="header">
-      <h1>Delivery Management</h1>
+      <div>
+        <h1>Delivery Management</h1>
+        <p style="color: var(--gray); font-size: 14px; margin-top: 5px;">
+          <i class="fas fa-calendar-alt" style="margin-right: 5px;"></i> <?= date('l, F j, Y') ?>
+        </p>
+      </div>
       <div class="user-info">
         <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="User">
         <div class="user-details">
@@ -1180,8 +1445,8 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     </div>
   </div>
 
-  <div id="productModal">
-    <div id="productModalBody"></div>
+  <div id="productModal" class="overlay" style="display:none;">
+    <div id="productModalBody" class="floating-window"></div>
   </div>
 
   <div id="deliveryExportModal" class="export-modal-overlay">
@@ -1194,9 +1459,9 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       </div>
 
       <div class="export-modal-body">
-        <span style="font-size: 80%; color: lightgray;">Request a delivery report by selecting a date range below.</span><br>
-        <span style="font-size: 80%; color: lightgray;">It will be sent via email as an Excel (.xlsx) attachment.</span><br>
-        <span style="font-size: 80%; color: lightgray;"><strong>To export a single day, enter the same date in both fields.</strong></span>
+        <span style="font-size: 80%; color: var(--gray);">Request a delivery report by selecting a date range below.</span><br>
+        <span style="font-size: 80%; color: var(--gray);">It will be sent via email as an Excel (.xlsx) attachment.</span><br>
+        <span style="font-size: 80%; color: var(--gray);"><strong>To export a single day, enter the same date in both fields.</strong></span>
 
         <form action="../config/email_export_deliveries.php" method="GET" target="_blank" class="export-form">
           <div class="export-form-group">
@@ -1347,7 +1612,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
             })
             .catch(err => {
               document.getElementById('productModalBody').innerHTML = `
-              <p style="color:red;">Error loading product info: ${err.message}</p>
+              <p style="color:var(--danger);">Error loading product info: ${err.message}</p>
               <p>Requested ID: ${productId}</p>
               <p>URL: product_info.php?id=${productId}</p>
             `;
