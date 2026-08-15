@@ -210,6 +210,57 @@ foreach ($dp_rows as $dp) {
 }
 $js_digital_prices = json_encode($digital_prices);
 
+// ── Create itemized "other expenses" table (book cover, plastic cover,
+//    strings, ring, etc. — free-form name + price pairs per job) ──────
+$inventory->query("
+    CREATE TABLE IF NOT EXISTS job_order_itemized_expenses (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        job_id INT NOT NULL,
+        expense_name VARCHAR(150) NOT NULL,
+        expense_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        sort_order INT DEFAULT 0,
+        INDEX idx_job (job_id)
+    )
+");
+
+// ── AJAX: save itemized other expenses (replaces the full list for this job) ──
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_itemized_expenses'])) {
+    $items = json_decode($_POST['items'] ?? '[]', true);
+    if (!is_array($items)) $items = [];
+
+    $del = $inventory->prepare("DELETE FROM job_order_itemized_expenses WHERE job_id = ?");
+    $del->bind_param("i", $job_id);
+    $del->execute();
+    $del->close();
+
+    $ins = $inventory->prepare("INSERT INTO job_order_itemized_expenses (job_id, expense_name, expense_price, sort_order) VALUES (?, ?, ?, ?)");
+    $sort_order = 0;
+    foreach ($items as $item) {
+        $ex_name  = trim($item['name'] ?? '');
+        $ex_price = floatval($item['price'] ?? 0);
+        if ($ex_name === '') continue;
+        $ins->bind_param("isdi", $job_id, $ex_name, $ex_price, $sort_order);
+        $ins->execute();
+        $sort_order++;
+    }
+    $ins->close();
+
+    echo json_encode(['ok' => true]);
+    exit;
+}
+
+// ── Load saved itemized other expenses ────────────────────────────────
+$savedItemizedExpenses = [];
+$ie_stmt = $inventory->prepare("SELECT expense_name, expense_price FROM job_order_itemized_expenses WHERE job_id = ? ORDER BY sort_order ASC, id ASC");
+$ie_stmt->bind_param("i", $job_id);
+$ie_stmt->execute();
+$ie_result = $ie_stmt->get_result();
+while ($row = $ie_result->fetch_assoc()) {
+    $savedItemizedExpenses[] = ['name' => $row['expense_name'], 'price' => (float)$row['expense_price']];
+}
+$ie_stmt->close();
+$js_itemized_expenses = json_encode($savedItemizedExpenses);
+
 // ── Manpower rates ──────────────────────────────────────────────────
 $rates = [];
 $res = $inventory->query("SELECT task_name, hourly_rate FROM manpower_rates");
@@ -1176,6 +1227,80 @@ $js_reams       = $reams;
 
         let paperCost = 0;
 
+        // ── Itemized "other expenses" state (book cover, plastic cover, strings, ring, etc.) ──
+        let itemizedExpenses = <?= $js_itemized_expenses ?>; // [{name, price}, ...]
+        let itemizedSaveTimeout = null;
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str ?? '';
+            return div.innerHTML;
+        }
+
+        function renderItemizedExpenses() {
+            const container = document.getElementById('itemized_expenses_list');
+            if (!container) return;
+            container.innerHTML = '';
+            if (itemizedExpenses.length === 0) {
+                container.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:2px 0 6px">No additional expenses added yet.</div>';
+                return;
+            }
+            itemizedExpenses.forEach((exp, idx) => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px';
+                row.innerHTML = `
+                    <input type="text" class="form-control form-control-sm" placeholder="Expense name"
+                        value="${escapeHtml(exp.name)}" style="flex:2"
+                        oninput="updateItemizedExpense(${idx}, 'name', this.value)">
+                    <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:110px">
+                        <span style="font-size:12px;color:var(--text-muted)">₱</span>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm"
+                            value="${exp.price}" style="width:100%"
+                            oninput="updateItemizedExpense(${idx}, 'price', this.value)">
+                    </div>
+                    <button type="button" class="btn-danger-sm" title="Remove"
+                        onclick="removeItemizedExpense(${idx})"><i class="bi bi-trash"></i></button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function addItemizedExpense() {
+            itemizedExpenses.push({ name: '', price: 0 });
+            renderItemizedExpenses();
+            saveItemizedExpenses();
+            calculate();
+        }
+
+        function updateItemizedExpense(idx, field, value) {
+            if (!itemizedExpenses[idx]) return;
+            itemizedExpenses[idx][field] = field === 'price' ? (parseFloat(value) || 0) : value;
+            saveItemizedExpenses();
+            calculate();
+        }
+
+        function removeItemizedExpense(idx) {
+            itemizedExpenses.splice(idx, 1);
+            renderItemizedExpenses();
+            saveItemizedExpenses();
+            calculate();
+        }
+
+        function getItemizedExpensesTotal() {
+            return itemizedExpenses.reduce((sum, e) => sum + (parseFloat(e.price) || 0), 0);
+        }
+
+        function saveItemizedExpenses() {
+            clearTimeout(itemizedSaveTimeout);
+            itemizedSaveTimeout = setTimeout(() => {
+                fetch(window.location.href, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'ajax_save_itemized_expenses=1&items=' + encodeURIComponent(JSON.stringify(itemizedExpenses))
+                });
+            }, 500);
+        }
+
         // ── Digital printing state ──────────────────────────────────
         // Initialise from saved DB state
         let digitalState = {
@@ -1502,9 +1627,14 @@ $js_reams       = $reams;
                 grandTotal += otherExp;
             }
 
+            // Itemized other expenses (book cover, plastic cover, strings, ring, etc.)
+            const itemizedTotal = getItemizedExpensesTotal();
+            grandTotal += itemizedTotal;
+
             const laborCost = grandTotal - paperCost - printingCost -
                 (paperSpoilCheck?.checked ? paperSpoil : 0) -
-                (otherExpCheck?.checked ? otherExp : 0);
+                (otherExpCheck?.checked ? otherExp : 0) -
+                itemizedTotal;
 
             // Summary rows in table
             tbody.innerHTML += `<tr class="total-row"><td colspan="2">Labor Cost</td><td>₱${laborCost.toFixed(2)}</td></tr>`;
@@ -1517,6 +1647,8 @@ $js_reams       = $reams;
                 tbody.innerHTML += `<tr class="total-row"><td colspan="2">Paper Spoilage (10%)</td><td>₱${paperSpoil.toFixed(2)}</td></tr>`;
             if (otherExpCheck?.checked)
                 tbody.innerHTML += `<tr class="total-row"><td colspan="2">Other Expenses (25%)</td><td>₱${otherExp.toFixed(2)}</td></tr>`;
+            if (itemizedTotal > 0)
+                tbody.innerHTML += `<tr class="total-row"><td colspan="2">Additional Expenses (Itemized)</td><td>₱${itemizedTotal.toFixed(2)}</td></tr>`;
             tbody.innerHTML += `<tr class="grand-row"><td colspan="2"><i class="bi bi-check-circle-fill me-1"></i>Grand Total</td><td>₱${grandTotal.toFixed(2)}</td></tr>`;
 
             // Hidden inputs
@@ -1524,6 +1656,7 @@ $js_reams       = $reams;
             document.getElementById('printing_type_hidden').value = printingChoice;
             document.getElementById('printing_cost_hidden').value = printingCost.toFixed(2);
             document.getElementById('other_expenses_hidden').value = otherExpCheck?.checked ? 1 : 0;
+            document.getElementById('itemized_expenses_hidden').value = JSON.stringify(itemizedExpenses);
             document.getElementById('paper_spoilage_hidden').value = paperSpoilCheck?.checked ? 1 : 0;
             document.getElementById('paper_pricing_method_hidden').value = document.getElementById('paper_pricing_method')?.value || 'ream';
             document.getElementById('custom_paper_cost_hidden').value = document.getElementById('custom_paper_cost')?.value || 0;
@@ -1697,6 +1830,7 @@ $js_reams       = $reams;
             onPrintingTypeChange(); // shows/hides digital + riso sections
             restoreDigitalState(); // re-apply saved digital selections
             restoreRisoState(); // re-apply saved riso selections
+            renderItemizedExpenses(); // re-apply saved itemized other expenses
             calculate();
         };
     </script>
@@ -2000,6 +2134,19 @@ $js_reams       = $reams;
                                 </span>
                             </label>
                         </div>
+
+                        <div style="margin-top:14px;background:var(--bg);border-radius:9px;padding:12px 14px">
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                                <div>
+                                    <span style="font-weight:600;font-size:13px">Additional Expenses</span><br>
+                                    <span style="font-size:11px;color:var(--text-muted)">Materials & add-ons, e.g. plastic cover, ring binders, etc.</span>
+                                </div>
+                                <button type="button" class="btn-add-session" onclick="addItemizedExpense()" title="Add expense">
+                                    <i class="bi bi-plus-circle"></i> Add
+                                </button>   
+                            </div>
+                            <div id="itemized_expenses_list"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -2141,6 +2288,7 @@ $js_reams       = $reams;
                     <input type="hidden" name="printing_type" id="printing_type_hidden">
                     <input type="hidden" name="printing_cost" id="printing_cost_hidden">
                     <input type="hidden" name="other_expenses_hidden" id="other_expenses_hidden">
+                    <input type="hidden" name="itemized_expenses_hidden" id="itemized_expenses_hidden">
                     <input type="hidden" name="paper_spoilage_hidden" id="paper_spoilage_hidden">
                     <input type="hidden" name="paper_pricing_method" id="paper_pricing_method_hidden">
                     <input type="hidden" name="custom_paper_cost" id="custom_paper_cost_hidden">

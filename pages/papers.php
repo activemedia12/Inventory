@@ -14,7 +14,7 @@ $out_of_stock = $inventory->query("
     LEFT JOIN (
         SELECT d.product_id,
                SUM(d.delivered_reams) AS total_reams,
-               (SUM(d.delivered_reams) * 500) - IFNULL(SUM(u.used_sheets), 0) AS balance
+               (SUM(d.delivered_reams) * 500) - IFNULL(SUM(u.used_sheets + COALESCE(u.spoilage_sheets, 0)), 0) AS balance
         FROM delivery_logs d
         LEFT JOIN usage_logs u ON u.product_id = d.product_id
         GROUP BY d.product_id
@@ -139,7 +139,7 @@ $sql = "
     GROUP BY product_id
   ) d ON d.product_id = p.id
   LEFT JOIN (
-    SELECT product_id, SUM(used_sheets + spoilage_sheets) AS total_used
+    SELECT product_id, SUM(used_sheets + COALESCE(spoilage_sheets, 0)) AS total_used
     FROM usage_logs
     GROUP BY product_id
   ) u ON u.product_id = p.id

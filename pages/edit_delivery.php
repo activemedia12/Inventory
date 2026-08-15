@@ -563,13 +563,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <a href="delivery.php?id=<?= $product_id ?>&tab=delivery">Deliveries</a> <i class="fas fa-chevron-right" style="font-size:9px;"></i> <span>Edit</span>
                 </div>
             </div>
-            <div class="user-info">
-                <img src="https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['username']) ?>&background=random" alt="User">
-                <div class="user-details">
-                    <h4><?= htmlspecialchars($_SESSION['username']) ?></h4>
-                    <small><?= $_SESSION['role'] ?></small>
-                </div>
-            </div>
         </header>
 
         <div class="info-banner">

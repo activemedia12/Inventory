@@ -23,27 +23,83 @@ $sessions             = $_POST['sessions'] ?? [];
 $paper_pricing_method = $_POST['paper_pricing_method'] ?? 'ream';
 $custom_paper_cost    = floatval($_POST['custom_paper_cost'] ?? 0);
 
+// Itemized "other expenses" (book cover, plastic cover, strings, ring, etc.)
+$itemized_raw   = json_decode($_POST['itemized_expenses_hidden'] ?? '[]', true);
+$itemized_items = [];
+if (is_array($itemized_raw)) {
+    foreach ($itemized_raw as $item) {
+        $ex_name  = trim($item['name'] ?? '');
+        $ex_price = floatval($item['price'] ?? 0);
+        if ($ex_name === '') continue;
+        $itemized_items[] = ['name' => $ex_name, 'price' => $ex_price];
+    }
+}
+$itemized_expenses_total = array_sum(array_column($itemized_items, 'price'));
+
 if ($job_id <= 0) {
     header("Location: job_orders.php");
     exit;
 }
+
+// Ensure job_orders has a column to hold the itemized expenses total
+$colCheck = $inventory->query("
+    SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'job_orders' AND COLUMN_NAME = 'itemized_expenses_total'
+")->fetch_assoc();
+if ($colCheck && $colCheck['c'] == 0) {
+    $inventory->query("ALTER TABLE job_orders ADD COLUMN itemized_expenses_total DECIMAL(10,2) DEFAULT 0.00");
+}
+
+// Ensure the itemized expenses table exists (mirrors paper_cost.php)
+$inventory->query("
+    CREATE TABLE IF NOT EXISTS job_order_itemized_expenses (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        job_id INT NOT NULL,
+        expense_name VARCHAR(150) NOT NULL,
+        expense_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        sort_order INT DEFAULT 0,
+        INDEX idx_job (job_id)
+    )
+");
 
 // 1. Save grand total + all options
 $stmt = $inventory->prepare("
     UPDATE job_orders 
     SET grand_total = ?, printing_type = ?, printing_cost = ?,
         other_expenses = ?, paper_spoilage = ?,
-        paper_pricing_method = ?, custom_paper_cost = ?
+        paper_pricing_method = ?, custom_paper_cost = ?,
+        itemized_expenses_total = ?
     WHERE id = ?
 ");
-$stmt->bind_param("dsdiisdi",
+$stmt->bind_param("dsdiisddi",
     $grand_total, $printing_type, $printing_cost,
     $other_expenses, $paper_spoilage,
     $paper_pricing_method, $custom_paper_cost,
+    $itemized_expenses_total,
     $job_id
 );
 $stmt->execute();
 $stmt->close();
+
+// 1b. Sync the itemized expense line items (replaces the full list for this job)
+$delIE = $inventory->prepare("DELETE FROM job_order_itemized_expenses WHERE job_id = ?");
+$delIE->bind_param("i", $job_id);
+$delIE->execute();
+$delIE->close();
+
+if (!empty($itemized_items)) {
+    $insIE = $inventory->prepare("
+        INSERT INTO job_order_itemized_expenses (job_id, expense_name, expense_price, sort_order)
+        VALUES (?, ?, ?, ?)
+    ");
+    $sort_order = 0;
+    foreach ($itemized_items as $item) {
+        $insIE->bind_param("isdi", $job_id, $item['name'], $item['price'], $sort_order);
+        $insIE->execute();
+        $sort_order++;
+    }
+    $insIE->close();
+}
 
 // 2. Wipe old sessions (prepared statement)
 $del = $inventory->prepare("DELETE FROM job_sessions WHERE job_id = ?");

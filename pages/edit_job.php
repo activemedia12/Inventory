@@ -542,17 +542,16 @@ unset($_SESSION['message']);
         }
 
         .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 2rem 2rem 3rem;
+            max-width: 1240px;
+            padding: 24px 28px 32px;
         }
 
         .page-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
+            margin-bottom: 16px;
+            padding-bottom: 14px;
             border-bottom: 1px solid var(--light-gray);
         }
 
@@ -604,6 +603,40 @@ unset($_SESSION['message']);
         .user-info small {
             color: var(--gray);
             font-size: 12px;
+        }
+
+        .info-banner {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: var(--primary-light);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 14px;
+        }
+
+        .info-banner .icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: var(--white);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+
+        .info-banner .value {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .info-banner .label {
+            font-size: 11.5px;
+            color: var(--gray);
         }
 
         .alert {
@@ -669,8 +702,14 @@ unset($_SESSION['message']);
             background: rgba(0, 0, 0, .03);
         }
 
+        .form-tab {
+            padding: 12px 20px;
+        }
+
         .form-content {
-            padding: 2rem;
+            padding: 20px;
+            max-height: calc(100vh - 260px);
+            overflow-y: auto;
         }
 
         .tab-content {
@@ -681,18 +720,29 @@ unset($_SESSION['message']);
             display: block;
         }
 
+        .tab-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px 24px;
+            align-items: start;
+        }
+
+        .tab-grid .span-2 {
+            grid-column: 1 / -1;
+        }
+
         .form-section {
-            margin-bottom: 2rem;
+            margin-bottom: 0;
         }
 
         .section-title {
             display: flex;
             align-items: center;
-            gap: .75rem;
-            font-size: 15px;
+            gap: .6rem;
+            font-size: 13.5px;
             font-weight: 600;
-            margin-bottom: 1.25rem;
-            padding-bottom: .75rem;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
             border-bottom: 1px solid var(--light-gray);
         }
 
@@ -702,18 +752,18 @@ unset($_SESSION['message']);
 
         .form-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px 16px;
         }
 
         .form-group {
-            margin-bottom: 1.25rem;
+            margin-bottom: 4px;
         }
 
         .form-group label {
             display: block;
-            margin-bottom: .5rem;
-            font-size: 12px;
+            margin-bottom: 6px;
+            font-size: 11px;
             font-weight: 600;
             color: var(--gray);
             text-transform: uppercase;
@@ -722,9 +772,9 @@ unset($_SESSION['message']);
 
         .form-control {
             width: 100%;
-            padding: .75rem 1rem;
+            padding: 9px 11px;
             border: 1px solid var(--light-gray);
-            border-radius: var(--border-radius);
+            border-radius: 6px;
             font-size: 13px;
             transition: var(--transition);
             background: var(--white);
@@ -738,7 +788,7 @@ unset($_SESSION['message']);
         }
 
         textarea.form-control {
-            min-height: 120px;
+            min-height: 64px;
             resize: vertical;
         }
 
@@ -758,7 +808,7 @@ unset($_SESSION['message']);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1.5rem 2rem;
+            padding: 12px 20px;
             border-top: 1px solid var(--light-gray);
             background: var(--lighter-gray);
         }
@@ -818,6 +868,15 @@ unset($_SESSION['message']);
                 grid-template-columns: 1fr;
             }
 
+            .tab-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-content {
+                max-height: none;
+                overflow-y: visible;
+            }
+
             .form-actions {
                 flex-direction: column-reverse;
                 gap: 1rem;
@@ -868,16 +927,17 @@ unset($_SESSION['message']);
                     </div>
                     <span class="job-status <?= htmlspecialchars($job['status']) ?>"><?= htmlspecialchars($job['status']) ?></span>
                 </div>
-                <div style="display:flex;align-items:center;gap:.75rem">
-                    <div class="user-avatar"><?= strtoupper(substr($_SESSION['username'], 0, 2)) ?></div>
-                    <div class="user-info">
-                        <div><?= htmlspecialchars($_SESSION['username']) ?></div>
-                        <small><?= $_SESSION['role'] ?></small>
-                    </div>
-                </div>
             </header>
 
             <?php if ($message): ?><?= $message ?><?php endif; ?>
+
+            <div class="info-banner">
+                <div class="icon"><i class="fas fa-building"></i></div>
+                <div>
+                    <div class="value"><?= htmlspecialchars($job['client_name']) ?> — <?= htmlspecialchars($job['project_name']) ?></div>
+                    <div class="label">Ordered <?= date('M j, Y', strtotime($job['log_date'])) ?> &middot; Qty <?= (int)$job['quantity'] ?> &middot; <?= (int)$job['number_of_sets'] ?> set(s)</div>
+                </div>
+            </div>
 
             <form method="post" class="edit-form">
                 <div class="form-tabs">
@@ -890,6 +950,7 @@ unset($_SESSION['message']);
 
                     <!-- ── Client Info ── -->
                     <div class="tab-content active" id="client-info">
+                      <div class="tab-grid">
                         <div class="form-section">
                             <h3 class="section-title"><i class="fas fa-info-circle"></i> Basic Information</h3>
                             <div class="form-grid">
@@ -928,6 +989,20 @@ unset($_SESSION['message']);
                         </div>
 
                         <div class="form-section">
+                            <h3 class="section-title"><i class="fas fa-address-card"></i> Contact</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Contact Person *</label>
+                                    <input type="text" name="contact_person" class="form-control" value="<?= htmlspecialchars($job['contact_person']) ?>" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Contact Number *</label>
+                                    <input type="text" name="contact_number" class="form-control" value="<?= htmlspecialchars($job['contact_number']) ?>" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section span-2">
                             <h3 class="section-title"><i class="fas fa-map-marker-alt"></i> Address</h3>
                             <div class="form-grid">
                                 <div class="form-group">
@@ -968,23 +1043,12 @@ unset($_SESSION['message']);
                             </div>
                         </div>
 
-                        <div class="form-section">
-                            <h3 class="section-title"><i class="fas fa-address-card"></i> Contact</h3>
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Contact Person *</label>
-                                    <input type="text" name="contact_person" class="form-control" value="<?= htmlspecialchars($job['contact_person']) ?>" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>Contact Number *</label>
-                                    <input type="text" name="contact_number" class="form-control" value="<?= htmlspecialchars($job['contact_number']) ?>" required>
-                                </div>
-                            </div>
-                        </div>
+                      </div>
                     </div>
 
                     <!-- ── Order Details ── -->
                     <div class="tab-content" id="order-details">
+                      <div class="tab-grid">
                         <div class="form-section">
                             <h3 class="section-title"><i class="fas fa-project-diagram"></i> Project Information</h3>
                             <div class="form-grid">
@@ -1027,10 +1091,12 @@ unset($_SESSION['message']);
                                 </div>
                             </div>
                         </div>
+                      </div>
                     </div>
 
                     <!-- ── Specifications ── -->
                     <div class="tab-content" id="specifications">
+                      <div class="tab-grid">
                         <div class="form-section">
                             <h3 class="section-title"><i class="fas fa-file-alt"></i> Paper Details</h3>
                             <div class="form-grid">
@@ -1119,6 +1185,7 @@ unset($_SESSION['message']);
                             <h3 class="section-title"><i class="fas fa-palette"></i> Paper Sequence</h3>
                             <div id="paper-sequence-container"></div>
                         </div>
+                      </div>
                     </div>
                 </div>
 

@@ -6,6 +6,10 @@ if (!isset($_SESSION['user_id'])) {
 }
 require_once '../config/db.php';
 
+// Cut-size options used across the form: paper flow "Cut Size" field, and
+// the non-paper "Paper Stock Used" cut size field. Piece count cut from one sheet.
+$cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, '1/10' => 10, '1/12' => 12, '1/14' => 14, '1/16' => 16, '1/18' => 18, '1/20' => 20, '1/22' => 22, '1/24' => 24, '1/25' => 25, '1/26' => 26, '1/28' => 28, '1/30' => 30, '1/32' => 32, '1/36' => 36, '1/40' => 40, '1/48' => 48, '1/50' => 50, 'whole' => 1];
+
 // Prevent the browser from caching this page (including bfcache), so a
 // client_id-prefilled response can never be resurrected by a later
 // back/forward navigation or plain reuse of a cached response.
@@ -140,7 +144,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $product_type_id = !empty($_POST['product_type_id']) ? intval($_POST['product_type_id']) : null;
   $is_non_paper    = ($product_type_id !== null);
 
-  $cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, '1/10' => 10, '1/12' => 12, '1/14' => 14, '1/16' => 16, '1/18' => 18, '1/20' => 20, '1/22' => 22, '1/24' => 24, '1/25' => 25, '1/26' => 26, '1/28' => 28, '1/30' => 30, '1/32' => 32, '1/36' => 36, '1/40' => 40, '1/48' => 48, '1/50' => 50, 'whole' => 1];
   $cut_size = $cut_size_map[$product_size] ?? 1;
   $total_sheets = $number_of_sets * $quantity;
   $cut_sheets = $total_sheets / $cut_size;
@@ -149,6 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   $products_used = [];
   $not_found = [];
+  $np_reams = 0; // reams deducted for a non-paper product type that still uses paper stock
 
   if (!$is_non_paper) {
     foreach ($paper_sequence as $color) {
@@ -160,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             FROM delivery_logs
             WHERE product_id = p.id
           ) * 500 - (
-            SELECT IFNULL(SUM(used_sheets + spoilage_sheets), 0)
+            SELECT IFNULL(SUM(used_sheets + COALESCE(spoilage_sheets, 0)), 0)
             FROM usage_logs
             WHERE product_id = p.id
           )
@@ -177,9 +181,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if ($result && $result->num_rows > 0) {
         $row = $result->fetch_assoc();
         // Allow negative stock — just record the product for usage logging
-        $products_used[] = ['product_id' => $row['id'], 'color' => $color];
+        $products_used[] = ['product_id' => $row['id'], 'color' => $color, 'sheets' => $cut_sheets];
       } else {
         $not_found[] = "<i class='fas fa-exclamation-circle'></i> Product not found for <strong>$color</strong>.";
+      }
+    }
+  } else {
+    // ── Non-paper product type: check if it still consumes paper stock ──
+    $pt_stmt = $inventory->prepare("SELECT requires_paper, paper_type, paper_size, cut_size FROM product_types WHERE id = ? LIMIT 1");
+    $pt_stmt->bind_param("i", $product_type_id);
+    $pt_stmt->execute();
+    $pt_row = $pt_stmt->get_result()->fetch_assoc();
+    $pt_stmt->close();
+
+    if ($pt_row && !empty($pt_row['requires_paper'])) {
+      // The admin-configured type/size/cut size are just defaults — staff can
+      // override any of them per order from the "Paper Stock Used" fields.
+      $np_paper_type  = trim($_POST['np_paper_type'] ?? '') !== '' ? trim($_POST['np_paper_type']) : $pt_row['paper_type'];
+      $np_paper_size  = trim($_POST['np_paper_size'] ?? '') !== '' ? trim($_POST['np_paper_size']) : $pt_row['paper_size'];
+      $np_paper_color = trim($_POST['np_paper_color'] ?? ''); // optional — blank means "any/no specific color"
+      $np_cut_size_key = trim($_POST['np_cut_size'] ?? '') !== '' ? trim($_POST['np_cut_size']) : ($pt_row['cut_size'] ?? 'whole');
+      $np_cut_size   = $cut_size_map[$np_cut_size_key] ?? 1;
+      $np_sheets     = $quantity / $np_cut_size;
+      $np_reams      = $np_sheets / 500;
+
+      if ($np_paper_color !== '') {
+        $np_stock_stmt = $inventory->prepare("SELECT id FROM products WHERE product_type = ? AND product_group = ? AND product_name = ? LIMIT 1");
+        $np_stock_stmt->bind_param("sss", $np_paper_type, $np_paper_size, $np_paper_color);
+      } else {
+        $np_stock_stmt = $inventory->prepare("SELECT id FROM products WHERE product_type = ? AND product_group = ? LIMIT 1");
+        $np_stock_stmt->bind_param("ss", $np_paper_type, $np_paper_size);
+      }
+      $np_stock_stmt->execute();
+      $np_result = $np_stock_stmt->get_result();
+      $np_stock_stmt->close();
+
+      if ($np_result && $np_result->num_rows > 0) {
+        $np_row = $np_result->fetch_assoc();
+        // Allow negative stock — just record the product for usage logging
+        $products_used[] = ['product_id' => $np_row['id'], 'color' => $np_paper_color ?: null, 'sheets' => $np_sheets];
+      } else {
+        $color_note = $np_paper_color !== '' ? " / $np_paper_color" : '';
+        $not_found[] = "<i class='fas fa-exclamation-circle'></i> Paper stock not found for <strong>$np_paper_type / $np_paper_size$color_note</strong>.";
       }
     }
   }
@@ -311,12 +354,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $usage_stmt = $inventory->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
       foreach ($products_used as $prod) {
         $note = "Auto-deducted from job order for $client_name";
-        $usage_stmt->bind_param("iisds", $prod['product_id'], $cut_sheets, $log_date, $job_order_id, $note);
+        $prod_sheets = $prod['sheets'];
+        $usage_stmt->bind_param("idsis", $prod['product_id'], $prod_sheets, $log_date, $job_order_id, $note);
         $usage_stmt->execute();
       }
       $usage_stmt->close();
 
-      $_SESSION['message'] = "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> Job order saved. Reams used per paper: " . number_format($reams, 2) . "</div>";
+      if ($is_non_paper) {
+        $_SESSION['message'] = !empty($products_used)
+          ? "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> Job order saved. Reams used from paper stock: " . number_format($np_reams, 2) . "</div>"
+          : "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> Job order saved.</div>";
+      } else {
+        $_SESSION['message'] = "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> Job order saved. Reams used per paper: " . number_format($reams, 2) . "</div>";
+      }
     } else {
       $_SESSION['message'] = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle'></i> Error saving job order: " . $stmt->error . "</div>";
     }
@@ -353,7 +403,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
   }
 
-  header("Location: job_orders.php");
+  $redirect_url = 'job_orders.php';
+  if (!empty($job_order_id)) {
+    $redirect_url .= '?created_id=' . intval($job_order_id);
+  }
+  header("Location: $redirect_url");
   exit;
 }
 
@@ -544,13 +598,14 @@ $product_query = $inventory->query("
       FROM delivery_logs
       WHERE product_id = p.id
     ) * 500 - (
-      SELECT IFNULL(SUM(used_sheets + spoilage_sheets), 0)
+      SELECT IFNULL(SUM(used_sheets + COALESCE(spoilage_sheets, 0)), 0)
       FROM usage_logs
       WHERE product_id = p.id
     )) AS available_sheets
   FROM products p
   ORDER BY p.product_type, p.product_group, p.product_name
 ");
+$all_products_arr = $product_query->fetch_all(MYSQLI_ASSOC);
 
 $provinces = [];
 $result = $inventory->query("SELECT DISTINCT province FROM locations ORDER BY province ASC");
@@ -888,6 +943,118 @@ while ($row = $fv_result->fetch_assoc()) {
 
     .form-group textarea {
       min-height: 90px;
+    }
+
+    /* Search form (redesigned, auto-applies without a Filter button) */
+    .search-card {
+      padding: 18px 20px;
+    }
+
+    .search-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: flex-end;
+    }
+
+    .search-row-fields {
+      margin-bottom: 14px;
+    }
+
+    .search-field {
+      flex: 1 1 180px;
+      min-width: 160px;
+      margin-bottom: 0;
+    }
+
+    .search-field label i {
+      margin-right: 6px;
+      color: var(--gray);
+    }
+
+    .date-range-inputs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .date-range-inputs input {
+      min-width: 0;
+    }
+
+    .date-sep {
+      color: var(--gray);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .search-row-actions {
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 12px;
+      border-top: 1px solid var(--light-gray);
+    }
+
+    .status-seg {
+      display: inline-flex;
+      border: 1px solid var(--light-gray);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--light);
+    }
+
+    .status-seg button {
+      border: none;
+      background: transparent;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gray);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background-color 0.15s ease, color 0.15s ease;
+      border-right: 1px solid var(--light-gray);
+    }
+
+    .status-seg button:last-child {
+      border-right: none;
+    }
+
+    .status-seg button:hover:not(.active) {
+      background: rgba(0, 0, 0, 0.04);
+    }
+
+    .status-seg button.active {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .search-row-actions .results-summary {
+      margin-top: 0;
+    }
+
+    .live-badge {
+      margin-left: auto;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--gray);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    @media (max-width: 720px) {
+      .search-row-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+
+      .status-seg {
+        justify-content: center;
+      }
     }
 
     /* Buttons */
@@ -1816,15 +1983,73 @@ while ($row = $fv_result->fetch_assoc()) {
       }
     }
 
-    .export1,
-    .export {
-      background-color: var(--card-bg);
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .reports-menu {
+      position: relative;
+    }
+
+    .reports-menu-toggle {
+      background: var(--card-bg);
+    }
+
+    .reports-menu-dropdown {
+      display: none;
+      flex-direction: column;
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      min-width: 230px;
+      background: var(--card-bg);
       border: 1px solid var(--light-gray);
-      box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
       border-radius: 8px;
-      padding: 16px 18px;
-      margin-bottom: 20px;
-      width: fit-content;
+      box-shadow: 0 6px 16px rgba(20, 23, 31, 0.10);
+      overflow: hidden;
+      z-index: 50;
+    }
+
+    .reports-menu-dropdown.open {
+      display: flex;
+    }
+
+    .reports-menu-dropdown button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      border: none;
+      background: none;
+      text-align: left;
+      padding: 11px 16px;
+      font-size: 13px;
+      color: var(--dark);
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+
+    .reports-menu-dropdown button + button {
+      border-top: 1px solid var(--light-gray);
+    }
+
+    .reports-menu-dropdown button:hover {
+      background: var(--light);
+    }
+
+    .reports-menu-dropdown button i {
+      width: 16px;
+      text-align: center;
+      color: var(--primary);
+    }
+
+    @media (max-width: 640px) {
+      .header-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
     }
 
     .modal {
@@ -1925,34 +2150,6 @@ while ($row = $fv_result->fetch_assoc()) {
       }
     }
 
-    .noprice,
-    .withprice {
-      grid-row: 2;
-      padding: 10px 10px 0 10px;
-      border: 1px solid var(--light-gray);
-      border-radius: 6px;
-      background: var(--light);
-      justify-content: center;
-    }
-
-    .noprice {
-      grid-column: 1 / 3;
-    }
-
-    .withprice {
-      grid-column: 3 / 5;
-    }
-
-    .noprice label,
-    .withprice label {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      cursor: pointer;
-      color: var(--gray);
-      user-select: none;
-    }
-
     .pagination-bar {
       display: flex;
       align-items: center;
@@ -1999,16 +2196,42 @@ while ($row = $fv_result->fetch_assoc()) {
       font-size: 13px;
     }
 
-    @media (max-width: 1640px) {
-      .noprice {
-        grid-row: 1;
-        grid-column: 1;
-      }
+    .results-summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 16px;
+      padding: 8px 14px;
+      background: var(--light);
+      border: 1px solid var(--light-gray);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--dark);
+    }
 
-      .withprice {
-        grid-row: 2;
-        grid-column: 1;
-      }
+    .results-summary i {
+      color: var(--primary);
+      font-size: 14px;
+    }
+
+    .results-summary-sub {
+      color: var(--gray);
+      font-size: 12px;
+      margin-left: 4px;
+    }
+
+    .results-summary.no-results {
+      justify-content: center;
+      text-align: center;
+      color: var(--gray);
+      flex-direction: column;
+      gap: 6px;
+      padding: 20px 16px;
+    }
+
+    .results-summary.no-results i {
+      color: var(--gray);
+      font-size: 22px;
     }
 
     /* Print Type Selector */
@@ -2191,6 +2414,15 @@ while ($row = $fv_result->fetch_assoc()) {
         text-align: center;
       }
     }
+
+    .newly-created-row {
+      animation: newlyCreatedFlash 2.5s ease;
+    }
+
+    @keyframes newlyCreatedFlash {
+      0% { background-color: var(--success-bg, #d4edda); }
+      100% { background-color: transparent; }
+    }
   </style>
 </head>
 
@@ -2221,11 +2453,28 @@ while ($row = $fv_result->fetch_assoc()) {
           <i class="fas fa-calendar-alt" style="margin-right: 5px;"></i> <?= date('l, F j, Y') ?>
         </p>
       </div>
-      <div class="user-info">
-        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="User">
-        <div class="user-details">
-          <h4><?php echo htmlspecialchars($_SESSION['username']); ?></h4>
-          <small><?php echo $_SESSION['role']; ?></small>
+      <div class="header-actions">
+        <div class="reports-menu">
+          <button type="button" class="btn btn-outline reports-menu-toggle" onclick="toggleReportsMenu(event)">
+            <i class="fas fa-chart-bar"></i> Reports &nbsp;<i class="fas fa-chevron-down" style="font-size:10px;"></i>
+          </button>
+          <div class="reports-menu-dropdown" id="reportsMenuDropdown">
+            <button type="button" onclick="openReportModal('exportModal')">
+              <i class="fas fa-file-alt"></i>
+              <span>Request J.O. Reports</span>
+            </button>
+            <button type="button" onclick="openReportModal('exportExpensesModal')">
+              <i class="fas fa-file-excel"></i>
+              <span>Export Expenses Report</span>
+            </button>
+          </div>
+        </div>
+        <div class="user-info">
+          <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="User">
+          <div class="user-details">
+            <h4><?php echo htmlspecialchars($_SESSION['username']); ?></h4>
+            <small><?php echo $_SESSION['role']; ?></small>
+          </div>
         </div>
       </div>
     </header>
@@ -2234,76 +2483,80 @@ while ($row = $fv_result->fetch_assoc()) {
       <?php echo $message; ?>
     <?php endif; ?>
 
-    <!-- Search Form -->
-    <div class="card">
-      <h3><i class="fas fa-search"></i> Search Job Orders</h3>
-      <form method="get">
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="search_client">Client Name</label>
-            <input type="text" id="search_client" name="search_client" placeholder="Search by client..." value="<?= htmlspecialchars($_GET['search_client'] ?? '') ?>">
+    <!-- Search Form (auto-applies as you type/select — no Filter button needed) -->
+    <div class="card search-card">
+      <h3>
+        <i class="fas fa-search"></i> Search Job Orders
+        <span id="searchLiveBadge" class="live-badge" style="display:none;">
+          <i class="fas fa-circle-notch fa-spin"></i> Searching...
+        </span>
+      </h3>
+      <form method="get" class="search-form" id="searchForm">
+        <div class="search-row search-row-fields">
+          <div class="form-group search-field">
+            <label for="search_client"><i class="fas fa-user"></i> Client Name</label>
+            <input type="text" id="search_client" name="search_client" placeholder="Search by client..." value="<?= htmlspecialchars($_GET['search_client'] ?? '') ?>" autocomplete="off">
           </div>
-          <div class="form-group">
-            <label for="search_project">Project Name</label>
-            <input type="text" id="search_project" name="search_project" placeholder="Search by project..." value="<?= htmlspecialchars($_GET['search_project'] ?? '') ?>">
+          <div class="form-group search-field">
+            <label for="search_project"><i class="fas fa-folder"></i> Project Name</label>
+            <input type="text" id="search_project" name="search_project" placeholder="Search by project..." value="<?= htmlspecialchars($_GET['search_project'] ?? '') ?>" autocomplete="off">
           </div>
-          <div class="form-group">
-            <label for="search_paper">Paper Type</label>
-            <input type="text" id="search_paper" name="search_paper" placeholder="Search by paper type..." value="<?= htmlspecialchars($_GET['search_paper'] ?? '') ?>">
-            <span style="font-size: 80%; color: lightgray;">e.g. Carbonless, Ordinary, Special</span>
+          <div class="form-group search-field">
+            <label for="search_paper"><i class="fas fa-file"></i> Paper Type</label>
+            <input type="text" id="search_paper" name="search_paper" placeholder="e.g. Carbonless, Ordinary..." value="<?= htmlspecialchars($_GET['search_paper'] ?? '') ?>" autocomplete="off">
           </div>
-          <div class="form-group">
-            <label for="search_paper_size">Paper Size</label>
-            <input type="text" id="search_paper_size" name="search_paper_size" placeholder="Search by paper size..." value="<?= htmlspecialchars($_GET['search_paper_size'] ?? '') ?>">
-            <span style="font-size: 80%; color: lightgray;">e.g. Long, Short, 11x17...</span>
+          <div class="form-group search-field">
+            <label for="search_paper_size"><i class="fas fa-ruler-combined"></i> Paper Size</label>
+            <input type="text" id="search_paper_size" name="search_paper_size" placeholder="e.g. Long, Short, 11x17..." value="<?= htmlspecialchars($_GET['search_paper_size'] ?? '') ?>" autocomplete="off">
           </div>
-
-          <div class="form-group">
-            <label>Date Range</label>
-            <div style="display: flex; gap: 8px;">
-              <input type="date" name="search_date_from"
-                value="<?= htmlspecialchars($search_date_from ?? '') ?>">
-              <span style="align-self: center; color: var(--gray);">to</span>
-              <input type="date" name="search_date_to"
-                value="<?= htmlspecialchars($search_date_to ?? '') ?>">
+          <div class="form-group search-field">
+            <label><i class="fas fa-calendar"></i> Date Range</label>
+            <div class="date-range-inputs">
+              <input type="date" name="search_date_from" value="<?= htmlspecialchars($search_date_from ?? '') ?>">
+              <span class="date-sep">to</span>
+              <input type="date" name="search_date_to" value="<?= htmlspecialchars($search_date_to ?? '') ?>">
             </div>
           </div>
-
-          <div class="form-group noprice">
-            <label>
-              <input type="checkbox" name="search_unpriced" value="1"
-                <?= $search_unpriced ? 'checked' : '' ?>
-                style="width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer;">
-              <span>Only show job orders <strong>without expenses and total costs</strong></span>
-            </label>
-          </div>
-
-          <div class="form-group withprice">
-            <label>
-              <input type="checkbox" name="search_priced" value="1"
-                <?= $search_priced ? 'checked' : '' ?>
-                style="width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer;">
-              <span>Only show orders <strong>with complete expenses and total costs</strong></span>
-            </label>
-          </div>
         </div>
-        <button type="submit" class="btn"><i class="fas fa-filter"></i> Filter</button>
-        <a href="job_orders.php" class="btn btn-outline" onclick="sessionStorage.removeItem('jo_filter_url')"><i class="fas fa-sync-alt"></i> Reset</a>
+
+        <div class="search-row search-row-actions">
+          <div class="status-seg" role="group" aria-label="Cost status filter">
+            <button type="button" data-value="" class="<?= (!$search_unpriced && !$search_priced) ? 'active' : '' ?>">
+              <i class="fas fa-list"></i> All Orders
+            </button>
+            <button type="button" data-value="unpriced" class="<?= $search_unpriced ? 'active' : '' ?>">
+              <i class="fas fa-hourglass-half"></i> Without Costs
+            </button>
+            <button type="button" data-value="priced" class="<?= $search_priced ? 'active' : '' ?>">
+              <i class="fas fa-check-circle"></i> With Costs
+            </button>
+          </div>
+          <input type="hidden" name="search_unpriced" id="hidden_search_unpriced" value="<?= $search_unpriced ? '1' : '0' ?>">
+          <input type="hidden" name="search_priced" id="hidden_search_priced" value="<?= $search_priced ? '1' : '0' ?>">
+
+          <div class="results-summary <?= $total_results > 0 ? '' : 'no-results' ?>">
+            <?php if ($total_results > 0): ?>
+              <i class="fas fa-list-ul"></i>
+              <span>
+                <strong><?= number_format($total_results) ?></strong> job order<?= $total_results === 1 ? '' : 's' ?> found
+                <?php if (!empty(array_filter($_GET))): ?>
+                  <span class="results-summary-sub">matching your search</span>
+                <?php endif; ?>
+              </span>
+            <?php else: ?>
+              <i class="fas fa-search"></i>
+              <span>
+                No job orders found matching your filters.
+                <span class="results-summary-sub">Try adjusting or removing some filters.</span>
+              </span>
+            <?php endif; ?>
+          </div>
+
+          <a href="job_orders.php" class="btn btn-outline" style="text-decoration: none;" onclick="sessionStorage.removeItem('jo_filter_url')"><i class="fas fa-sync-alt"></i> Clear Filters</a>
+        </div>
       </form>
     </div>
-    <div style="display: flex; gap: 20px;">
-      <div class="export">
-        <button onclick="document.getElementById('exportModal').style.display='flex'" class="btn">
-          Request J.O. Reports
-        </button>
-      </div>
 
-      <div class="export1">
-        <button onclick="document.getElementById('exportExpensesModal').style.display='flex'" class="btn">
-          Export Expenses Report
-        </button>
-      </div>
-    </div>
     <div class="card">
       <div class="collapsible-form-header" onclick="toggleForm()">
         <span><i class="fas fa-plus-circle"></i> Create New Job Order</span>
@@ -2562,7 +2815,7 @@ while ($row = $fv_result->fetch_assoc()) {
                     <input type="radio" name="print_category" value="paper" checked style="display:none;">
                     <div class="print-type-card active">
                       <i class="fas fa-file-alt"></i>
-                      <span>Paper</span>
+                      <span>Receipts</span>
                     </div>
                   </label>
                   <?php foreach ($active_product_types as $pt): ?>
@@ -2683,6 +2936,42 @@ while ($row = $fv_result->fetch_assoc()) {
             <!-- Dynamic fields rendered here by JS -->
             <div id="dynamic-fields-container" class="form-grid" style="margin-top:12px;"></div>
 
+            <!-- Paper stock section: only shown for product types flagged as "requires paper" -->
+            <div id="np-paper-stock-section" style="display:none;margin-top:16px;padding:14px 16px;background:var(--light);border-radius:10px;">
+              <label style="font-weight:600;font-size:13px;display:block;margin-bottom:10px;">
+                <i class="fas fa-scroll"></i> Paper Stock Used
+              </label>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="np_paper_type">Paper Type</label>
+                  <select id="np_paper_type" name="np_paper_type" class="form-control">
+                    <option value="">Select</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="np_paper_size">Paper Size</label>
+                  <select id="np_paper_size" name="np_paper_size" class="form-control">
+                    <option value="">Select paper type first</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="np_paper_color">Color</label>
+                  <select id="np_paper_color" name="np_paper_color" class="form-control">
+                    <option value="">Select paper size first</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="np_cut_size">Cut Size</label>
+                  <select id="np_cut_size" name="np_cut_size" class="form-control">
+                    <option value="">Select</option>
+                  </select>
+                </div>
+              </div>
+              <small style="color:var(--gray);font-size:11px;">
+                Defaults come from this product type's settings but can be changed per order. Order Quantity ÷ Cut Size sheets will be deducted from the selected paper stock.
+              </small>
+            </div>
+
             <!-- Cost estimate display -->
             <div id="np-cost-estimate" style="display:none;margin-top:16px;padding:14px 18px;background:var(--light);border-radius:10px;border-left:4px solid var(--primary);">
               <strong style="font-size:13px;color:var(--gray);">Estimated Project Price</strong>
@@ -2702,23 +2991,6 @@ while ($row = $fv_result->fetch_assoc()) {
           <button id="mainsubBtn" type="submit" class="btn"><i class="fas fa-save"></i>Submit Job Order</button>
           <button type="button" id="clearFormBtn" class="btn btn-outline" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger);margin-left:8px;"><i class="fas fa-eraser"></i> Clear Form</button>
         </form>
-      </div>
-    </div>
-
-    <div class="card" style="margin-bottom: 20px;">
-      <div style="padding: 5px;">
-        <?php if ($total_results > 0): ?>
-          <strong><?= number_format($total_results) ?></strong> job order<?= $total_results === 1 ? '' : 's' ?> found
-          <?php if (!empty(array_filter($_GET))): ?>
-            <span>matching your search</span>
-          <?php endif; ?>
-        <?php else: ?>
-          <div style="color: var(--gray); text-align: center; padding: 10px 0;">
-            <i class="fas fa-search fa-2x" style="opacity: 0.4; margin-bottom: 10px; display: block;"></i>
-            No job orders found matching your filters.<br>
-            <span>Try adjusting or removing some filters.</span>
-          </div>
-        <?php endif; ?>
       </div>
     </div>
 
@@ -2976,28 +3248,85 @@ while ($row = $fv_result->fetch_assoc()) {
   </div>
 
   <script>
-    document.querySelectorAll('input[name="search_unpriced"], input[name="search_priced"]').forEach(chk => {
-      chk.addEventListener('change', function() {
-        if (this.checked) {
-          document.querySelectorAll('input[name="search_unpriced"], input[name="search_priced"]')
-            .forEach(other => {
-              if (other !== this) other.checked = false;
-            });
-        }
-      });
+    // ── Reports dropdown (Request J.O. Reports / Export Expenses Report) ─
+    function toggleReportsMenu(e) {
+      if (e) e.stopPropagation();
+      document.getElementById('reportsMenuDropdown').classList.toggle('open');
+    }
+
+    function closeReportsMenu() {
+      document.getElementById('reportsMenuDropdown').classList.remove('open');
+    }
+
+    function openReportModal(modalId) {
+      closeReportsMenu();
+      document.getElementById(modalId).style.display = 'flex';
+    }
+
+    document.addEventListener('click', function(e) {
+      const menu = document.querySelector('.reports-menu');
+      if (menu && !menu.contains(e.target)) closeReportsMenu();
     });
+
+    // ── Auto-applying search form (no Filter button needed) ────────────
+    (function() {
+      const form = document.getElementById('searchForm');
+      if (!form) return;
+
+      const liveBadge = document.getElementById('searchLiveBadge');
+      let debounceTimer;
+
+      function submitForm() {
+        if (liveBadge) liveBadge.style.display = 'inline-flex';
+        form.submit();
+      }
+
+      // Text fields: wait for a short pause in typing before applying
+      form.querySelectorAll('input[type="text"]').forEach(function(input) {
+        input.addEventListener('input', function() {
+          if (liveBadge) liveBadge.style.display = 'inline-flex';
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(submitForm, 600);
+        });
+      });
+
+      // Date fields: apply as soon as a date is picked
+      form.querySelectorAll('input[type="date"]').forEach(function(input) {
+        input.addEventListener('change', submitForm);
+      });
+
+      // Cost-status segmented control (replaces the old checkboxes)
+      const hiddenUnpriced = document.getElementById('hidden_search_unpriced');
+      const hiddenPriced = document.getElementById('hidden_search_priced');
+      form.querySelectorAll('.status-seg button').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          const val = this.dataset.value;
+          hiddenUnpriced.value = (val === 'unpriced') ? '1' : '0';
+          hiddenPriced.value = (val === 'priced') ? '1' : '0';
+          submitForm();
+        });
+      });
+    })();
 
     document.addEventListener('DOMContentLoaded', function() {
       // ── Filter URL persistence ──────────────────────────────────────
       const FILTER_KEY = 'jo_filter_url';
-      const currentSearch = window.location.search;
-      if (currentSearch && currentSearch !== '?') {
+
+      // `created_id` is a one-time signal from the create-job-order redirect,
+      // not a filter — strip it before deciding whether to save/restore.
+      const filterParams = new URLSearchParams(window.location.search);
+      filterParams.delete('created_id');
+      const cleanQuery = filterParams.toString();
+      const cleanHref = window.location.origin + window.location.pathname +
+        (cleanQuery ? '?' + cleanQuery : '') + window.location.hash;
+
+      if (cleanQuery) {
         // Has filters — save this URL
-        sessionStorage.setItem(FILTER_KEY, window.location.href);
+        sessionStorage.setItem(FILTER_KEY, cleanHref);
       } else {
         // No filters — restore saved filters if any
         const saved = sessionStorage.getItem(FILTER_KEY);
-        if (saved && saved !== window.location.href) {
+        if (saved && saved !== cleanHref) {
           window.location.replace(saved);
           return;
         }
@@ -3437,7 +3766,83 @@ while ($row = $fv_result->fetch_assoc()) {
           }
         }
       }, 300);
+
+      // ── After a job order is created, the server redirects back here with
+      // ?created_id=<id>. Notify the user, close the create-job-order
+      // dropdown, and scroll to the newly added row.
+      const createdId = urlParams.get('created_id');
+      if (createdId) {
+        // Strip created_id from the URL so a refresh/back-nav doesn't repeat this.
+        urlParams.delete('created_id');
+        const cleanQuery = urlParams.toString();
+        const cleanUrl = window.location.pathname + (cleanQuery ? '?' + cleanQuery : '') + window.location.hash;
+        window.history.replaceState({}, '', cleanUrl);
+
+        // Auto-close the "Create New Job Order" dropdown.
+        const createForm = document.getElementById('job-order-form');
+        const createChevron = document.getElementById('form-chevron');
+        if (createForm && createChevron) {
+          createForm.style.display = 'none';
+          createChevron.classList.remove('fa-chevron-up');
+          createChevron.classList.add('fa-chevron-down');
+          sessionStorage.setItem('jobFormOpen', 'false');
+        }
+
+        showBottomLeftToast('Job order created.');
+
+        setTimeout(() => {
+          const row = document.getElementById('job-order-row-' + createdId);
+          if (row) {
+            // Expand any collapsed client/project/date groups the row lives in.
+            const orderItem = row.closest('.compact-order-item');
+            if (orderItem) orderItem.style.display = 'block';
+            const dateGroup = row.closest('.compact-date-group');
+            if (dateGroup) dateGroup.style.display = 'block';
+            const projectGroup = row.closest('.compact-project-group');
+            if (projectGroup) projectGroup.style.display = 'block';
+
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.classList.add('newly-created-row');
+            setTimeout(() => row.classList.remove('newly-created-row'), 2500);
+          }
+        }, 350);
+      }
     });
+
+    // Short-lived bottom-left toast notification.
+    function showBottomLeftToast(message, duration = 2000) {
+      const toast = document.createElement('div');
+      toast.textContent = message;
+      toast.style.cssText = `
+        position: fixed;
+        left: 20px;
+        bottom: 20px;
+        background: var(--success, #28a745);
+        color: #fff;
+        padding: 12px 18px;
+        border-radius: 8px;
+        font-family: Inter, sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+        z-index: 9999;
+        opacity: 0;
+        transform: translateY(10px);
+        transition: opacity 0.25s ease, transform 0.25s ease;
+      `;
+      document.body.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+      });
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 250);
+      }, duration);
+    }
 
     function quickFillUp(order) {
       const form = document.getElementById('jobOrderForm');
@@ -4311,7 +4716,7 @@ while ($row = $fv_result->fetch_assoc()) {
           this.value === 'Custom' ? 'block' : 'none';
       });
 
-      const allProducts = <?= json_encode($product_query->fetch_all(MYSQLI_ASSOC)); ?>;
+      const allProducts = <?= json_encode($all_products_arr); ?>;
       const paperTypeSelect = document.getElementById('paper_type');
       const paperSizeSelect = document.getElementById('paper_size');
       const copiesInput = document.getElementById('copies_per_set');
@@ -4576,6 +4981,11 @@ while ($row = $fv_result->fetch_assoc()) {
     const ptFieldsAll = <?= json_encode($pt_fields_all) ?>;
     const ptOptionsAll = <?= json_encode($pt_options_all) ?>;
     const ptPricingAll = <?= json_encode($pt_pricing_all) ?>;
+    // Product type rows (incl. requires_paper / paper_type / paper_size / cut_size defaults), keyed by id
+    const productTypesById = <?= json_encode(array_column($active_product_types, null, 'id')) ?>;
+    // Paper stock products, reused here to drive the non-paper "Paper Stock Used" dropdowns
+    const paperProductsAll = <?= json_encode($all_products_arr) ?>;
+    const cutSizeOptions = <?= json_encode(array_keys($cut_size_map)) ?>;
 
     // ── Print Type Selector ──────────────────────────────────────────
     document.querySelectorAll('.print-type-option').forEach(label => {
@@ -4611,8 +5021,114 @@ while ($row = $fv_result->fetch_assoc()) {
         hiddenTypeId.value = ptId;
         paperRequiredFields.forEach(f => f.required = false);
         renderDynamicFields(ptId);
+        setupNpPaperStock(ptId);
       }
     }
+
+    // ── Non-paper "Paper Stock Used" section ──────────────────────────
+    // Product types can be flagged (in Product Types manager) as still
+    // consuming paper stock, with default type/size/cut size. Staff can
+    // change any of those per order here.
+    function npDistinctPaperTypes() {
+      return [...new Set(paperProductsAll.map(p => p.product_type))].sort();
+    }
+
+    function npSizesForType(type) {
+      return [...new Set(paperProductsAll.filter(p => p.product_type === type).map(p => p.product_group))].sort();
+    }
+
+    function populateNpPaperTypeSelect(selectedType) {
+      const sel = document.getElementById('np_paper_type');
+      sel.innerHTML = '<option value="">Select</option>';
+      npDistinctPaperTypes().forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        if (selectedType && selectedType === t) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    function populateNpPaperSizeSelect(selectedSize) {
+      const type = document.getElementById('np_paper_type').value;
+      const sel = document.getElementById('np_paper_size');
+      const sizes = type ? npSizesForType(type) : [];
+      if (!type || sizes.length === 0) {
+        sel.innerHTML = '<option value="">Select paper type first</option>';
+        return;
+      }
+      sel.innerHTML = '<option value="">Select</option>';
+      sizes.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        if (selectedSize && selectedSize === s) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    function populateNpPaperColorSelect(selectedColor) {
+      const type = document.getElementById('np_paper_type').value;
+      const size = document.getElementById('np_paper_size').value;
+      const sel = document.getElementById('np_paper_color');
+      const matches = paperProductsAll.filter(p => p.product_type === type && p.product_group === size);
+
+      if (!type || !size || matches.length === 0) {
+        sel.innerHTML = '<option value="">Select paper size first</option>';
+        return;
+      }
+
+      sel.innerHTML = '<option value="">Any / no specific color</option>';
+      matches.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.product_name;
+        const sheets = Number(p.available_sheets);
+        const stockLabel = sheets <= 0 ? 'no stock' : `${(sheets / 500).toFixed(2)} reams available`;
+        opt.textContent = `${p.product_name} (${stockLabel})`;
+        if (sheets <= 0) opt.style.color = 'var(--danger)';
+        if (selectedColor && selectedColor === p.product_name) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    function populateNpCutSizeSelect(selectedCutSize) {
+      const sel = document.getElementById('np_cut_size');
+      const ordered = ['whole', ...cutSizeOptions.filter(c => c !== 'whole')];
+      sel.innerHTML = '';
+      ordered.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c === 'whole' ? 'Whole Sheet (1)' : c;
+        if (selectedCutSize ? selectedCutSize === c : c === 'whole') opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    function setupNpPaperStock(ptId) {
+      const section = document.getElementById('np-paper-stock-section');
+      const pt = productTypesById[ptId];
+      const requiresPaper = pt && pt.requires_paper && pt.requires_paper != 0;
+
+      if (!requiresPaper) {
+        section.style.display = 'none';
+        return;
+      }
+
+      section.style.display = 'block';
+      populateNpPaperTypeSelect(pt.paper_type || '');
+      populateNpPaperSizeSelect(pt.paper_size || '');
+      populateNpPaperColorSelect();
+      populateNpCutSizeSelect(pt.cut_size || 'whole');
+    }
+
+    document.getElementById('np_paper_type')?.addEventListener('change', function() {
+      populateNpPaperSizeSelect();
+      populateNpPaperColorSelect();
+    });
+
+    document.getElementById('np_paper_size')?.addEventListener('change', function() {
+      populateNpPaperColorSelect();
+    });
 
     // Restore print type on page load if localStorage had a non-paper type saved
     document.addEventListener('DOMContentLoaded', function restorePrintTypeOnLoad() {
@@ -4769,6 +5285,49 @@ while ($row = $fv_result->fetch_assoc()) {
           let q = document.getElementById('quantity');
           if (q) q.value = npQty;
         }
+
+        // If this product type consumes paper stock, carry the actual
+        // type/size/color/cut size choices into the shared paper columns
+        // so they're saved with the order and can be shown later — instead
+        // of letting them get overwritten with "N/A" dummy placeholders.
+        const paperStockSection = document.getElementById('np-paper-stock-section');
+        if (paperStockSection && paperStockSection.style.display !== 'none') {
+          const npType = document.getElementById('np_paper_type')?.value;
+          const npSize = document.getElementById('np_paper_size')?.value;
+          const npColor = document.getElementById('np_paper_color')?.value;
+          const npCut = document.getElementById('np_cut_size')?.value;
+
+          // Ensures a matching <option> exists before assigning .value — the
+          // paper_size select in particular starts empty and is normally only
+          // populated by a change-listener we don't trigger from this path.
+          function ensureOptionAndSet(id, val) {
+            if (!val) return;
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            if (![...sel.options].some(o => o.value === val)) {
+              const opt = document.createElement('option');
+              opt.value = val;
+              opt.textContent = val;
+              sel.appendChild(opt);
+            }
+            sel.value = val;
+          }
+
+          ensureOptionAndSet('paper_type', npType);
+          ensureOptionAndSet('paper_size', npSize);
+          ensureOptionAndSet('product_size', npCut);
+
+          // Clear any leftover paper_sequence[] selects from the paper flow
+          // (e.g. if the user toggled print type back and forth), then submit
+          // a single value carrying the chosen color for this non-paper order.
+          document.querySelectorAll('[name="paper_sequence[]"]').forEach(el => el.remove());
+          const colorField = document.createElement('input');
+          colorField.type = 'hidden';
+          colorField.name = 'paper_sequence[]';
+          colorField.value = npColor || 'Any';
+          this.appendChild(colorField);
+        }
+
         // Set dummy values for paper-required fields that are now hidden/not-required
         // so the existing INSERT doesn't fail on NOT NULL columns
         setDummyPaperFields();

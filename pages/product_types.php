@@ -20,13 +20,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $is_active   = isset($_POST['is_active']) ? 1 : 0;
         $sort_order  = intval($_POST['sort_order'] ?? 0);
 
+        // ── Paper stock consumption (for non-paper product types that still use paper) ──
+        $requires_paper = isset($_POST['requires_paper']) ? 1 : 0;
+        $paper_type     = $requires_paper ? trim($_POST['paper_type'] ?? '') : null;
+        $paper_size     = $requires_paper ? trim($_POST['paper_size'] ?? '') : null;
+        $cut_size       = $requires_paper ? trim($_POST['cut_size'] ?? 'whole') : null;
+        if (!$requires_paper) {
+            // Don't silently keep stale values if the toggle is turned off
+            $paper_type = null;
+            $paper_size = null;
+            $cut_size   = null;
+        }
+
         if ($name !== '') {
             if ($id > 0) {
-                $stmt = $inventory->prepare("UPDATE product_types SET name=?, description=?, icon=?, is_active=?, sort_order=? WHERE id=?");
-                $stmt->bind_param("sssiii", $name, $description, $icon, $is_active, $sort_order, $id);
+                $stmt = $inventory->prepare("UPDATE product_types SET name=?, description=?, icon=?, is_active=?, sort_order=?, requires_paper=?, paper_type=?, paper_size=?, cut_size=? WHERE id=?");
+                $stmt->bind_param("sssiiisssi", $name, $description, $icon, $is_active, $sort_order, $requires_paper, $paper_type, $paper_size, $cut_size, $id);
             } else {
-                $stmt = $inventory->prepare("INSERT INTO product_types (name, description, icon, is_active, sort_order) VALUES (?,?,?,?,?)");
-                $stmt->bind_param("sssii", $name, $description, $icon, $is_active, $sort_order);
+                $stmt = $inventory->prepare("INSERT INTO product_types (name, description, icon, is_active, sort_order, requires_paper, paper_type, paper_size, cut_size) VALUES (?,?,?,?,?,?,?,?,?)");
+                $stmt->bind_param("sssiiisss", $name, $description, $icon, $is_active, $sort_order, $requires_paper, $paper_type, $paper_size, $cut_size);
             }
             $stmt->execute();
             $_SESSION['pt_message'] = ['type' => 'success', 'text' => $id > 0 ? 'Product type updated.' : 'Product type added.'];
@@ -161,6 +173,47 @@ $types = [];
 while ($row = $types_result->fetch_assoc()) {
     $types[] = $row;
 }
+
+// ── Fetch distinct paper type/size pairs (from the paper inventory) ──
+// Used to populate the "Requires Paper Stock" dropdowns below, so the
+// values entered here always match real paper stock in `products`.
+$paper_pairs = [];
+$paper_types_list = [];
+$pp_result = $inventory->query("SELECT DISTINCT product_type, product_group FROM products ORDER BY product_type, product_group");
+while ($row = $pp_result->fetch_assoc()) {
+    $paper_pairs[] = $row;
+    if (!in_array($row['product_type'], $paper_types_list, true)) {
+        $paper_types_list[] = $row['product_type'];
+    }
+}
+
+// Same cut-size options used by job_orders.php, so a piece count entered
+// here maps to the exact same sheet math when stock gets deducted.
+$cut_size_options = [
+    'whole' => 'Whole Sheet (1)',
+    '1/2'   => '1/2',
+    '1/3'   => '1/3',
+    '1/4'   => '1/4',
+    '1/6'   => '1/6',
+    '1/8'   => '1/8',
+    '1/10'  => '1/10',
+    '1/12'  => '1/12',
+    '1/14'  => '1/14',
+    '1/16'  => '1/16',
+    '1/18'  => '1/18',
+    '1/20'  => '1/20',
+    '1/22'  => '1/22',
+    '1/24'  => '1/24',
+    '1/25'  => '1/25',
+    '1/26'  => '1/26',
+    '1/28'  => '1/28',
+    '1/30'  => '1/30',
+    '1/32'  => '1/32',
+    '1/36'  => '1/36',
+    '1/40'  => '1/40',
+    '1/48'  => '1/48',
+    '1/50'  => '1/50',
+];
 
 // ── Manage mode: fetch fields + pricing for selected type ─────────
 $manage_id   = intval($_GET['manage'] ?? 0);
@@ -598,6 +651,11 @@ if ($options_fid > 0) {
         .badge-secondary {
             background: var(--light-gray);
             color: var(--gray);
+        }
+
+        .badge-info {
+            background: var(--info-bg);
+            color: var(--info);
         }
 
         .type-actions {
@@ -1065,6 +1123,15 @@ if ($options_fid > 0) {
                                         </span>
                                         <span style="font-size:11px;color:var(--gray);">Order: <?= $t['sort_order'] ?></span>
                                     </div>
+                                    <?php if (!empty($t['requires_paper'])): ?>
+                                        <div class="type-meta" style="margin-top:6px;">
+                                            <span class="badge badge-info" title="Deducts paper stock on job orders">
+                                                <i class="fas fa-scroll"></i>
+                                                Uses Paper: <?= htmlspecialchars($t['paper_type']) ?> / <?= htmlspecialchars($t['paper_size']) ?>
+                                                (<?= htmlspecialchars($t['cut_size'] ?? 'whole') ?>)
+                                            </span>
+                                        </div>
+                                    <?php endif; ?>
                                     <div class="type-actions">
                                         <a href="product_types.php?manage=<?= $t['id'] ?>" class="btn btn-primary btn-sm">
                                             <i class="fas fa-cog"></i> Manage
@@ -1366,6 +1433,45 @@ if ($options_fid > 0) {
                     <input type="checkbox" name="is_active" id="modal_active" checked>
                     Active (visible in job orders)
                 </label>
+
+                <hr style="border:none;border-top:1px solid var(--light-gray);margin:16px 0;">
+
+                <label class="form-check">
+                    <input type="checkbox" name="requires_paper" id="modal_requires_paper" onchange="togglePaperFields()">
+                    This product still uses paper stock (deduct on job orders)
+                </label>
+                <small style="color:var(--gray);font-size:11px;display:block;margin-top:2px;">
+                    e.g. mugs or shirts printed on transfer paper. Quantity ordered ÷ cut size will be deducted from the matching paper stock.
+                </small>
+
+                <div id="paperFieldsGroup" style="display:none;margin-top:12px;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Paper Type</label>
+                            <select name="paper_type" id="modal_paper_type" class="form-control" onchange="updateModalPaperSizes()">
+                                <option value="">Select</option>
+                                <?php foreach ($paper_types_list as $pt_name): ?>
+                                    <option value="<?= htmlspecialchars($pt_name) ?>"><?= htmlspecialchars($pt_name) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Paper Size</label>
+                            <select name="paper_size" id="modal_paper_size" class="form-control">
+                                <option value="">Select paper type first</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Cut Size</label>
+                        <select name="cut_size" id="modal_cut_size" class="form-control">
+                            <?php foreach ($cut_size_options as $val => $label): ?>
+                                <option value="<?= htmlspecialchars($val) ?>"><?= htmlspecialchars($label) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small style="color:var(--gray);font-size:11px;">How many pieces are cut from one sheet of this paper.</small>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-gray" onclick="closeTypeModal()">Cancel</button>
@@ -1441,6 +1547,35 @@ if ($options_fid > 0) {
         }
 
         // ── Type Modal ───────────────────────────────────────────────────
+        // Distinct paper type/size pairs, sourced from real paper stock,
+        // used to drive the cascading "Requires Paper Stock" dropdowns.
+        const paperPairs = <?= json_encode($paper_pairs) ?>;
+
+        function togglePaperFields() {
+            const on = document.getElementById('modal_requires_paper').checked;
+            document.getElementById('paperFieldsGroup').style.display = on ? 'block' : 'none';
+        }
+
+        function updateModalPaperSizes(selectedSize) {
+            const type = document.getElementById('modal_paper_type').value;
+            const sizeSelect = document.getElementById('modal_paper_size');
+            const sizes = [...new Set(paperPairs.filter(p => p.product_type === type).map(p => p.product_group))];
+
+            sizeSelect.innerHTML = '';
+            if (!type || sizes.length === 0) {
+                sizeSelect.innerHTML = '<option value="">Select paper type first</option>';
+                return;
+            }
+            sizeSelect.innerHTML = '<option value="">Select</option>';
+            sizes.forEach(size => {
+                const opt = document.createElement('option');
+                opt.value = size;
+                opt.textContent = size;
+                if (selectedSize && selectedSize === size) opt.selected = true;
+                sizeSelect.appendChild(opt);
+            });
+        }
+
         function openTypeModal(data) {
             document.getElementById('typeModalOverlay').classList.add('open');
             document.getElementById('typeModal').classList.add('open');
@@ -1452,6 +1587,13 @@ if ($options_fid > 0) {
                 document.getElementById('modal_icon').value = data.icon || '';
                 document.getElementById('modal_sort').value = data.sort_order;
                 document.getElementById('modal_active').checked = data.is_active == 1;
+
+                const requiresPaper = !!data.requires_paper && data.requires_paper != 0;
+                document.getElementById('modal_requires_paper').checked = requiresPaper;
+                document.getElementById('modal_paper_type').value = data.paper_type || '';
+                updateModalPaperSizes(data.paper_size || '');
+                document.getElementById('modal_cut_size').value = data.cut_size || 'whole';
+                togglePaperFields();
             } else {
                 document.getElementById('typeModalTitle').innerHTML = '<i class="fas fa-plus"></i> Add Product Type';
                 document.getElementById('modal_type_id').value = 0;
@@ -1460,6 +1602,12 @@ if ($options_fid > 0) {
                 document.getElementById('modal_icon').value = 'fa-print';
                 document.getElementById('modal_sort').value = 0;
                 document.getElementById('modal_active').checked = true;
+
+                document.getElementById('modal_requires_paper').checked = false;
+                document.getElementById('modal_paper_type').value = '';
+                updateModalPaperSizes();
+                document.getElementById('modal_cut_size').value = 'whole';
+                togglePaperFields();
             }
         }
 

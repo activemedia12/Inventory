@@ -59,9 +59,13 @@ $usage_query = "
         ul.log_date, 
         jo.client_name, 
         jo.project_name,
-        ul.used_sheets
+        ul.used_sheets,
+        jo.product_type_id,
+        pt.name AS print_type_name,
+        pt.icon AS print_type_icon
     FROM usage_logs ul
     LEFT JOIN job_orders jo ON ul.job_order_id = jo.id
+    LEFT JOIN product_types pt ON jo.product_type_id = pt.id
     WHERE ul.product_id = ?
     ORDER BY ul.log_date DESC
 ";
@@ -158,6 +162,7 @@ $delivery_history = $delivery_stmt->get_result();
                         <th>Date</th>
                         <th>Client</th>
                         <th>Project</th>
+                        <th>Print Type</th>
                         <th>Sheets</th>
                         <th>Reams</th>
                     </tr>
@@ -175,6 +180,18 @@ $delivery_history = $delivery_stmt->get_result();
                             <td><?= date("M j, Y", strtotime($row['log_date'])) ?></td>
                             <td><?= htmlspecialchars($row['client_name'] ?? 'N/A') ?></td>
                             <td><?= htmlspecialchars($row['project_name'] ?? 'N/A') ?></td>
+                            <td>
+                                <?php if (!empty($row['product_type_id']) && $row['print_type_name']): ?>
+                                    <span class="badge badge-success" style="white-space:nowrap;">
+                                        <i class="fas <?= htmlspecialchars($row['print_type_icon'] ?? 'fa-print') ?>"></i>
+                                        <?= htmlspecialchars($row['print_type_name']) ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span class="badge badge-secondary">
+                                        <i class="fas fa-file-alt"></i> Paper
+                                    </span>
+                                <?php endif; ?>
+                            </td>
                             <td><?= number_format($row['used_sheets']) ?></td>
                             <td><?= number_format($row['used_sheets'] / 500, 2) ?></td>
                         </tr>

@@ -1,9 +1,4 @@
 <?php
-// job_order_card_renderer.php
-
-// ────────────────────────────────────────────────
-// Show nice empty state when there are no orders
-// ────────────────────────────────────────────────
 if (empty($orders_to_show)) {
 ?>
   <div class="empty-status-state">
@@ -163,6 +158,7 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                             $profit_class  = $profit >= 0 ? 'profit-positive' : 'profit-negative';
                             ?>
                             <tr class="clickable-row"
+                              id="job-order-row-<?= $order['id'] ?>"
                               data-order='<?= htmlspecialchars(json_encode($order_with_date), ENT_QUOTES, 'UTF-8') ?>'
                               data-role="<?= htmlspecialchars($_SESSION['role']) ?>">
                               <td>
@@ -193,6 +189,9 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                               <td><?= $order['quantity'] ?></td>
 
                               <td>
+                                <?php
+                                  $np_uses_paper = $pt_id && !empty(trim($order['paper_type'] ?? '')) && trim($order['paper_type']) !== 'N/A';
+                                ?>
                                 <?php if ($pt_id && isset($job_field_values[$order['id']])): ?>
                                   <!-- Non-paper job: show dynamic field values -->
                                   <div style="display:flex;flex-direction:column;gap:4px;">
@@ -207,6 +206,26 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                                         <?php endif; ?>
                                       </div>
                                     <?php endforeach; ?>
+                                    <?php if ($np_uses_paper): ?>
+                                      <div style="font-size:12px;border-top:1px dashed var(--light-gray);padding-top:4px;margin-top:2px;">
+                                        <strong><i class="fas fa-scroll"></i> Paper Used:</strong>
+                                        <?= htmlspecialchars($order['paper_type']) ?> / <?= htmlspecialchars($order['paper_size']) ?>
+                                        <?php if (!empty($order['paper_sequence']) && trim($order['paper_sequence']) !== 'Any'): ?>
+                                          (<?= htmlspecialchars($order['paper_sequence']) ?>)
+                                        <?php endif; ?>
+                                        <br><strong>Cut Size:</strong> <?= htmlspecialchars($order['product_size']) ?>
+                                      </div>
+                                    <?php endif; ?>
+                                  </div>
+                                <?php elseif ($pt_id && $np_uses_paper): ?>
+                                  <!-- Non-paper job with no custom fields, but still consumes paper -->
+                                  <div style="font-size:12px;">
+                                    <strong><i class="fas fa-scroll"></i> Paper Used:</strong>
+                                    <?= htmlspecialchars($order['paper_type']) ?> / <?= htmlspecialchars($order['paper_size']) ?>
+                                    <?php if (!empty($order['paper_sequence']) && trim($order['paper_sequence']) !== 'Any'): ?>
+                                      (<?= htmlspecialchars($order['paper_sequence']) ?>)
+                                    <?php endif; ?>
+                                    <br><strong>Cut Size:</strong> <?= htmlspecialchars($order['product_size']) ?>
                                   </div>
                                 <?php elseif ($pt_id): ?>
                                   <span class="text-muted">No specifications recorded</span>
@@ -233,7 +252,7 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                               <td><?= nl2br(htmlspecialchars($order['special_instructions'])) ?></td>
                               <td>
                                 <?php
-                                $is_non_paper = !empty($order['product_type_id']);
+                                $is_non_paper = !empty($order['product_type_id']) && empty($np_uses_paper);
                                 if (empty($order['grand_total']) || $order['grand_total'] == 0.00) {
                                   if ($is_non_paper) {
                                     echo '<span class="text-muted">Not Set</span>';
