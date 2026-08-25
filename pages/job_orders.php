@@ -889,17 +889,39 @@ while ($row = $fv_result->fetch_assoc()) {
       gap: 14px;
     }
 
-    .vat-group label {
-      margin-bottom: 8px;
+    .vat-group > label {
+      display: block;
+      margin-bottom: 6px;
       font-size: 12px;
+      font-weight: 600;
       color: var(--gray);
-      margin-right: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     .vatlabels {
       display: flex;
       flex-direction: row;
       flex-wrap: wrap;
+      gap: 4px 18px;
+      padding: 10px 12px;
+      border: 1px solid var(--light-gray);
+      border-radius: 6px;
+    }
+
+    .vatlabels label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--dark);
+      font-weight: 400;
+      cursor: pointer;
+    }
+
+    .vatlabels input[type="radio"] {
+      accent-color: var(--primary);
+      cursor: pointer;
     }
 
     .vat-group {
@@ -1401,8 +1423,49 @@ while ($row = $fv_result->fetch_assoc()) {
       font-weight: 500;
     }
 
-    fieldset {
+    fieldset.form-section {
       border: 0;
+      margin: 0 0 30px;
+      padding: 0;
+    }
+
+    fieldset.form-section:last-of-type {
+      margin-bottom: 0;
+    }
+
+    .form-section legend {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 0;
+      margin-bottom: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--dark);
+    }
+
+    .form-section legend i {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--primary-bg);
+      color: var(--primary);
+      font-size: 12px;
+    }
+
+    .form-section legend::after {
+      content: '';
+      flex: 1 1 auto;
+      height: 1px;
+      margin-left: 4px;
+      background: linear-gradient(to right, var(--light-gray), rgba(226, 228, 231, 0));
     }
 
     .action-cell {
@@ -1419,11 +1482,6 @@ while ($row = $fv_result->fetch_assoc()) {
 
     .action-cell a:hover {
       color: var(--primary);
-    }
-
-    legend {
-      font-size: 15px;
-      font-weight: 600;
     }
 
     input::placeholder {
@@ -1452,6 +1510,36 @@ while ($row = $fv_result->fetch_assoc()) {
         transform: translate(-50%, -50%) scale(1);
         opacity: 1;
       }
+    }
+
+    @keyframes centerZoomOut {
+      0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+      }
+
+      100% {
+        transform: translate(-50%, -50%) scale(0.97);
+        opacity: 0;
+      }
+    }
+
+    @keyframes modalBackdropFadeOut {
+      from {
+        opacity: 1;
+      }
+
+      to {
+        opacity: 0;
+      }
+    }
+
+    .modal.closing {
+      animation: modalBackdropFadeOut 0.16s ease forwards;
+    }
+
+    .floating-window.closing {
+      animation: centerZoomOut 0.16s ease-in forwards;
     }
 
     .floating-window {
@@ -1983,6 +2071,20 @@ while ($row = $fv_result->fetch_assoc()) {
       }
     }
 
+    @keyframes exportFadeOut {
+      from {
+        opacity: 1;
+      }
+
+      to {
+        opacity: 0;
+      }
+    }
+
+    .export-modal-overlay.closing {
+      animation: exportFadeOut 0.16s ease forwards;
+    }
+
     .header-actions {
       display: flex;
       align-items: center;
@@ -2226,7 +2328,6 @@ while ($row = $fv_result->fetch_assoc()) {
       color: var(--gray);
       flex-direction: column;
       gap: 6px;
-      padding: 20px 16px;
     }
 
     .results-summary.no-results i {
@@ -2544,10 +2645,8 @@ while ($row = $fv_result->fetch_assoc()) {
                 <?php endif; ?>
               </span>
             <?php else: ?>
-              <i class="fas fa-search"></i>
               <span>
-                No job orders found matching your filters.
-                <span class="results-summary-sub">Try adjusting or removing some filters.</span>
+                <span class="results-summary-sub">No job orders found matching your filters. Try adjusting or removing some filters.</span>
               </span>
             <?php endif; ?>
           </div>
@@ -2808,7 +2907,6 @@ while ($row = $fv_result->fetch_assoc()) {
             <legend><i class="fas fa-tags"></i> Print Type</legend>
             <div class="form-grid">
               <div class="form-group" style="grid-column: 1 / -1;">
-                <label>What are you printing on? *</label>
                 <div id="print-type-selector" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;">
                   <!-- Paper option (existing behavior) -->
                   <label class="print-type-option" data-type="paper">
@@ -2827,12 +2925,12 @@ while ($row = $fv_result->fetch_assoc()) {
                       </div>
                     </label>
                   <?php endforeach; ?>
+                  <?php if ($_SESSION['role'] === 'admin'): ?>
+                    <a href="product_types.php" class="btn" style="text-decoration:none; align-self:center;">
+                      <i class="fas fa-tags"></i> Manage
+                    </a>
+                  <?php endif; ?>
                 </div>
-                <?php if ($_SESSION['role'] === 'admin'): ?>
-                  <a href="product_types.php" class="btn" style="text-decoration:none;">
-                    <i class="fas fa-tags"></i> Manage Product Types
-                  </a>
-                <?php endif; ?>
                 <input type="hidden" name="product_type_id" id="selected_product_type_id" value="">
               </div>
             </div>
@@ -3054,7 +3152,7 @@ while ($row = $fv_result->fetch_assoc()) {
     <div class="export-modal-container">
       <div class="export-modal-header">
         <h3 class="export-modal-title">Request J.O. Copies</h3>
-        <button class="export-modal-close" onclick="document.getElementById('exportModal').style.display='none'">
+        <button class="export-modal-close" onclick="closeExportModal('exportModal')">
           &times;
         </button>
       </div>
@@ -3084,7 +3182,7 @@ while ($row = $fv_result->fetch_assoc()) {
             <button type="submit" class="export-btn export-btn-primary">
               Request Now
             </button>
-            <button type="button" class="export-btn export-btn-secondary" onclick="document.getElementById('exportModal').style.display='none'">
+            <button type="button" class="export-btn export-btn-secondary" onclick="closeExportModal('exportModal')">
               Cancel
             </button>
           </div>
@@ -3097,7 +3195,7 @@ while ($row = $fv_result->fetch_assoc()) {
     <div class="export-modal-container">
       <div class="export-modal-header">
         <h3 class="export-modal-title">Export Expenses Report</h3>
-        <button class="export-modal-close" onclick="document.getElementById('exportExpensesModal').style.display='none'">
+        <button class="export-modal-close" onclick="closeExportModal('exportExpensesModal')">
           &times;
         </button>
       </div>
@@ -3128,7 +3226,7 @@ while ($row = $fv_result->fetch_assoc()) {
             <button type="submit" class="export-btn export-btn-primary">
               <i class="fas fa-file-excel"></i> Generate & Email Report
             </button>
-            <button type="button" class="export-btn export-btn-secondary" onclick="document.getElementById('exportExpensesModal').style.display='none'">
+            <button type="button" class="export-btn export-btn-secondary" onclick="closeExportModal('exportExpensesModal')">
               Cancel
             </button>
           </div>
@@ -3263,6 +3361,17 @@ while ($row = $fv_result->fetch_assoc()) {
       document.getElementById(modalId).style.display = 'flex';
     }
 
+    function closeExportModal(modalId) {
+      const overlay = document.getElementById(modalId);
+      if (!overlay || overlay.style.display === 'none' || overlay.style.display === '') return;
+
+      overlay.classList.add('closing');
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        overlay.classList.remove('closing');
+      }, 160);
+    }
+
     document.addEventListener('click', function(e) {
       const menu = document.querySelector('.reports-menu');
       if (menu && !menu.contains(e.target)) closeReportsMenu();
@@ -3370,11 +3479,11 @@ while ($row = $fv_result->fetch_assoc()) {
         const joModal = document.getElementById('exportModal');
 
         if (event.target === expensesModal) {
-          expensesModal.style.display = 'none';
+          closeExportModal('exportExpensesModal');
         }
 
         if (event.target === joModal) {
-          joModal.style.display = 'none';
+          closeExportModal('exportModal');
         }
       });
     });
@@ -3382,8 +3491,8 @@ while ($row = $fv_result->fetch_assoc()) {
     // Keyboard shortcuts
     document.addEventListener('keydown', function(event) {
       if (event.key === 'Escape') {
-        document.getElementById('exportExpensesModal').style.display = 'none';
-        document.getElementById('exportModal').style.display = 'none';
+        closeExportModal('exportExpensesModal');
+        closeExportModal('exportModal');
       }
     });
 
@@ -3441,7 +3550,18 @@ while ($row = $fv_result->fetch_assoc()) {
 
     // Close the cost modal
     function closeCostModal() {
-      document.getElementById('setCostModal').style.display = 'none';
+      const modal = document.getElementById('setCostModal');
+      const win = modal ? modal.querySelector('.floating-window') : null;
+      if (!modal || modal.style.display === 'none' || modal.style.display === '') return;
+
+      modal.classList.add('closing');
+      if (win) win.classList.add('closing');
+
+      setTimeout(() => {
+        modal.style.display = 'none';
+        modal.classList.remove('closing');
+        if (win) win.classList.remove('closing');
+      }, 160);
     }
 
     function updateProfitPreview() {
@@ -4187,7 +4307,18 @@ while ($row = $fv_result->fetch_assoc()) {
     });
 
     function closeModal() {
-      document.getElementById('jobModal').style.display = 'none';
+      const modal = document.getElementById('jobModal');
+      const win = modal ? modal.querySelector('.floating-window') : null;
+      if (!modal || modal.style.display === 'none' || modal.style.display === '') return;
+
+      modal.classList.add('closing');
+      if (win) win.classList.add('closing');
+
+      setTimeout(() => {
+        modal.style.display = 'none';
+        modal.classList.remove('closing');
+        if (win) win.classList.remove('closing');
+      }, 160);
     }
 
     // Close modal on outside click

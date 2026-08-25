@@ -33,15 +33,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($name !== '') {
-            if ($id > 0) {
-                $stmt = $inventory->prepare("UPDATE product_types SET name=?, description=?, icon=?, is_active=?, sort_order=?, requires_paper=?, paper_type=?, paper_size=?, cut_size=? WHERE id=?");
-                $stmt->bind_param("sssiiisssi", $name, $description, $icon, $is_active, $sort_order, $requires_paper, $paper_type, $paper_size, $cut_size, $id);
+            // ── Duplicate name check (case-insensitive, excluding self on edit) ──
+            $dupCheck = $inventory->prepare("SELECT id FROM product_types WHERE LOWER(name) = LOWER(?) AND id != ? LIMIT 1");
+            $dupCheck->bind_param("si", $name, $id);
+            $dupCheck->execute();
+            $dupExists = $dupCheck->get_result()->fetch_assoc();
+
+            if ($dupExists) {
+                $_SESSION['pt_message'] = ['type' => 'error', 'text' => "A product type named \"$name\" already exists."];
             } else {
-                $stmt = $inventory->prepare("INSERT INTO product_types (name, description, icon, is_active, sort_order, requires_paper, paper_type, paper_size, cut_size) VALUES (?,?,?,?,?,?,?,?,?)");
-                $stmt->bind_param("sssiiisss", $name, $description, $icon, $is_active, $sort_order, $requires_paper, $paper_type, $paper_size, $cut_size);
+                if ($id > 0) {
+                    $stmt = $inventory->prepare("UPDATE product_types SET name=?, description=?, icon=?, is_active=?, sort_order=?, requires_paper=?, paper_type=?, paper_size=?, cut_size=? WHERE id=?");
+                    $stmt->bind_param("sssiiisssi", $name, $description, $icon, $is_active, $sort_order, $requires_paper, $paper_type, $paper_size, $cut_size, $id);
+                } else {
+                    $stmt = $inventory->prepare("INSERT INTO product_types (name, description, icon, is_active, sort_order, requires_paper, paper_type, paper_size, cut_size) VALUES (?,?,?,?,?,?,?,?,?)");
+                    $stmt->bind_param("sssiiisss", $name, $description, $icon, $is_active, $sort_order, $requires_paper, $paper_type, $paper_size, $cut_size);
+                }
+                $stmt->execute();
+                $_SESSION['pt_message'] = ['type' => 'success', 'text' => $id > 0 ? 'Product type updated.' : 'Product type added.'];
             }
-            $stmt->execute();
-            $_SESSION['pt_message'] = ['type' => 'success', 'text' => $id > 0 ? 'Product type updated.' : 'Product type added.'];
+        } else {
+            $_SESSION['pt_message'] = ['type' => 'error', 'text' => 'Name is required.'];
         }
         header("Location: product_types.php");
         exit;
@@ -75,15 +87,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sort_order     = intval($_POST['sort_order'] ?? 0);
 
         if ($type_id > 0 && $field_name !== '' && $field_label !== '') {
-            if ($field_id > 0) {
-                $stmt = $inventory->prepare("UPDATE product_type_fields SET field_name=?, field_label=?, field_type=?, is_required=?, sort_order=? WHERE id=?");
-                $stmt->bind_param("sssiii", $field_name, $field_label, $field_type, $is_required, $sort_order, $field_id);
+            // ── Duplicate field_name check, scoped to this product type ──
+            $dupCheck = $inventory->prepare("SELECT id FROM product_type_fields WHERE product_type_id = ? AND field_name = ? AND id != ? LIMIT 1");
+            $dupCheck->bind_param("isi", $type_id, $field_name, $field_id);
+            $dupCheck->execute();
+            $dupExists = $dupCheck->get_result()->fetch_assoc();
+
+            if ($dupExists) {
+                $_SESSION['pt_message'] = ['type' => 'error', 'text' => "A field with the internal name \"$field_name\" already exists on this product type. Use a different label."];
             } else {
-                $stmt = $inventory->prepare("INSERT INTO product_type_fields (product_type_id, field_name, field_label, field_type, is_required, sort_order) VALUES (?,?,?,?,?,?)");
-                $stmt->bind_param("isssii", $type_id, $field_name, $field_label, $field_type, $is_required, $sort_order);
+                if ($field_id > 0) {
+                    $stmt = $inventory->prepare("UPDATE product_type_fields SET field_name=?, field_label=?, field_type=?, is_required=?, sort_order=? WHERE id=?");
+                    $stmt->bind_param("sssiii", $field_name, $field_label, $field_type, $is_required, $sort_order, $field_id);
+                } else {
+                    $stmt = $inventory->prepare("INSERT INTO product_type_fields (product_type_id, field_name, field_label, field_type, is_required, sort_order) VALUES (?,?,?,?,?,?)");
+                    $stmt->bind_param("isssii", $type_id, $field_name, $field_label, $field_type, $is_required, $sort_order);
+                }
+                $stmt->execute();
+                $_SESSION['pt_message'] = ['type' => 'success', 'text' => 'Field saved.'];
             }
-            $stmt->execute();
-            $_SESSION['pt_message'] = ['type' => 'success', 'text' => 'Field saved.'];
+        } else {
+            $_SESSION['pt_message'] = ['type' => 'error', 'text' => 'Field name and label are required.'];
         }
         header("Location: product_types.php?manage=" . $type_id);
         exit;
@@ -423,6 +447,23 @@ if ($options_fid > 0) {
             font-weight: 600;
         }
 
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--light-gray);
+            color: var(--dark);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--light);
+            opacity: 1;
+        }
+
         .user-info {
             display: flex;
             align-items: center;
@@ -564,7 +605,7 @@ if ($options_fid > 0) {
         }
 
         .card-header h3 i {
-            color: var(--gray);
+            color: var(--primary);
         }
 
         .card-body {
@@ -574,29 +615,31 @@ if ($options_fid > 0) {
         /* ── Type Grid ── */
         .type-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
         }
 
         .type-card {
+            position: relative;
             background: var(--card-bg);
             border: 1px solid var(--light-gray);
-            border-radius: 8px;
+            border-radius: 10px;
             box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
-            padding: 18px;
+            padding: 22px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            border-left: 3px solid var(--primary);
-            transition: transform 0.15s ease;
+            gap: 14px;
+            min-height: 260px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
         }
 
         .type-card:hover {
             transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(20, 23, 31, 0.10);
+            border-color: var(--primary);
         }
 
         .type-card.inactive {
-            border-left-color: var(--light-gray);
             opacity: 0.7;
         }
 
@@ -604,17 +647,38 @@ if ($options_fid > 0) {
             display: flex;
             align-items: center;
             gap: 12px;
+            padding-right: 28px;
+        }
+
+        .type-card-delete {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            background: none;
+            border: none;
+            color: var(--gray);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .type-card-delete:hover {
+            background: var(--danger-bg);
+            color: var(--danger);
         }
 
         .type-icon {
-            width: 40px;
-            height: 40px;
+            width: 44px;
+            height: 44px;
             border-radius: 8px;
             background: var(--primary-light);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 17px;
+            font-size: 18px;
             color: var(--primary);
             flex-shrink: 0;
         }
@@ -660,8 +724,29 @@ if ($options_fid > 0) {
 
         .type-actions {
             display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: auto;
+            padding-top: 4px;
+        }
+
+        .type-actions-primary {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .type-actions-secondary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .type-actions-secondary .btn {
+            width: 100%;
+        }
+
+        .type-actions-secondary form {
+            display: contents;
         }
 
         /* ── Tables ── */
@@ -931,12 +1016,21 @@ if ($options_fid > 0) {
         }
 
         .breadcrumb a {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             color: var(--primary);
             text-decoration: none;
+            font-weight: 600;
+            padding: 6px 10px 6px 8px;
+            margin-left: -8px;
+            border-radius: 6px;
+            transition: background-color 0.15s ease;
         }
 
         .breadcrumb a:hover {
-            text-decoration: underline;
+            background-color: var(--primary-light);
+            text-decoration: none;
         }
 
         .breadcrumb i {
@@ -966,7 +1060,23 @@ if ($options_fid > 0) {
             width: 120px;
         }
 
+        @media (max-width: 1100px) {
+            .type-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
         @media (max-width: 768px) {
+            .header {
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+
             .sidebar-con {
                 width: 100%;
                 display: flex;
@@ -1066,11 +1176,16 @@ if ($options_fid > 0) {
                     <i class="fas fa-calendar-alt" style="margin-right:5px;"></i> <?= date('l, F j, Y') ?>
                 </p>
             </div>
-            <div class="user-info">
-                <img src="https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['username']) ?>&background=random" alt="User">
-                <div class="user-details">
-                    <h4><?= htmlspecialchars($_SESSION['username']) ?></h4>
-                    <small><?= $_SESSION['role'] ?></small>
+            <div class="header-actions">
+                <a href="job_orders.php" class="btn btn-outline">
+                    <i class="fas fa-arrow-left"></i> Back to Job Orders
+                </a>
+                <div class="user-info">
+                    <img src="https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['username']) ?>&background=random" alt="User">
+                    <div class="user-details">
+                        <h4><?= htmlspecialchars($_SESSION['username']) ?></h4>
+                        <small><?= $_SESSION['role'] ?></small>
+                    </div>
                 </div>
             </div>
         </header>
@@ -1106,6 +1221,13 @@ if ($options_fid > 0) {
                         <div class="type-grid">
                             <?php foreach ($types as $t): ?>
                                 <div class="type-card <?= $t['is_active'] ? '' : 'inactive' ?>">
+                                    <form method="POST" onsubmit="return confirm('Delete this product type? All fields and pricing will also be deleted.')">
+                                        <input type="hidden" name="action" value="delete_type">
+                                        <input type="hidden" name="type_id" value="<?= $t['id'] ?>">
+                                        <button type="submit" class="type-card-delete" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
                                     <div class="type-card-top">
                                         <div class="type-icon">
                                             <i class="fas <?= htmlspecialchars($t['icon'] ?? 'fa-print') ?>"></i>
@@ -1133,27 +1255,22 @@ if ($options_fid > 0) {
                                         </div>
                                     <?php endif; ?>
                                     <div class="type-actions">
-                                        <a href="product_types.php?manage=<?= $t['id'] ?>" class="btn btn-primary btn-sm">
+                                        <a href="product_types.php?manage=<?= $t['id'] ?>" class="btn btn-primary btn-sm type-actions-primary">
                                             <i class="fas fa-cog"></i> Manage
                                         </a>
-                                        <button class="btn btn-gray btn-sm" onclick="openTypeModal(<?= htmlspecialchars(json_encode($t)) ?>)">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </button>
-                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Toggle active status?')">
-                                            <input type="hidden" name="action" value="toggle_type">
-                                            <input type="hidden" name="type_id" value="<?= $t['id'] ?>">
-                                            <button type="submit" class="btn btn-<?= $t['is_active'] ? 'warning' : 'success' ?> btn-sm">
-                                                <i class="fas fa-<?= $t['is_active'] ? 'eye-slash' : 'eye' ?>"></i>
-                                                <?= $t['is_active'] ? 'Disable' : 'Enable' ?>
+                                        <div class="type-actions-secondary">
+                                            <button class="btn btn-gray btn-sm" onclick="openTypeModal(<?= htmlspecialchars(json_encode($t)) ?>)">
+                                                <i class="fas fa-edit"></i> Edit
                                             </button>
-                                        </form>
-                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this product type? All fields and pricing will also be deleted.')">
-                                            <input type="hidden" name="action" value="delete_type">
-                                            <input type="hidden" name="type_id" value="<?= $t['id'] ?>">
-                                            <button type="submit" class="btn btn-danger btn-sm">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </form>
+                                            <form method="POST" onsubmit="return confirm('Toggle active status?')">
+                                                <input type="hidden" name="action" value="toggle_type">
+                                                <input type="hidden" name="type_id" value="<?= $t['id'] ?>">
+                                                <button type="submit" class="btn btn-<?= $t['is_active'] ? 'warning' : 'success' ?> btn-sm">
+                                                    <i class="fas fa-<?= $t['is_active'] ? 'eye-slash' : 'eye' ?>"></i>
+                                                    <?= $t['is_active'] ? 'Disable' : 'Enable' ?>
+                                                </button>
+                                            </form>
+                                        </div>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
@@ -1167,7 +1284,7 @@ if ($options_fid > 0) {
          MANAGE VIEW — Fields & Pricing for a specific type
     ══════════════════════════════════════════════════════════ -->
             <div class="breadcrumb">
-                <a href="product_types.php"><i class="fas fa-tags"></i> Product Types</a>
+                <a href="product_types.php"><i class="fas fa-arrow-left"></i> Product Types</a>
                 <i class="fas fa-chevron-right"></i>
                 <span><?= htmlspecialchars($manage_type['name']) ?></span>
             </div>

@@ -1134,6 +1134,36 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             }
         }
 
+        @keyframes centerZoomOut {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(0.97);
+                opacity: 0;
+            }
+        }
+
+        @keyframes modalBackdropFadeOut {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
+        }
+
+        .modal.closing {
+            animation: modalBackdropFadeOut 0.16s ease forwards;
+        }
+
+        .floating-window.closing {
+            animation: centerZoomOut 0.16s ease-in forwards;
+        }
+
         .modal {
             display: none;
             position: fixed;
@@ -1389,6 +1419,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         .action-buttons {
             display: flex;
             margin-top: 14px;
+            gap: 12px;
         }
 
         .status-toggle-form {
@@ -2157,19 +2188,36 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             });
         });
 
-        // Close modal function - simplified and more robust
+        // Close modal function — plays the closing animation, then hides
+        const MODAL_CLOSE_ANIM_MS = 160;
+
+        function animateModalClose(overlay, floatingWindow, afterHide) {
+            if (!overlay || overlay.style.display === 'none' || overlay.style.display === '') {
+                if (afterHide) afterHide();
+                return;
+            }
+            overlay.classList.add('closing');
+            if (floatingWindow) floatingWindow.classList.add('closing');
+
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                overlay.classList.remove('closing');
+                if (floatingWindow) floatingWindow.classList.remove('closing');
+                if (afterHide) afterHide();
+            }, MODAL_CLOSE_ANIM_MS);
+        }
+
         function closeModal() {
             const productModal = document.getElementById('productModal');
+            const productModalBody = document.getElementById('productModalBody');
             const jobModal = document.getElementById('jobModal');
+            const jobFloatingWindow = jobModal ? jobModal.querySelector('.floating-window') : null;
 
-            if (productModal) {
-                productModal.style.display = 'none';
-                document.getElementById('productModalBody').innerHTML = ''; // Clear content
-            }
-            if (jobModal) {
-                jobModal.style.display = 'none';
-                // Clear job modal if needed
-            }
+            animateModalClose(productModal, productModalBody, () => {
+                if (productModalBody) productModalBody.innerHTML = ''; // Clear content
+            });
+
+            animateModalClose(jobModal, jobFloatingWindow);
         }
 
         // Click outside modal to close
@@ -2409,7 +2457,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             Actions
           </div>
           <div class="action-buttons" style="flex-wrap: wrap;">
-            <form class="status-toggle-form" data-job-id="${order.id}" style="display: flex; gap: 5px; flex-wrap: wrap;">
+            <form class="status-toggle-form" data-job-id="${order.id}" style="display: flex; gap: 12px; flex-wrap: wrap;">
               <select name="new_status" class="status-select" style="padding: 8px 12px;">
                 ${options}
               </select>
@@ -2486,9 +2534,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         // Add keyboard shortcut to close modals (ESC key)
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                document.querySelectorAll('.modal').forEach(modal => {
-                    modal.style.display = 'none';
-                });
+                closeModal();
             }
         });
     </script>

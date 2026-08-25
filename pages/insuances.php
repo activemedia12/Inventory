@@ -586,6 +586,36 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
             }
         }
 
+        @keyframes centerZoomOut {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(0.97);
+                opacity: 0;
+            }
+        }
+
+        @keyframes modalBackdropFadeOut {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
+        }
+
+        .overlay.closing {
+            animation: modalBackdropFadeOut 0.16s ease forwards;
+        }
+
+        .floating-window.closing {
+            animation: centerZoomOut 0.16s ease-in forwards;
+        }
+
         .overlay {
             position: fixed;
             top: 0;
@@ -1179,7 +1209,18 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
         }
 
         function closeInsuanceModal() {
-            document.getElementById('insuanceModal').style.display = 'none';
+            const overlay = document.getElementById('insuanceModal');
+            const win = document.getElementById('insuanceModalBody');
+            if (!overlay || overlay.style.display === 'none' || overlay.style.display === '') return;
+
+            overlay.classList.add('closing');
+            if (win) win.classList.add('closing');
+
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                overlay.classList.remove('closing');
+                if (win) win.classList.remove('closing');
+            }, 160);
         }
 
         document.cookie = "lastProductPage=" + window.location.pathname + "; path=/";

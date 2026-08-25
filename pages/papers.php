@@ -761,6 +761,36 @@ $stmt->close();
       }
     }
 
+    @keyframes centerZoomOut {
+      0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+      }
+
+      100% {
+        transform: translate(-50%, -50%) scale(0.97);
+        opacity: 0;
+      }
+    }
+
+    @keyframes modalBackdropFadeOut {
+      from {
+        opacity: 1;
+      }
+
+      to {
+        opacity: 0;
+      }
+    }
+
+    #productModal.closing {
+      animation: modalBackdropFadeOut 0.16s ease forwards;
+    }
+
+    .floating-window.closing {
+      animation: centerZoomOut 0.16s ease-in forwards;
+    }
+
     #productModal {
       display: none;
       position: fixed;
@@ -1350,8 +1380,21 @@ $stmt->close();
     });
 
     function closeModal() {
-      document.getElementById('productModal').style.display = 'none';
-      document.getElementById('productModalBody').innerHTML = '';
+      const overlay = document.getElementById('productModal');
+      const win = document.getElementById('productModalBody');
+      if (!overlay || overlay.style.display === 'none' || overlay.style.display === '') return;
+
+      overlay.classList.add('closing');
+      if (win) win.classList.add('closing');
+
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        overlay.classList.remove('closing');
+        if (win) {
+          win.classList.remove('closing');
+          win.innerHTML = '';
+        }
+      }, 160);
     }
 
     // Click outside the floating window to close

@@ -298,6 +298,12 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       align-items: center;
     }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
     .user-info img {
       width: 36px;
       height: 36px;
@@ -388,7 +394,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     }
 
     .btn {
-      padding: 9px 18px;
+      padding: 9px 16px;
       background: var(--primary);
       color: white;
       border: none;
@@ -407,6 +413,72 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
 
     .btn i {
       margin-right: 8px;
+    }
+
+    .btn-outline {
+      background-color: transparent;
+      border: 1px solid var(--light-gray);
+      color: var(--dark);
+    }
+
+    .btn-outline:hover {
+      background-color: var(--light);
+    }
+
+    .reports-menu {
+      position: relative;
+    }
+
+    .reports-menu-toggle {
+      background: var(--card-bg);
+    }
+
+    .reports-menu-dropdown {
+      display: none;
+      flex-direction: column;
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      min-width: 230px;
+      background: var(--card-bg);
+      border: 1px solid var(--light-gray);
+      border-radius: 8px;
+      box-shadow: 0 6px 16px rgba(20, 23, 31, 0.10);
+      overflow: hidden;
+      z-index: 50;
+    }
+
+    .reports-menu-dropdown.open {
+      display: flex;
+    }
+
+    .reports-menu-dropdown button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      border: none;
+      background: none;
+      text-align: left;
+      padding: 11px 16px;
+      font-size: 13px;
+      color: var(--dark);
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+
+    .reports-menu-dropdown button + button {
+      border-top: 1px solid var(--light-gray);
+    }
+
+    .reports-menu-dropdown button:hover {
+      background: var(--light);
+    }
+
+    .reports-menu-dropdown button i {
+      width: 16px;
+      text-align: center;
+      color: var(--primary);
     }
 
     /* Table Styles */
@@ -812,6 +884,20 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       }
     }
 
+    @keyframes exportFadeOut {
+      from {
+        opacity: 1;
+      }
+
+      to {
+        opacity: 0;
+      }
+    }
+
+    .export-modal-overlay.closing {
+      animation: exportFadeOut 0.16s ease forwards;
+    }
+
     @media (max-width: 480px) {
       .export-modal-container {
         margin: 10px;
@@ -933,6 +1019,36 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
         transform: translate(-50%, -50%) scale(1);
         opacity: 1;
       }
+    }
+
+    @keyframes centerZoomOut {
+      0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+      }
+
+      100% {
+        transform: translate(-50%, -50%) scale(0.97);
+        opacity: 0;
+      }
+    }
+
+    @keyframes modalBackdropFadeOut {
+      from {
+        opacity: 1;
+      }
+
+      to {
+        opacity: 0;
+      }
+    }
+
+    .overlay.closing {
+      animation: modalBackdropFadeOut 0.16s ease forwards;
+    }
+
+    .floating-window.closing {
+      animation: centerZoomOut 0.16s ease-in forwards;
     }
 
     .overlay {
@@ -1163,11 +1279,24 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
           <i class="fas fa-calendar-alt" style="margin-right: 5px;"></i> <?= date('l, F j, Y') ?>
         </p>
       </div>
-      <div class="user-info">
-        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="User">
-        <div class="user-details">
-          <h4><?php echo htmlspecialchars($_SESSION['username']); ?></h4>
-          <small><?php echo $_SESSION['role']; ?></small>
+      <div class="header-actions">
+        <div class="reports-menu">
+          <button type="button" class="btn btn-outline reports-menu-toggle" onclick="toggleReportsMenu(event)">
+            <i class="fas fa-chart-bar"></i> Reports &nbsp;<i class="fas fa-chevron-down" style="font-size:10px;"></i>
+          </button>
+          <div class="reports-menu-dropdown" id="reportsMenuDropdown">
+            <button type="button" onclick="openReportModal('deliveryExportModal')">
+              <i class="fas fa-file-alt"></i>
+              <span>Request Delivery Report</span>
+            </button>
+          </div>
+        </div>
+        <div class="user-info">
+          <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['username']); ?>&background=random" alt="User">
+          <div class="user-details">
+            <h4><?php echo htmlspecialchars($_SESSION['username']); ?></h4>
+            <small><?php echo $_SESSION['role']; ?></small>
+          </div>
         </div>
       </div>
     </header>
@@ -1333,12 +1462,6 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       </form>
     </div>
 
-    <div class="export">
-      <button onclick="document.getElementById('deliveryExportModal').style.display='flex'" class="btn">
-        Request Delivery Report
-      </button>
-    </div>
-
     <!-- Delivery History -->
     <div class="table-card">
       <div class="delivery-summary">
@@ -1453,7 +1576,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     <div class="export-modal-container">
       <div class="export-modal-header">
         <h3 class="export-modal-title">Request Delivery Report</h3>
-        <button class="export-modal-close" onclick="document.getElementById('deliveryExportModal').style.display='none'">
+        <button class="export-modal-close" onclick="closeExportModal('deliveryExportModal')">
           &times;
         </button>
       </div>
@@ -1482,7 +1605,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
             <button type="submit" class="export-btn export-btn-primary">
               Request Report
             </button>
-            <button type="button" class="export-btn export-btn-secondary" onclick="document.getElementById('deliveryExportModal').style.display='none'">
+            <button type="button" class="export-btn export-btn-secondary" onclick="closeExportModal('deliveryExportModal')">
               Cancel
             </button>
           </div>
@@ -1493,6 +1616,37 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
 
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script>
+    // ── Reports dropdown (Request Delivery Report) ─────────────────────
+    function toggleReportsMenu(e) {
+      if (e) e.stopPropagation();
+      document.getElementById('reportsMenuDropdown').classList.toggle('open');
+    }
+
+    function closeReportsMenu() {
+      document.getElementById('reportsMenuDropdown').classList.remove('open');
+    }
+
+    function openReportModal(modalId) {
+      closeReportsMenu();
+      document.getElementById(modalId).style.display = 'flex';
+    }
+
+    function closeExportModal(modalId) {
+      const overlay = document.getElementById(modalId);
+      if (!overlay || overlay.style.display === 'none' || overlay.style.display === '') return;
+
+      overlay.classList.add('closing');
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        overlay.classList.remove('closing');
+      }, 160);
+    }
+
+    document.addEventListener('click', function(e) {
+      const menu = document.querySelector('.reports-menu');
+      if (menu && !menu.contains(e.target)) closeReportsMenu();
+    });
+
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         console.log(entry)
@@ -1632,8 +1786,21 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     });
 
     function closeModal() {
-      document.getElementById('productModal').style.display = 'none';
-      document.getElementById('productModalBody').innerHTML = '';
+      const overlay = document.getElementById('productModal');
+      const win = document.getElementById('productModalBody');
+      if (!overlay || overlay.style.display === 'none' || overlay.style.display === '') return;
+
+      overlay.classList.add('closing');
+      if (win) win.classList.add('closing');
+
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        overlay.classList.remove('closing');
+        if (win) {
+          win.classList.remove('closing');
+          win.innerHTML = '';
+        }
+      }, 160);
     }
 
     const pageKey = 'delivery.php';

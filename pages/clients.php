@@ -1,7 +1,4 @@
 <?php
-// =============================
-// 1. clients.php
-// =============================
 session_start();
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../accounts/login.php");
@@ -322,32 +319,56 @@ while ($row = $result->fetch_assoc()) {
             padding-top: 20px;
         }
 
-        .section-label {
+        fieldset.form-section {
+            border: 0;
+            margin: 0 0 28px;
+            padding: 0;
+        }
+
+        fieldset.form-section:last-of-type {
+            margin-bottom: 0;
+        }
+
+        .form-section legend {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 0;
+            margin-bottom: 18px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--dark);
+        }
+
+        .form-section legend i {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: none;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: var(--primary-light);
+            color: var(--primary);
+            font-size: 12px;
+        }
+
+        .form-section legend::after {
+            content: '';
+            flex: 1 1 auto;
+            height: 1px;
+            margin-left: 4px;
+            background: linear-gradient(to right, var(--light-gray), rgba(226, 228, 231, 0));
+        }
+
+        .section-hint {
             grid-column: 1 / -1;
             font-size: 12px;
-            font-weight: 700;
             color: var(--gray);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin: 8px 0 -2px;
-            padding-top: 14px;
-            border-top: 1px solid var(--light-gray);
-        }
-
-        .section-label:first-child {
-            padding-top: 0;
-            border-top: none;
-            margin-top: 0;
-        }
-
-        .section-label span {
-            display: block;
-            font-size: 12px;
-            font-weight: 400;
-            text-transform: none;
-            letter-spacing: normal;
-            color: var(--gray);
-            margin-top: 3px;
+            margin: -10px 0 2px;
         }
 
         .form-grid {
@@ -629,6 +650,36 @@ while ($row = $result->fetch_assoc()) {
                 transform: translate(-50%, -50%) scale(1);
                 opacity: 1;
             }
+        }
+
+        @keyframes centerZoomOut {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(0.97);
+                opacity: 0;
+            }
+        }
+
+        @keyframes modalOverlayFadeOut {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
+        }
+
+        .modal.closing .modal-overlay {
+            animation: modalOverlayFadeOut 0.16s ease forwards;
+        }
+
+        .modal.closing .modal-container {
+            animation: centerZoomOut 0.16s ease-in forwards;
         }
 
         .modal {
@@ -1011,7 +1062,8 @@ while ($row = $result->fetch_assoc()) {
                 </div>
                 <div class="card-body-inner" id="addClientBody" style="display:none;">
                     <form id="clientForm" action="save_client.php" method="post">
-                        <fieldset>
+                        <fieldset class="form-section">
+                            <legend><i class="fas fa-building"></i> Business Details</legend>
                             <div class="form-grid">
                                 <div class="form-group">
                                     <label for="client_name">Company / Trade Name *</label>
@@ -1166,8 +1218,13 @@ while ($row = $result->fetch_assoc()) {
                                     </datalist>
                                 </div>
                                 <input type="hidden" name="client_address" id="client_address" oninput="suggestRDO()" required>
+                            </div>
+                        </fieldset>
 
-                                <div class="section-label">Address <span>Feeds the address used when creating job orders for this client.</span></div>
+                        <fieldset class="form-section">
+                            <legend><i class="fas fa-map-marker-alt"></i> Address</legend>
+                            <div class="form-grid">
+                                <div class="section-hint">Feeds the address used when creating job orders for this client.</div>
 
                                 <div class="form-group">
                                     <label for="province">Province *</label>
@@ -1190,12 +1247,11 @@ while ($row = $result->fetch_assoc()) {
                                 position: absolute;
                                 top: 60%;
                                 left: 12px;
-                                transform: translateY(-50%);
+                                transform: translateY(-20%);
                                 color: var(--gray);
                                 pointer-events: none;
                                 font-size: 13px;
-                                ">
-                                        Brgy.
+                                ">Brgy.
                                     </span>
                                     <input type="text"
                                         id="barangay"
@@ -1220,9 +1276,12 @@ while ($row = $result->fetch_assoc()) {
                                     <label for="zip_code">ZIP Code</label>
                                     <input type="text" id="zip_code" name="zip_code" placeholder="e.g. 3020" pattern="[^,]*" title="Commas are not allowed">
                                 </div>
+                            </div>
+                        </fieldset>
 
-                                <div class="section-label">Contact</div>
-
+                        <fieldset class="form-section">
+                            <legend><i class="fas fa-address-book"></i> Contact</legend>
+                            <div class="form-grid">
                                 <div class="form-group">
                                     <label for="contact_person">Contact Person *</label>
                                     <input type="text" id="contact_person" name="contact_person" required>
@@ -1458,14 +1517,21 @@ while ($row = $result->fetch_assoc()) {
                 });
 
                 // Close modal (updated for new close button class)
-                document.querySelector('#clientModal .close-btn').onclick = () => {
-                    document.getElementById('clientModal').style.display = 'none';
-                };
+                function closeClientModal() {
+                    const modal = document.getElementById('clientModal');
+                    if (!modal || modal.style.display === 'none' || modal.style.display === '') return;
+
+                    modal.classList.add('closing');
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                        modal.classList.remove('closing');
+                    }, 160);
+                }
+
+                document.querySelector('#clientModal .close-btn').onclick = closeClientModal;
 
                 // Close when clicking overlay
-                document.querySelector('.modal-overlay').addEventListener('click', () => {
-                    document.getElementById('clientModal').style.display = 'none';
-                });
+                document.querySelector('.modal-overlay').addEventListener('click', closeClientModal);
 
                 // Helper function to format dates
                 function formatDate(dateString) {
