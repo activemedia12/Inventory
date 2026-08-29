@@ -7,11 +7,164 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once '../config/db.php';
 
+const HISTORY_PAGE_SIZE = 5;
+
 $product_id = intval($_GET['id'] ?? 0);
 if ($product_id <= 0) {
     echo "<div class='alert alert-danger'>Invalid product ID.</div>";
     exit;
 }
+
+$mode = $_GET['mode'] ?? 'full'; // full | usage | delivery
+if (!in_array($mode, ['full', 'usage', 'delivery'], true)) {
+    $mode = 'full';
+}
+
+/**
+ * Fetch one page of usage history rows (LIMIT/OFFSET at the SQL level).
+ * Requests one extra row over the page size so we can tell if there's
+ * a next page without a separate COUNT(*) query.
+ */
+function fetch_usage_page(mysqli $inventory, int $product_id, int $page): array
+{
+    $page = max(1, $page);
+    $offset = ($page - 1) * HISTORY_PAGE_SIZE;
+    $limit = HISTORY_PAGE_SIZE + 1;
+
+    $query = "
+        SELECT
+            ul.log_date,
+            jo.client_name,
+            jo.project_name,
+            ul.used_sheets,
+            jo.product_type_id,
+            pt.name AS print_type_name,
+            pt.icon AS print_type_icon
+        FROM usage_logs ul
+        LEFT JOIN job_orders jo ON ul.job_order_id = jo.id
+        LEFT JOIN product_types pt ON jo.product_type_id = pt.id
+        WHERE ul.product_id = ?
+        ORDER BY ul.log_date DESC
+        LIMIT ? OFFSET ?
+    ";
+    $stmt = $inventory->prepare($query);
+    if (!$stmt) {
+        die("Error in usage history query: " . $inventory->error);
+    }
+    $stmt->bind_param("iii", $product_id, $limit, $offset);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
+    $has_more = count($rows) > HISTORY_PAGE_SIZE;
+    if ($has_more) {
+        array_pop($rows); // drop the lookahead row
+    }
+
+    return [$rows, $has_more];
+}
+
+/**
+ * Fetch one page of delivery history rows (LIMIT/OFFSET at the SQL level).
+ */
+function fetch_delivery_page(mysqli $inventory, int $product_id, int $page): array
+{
+    $page = max(1, $page);
+    $offset = ($page - 1) * HISTORY_PAGE_SIZE;
+    $limit = HISTORY_PAGE_SIZE + 1;
+
+    $query = "
+        SELECT delivery_date, delivered_reams, supplier_name, amount_per_ream
+        FROM delivery_logs
+        WHERE product_id = ?
+        ORDER BY delivery_date DESC
+        LIMIT ? OFFSET ?
+    ";
+    $stmt = $inventory->prepare($query);
+    if (!$stmt) {
+        die("Error in delivery history query: " . $inventory->error);
+    }
+    $stmt->bind_param("iii", $product_id, $limit, $offset);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
+    $has_more = count($rows) > HISTORY_PAGE_SIZE;
+    if ($has_more) {
+        array_pop($rows);
+    }
+
+    return [$rows, $has_more];
+}
+
+function render_usage_row(array $row): string
+{
+    ob_start();
+    ?>
+    <tr>
+        <td><?= date("M j, Y", strtotime($row['log_date'])) ?></td>
+        <td><?= htmlspecialchars($row['client_name'] ?? 'N/A') ?></td>
+        <td><?= htmlspecialchars($row['project_name'] ?? 'N/A') ?></td>
+        <td>
+            <?php if (!empty($row['product_type_id']) && $row['print_type_name']): ?>
+                <span class="badge badge-success" style="white-space:nowrap;">
+                    <i class="fas <?= htmlspecialchars($row['print_type_icon'] ?? 'fa-print') ?>"></i>
+                    <?= htmlspecialchars($row['print_type_name']) ?>
+                </span>
+            <?php else: ?>
+                <span class="badge badge-secondary">
+                    <i class="fas fa-file-alt"></i> Paper
+                </span>
+            <?php endif; ?>
+        </td>
+        <td><?= number_format($row['used_sheets']) ?></td>
+        <td><?= number_format($row['used_sheets'] / 500, 2) ?></td>
+    </tr>
+    <?php
+    return ob_get_clean();
+}
+
+function render_delivery_row(array $row): string
+{
+    ob_start();
+    ?>
+    <tr>
+        <td><?= date("M j, Y", strtotime($row['delivery_date'])) ?></td>
+        <td><?= htmlspecialchars($row['supplier_name']) ?></td>
+        <td><?= number_format($row['delivered_reams'], 2) ?></td>
+        <td>₱<?= number_format($row['amount_per_ream'], 2) ?></td>
+        <td><?= number_format($row['delivered_reams'] * 500) ?></td>
+    </tr>
+    <?php
+    return ob_get_clean();
+}
+
+// === AJAX "Show more" endpoints: return just the next page as JSON ===
+if ($mode === 'usage') {
+    $usage_page = max(1, intval($_GET['usage_page'] ?? 1));
+    [$rows, $has_more] = fetch_usage_page($inventory, $product_id, $usage_page);
+
+    $rows_html = implode('', array_map('render_usage_row', $rows));
+
+    header('Content-Type: application/json');
+    echo json_encode(['rows_html' => $rows_html, 'has_more' => $has_more]);
+    $inventory->close();
+    exit;
+}
+
+if ($mode === 'delivery') {
+    $delivery_page = max(1, intval($_GET['delivery_page'] ?? 1));
+    [$rows, $has_more] = fetch_delivery_page($inventory, $product_id, $delivery_page);
+
+    $rows_html = implode('', array_map('render_delivery_row', $rows));
+
+    header('Content-Type: application/json');
+    echo json_encode(['rows_html' => $rows_html, 'has_more' => $has_more]);
+    $inventory->close();
+    exit;
+}
+
+// === Full modal render (first page of each history table) ===
 
 // Fetch basic product info and stock
 $query = "
@@ -53,44 +206,8 @@ if (!$product) {
     exit;
 }
 
-// Fetch usage history with prepared statement
-$usage_query = "
-    SELECT 
-        ul.log_date, 
-        jo.client_name, 
-        jo.project_name,
-        ul.used_sheets,
-        jo.product_type_id,
-        pt.name AS print_type_name,
-        pt.icon AS print_type_icon
-    FROM usage_logs ul
-    LEFT JOIN job_orders jo ON ul.job_order_id = jo.id
-    LEFT JOIN product_types pt ON jo.product_type_id = pt.id
-    WHERE ul.product_id = ?
-    ORDER BY ul.log_date DESC
-";
-$usage_stmt = $inventory->prepare($usage_query);
-if (!$usage_stmt) {
-    die("Error in usage history query: " . $inventory->error);
-}
-$usage_stmt->bind_param("i", $product_id);
-$usage_stmt->execute();
-$usage_history = $usage_stmt->get_result();
-
-// Fetch delivery history with prepared statement
-$delivery_query = "
-    SELECT delivery_date, delivered_reams, supplier_name, amount_per_ream
-    FROM delivery_logs
-    WHERE product_id = ?
-    ORDER BY delivery_date DESC
-";
-$delivery_stmt = $inventory->prepare($delivery_query);
-if (!$delivery_stmt) {
-    die("Error in delivery history query: " . $inventory->error);
-}
-$delivery_stmt->bind_param("i", $product_id);
-$delivery_stmt->execute();
-$delivery_history = $delivery_stmt->get_result();
+[$usage_rows, $usage_has_more] = fetch_usage_page($inventory, $product_id, 1);
+[$delivery_rows, $delivery_has_more] = fetch_delivery_page($inventory, $product_id, 1);
 ?>
 
 <div class="window-header">
@@ -155,7 +272,7 @@ $delivery_history = $delivery_stmt->get_result();
         Usage History
     </div>
     <div class="container">
-        <?php if ($usage_history->num_rows > 0): ?>
+        <?php if (!empty($usage_rows)): ?>
             <table class="compact-table" id="usage-table">
                 <thead>
                     <tr>
@@ -167,37 +284,18 @@ $delivery_history = $delivery_stmt->get_result();
                         <th>Reams</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <?php
-                    $usage_rows = $usage_history->fetch_all(MYSQLI_ASSOC);
-                    $usage_count = count($usage_rows);
-                    $display_usage = min(10, $usage_count);
-
-                    for ($i = 0; $i < $display_usage; $i++):
-                        $row = $usage_rows[$i];
-                    ?>
-                        <tr>
-                            <td><?= date("M j, Y", strtotime($row['log_date'])) ?></td>
-                            <td><?= htmlspecialchars($row['client_name'] ?? 'N/A') ?></td>
-                            <td><?= htmlspecialchars($row['project_name'] ?? 'N/A') ?></td>
-                            <td>
-                                <?php if (!empty($row['product_type_id']) && $row['print_type_name']): ?>
-                                    <span class="badge badge-success" style="white-space:nowrap;">
-                                        <i class="fas <?= htmlspecialchars($row['print_type_icon'] ?? 'fa-print') ?>"></i>
-                                        <?= htmlspecialchars($row['print_type_name']) ?>
-                                    </span>
-                                <?php else: ?>
-                                    <span class="badge badge-secondary">
-                                        <i class="fas fa-file-alt"></i> Paper
-                                    </span>
-                                <?php endif; ?>
-                            </td>
-                            <td><?= number_format($row['used_sheets']) ?></td>
-                            <td><?= number_format($row['used_sheets'] / 500, 2) ?></td>
-                        </tr>
-                    <?php endfor; ?>
+                <tbody id="usage-table-body">
+                    <?php foreach ($usage_rows as $row): ?>
+                        <?= render_usage_row($row) ?>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
+            <?php if ($usage_has_more): ?>
+                <button type="button" class="show-more-btn" id="usage-show-more-btn"
+                    onclick="loadMoreProductUsage(<?= $product_id ?>)">
+                    <i class="fas fa-chevron-down"></i> Show more
+                </button>
+            <?php endif; ?>
         <?php else: ?>
             <div class="empty-state">
                 <p><i class="fas fa-info-circle"></i> No usage history found for this product</p>
@@ -211,7 +309,7 @@ $delivery_history = $delivery_stmt->get_result();
         Delivery History
     </div>
     <div class="container">
-        <?php if ($delivery_history->num_rows > 0): ?>
+        <?php if (!empty($delivery_rows)): ?>
             <table class="compact-table" id="delivery-table">
                 <thead>
                     <tr>
@@ -222,25 +320,18 @@ $delivery_history = $delivery_stmt->get_result();
                         <th>Sheets</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <?php
-                    $delivery_rows = $delivery_history->fetch_all(MYSQLI_ASSOC);
-                    $delivery_count = count($delivery_rows);
-                    $display_delivery = min(10, $delivery_count);
-
-                    for ($i = 0; $i < $display_delivery; $i++):
-                        $row = $delivery_rows[$i];
-                    ?>
-                        <tr>
-                            <td><?= date("M j, Y", strtotime($row['delivery_date'])) ?></td>
-                            <td><?= htmlspecialchars($row['supplier_name']) ?></td>
-                            <td><?= number_format($row['delivered_reams'], 2) ?></td>
-                            <td>₱<?= number_format($row['amount_per_ream'], 2) ?></td>
-                            <td><?= number_format($row['delivered_reams'] * 500) ?></td>
-                        </tr>
-                    <?php endfor; ?>
+                <tbody id="delivery-table-body">
+                    <?php foreach ($delivery_rows as $row): ?>
+                        <?= render_delivery_row($row) ?>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
+            <?php if ($delivery_has_more): ?>
+                <button type="button" class="show-more-btn" id="delivery-show-more-btn"
+                    onclick="loadMoreProductDelivery(<?= $product_id ?>)">
+                    <i class="fas fa-chevron-down"></i> Show more
+                </button>
+            <?php endif; ?>
         <?php else: ?>
             <div class="empty-state">
                 <p><i class="fas fa-info-circle"></i> No delivery history found for this product</p>
@@ -249,7 +340,4 @@ $delivery_history = $delivery_stmt->get_result();
     </div>
 </div>
 <?php
-if (isset($usage_stmt)) $usage_stmt->close();
-if (isset($delivery_stmt)) $delivery_stmt->close();
 $inventory->close();
-?>

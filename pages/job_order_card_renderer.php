@@ -1,3 +1,22 @@
+<?php if ($status_title === 'Completed' && isset($completed_available_letters)): ?>
+  <?php
+    $letter_qp = $_GET;
+    unset($letter_qp['completed_page'], $letter_qp['completed_letter']);
+    $letter_base = 'job_orders.php?' . http_build_query($letter_qp) . ($letter_qp ? '&' : '');
+  ?>
+  <div class="letter-nav">
+    <a class="letter-btn<?= $completed_letter === '' ? ' active' : '' ?>" href="<?= $letter_base ?>completed_letter=&completed_page=1">All</a>
+    <?php foreach (range('A', 'Z') as $L): ?>
+      <?php $hasOrders = in_array($L, $completed_available_letters, true); ?>
+      <?php if ($hasOrders): ?>
+        <a class="letter-btn<?= $completed_letter === $L ? ' active' : '' ?>" href="<?= $letter_base ?>completed_letter=<?= $L ?>&completed_page=1"><?= $L ?></a>
+      <?php else: ?>
+        <span class="letter-btn disabled"><?= $L ?></span>
+      <?php endif; ?>
+    <?php endforeach; ?>
+  </div>
+<?php endif; ?>
+
 <?php
 if (empty($orders_to_show)) {
 ?>
@@ -5,7 +24,13 @@ if (empty($orders_to_show)) {
     <div class="empty-icon">
       <i class="far fa-folder-open fa-2x"></i>
     </div>
-    <p>No <?= htmlspecialchars(strtolower($status_title)) ?> job orders right now</p>
+    <p>
+      <?php if ($status_title === 'Completed' && isset($completed_letter) && $completed_letter !== ''): ?>
+        No completed job orders for clients starting with "<?= htmlspecialchars($completed_letter) ?>"
+      <?php else: ?>
+        No <?= htmlspecialchars(strtolower($status_title)) ?> job orders right now
+      <?php endif; ?>
+    </p>
 
     <?php if ($status_title === 'Pending'): ?>
       <small>New job orders will appear here</small>
@@ -22,49 +47,10 @@ if (empty($orders_to_show)) {
 }
 
 // ────────────────────────────────────────────────
-// For completed orders: flatten → paginate → rebuild
+// Completed orders arrive here already paginated at the SQL level
+// (see job_orders.php) — we just need the URL/window math for the bar.
 // ────────────────────────────────────────────────
 if ($status_title === 'Completed' && isset($completed_per_page)) {
-  // Flatten all records into a single list preserving client/date/project
-  $flat = [];
-  foreach ($orders_to_show as $client => $dates) {
-    foreach ($dates as $date => $projects) {
-      foreach ($projects as $project_key => $project_data) {
-        foreach ($project_data['records'] as $record) {
-          $flat[] = [
-            'client'          => $client,
-            'date'            => $date,
-            'project_key'     => $project_key,
-            'project_display' => $project_data['display'],
-            'record'          => $record,
-          ];
-        }
-      }
-    }
-  }
-
-  $completed_total      = count($flat);
-  $completed_total_pages = max(1, (int)ceil($completed_total / $completed_per_page));
-  $completed_page       = min($completed_page, $completed_total_pages);
-  $completed_offset     = ($completed_page - 1) * $completed_per_page;
-  $page_slice           = array_slice($flat, $completed_offset, $completed_per_page);
-
-  // Rebuild the nested structure from the page slice only
-  $orders_to_show = [];
-  foreach ($page_slice as $item) {
-    $c  = $item['client'];
-    $d  = $item['date'];
-    $pk = $item['project_key'];
-    if (!isset($orders_to_show[$c]))           $orders_to_show[$c] = [];
-    if (!isset($orders_to_show[$c][$d]))       $orders_to_show[$c][$d] = [];
-    if (!isset($orders_to_show[$c][$d][$pk]))  $orders_to_show[$c][$d][$pk] = [
-      'display'  => $item['project_display'],
-      'records'  => [],
-    ];
-    $orders_to_show[$c][$d][$pk]['records'][] = $item['record'];
-  }
-
-  // Build pagination URL (preserve all existing GET params except completed_page)
   $qp = $_GET;
   unset($qp['completed_page']);
   $base_url   = 'job_orders.php?' . http_build_query($qp) . ($qp ? '&' : '');

@@ -1,7 +1,14 @@
 <?php
 session_start();
-require_once '../config/db.php';
 header('Content-Type: application/json');
+
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized']);
+    exit;
+}
+
+require_once '../config/db.php';
 
 $item_id = intval($_GET['item_id'] ?? 0);
 
