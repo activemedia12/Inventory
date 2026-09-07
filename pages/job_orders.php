@@ -645,9 +645,12 @@ if (!empty($displayed_job_ids)) {
   $placeholders = implode(',', array_fill(0, count($displayed_job_ids), '?'));
   $fv_types = str_repeat('i', count($displayed_job_ids));
   $fv_stmt = $inventory->prepare("
-      SELECT v.job_order_id, f.field_label, v.field_value, f.field_type
+      SELECT v.job_order_id, v.field_id, f.field_label, v.field_value, f.field_type,
+             o.label AS option_label
       FROM job_order_field_values v
       JOIN product_type_fields f ON v.field_id = f.id
+      LEFT JOIN product_type_field_options o
+        ON o.field_id = v.field_id AND o.value = v.field_value
       WHERE v.job_order_id IN ($placeholders)
       ORDER BY f.sort_order ASC
   ");

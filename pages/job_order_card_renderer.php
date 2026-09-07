@@ -187,6 +187,8 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                                         <strong><?= htmlspecialchars($fv['field_label']) ?>:</strong>
                                         <?php if ($fv['field_type'] === 'checkbox'): ?>
                                           <?= $fv['field_value'] == '1' ? 'Yes' : 'No' ?>
+                                        <?php elseif ($fv['field_type'] === 'dropdown'): ?>
+                                          <?= htmlspecialchars($fv['option_label'] ?? $fv['field_value']) ?>
                                         <?php else: ?>
                                           <?= htmlspecialchars($fv['field_value']) ?>
                                         <?php endif; ?>

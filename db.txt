@@ -1,5 +1,0 @@
-ALTER TABLE product_types
-    ADD COLUMN requires_paper TINYINT(1) NOT NULL DEFAULT 0 AFTER sort_order,
-    ADD COLUMN paper_type     VARCHAR(255) NULL DEFAULT NULL AFTER requires_paper,
-    ADD COLUMN paper_size     VARCHAR(255) NULL DEFAULT NULL AFTER paper_type,
-    ADD COLUMN cut_size       VARCHAR(10)  NULL DEFAULT NULL AFTER paper_size;

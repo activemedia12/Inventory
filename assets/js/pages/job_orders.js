@@ -1833,6 +1833,10 @@ const ptPricingAll = window.JO_DATA.ptPricingAll;
 const productTypesById = window.JO_DATA.productTypesById;
 const cutSizeOptions = window.JO_DATA.cutSizeOptions;
 
+// Used by the non-paper "Paper Stock Used" selects (type/size/color) —
+// same product list the paper-flow selects use above.
+const paperProductsAll = window.JO_DATA.allProducts;
+
 // ── Print Type Selector ──────────────────────────────────────────
 document.querySelectorAll(".print-type-option").forEach((label) => {
   label.addEventListener("click", function () {
