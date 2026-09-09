@@ -28,18 +28,22 @@ function togglePaperFields() {
     : "none";
 }
 
-function updateModalPaperSizes(selectedSize) {
-  const type = document.getElementById("modal_paper_type").value;
-  const sizeSelect = document.getElementById("modal_paper_size");
-  const sizes = [
+function sizesForPaperType(type) {
+  return [
     ...new Set(
       paperPairs
         .filter((p) => p.product_type === type)
         .map((p) => p.product_group),
     ),
   ];
+}
 
-  sizeSelect.innerHTML = "";
+function updateDefaultRowSizeOptions(rowEl, preselectSize) {
+  const type = rowEl.querySelector(".pd-paper-type").value;
+  const sizeSelect = rowEl.querySelector(".pd-paper-size");
+  const current = preselectSize ?? sizeSelect.value;
+  const sizes = type ? sizesForPaperType(type) : [];
+
   if (!type || sizes.length === 0) {
     sizeSelect.innerHTML = '<option value="">Select paper type first</option>';
     return;
@@ -49,14 +53,97 @@ function updateModalPaperSizes(selectedSize) {
     const opt = document.createElement("option");
     opt.value = size;
     opt.textContent = size;
-    if (selectedSize && selectedSize === size) opt.selected = true;
+    if (current && current === size) opt.selected = true;
     sizeSelect.appendChild(opt);
   });
 }
 
+let nextPaperDefaultIdx = 0;
+
+function buildPaperDefaultRow(idx, prefill) {
+  const row = document.createElement("div");
+  row.className = "pd-row";
+  row.dataset.idx = idx;
+  row.style.cssText =
+    "display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;";
+
+  const typeOptions = PTD.paperPairs.length
+    ? [...new Set(PTD.paperPairs.map((p) => p.product_type))]
+    : [];
+  let cutSizeOptHtml = "";
+  Object.entries(PTD.cutSizeOptions).forEach(([val, label]) => {
+    cutSizeOptHtml += `<option value="${val}" ${prefill && prefill.cut_size === val ? "selected" : ""}>${label}</option>`;
+  });
+
+  row.innerHTML = `
+    <select class="form-control pd-paper-type" style="flex:1;">
+      <option value="">Paper Type</option>
+      ${typeOptions
+        .map(
+          (t) =>
+            `<option value="${t}" ${prefill && prefill.paper_type === t ? "selected" : ""}>${t}</option>`,
+        )
+        .join("")}
+    </select>
+    <select class="form-control pd-paper-size" style="flex:1;">
+      <option value="">Select paper type first</option>
+    </select>
+    <select class="form-control pd-cut-size" style="flex:1;">${cutSizeOptHtml}</select>
+    <button type="button" class="pd-remove-btn" title="Remove" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;padding:6px;">
+      <i class="fas fa-times-circle"></i>
+    </button>
+  `;
+
+  row.querySelector(".pd-paper-type").addEventListener("change", () => {
+    updateDefaultRowSizeOptions(row);
+  });
+  row.querySelector(".pd-remove-btn").addEventListener("click", () => {
+    row.remove();
+  });
+
+  if (prefill && prefill.paper_type) {
+    updateDefaultRowSizeOptions(row, prefill.paper_size);
+  }
+
+  return row;
+}
+
+function addPaperDefaultRow(prefill) {
+  const container = document.getElementById("paperDefaultsContainer");
+  const idx = nextPaperDefaultIdx++;
+  container.appendChild(buildPaperDefaultRow(idx, prefill));
+}
+
+document
+  .getElementById("addPaperDefaultBtn")
+  ?.addEventListener("click", () => addPaperDefaultRow());
+
+// Reindex row inputs' `name` attributes right before submit, since rows can
+// be added/removed freely and only surviving rows should ever be numbered.
+document
+  .querySelector('#typeModal form[method="POST"]')
+  ?.addEventListener("submit", function () {
+    const container = document.getElementById("paperDefaultsContainer");
+    if (!container) return;
+    Array.from(container.querySelectorAll(".pd-row")).forEach((row, i) => {
+      row.querySelector(".pd-paper-type").name =
+        `paper_default[${i}][paper_type]`;
+      row.querySelector(".pd-paper-size").name =
+        `paper_default[${i}][paper_size]`;
+      row.querySelector(".pd-cut-size").name = `paper_default[${i}][cut_size]`;
+    });
+  });
+
 function openTypeModal(data) {
   document.getElementById("typeModalOverlay").classList.add("open");
   document.getElementById("typeModal").classList.add("open");
+
+  const paperDefaultsContainer = document.getElementById(
+    "paperDefaultsContainer",
+  );
+  paperDefaultsContainer.innerHTML = "";
+  nextPaperDefaultIdx = 0;
+
   if (data) {
     document.getElementById("typeModalTitle").innerHTML =
       '<i class="fas fa-edit"></i> Edit Product Type';
@@ -69,9 +156,24 @@ function openTypeModal(data) {
 
     const requiresPaper = !!data.requires_paper && data.requires_paper != 0;
     document.getElementById("modal_requires_paper").checked = requiresPaper;
-    document.getElementById("modal_paper_type").value = data.paper_type || "";
-    updateModalPaperSizes(data.paper_size || "");
-    document.getElementById("modal_cut_size").value = data.cut_size || "whole";
+
+    const defaults =
+      data.paper_defaults && data.paper_defaults.length
+        ? data.paper_defaults
+        : data.paper_type
+          ? [
+              {
+                paper_type: data.paper_type,
+                paper_size: data.paper_size,
+                cut_size: data.cut_size || "whole",
+              },
+            ]
+          : [];
+    if (defaults.length) {
+      defaults.forEach((d) => addPaperDefaultRow(d));
+    } else {
+      addPaperDefaultRow();
+    }
     togglePaperFields();
   } else {
     document.getElementById("typeModalTitle").innerHTML =
@@ -84,9 +186,7 @@ function openTypeModal(data) {
     document.getElementById("modal_active").checked = true;
 
     document.getElementById("modal_requires_paper").checked = false;
-    document.getElementById("modal_paper_type").value = "";
-    updateModalPaperSizes();
-    document.getElementById("modal_cut_size").value = "whole";
+    addPaperDefaultRow();
     togglePaperFields();
   }
 }

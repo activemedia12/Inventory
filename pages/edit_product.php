@@ -591,7 +591,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="form-card">
             <div class="form-card-header">
                 <i class="fas fa-box"></i>
-                <h3><?= htmlspecialchars($product['product_type']) ?> — <?= htmlspecialchars($product['product_name']) ?></h3>
+                <h3><?= htmlspecialchars($product['product_type']) ?> - <?= htmlspecialchars($product['product_name']) ?></h3>
             </div>
             <div class="form-card-body">
                 <form method="POST">

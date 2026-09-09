@@ -22,15 +22,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // ── Paper stock consumption (for non-paper product types that still use paper) ──
         $requires_paper = isset($_POST['requires_paper']) ? 1 : 0;
-        $paper_type     = $requires_paper ? trim($_POST['paper_type'] ?? '') : null;
-        $paper_size     = $requires_paper ? trim($_POST['paper_size'] ?? '') : null;
-        $cut_size       = $requires_paper ? trim($_POST['cut_size'] ?? 'whole') : null;
-        if (!$requires_paper) {
-            // Don't silently keep stale values if the toggle is turned off
-            $paper_type = null;
-            $paper_size = null;
-            $cut_size   = null;
+
+        // Repeatable paper defaults — a non-paper product type can consume
+        // more than one paper type/size (e.g. a boxed product using both a
+        // box liner and a wrapper of a different stock).
+        $paper_defaults = [];
+        if ($requires_paper) {
+            foreach ($_POST['paper_default'] ?? [] as $pd) {
+                $pd_type = trim($pd['paper_type'] ?? '');
+                $pd_size = trim($pd['paper_size'] ?? '');
+                if ($pd_type === '' || $pd_size === '') continue;
+                $paper_defaults[] = [
+                    'paper_type' => $pd_type,
+                    'paper_size' => $pd_size,
+                    'cut_size'   => $pd['cut_size'] ?? 'whole',
+                ];
+            }
         }
+        // Legacy single columns — first default, kept for any other code
+        // still reading product_types.paper_type/paper_size/cut_size directly.
+        $paper_type = $requires_paper && !empty($paper_defaults) ? $paper_defaults[0]['paper_type'] : null;
+        $paper_size = $requires_paper && !empty($paper_defaults) ? $paper_defaults[0]['paper_size'] : null;
+        $cut_size   = $requires_paper && !empty($paper_defaults) ? $paper_defaults[0]['cut_size'] : null;
 
         if ($name !== '') {
             // ── Duplicate name check (case-insensitive, excluding self on edit) ──
@@ -45,11 +58,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($id > 0) {
                     $stmt = $inventory->prepare("UPDATE product_types SET name=?, description=?, icon=?, is_active=?, sort_order=?, requires_paper=?, paper_type=?, paper_size=?, cut_size=? WHERE id=?");
                     $stmt->bind_param("sssiiisssi", $name, $description, $icon, $is_active, $sort_order, $requires_paper, $paper_type, $paper_size, $cut_size, $id);
+                    $stmt->execute();
+                    $type_id = $id;
                 } else {
                     $stmt = $inventory->prepare("INSERT INTO product_types (name, description, icon, is_active, sort_order, requires_paper, paper_type, paper_size, cut_size) VALUES (?,?,?,?,?,?,?,?,?)");
                     $stmt->bind_param("sssiiisss", $name, $description, $icon, $is_active, $sort_order, $requires_paper, $paper_type, $paper_size, $cut_size);
+                    $stmt->execute();
+                    $type_id = $inventory->insert_id;
                 }
-                $stmt->execute();
+
+                // Replace this type's paper defaults with whatever was submitted.
+                $del_defaults = $inventory->prepare("DELETE FROM product_type_paper_defaults WHERE product_type_id = ?");
+                $del_defaults->bind_param("i", $type_id);
+                $del_defaults->execute();
+                $del_defaults->close();
+
+                if ($requires_paper && !empty($paper_defaults)) {
+                    $pd_stmt = $inventory->prepare("INSERT INTO product_type_paper_defaults (product_type_id, paper_type, paper_size, cut_size, sort_order) VALUES (?,?,?,?,?)");
+                    foreach ($paper_defaults as $i => $pd) {
+                        $pd_stmt->bind_param("isssi", $type_id, $pd['paper_type'], $pd['paper_size'], $pd['cut_size'], $i);
+                        $pd_stmt->execute();
+                    }
+                    $pd_stmt->close();
+                }
+
                 $_SESSION['pt_message'] = ['type' => 'success', 'text' => $id > 0 ? 'Product type updated.' : 'Product type added.'];
             }
         } else {
@@ -197,6 +229,23 @@ $types = [];
 while ($row = $types_result->fetch_assoc()) {
     $types[] = $row;
 }
+
+// ── Fetch paper defaults for every type (batched) ─────────────────
+// A non-paper type can consume more than one paper type/size.
+$paper_defaults_by_type = [];
+if (!empty($types)) {
+    $type_ids = implode(',', array_map('intval', array_column($types, 'id')));
+    $pd_result = $inventory->query("SELECT * FROM product_type_paper_defaults WHERE product_type_id IN ($type_ids) ORDER BY sort_order ASC");
+    while ($row = $pd_result->fetch_assoc()) {
+        $paper_defaults_by_type[$row['product_type_id']][] = $row;
+    }
+}
+// Embed each type's defaults directly so openTypeModal(<?= json_encode($t) >)
+// has everything it needs without a separate lookup.
+foreach ($types as &$t) {
+    $t['paper_defaults'] = $paper_defaults_by_type[$t['id']] ?? [];
+}
+unset($t);
 
 // ── Fetch distinct paper type/size pairs (from the paper inventory) ──
 // Used to populate the "Requires Paper Stock" dropdowns below, so the
@@ -392,12 +441,22 @@ if ($options_fid > 0) {
                                         <span style="font-size:11px;color:var(--gray);">Order: <?= $t['sort_order'] ?></span>
                                     </div>
                                     <?php if (!empty($t['requires_paper'])): ?>
-                                        <div class="type-meta" style="margin-top:6px;">
-                                            <span class="badge badge-info" title="Deducts paper stock on job orders">
-                                                <i class="fas fa-scroll"></i>
-                                                Uses Paper: <?= htmlspecialchars($t['paper_type']) ?> / <?= htmlspecialchars($t['paper_size']) ?>
-                                                (<?= htmlspecialchars($t['cut_size'] ?? 'whole') ?>)
-                                            </span>
+                                        <div class="type-meta" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">
+                                            <?php if (empty($t['paper_defaults'])): ?>
+                                                <span class="badge badge-info" title="Deducts paper stock on job orders">
+                                                    <i class="fas fa-scroll"></i>
+                                                    Uses Paper: <?= htmlspecialchars($t['paper_type'] ?? '') ?> / <?= htmlspecialchars($t['paper_size'] ?? '') ?>
+                                                    (<?= htmlspecialchars($t['cut_size'] ?? 'whole') ?>)
+                                                </span>
+                                            <?php else: ?>
+                                                <?php foreach ($t['paper_defaults'] as $pd): ?>
+                                                    <span class="badge badge-info" title="Deducts paper stock on job orders">
+                                                        <i class="fas fa-scroll"></i>
+                                                        <?= htmlspecialchars($pd['paper_type']) ?> / <?= htmlspecialchars($pd['paper_size']) ?>
+                                                        (<?= htmlspecialchars($pd['cut_size'] ?? 'whole') ?>)
+                                                    </span>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
                                         </div>
                                     <?php endif; ?>
                                     <div class="type-actions">
@@ -708,32 +767,14 @@ if ($options_fid > 0) {
                 </small>
 
                 <div id="paperFieldsGroup" style="display:none;margin-top:12px;">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Paper Type</label>
-                            <select name="paper_type" id="modal_paper_type" class="form-control" onchange="updateModalPaperSizes()">
-                                <option value="">Select</option>
-                                <?php foreach ($paper_types_list as $pt_name): ?>
-                                    <option value="<?= htmlspecialchars($pt_name) ?>"><?= htmlspecialchars($pt_name) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Paper Size</label>
-                            <select name="paper_size" id="modal_paper_size" class="form-control">
-                                <option value="">Select paper type first</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Cut Size</label>
-                        <select name="cut_size" id="modal_cut_size" class="form-control">
-                            <?php foreach ($cut_size_options as $val => $label): ?>
-                                <option value="<?= htmlspecialchars($val) ?>"><?= htmlspecialchars($label) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <small style="color:var(--gray);font-size:11px;">How many pieces are cut from one sheet of this paper.</small>
-                    </div>
+                    <label style="display:block;margin-bottom:6px;font-size:13px;font-weight:600;">Paper Defaults</label>
+                    <div id="paperDefaultsContainer"></div>
+                    <button type="button" id="addPaperDefaultBtn" class="btn btn-gray btn-sm" style="margin-top:4px;">
+                        <i class="fas fa-plus"></i> Add Another Paper Default
+                    </button>
+                    <small style="color:var(--gray);font-size:11px;display:block;margin-top:6px;">
+                        These are just defaults - staff can add, remove, or override them per order in the job order form. How many pieces are cut from one sheet is set per default.
+                    </small>
                 </div>
             </div>
             <div class="modal-footer">
@@ -803,6 +844,7 @@ if ($options_fid > 0) {
     <script>
         window.PRODUCT_TYPES_DATA = {
             paperPairs: <?= json_encode($paper_pairs) ?>,
+            cutSizeOptions: <?= json_encode($cut_size_options) ?>,
             dropdownFields: <?= json_encode(array_map(fn($f) => ['id' => $f['id'], 'field_label' => $f['field_label']], array_filter($fields, fn($f) => $f['field_type'] === 'dropdown'))) ?>,
             today: <?= json_encode(date('Y-m-d')) ?>
         };

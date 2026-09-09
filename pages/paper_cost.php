@@ -304,10 +304,7 @@ $log_date     = $order['log_date'];
 // ── Paper cost computation ──────────────────────────────────────────
 $quantity       = $order['quantity'];
 $number_of_sets = $order['number_of_sets'];
-$product_size   = $order['product_size'];
-$paper_size     = strtolower(trim($order['paper_size']));
-$paper_type     = strtolower(trim($order['paper_type']));
-$paper_sequence = array_map('trim', explode(',', $order['paper_sequence']));
+$product_size   = $order['product_size']; // legacy/primary — kept for the pieces of the UI below that still show one value
 
 $cut_size_map = [
     '1/2' => 2,
@@ -334,10 +331,11 @@ $cut_size_map = [
     '1/50' => 50,
     'whole' => 1,
 ];
-$cut_size     = $cut_size_map[$product_size] ?? 1;
+
+// Quantity/Sets per Bind are shared across all paper groups (see
+// job_orders.php) — total output volume is the same no matter how many
+// paper types make up the job, only the per-group cut size differs.
 $total_sheets = $number_of_sets * $quantity;
-$cut_sheets   = ($cut_size > 0) ? ($total_sheets / $cut_size) : 0;
-$reams        = $cut_sheets / 500;
 
 // ── Printing types ──────────────────────────────────────────────────
 $printing_types = [];
@@ -364,75 +362,6 @@ function mapPaperType($color, $paper_type)
     return strtoupper($color);
 }
 
-// ── Fetch paper prices ─────────────────────────────────────────────
-$layer_data = [];
-$total_paper_cost_ream = 0.0;
-
-if ($paper_type === 'carbonless') {
-    $unique_types = array_unique(array_map(fn($c) => mapPaperType($c, $paper_type), $paper_sequence));
-    $placeholders = implode(',', array_fill(0, count($unique_types), '?'));
-    $price_stmt = $inventory->prepare("SELECT paper_type, short_price, long_price, price_per_sheet FROM paper_prices WHERE paper_type IN ($placeholders) ORDER BY effective_date DESC");
-    $types_str = str_repeat('s', count($unique_types));
-    $price_stmt->bind_param($types_str, ...array_values($unique_types));
-    $price_stmt->execute();
-    $price_rows = $price_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    $price_stmt->close();
-    $price_map = [];
-    foreach ($price_rows as $p) {
-        if (!isset($price_map[$p['paper_type']])) $price_map[$p['paper_type']] = $p;
-    }
-    foreach ($paper_sequence as $color) {
-        $mappedType = mapPaperType($color, $paper_type);
-        $price = $price_map[$mappedType] ?? null;
-        if ($price) {
-            $unit_price = determineSizePrice($price, $paper_size);
-            $price_per_sheet = $price['price_per_sheet'] ?? ($unit_price / 500);
-            $layer_cost_ream = $unit_price * $reams;
-            $total_paper_cost_ream += $layer_cost_ream;
-            $layer_data[] = buildLayerData($color, $mappedType, $unit_price, $price_per_sheet, $reams, $layer_cost_ream, $total_sheets);
-        }
-    }
-} elseif ($paper_type === 'special paper') {
-    $special_products = $inventory->query("SELECT product_name, product_group, unit_price FROM products WHERE LOWER(product_type) = 'special paper'")->fetch_all(MYSQLI_ASSOC);
-    $special_product_map = [];
-    foreach ($special_products as $p) {
-        $key = strtolower(trim($p['product_name']));
-        if (!isset($special_product_map[$key])) $special_product_map[$key] = $p;
-    }
-    foreach ($paper_sequence as $color) {
-        $key = strtolower(trim($color));
-        $product = $special_product_map[$key] ?? null;
-        if ($product) {
-            $pps = (float)$product['unit_price'];
-            $layer_cost = $pps * $cut_sheets;
-            $total_paper_cost_ream += $layer_cost;
-            $layer = buildLayerData($color, $product['product_name'], 0, $pps, $reams, $layer_cost, $total_sheets);
-            $layer['is_special'] = true;
-            $layer_data[] = $layer;
-        }
-    }
-} else {
-    $ordinary_products = $inventory->query("SELECT product_name, product_group, unit_price FROM products WHERE LOWER(product_type) = 'ordinary paper'")->fetch_all(MYSQLI_ASSOC);
-    $ordinary_product_map = [];
-    foreach ($ordinary_products as $p) {
-        $key = strtolower(trim($p['product_name']));
-        if (!isset($ordinary_product_map[$key])) $ordinary_product_map[$key] = $p;
-    }
-    foreach ($paper_sequence as $color) {
-        $key = strtolower(trim($color));
-        $product = $ordinary_product_map[$key] ?? null;
-        if ($product) {
-            $unit_price = (float)$product['unit_price'];
-            $layer_cost_ream = $unit_price * $reams;
-            $price_per_sheet = $reams > 0 ? ($unit_price / 500) : 0;
-            $total_paper_cost_ream += $layer_cost_ream;
-            $layer = buildLayerData($color, $product['product_name'], $unit_price, $price_per_sheet, $reams, $layer_cost_ream, $total_sheets);
-            $layer['is_ordinary_product'] = true;
-            $layer_data[] = $layer;
-        }
-    }
-}
-
 function determineSizePrice($price, $paper_size)
 {
     if (strpos($paper_size, 'long') !== false || strpos($paper_size, 'f4') !== false) return (float)$price['long_price'];
@@ -441,7 +370,7 @@ function determineSizePrice($price, $paper_size)
     return (float)$price['long_price'];
 }
 
-function buildLayerData($color, $mapped, $unit_price, $price_per_sheet, $reams, $layer_cost, $total_sheets)
+function buildLayerData($color, $mapped, $unit_price, $price_per_sheet, $reams, $layer_cost, $total_sheets, $cut_sheets, $paper_type, $paper_size, $cut_size_label)
 {
     return [
         'color'           => $color,
@@ -451,14 +380,160 @@ function buildLayerData($color, $mapped, $unit_price, $price_per_sheet, $reams, 
         'reams'           => (float)$reams,
         'cost_ream'       => (float)$layer_cost,
         'total_sheets'    => (float)$total_sheets,
+        'cut_sheets'      => (float)$cut_sheets,
+        'paper_type'      => $paper_type,
+        'paper_size'      => $paper_size,
+        'cut_size'        => $cut_size_label,
     ];
 }
 
-$js_rates       = json_encode($rates);
-$js_layer_data  = json_encode($layer_data);
-$js_cut_sheets  = $cut_sheets;
+// Computes the layer breakdown + total cost for ONE paper group. Kept as a
+// function so the same carbonless/special-paper/ordinary-paper pricing logic
+// runs identically for every group in a multi-paper-type job order.
+function computeGroupLayers($inventory, $paper_type, $paper_size, $colors, $cut_sheets, $reams, $total_sheets, $cut_size_label)
+{
+    $layer_data  = [];
+    $group_total = 0.0;
+
+    if ($paper_type === 'carbonless') {
+        $unique_types = array_unique(array_map(fn($c) => mapPaperType($c, $paper_type), $colors));
+        if (empty($unique_types)) return [$layer_data, $group_total];
+        $placeholders = implode(',', array_fill(0, count($unique_types), '?'));
+        $price_stmt = $inventory->prepare("SELECT paper_type, short_price, long_price, price_per_sheet FROM paper_prices WHERE paper_type IN ($placeholders) ORDER BY effective_date DESC");
+        $types_str = str_repeat('s', count($unique_types));
+        $price_stmt->bind_param($types_str, ...array_values($unique_types));
+        $price_stmt->execute();
+        $price_rows = $price_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $price_stmt->close();
+        $price_map = [];
+        foreach ($price_rows as $p) {
+            if (!isset($price_map[$p['paper_type']])) $price_map[$p['paper_type']] = $p;
+        }
+        foreach ($colors as $color) {
+            $mappedType = mapPaperType($color, $paper_type);
+            $price = $price_map[$mappedType] ?? null;
+            if ($price) {
+                $unit_price = determineSizePrice($price, $paper_size);
+                $price_per_sheet = $price['price_per_sheet'] ?? ($unit_price / 500);
+                $layer_cost_ream = $unit_price * $reams;
+                $group_total += $layer_cost_ream;
+                $layer_data[] = buildLayerData($color, $mappedType, $unit_price, $price_per_sheet, $reams, $layer_cost_ream, $total_sheets, $cut_sheets, $paper_type, $paper_size, $cut_size_label);
+            }
+        }
+    } elseif ($paper_type === 'special paper') {
+        $special_products = $inventory->query("SELECT product_name, product_group, unit_price FROM products WHERE LOWER(product_type) = 'special paper'")->fetch_all(MYSQLI_ASSOC);
+        $special_product_map = [];
+        foreach ($special_products as $p) {
+            $key = strtolower(trim($p['product_name']));
+            if (!isset($special_product_map[$key])) $special_product_map[$key] = $p;
+        }
+        foreach ($colors as $color) {
+            $key = strtolower(trim($color));
+            $product = $special_product_map[$key] ?? null;
+            if ($product) {
+                $pps = (float)$product['unit_price'];
+                $layer_cost = $pps * $cut_sheets;
+                $group_total += $layer_cost;
+                $layer = buildLayerData($color, $product['product_name'], 0, $pps, $reams, $layer_cost, $total_sheets, $cut_sheets, $paper_type, $paper_size, $cut_size_label);
+                $layer['is_special'] = true;
+                $layer_data[] = $layer;
+            }
+        }
+    } else {
+        $ordinary_products = $inventory->query("SELECT product_name, product_group, unit_price FROM products WHERE LOWER(product_type) = 'ordinary paper'")->fetch_all(MYSQLI_ASSOC);
+        $ordinary_product_map = [];
+        foreach ($ordinary_products as $p) {
+            $key = strtolower(trim($p['product_name']));
+            if (!isset($ordinary_product_map[$key])) $ordinary_product_map[$key] = $p;
+        }
+        foreach ($colors as $color) {
+            $key = strtolower(trim($color));
+            $product = $ordinary_product_map[$key] ?? null;
+            if ($product) {
+                $unit_price = (float)$product['unit_price'];
+                $layer_cost_ream = $unit_price * $reams;
+                $price_per_sheet = $reams > 0 ? ($unit_price / 500) : 0;
+                $group_total += $layer_cost_ream;
+                $layer = buildLayerData($color, $product['product_name'], $unit_price, $price_per_sheet, $reams, $layer_cost_ream, $total_sheets, $cut_sheets, $paper_type, $paper_size, $cut_size_label);
+                $layer['is_ordinary_product'] = true;
+                $layer_data[] = $layer;
+            }
+        }
+    }
+
+    return [$layer_data, $group_total];
+}
+
+// ── Paper groups (multi-paper-type support) ─────────────────────────
+// job_order_paper_items holds every paper type/size used on this job (e.g.
+// cover vs. inner pages); jobs saved before this feature existed have no
+// rows here, so fall back to a single group built from the legacy columns.
+$job_paper_items = [];
+$jpi_stmt = $inventory->prepare("SELECT paper_type, paper_size, cut_size, paper_sequence FROM job_order_paper_items WHERE job_order_id = ? ORDER BY sort_order ASC");
+$jpi_stmt->bind_param("i", $job_id);
+$jpi_stmt->execute();
+$jpi_res = $jpi_stmt->get_result();
+while ($row = $jpi_res->fetch_assoc()) {
+    $job_paper_items[] = $row;
+}
+$jpi_stmt->close();
+
+if (empty($job_paper_items)) {
+    $job_paper_items[] = [
+        'paper_type'     => $order['paper_type'],
+        'paper_size'     => $order['paper_size'],
+        'cut_size'       => $order['product_size'],
+        'paper_sequence' => $order['paper_sequence'],
+    ];
+}
+
+$layer_data            = [];
+$total_paper_cost_ream = 0.0;
+$paper_groups_display  = []; // for the Job Details / Paper Cost Details summary
+
+foreach ($job_paper_items as $g) {
+    $g_paper_type     = strtolower(trim($g['paper_type']));
+    $g_paper_size     = strtolower(trim($g['paper_size']));
+    $g_cut_size_label = $g['cut_size'] ?: 'whole';
+    $g_colors         = array_values(array_filter(array_map('trim', explode(',', $g['paper_sequence'] ?? '')), fn($c) => $c !== ''));
+
+    $g_cut_size   = $cut_size_map[$g_cut_size_label] ?? 1;
+    $g_cut_sheets = ($g_cut_size > 0) ? ($total_sheets / $g_cut_size) : 0;
+    $g_reams      = $g_cut_sheets / 500;
+
+    [$g_layers, $g_total] = computeGroupLayers($inventory, $g_paper_type, $g_paper_size, $g_colors, $g_cut_sheets, $g_reams, $total_sheets, $g_cut_size_label);
+    $layer_data = array_merge($layer_data, $g_layers);
+    $total_paper_cost_ream += $g_total;
+
+    $paper_groups_display[] = [
+        'paper_type' => $g_paper_type,
+        'paper_size' => $g_paper_size,
+        'cut_size'   => $g_cut_size_label,
+        'cut_sheets' => $g_cut_sheets,
+        'reams'      => $g_reams,
+    ];
+}
+
+// Legacy single values — used by the digital/riso pricing proxy formulas
+// (which pick their own paper independent of these groups) and by the
+// "Job Details" card, kept as the FIRST group's numbers so single-group
+// jobs (still the overwhelming majority) behave exactly as before.
+$paper_type   = $paper_groups_display[0]['paper_type'] ?? '';
+$paper_size   = $paper_groups_display[0]['paper_size'] ?? '';
+$product_size = $paper_groups_display[0]['cut_size'] ?? 'whole';
+$cut_sheets   = $paper_groups_display[0]['cut_sheets'] ?? 0;
+$reams        = $paper_groups_display[0]['reams'] ?? 0;
+
+// True only when EVERY layer across every group is special paper — a mixed
+// job (one group special, another not) is handled per-layer via
+// $layer['is_special'] in JS instead of this single flag.
+$isSpecialPaper = !empty($layer_data) && count($layer_data) === count(array_filter($layer_data, fn($l) => !empty($l['is_special'])));
+
+$js_rates        = json_encode($rates);
+$js_layer_data   = json_encode($layer_data);
+$js_cut_sheets   = $cut_sheets;
 $js_total_sheets = $total_sheets;
-$js_reams       = $reams;
+$js_reams        = $reams;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -469,60 +544,146 @@ $js_reams       = $reams;
     <title>Job Order Cost Calculator</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/pages/paper_cost.css">
 </head>
 
 <body>
-
-    <!-- Topbar -->
-    <div class="topbar">
-        <div class="container">
-            <a href="job_orders.php" class="btn-back">
-                <i class="bi bi-arrow-left"></i> Back
-            </a>
-            <div>
-                <div class="topbar-title"><i class="bi bi-calculator me-2"></i>Expenses Calculator</div>
-                <div class="topbar-sub"><?= htmlspecialchars($client_name) ?> &mdash; <?= htmlspecialchars($project_name) ?> &mdash; <?= htmlspecialchars(date("F j, Y", strtotime($log_date))) ?></div>
+    <div class="sidebar-con">
+        <div class="sidebar">
+            <div class="brand">
+                <img src="../assets/images/plainlogo.png" alt="Active Media Printing Logo">
             </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
+                <li>
+                    <a href="papers.php">
+                        <i class="fas fa-boxes"></i> <span>Products</span>
+                    </a>
+                </li>
+                <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
+                <li class="active"><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+                <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
+                <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
+                <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
+            </ul>
         </div>
     </div>
 
+    <div class="main-content">
     <div class="container">
+
+        <header class="page-header">
+            <div class="page-title">
+                <h1>Expenses Management</h1>
+                <div class="breadcrumb">
+                    <a href="job_orders.php">Job Orders</a> <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+                    <a href="edit_job.php?id=<?= $job_id ?>">#<?= $job_id ?></a> <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+                    <span>Cost Calculator</span>
+                </div>
+            </div>
+            <a href="job_orders.php" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Back to Job Orders</a>
+        </header>
+
+        <div class="info-banner">
+            <div class="icon"><i class="fas fa-building"></i></div>
+            <div>
+                <div class="value"><?= htmlspecialchars($client_name) ?> - <?= htmlspecialchars($project_name) ?></div>
+                <div class="label">Logged <?= htmlspecialchars(date("M j, Y", strtotime($log_date))) ?></div>
+            </div>
+        </div>
+
+        <!-- Cost Summary -->
+        <div class="summary-bar">
+            <div class="summary-stat">
+                <div class="ss-icon"><i class="bi bi-layers"></i></div>
+                <div>
+                    <div class="ss-label">Paper Cost</div>
+                    <div class="ss-value" id="summary-paper">₱0.00</div>
+                </div>
+            </div>
+            <div class="summary-stat">
+                <div class="ss-icon"><i class="bi bi-people"></i></div>
+                <div>
+                    <div class="ss-label">Labor Cost</div>
+                    <div class="ss-value" id="summary-labor">₱0.00</div>
+                </div>
+            </div>
+            <div class="summary-stat">
+                <div class="ss-icon"><i class="bi bi-printer"></i></div>
+                <div>
+                    <div class="ss-label">Printing Cost</div>
+                    <div class="ss-value" id="summary-printing">-</div>
+                </div>
+            </div>
+            <div class="summary-stat total">
+                <div class="ss-icon"><i class="bi bi-check-circle-fill"></i></div>
+                <div>
+                    <div class="ss-label">Grand Total <span class="ss-note">reflects current prices</span></div>
+                    <div class="ss-value" id="summary-total">₱0.00</div>
+                </div>
+            </div>
+        </div>
+
         <div class="row g-4">
 
             <!-- ── LEFT COLUMN ── -->
             <div class="col-lg-4">
 
-                <!-- Summary Card -->
-                <div class="summary-card">
-                    <h5><i class="bi bi-pie-chart me-1"></i> Cost Summary</h5>
-                    <div class="summary-item">
-                        <span class="label"><i class="bi bi-layers me-1"></i>Paper Cost</span>
-                        <span class="value" id="summary-paper">₱0.00</span>
+                <!-- Job Details -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="header-icon"><i class="bi bi-info-circle"></i></div>
+                        Job Details
                     </div>
-                    <div class="summary-item">
-                        <span class="label"><i class="bi bi-people me-1"></i>Labor Cost</span>
-                        <span class="value" id="summary-labor">₱0.00</span>
+                    <div class="card-body">
+                        <div class="detail-grid">
+                            <?php foreach (
+                                [
+                                    'Qty'          => $quantity,
+                                    'Sets'         => $number_of_sets,
+                                    'Total Pieces' => $total_sheets,
+                                ] as $label => $value
+                            ): ?>
+                                <div class="detail-item">
+                                    <div class="dl"><?= $label ?></div>
+                                    <div class="dv"><?= htmlspecialchars((string)$value) ?></div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <div style="margin-top:10px;<?= count($paper_groups_display) > 1 ? '' : 'display:none' ?>" id="jobdetails-groups-note">
+                            <span style="font-size:11px;color:var(--text-muted)">This job uses <?= count($paper_groups_display) ?> paper types - see the breakdown below.</span>
+                        </div>
+                        <?php foreach ($paper_groups_display as $gi => $pg): ?>
+                            <div class="detail-grid" style="<?= count($paper_groups_display) > 1 ? 'margin-top:10px;padding-top:10px;border-top:1px dashed var(--border,#e2e2e2)' : '' ?>">
+                                <?php foreach (
+                                    [
+                                        'Size'       => $pg['cut_size'],
+                                        'Paper Type' => ucfirst($pg['paper_type']),
+                                        'Paper Size' => ucfirst($pg['paper_size']),
+                                        'Cut Sheets' => $pg['cut_sheets'],
+                                        'Reams'      => number_format($pg['reams'], 3),
+                                    ] as $label => $value
+                                ): ?>
+                                    <div class="detail-item">
+                                        <div class="dl"><?= $label ?></div>
+                                        <div class="dv"><?= htmlspecialchars((string)$value) ?></div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endforeach; ?>
                     </div>
-                    <div class="summary-item">
-                        <span class="label"><i class="bi bi-printer me-1"></i>Printing Cost</span>
-                        <span class="value" id="summary-printing">—</span>
-                    </div>
-                    <hr class="summary-divider">
-                    <div class="summary-item">
-                        <span style="font-weight:700;font-size:0.9rem">Grand Total</span>
-                        <span class="value summary-total" id="summary-total">₱0.00</span>
-                    </div>
-                    <div style="font-size:10.5px;opacity:0.6;margin-top:8px">*Reflects current labor & paper prices</div>
                 </div>
 
-                <!-- Expense Options -->
+                <!-- Printing Setup -->
                 <div class="card">
                     <div class="card-header">
                         <div class="header-icon"><i class="bi bi-sliders"></i></div>
-                        Expense Options
+                        Printing Setup
                     </div>
                     <div class="card-body">
                         <!-- Printing Type -->
@@ -664,7 +825,7 @@ $js_reams       = $reams;
                                 <input type="checkbox" class="form-check-input" id="back_to_back" onchange="updateBackToBack()">
                                 <label for="back_to_back">
                                     <i class="bi bi-arrow-left-right me-1"></i>
-                                    <strong>Back-to-Back</strong> — doubles price per sheet
+                                    <strong>Back-to-Back</strong> - doubles price per sheet
                                 </label>
                             </div>
 
@@ -676,8 +837,8 @@ $js_reams       = $reams;
                         </div><!-- /digital-section -->
 
                         <!-- ── RISO Printing Section ── -->
-                        <div id="riso-section" style="display:none;border:2px solid #e67e22;border-radius:12px;padding:18px;margin-top:14px;background:#fffbf5;animation:fadeIn 0.3s ease">
-                            <div style="font-size:0.78rem;font-weight:700;color:#e67e22;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:14px;display:flex;align-items:center;gap:6px">
+                        <div id="riso-section" class="riso-section">
+                            <div class="riso-section-header">
                                 <i class="bi bi-printer"></i> Riso Printing Options
                             </div>
 
@@ -688,30 +849,28 @@ $js_reams       = $reams;
                             foreach ($riso_paper_names as $pname):
                                 $sizes = $riso_prices[$pname];
                             ?>
-                                <div style="background:#fff;border:1.5px solid #f0d9c0;border-radius:10px;margin-bottom:10px;overflow:hidden">
-                                    <div style="background:#fef3e2;padding:9px 14px;font-size:12.5px;font-weight:700;color:#92400e;border-bottom:1px solid #f0d9c0">
+                                <div class="riso-paper-group">
+                                    <div class="riso-paper-group-header">
                                         <?= htmlspecialchars($pname) ?>
                                     </div>
-                                    <div style="display:flex;flex-direction:column">
+                                    <div>
                                         <?php foreach ($sizes as $sizeKey => $sizeData):
                                             $sizeLabel = ['short' => 'Short (8.5×11)', 'long' => 'Long (8.5×13)', 'a4' => 'A4 (8.5×11)'][$sizeKey] ?? strtoupper($sizeKey);
                                             $rowId = 'riso_row_' . preg_replace('/[^a-zA-Z0-9]/', '_', $pname) . '_' . $sizeKey;
                                             $inputId = 'riso_price_' . preg_replace('/[^a-zA-Z0-9]/', '_', $pname) . '_' . $sizeKey;
                                         ?>
                                             <div class="riso-option-row" id="<?= $rowId ?>"
-                                                onclick="selectRisoOption(<?= htmlspecialchars(json_encode($pname), ENT_QUOTES) ?>, '<?= $sizeKey ?>')"
-                                                style="display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid #f5ece0;cursor:pointer;transition:background 0.15s;gap:10px">
-                                                <i class="bi bi-check-circle riso-radio" style="color:#e0cbb8"></i>
-                                                <span style="flex:1;font-size:12.5px;font-weight:500"><?= $sizeLabel ?></span>
-                                                <span style="font-size:11px;color:#92400e;background:#fef3e2;padding:2px 7px;border-radius:20px;font-weight:600">per ream</span>
-                                                <div style="display:flex;align-items:center;gap:4px;background:#fff8f0;border:1.5px solid #f0d9c0;border-radius:7px;padding:4px 10px">
-                                                    <span style="color:#92400e;font-size:11px;font-weight:600">₱</span>
+                                                onclick="selectRisoOption(<?= htmlspecialchars(json_encode($pname), ENT_QUOTES) ?>, '<?= $sizeKey ?>')">
+                                                <i class="bi bi-check-circle riso-radio"></i>
+                                                <span class="option-label"><?= $sizeLabel ?></span>
+                                                <span class="riso-unit-badge">per ream</span>
+                                                <div class="riso-price-input">
+                                                    <span class="riso-peso">₱</span>
                                                     <input type="number" step="0.01" min="0"
                                                         id="<?= $inputId ?>"
                                                         value="<?= $sizeData['price'] ?>"
                                                         onclick="event.stopPropagation()"
                                                         onchange="calculate()"
-                                                        style="border:none;background:transparent;width:70px;font-size:13px;font-weight:700;color:#c05621;text-align:right;outline:none;font-family:'Poppins',sans-serif"
                                                         title="Edit price per ream">
                                                 </div>
                                             </div>
@@ -721,23 +880,32 @@ $js_reams       = $reams;
                             <?php endforeach; ?>
 
                             <!-- Back to back -->
-                            <div style="background:#fff7ed;border:1.5px solid #fcd34d;border-radius:9px;padding:10px 14px;margin-top:4px;display:flex;align-items:center;gap:10px">
+                            <div class="riso-back-to-back">
                                 <input type="checkbox" class="form-check-input" id="riso_back_to_back" onchange="updateRisoBackToBack()">
-                                <label for="riso_back_to_back" style="font-size:13px;font-weight:500;color:#92400e;margin:0;cursor:pointer">
+                                <label for="riso_back_to_back">
                                     <i class="bi bi-arrow-left-right me-1"></i>
                                     <strong>Back-to-Back</strong> &mdash; adds <strong>₱200</strong> to total riso cost
                                 </label>
                             </div>
 
                             <!-- Riso cost preview -->
-                            <div id="riso_cost_preview" style="display:none;background:linear-gradient(135deg,#e67e22 0%,#c0392b 100%);color:#fff;border-radius:10px;padding:12px 16px;margin-top:12px">
-                                <div style="font-size:11px;opacity:0.75;text-transform:uppercase;letter-spacing:0.5px"><i class="bi bi-calculator me-1"></i>Riso Printing Cost</div>
-                                <div style="font-size:1.4rem;font-weight:700" id="riso_cost_value">₱0.00</div>
+                            <div id="riso_cost_preview" class="riso-cost-preview">
+                                <div class="dcp-label"><i class="bi bi-calculator me-1"></i>Riso Printing Cost</div>
+                                <div class="dcp-value" id="riso_cost_value">₱0.00</div>
                             </div>
                         </div><!-- /riso-section -->
+                    </div>
+                </div><!-- /Printing Setup card -->
 
+                <!-- Paper Cost -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="header-icon"><i class="bi bi-layers"></i></div>
+                        Paper Cost Method
+                    </div>
+                    <div class="card-body">
                         <!-- Paper Pricing Method -->
-                        <div class="mb-3 mt-3" id="paper_method_row">
+                        <div class="mb-3" id="paper_method_row">
                             <label class="form-label">Paper Pricing Method</label>
                             <select id="paper_pricing_method" class="form-select" onchange="calculate()">
                                 <option value="ream" <?= ($order['paper_pricing_method'] ?? 'ream') === 'ream'   ? 'selected' : '' ?>>By Ream (500 sheets)</option>
@@ -752,7 +920,16 @@ $js_reams       = $reams;
                                     value="<?= $order['custom_paper_cost'] ?? 0 ?>" class="form-control" onchange="calculate()">
                             </div>
                         </div>
+                    </div>
+                </div><!-- /Paper Cost card -->
 
+                <!-- Additional Costs -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="header-icon"><i class="bi bi-plus-circle"></i></div>
+                        Additional Costs
+                    </div>
+                    <div class="card-body">
                         <!-- Add-ons -->
                         <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
                             <label style="display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:9px;padding:10px 14px;cursor:pointer">
@@ -798,35 +975,6 @@ $js_reams       = $reams;
                     </a>
                 </div>
 
-                <!-- Job Details -->
-                <div class="card">
-                    <div class="card-header">
-                        <div class="header-icon"><i class="bi bi-info-circle"></i></div>
-                        Job Details
-                    </div>
-                    <div class="card-body">
-                        <div class="detail-grid">
-                            <?php foreach (
-                                [
-                                    'Qty'           => $quantity,
-                                    'Sets'          => $number_of_sets,
-                                    'Size'          => $product_size,
-                                    'Paper Type'    => ucfirst($paper_type),
-                                    'Paper Size'    => ucfirst($paper_size),
-                                    'Total Pieces'  => $total_sheets,
-                                    'Cut Sheets'    => $cut_sheets,
-                                    'Reams'         => number_format($reams, 3),
-                                ] as $label => $value
-                            ): ?>
-                                <div class="detail-item">
-                                    <div class="dl"><?= $label ?></div>
-                                    <div class="dv"><?= htmlspecialchars((string)$value) ?></div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                </div>
-
             </div><!-- /col-lg-4 -->
 
             <!-- ── RIGHT COLUMN ── -->
@@ -843,7 +991,7 @@ $js_reams       = $reams;
                             <i class="bi bi-arrow-clockwise"></i> Recalculate
                         </button>
                     </div>
-                    <div style="overflow-x:auto">
+                    <div class="table-scroll">
                         <table class="data-table">
                             <thead>
                                 <tr>
@@ -870,19 +1018,32 @@ $js_reams       = $reams;
                         Paper Cost Details
                     </div>
                     <div class="card-body">
-                        <div class="row mb-4">
-                            <div class="col-sm-6">
-                                <div class="detail-item">
-                                    <div class="dl">Cut Size</div>
-                                    <div class="dv"><?= htmlspecialchars($product_size) ?> <span style="font-size:12px;color:var(--text-muted)">(<?= htmlspecialchars((string)($cut_size_map[$product_size] ?? 1)) ?> per sheet)</span></div>
+                        <div class="row mb-4" style="gap:10px">
+                            <?php if (count($paper_groups_display) <= 1): ?>
+                                <div class="col-sm-6">
+                                    <div class="detail-item">
+                                        <div class="dl">Cut Size</div>
+                                        <div class="dv"><?= htmlspecialchars($product_size) ?> <span style="font-size:12px;color:var(--text-muted)">(<?= htmlspecialchars((string)($cut_size_map[$product_size] ?? 1)) ?> per sheet)</span></div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-sm-6 mt-2 mt-sm-0">
-                                <div class="detail-item">
-                                    <div class="dl">Paper Type</div>
-                                    <div class="dv"><?= htmlspecialchars(ucfirst($paper_type)) ?> Paper</div>
+                                <div class="col-sm-6 mt-2 mt-sm-0">
+                                    <div class="detail-item">
+                                        <div class="dl">Paper Type</div>
+                                        <div class="dv"><?= htmlspecialchars(ucfirst($paper_type)) ?> Paper</div>
+                                    </div>
                                 </div>
-                            </div>
+                            <?php else: ?>
+                                <?php foreach ($paper_groups_display as $gi => $pg): ?>
+                                    <div class="col-sm-6 mt-2 mt-sm-0">
+                                        <div class="detail-item">
+                                            <div class="dl">Paper <?= $gi + 1 ?></div>
+                                            <div class="dv"><?= htmlspecialchars(ucfirst($pg['paper_type'])) ?> / <?= htmlspecialchars(ucfirst($pg['paper_size'])) ?>
+                                                <span style="font-size:12px;color:var(--text-muted)">(<?= htmlspecialchars($pg['cut_size']) ?>)</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
                         <div class="section-badge mb-3"><i class="bi bi-stack"></i> Paper Layers</div>
                         <div id="paper_details_display">
@@ -892,13 +1053,13 @@ $js_reams       = $reams;
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div>
                                                 <div class="layer-title"><?= htmlspecialchars($layer['color']) ?></div>
-                                                <div class="layer-type">→ <?= htmlspecialchars($layer['mapped']) ?></div>
+                                                <div class="layer-type">→ <?= htmlspecialchars($layer['mapped']) ?><?= count($paper_groups_display) > 1 ? ' (' . htmlspecialchars(ucfirst($layer['paper_type'])) . ' / ' . htmlspecialchars(ucfirst($layer['paper_size'])) . ')' : '' ?></div>
                                             </div>
                                             <div class="layer-cost">₱<?= number_format($layer['cost_ream'], 2) ?></div>
                                         </div>
                                         <div class="mt-1" style="font-size:11.5px;color:var(--text-muted)">
                                             <?php if (!empty($layer['is_special'])): ?>
-                                                ₱<?= number_format($layer['price_per_sheet'], 4) ?>/sheet × <?= number_format($cut_sheets, 2) ?> sheets
+                                                ₱<?= number_format($layer['price_per_sheet'], 4) ?>/sheet × <?= number_format($layer['cut_sheets'], 2) ?> sheets
                                             <?php else: ?>
                                                 ₱<?= number_format($layer['unit_price'], 2) ?>/ream × <?= number_format($layer['reams'], 2) ?> reams
                                             <?php endif; ?>
@@ -1019,7 +1180,7 @@ $js_reams       = $reams;
                         <div class="header-icon"><i class="bi bi-list-check"></i></div>
                         Session Details
                     </div>
-                    <div style="overflow-x:auto">
+                    <div class="table-scroll">
                         <table class="data-table">
                             <thead>
                                 <tr>
@@ -1045,6 +1206,7 @@ $js_reams       = $reams;
             </div><!-- /col-lg-8 -->
         </div><!-- /row -->
     </div><!-- /container -->
+    </div><!-- /main-content -->
 
     <script>
         window.PAPER_COST_DATA = {
@@ -1054,13 +1216,13 @@ $js_reams       = $reams;
             cutSheets: <?= $js_cut_sheets ?>,
             totalSheets: <?= $js_total_sheets ?>,
             reams: <?= $js_reams ?>,
-            isSpecialPaper: <?= ($paper_type === 'special paper') ? 'true' : 'false' ?>,
+            isSpecialPaper: <?= $isSpecialPaper ? 'true' : 'false' ?>,
             digitalPrices: <?= $js_digital_prices ?>,
             savedDigital: <?= json_encode($savedDigital) ?>,
             risoPrices: <?= $js_riso_prices ?>,
             savedRiso: <?= json_encode($savedRiso) ?>,
             itemizedExpenses: <?= $js_itemized_expenses ?>,
-            totalLayers: <?= count($paper_sequence) ?>
+            totalLayers: <?= count($layer_data) ?>
         };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

@@ -239,7 +239,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // Restore collapsible states (with default = closed)
   document.querySelectorAll(".collapsible-header").forEach((header) => {
-    const key = `collapse-${pageKey}-${header.textContent.trim()}`;
+    const headerKey = header.dataset.key || header.textContent.trim();
+    const key = `collapse-${pageKey}-${headerKey}`;
     const savedState = sessionStorage.getItem(key);
     const content = header.nextElementSibling;
     const icon = header.querySelector("i");
@@ -269,7 +270,8 @@ document.querySelectorAll("select").forEach((select) => {
 // Collapse toggle handler with save
 function toggleProductGroup(header) {
   const content = header.nextElementSibling;
-  const key = `collapse-${pageKey}-${header.textContent.trim()}`;
+  const headerKey = header.dataset.key || header.textContent.trim();
+  const key = `collapse-${pageKey}-${headerKey}`;
   const icon = header.querySelector("i");
 
   if (content.style.display === "none") {

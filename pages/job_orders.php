@@ -10,6 +10,65 @@ require_once '../config/db.php';
 // the non-paper "Paper Stock Used" cut size field. Piece count cut from one sheet.
 $cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, '1/10' => 10, '1/12' => 12, '1/14' => 14, '1/16' => 16, '1/18' => 18, '1/20' => 20, '1/22' => 22, '1/24' => 24, '1/25' => 25, '1/26' => 26, '1/28' => 28, '1/30' => 30, '1/32' => 32, '1/36' => 36, '1/40' => 40, '1/48' => 48, '1/50' => 50, 'whole' => 1];
 
+// Renders one repeatable "paper group" block (Paper Type / Size / Cut Size /
+// Copies per Set + its own color sequence). Used both for the default blank
+// group and to re-render previously-submitted groups after a validation error.
+function render_paper_group_html($idx, $group, $cut_size_map, $inventory) {
+  $pg_type   = $group['paper_type'] ?? '';
+  $pg_size   = $group['paper_size'] ?? '';
+  $pg_custom = $group['custom_paper_size'] ?? '';
+  $pg_cut    = $group['cut_size'] ?? '';
+  $pg_copies = $group['copies_per_set'] ?? '';
+  $pg_seq    = $group['paper_sequence'] ?? [];
+  ob_start();
+  ?>
+  <div class="paper-group" data-group-index="<?= $idx ?>" data-presize='<?= htmlspecialchars(json_encode($pg_size), ENT_QUOTES) ?>' data-preseq='<?= htmlspecialchars(json_encode($pg_seq), ENT_QUOTES) ?>' style="border:1px solid var(--light-gray,#e2e2e2);border-radius:10px;padding:14px 16px;margin-bottom:12px;position:relative;">
+    <button type="button" class="removePaperGroupBtn" title="Remove this paper type" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:15px;">
+      <i class="fas fa-times-circle"></i>
+    </button>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Paper / Media Type *</label>
+        <select name="paper_group[<?= $idx ?>][paper_type]" class="pg-paper-type" required>
+          <option value="">Select</option>
+          <?php
+          $product_types_q = $inventory->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
+          while ($type = $product_types_q->fetch_assoc()):
+          ?>
+            <option value="<?= htmlspecialchars($type['product_type']) ?>" <?= $pg_type === $type['product_type'] ? 'selected' : '' ?>><?= htmlspecialchars($type['product_type']) ?></option>
+          <?php endwhile; ?>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Paper Size *</label>
+        <select name="paper_group[<?= $idx ?>][paper_size]" class="pg-paper-size" required>
+          <option value="">Select</option>
+        </select>
+        <input type="text" name="paper_group[<?= $idx ?>][custom_paper_size]" class="pg-custom-paper-size" placeholder="Enter custom paper size" style="display:none;margin-top:0.5rem;" value="<?= htmlspecialchars($pg_custom) ?>">
+      </div>
+      <div class="form-group">
+        <label>Cut Size *</label>
+        <select name="paper_group[<?= $idx ?>][cut_size]" class="pg-cut-size" required>
+          <option value="">Select</option>
+          <?php foreach (array_keys($cut_size_map) as $cs): ?>
+            <option value="<?= $cs ?>" <?= $pg_cut === $cs ? 'selected' : '' ?>><?= $cs === 'whole' ? 'Whole' : $cs ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Number of Copies per Set *</label>
+        <input type="number" name="paper_group[<?= $idx ?>][copies_per_set]" class="pg-copies-per-set" min="1" placeholder="e.g. 2, 3, 4" required value="<?= htmlspecialchars($pg_copies) ?>">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Color of Paper (In-Proper Order) *</label>
+      <div class="pg-sequence-container"></div>
+    </div>
+  </div>
+  <?php
+  return ob_get_clean();
+}
+
 // Prevent the browser from caching this page (including bfcache), so a
 // client_id-prefilled response can never be resurrected by a later
 // back/forward navigation or plain reuse of a cached response.
@@ -73,6 +132,20 @@ while ($row = $pricing_result->fetch_assoc()) {
   $pt_pricing_all[$row['product_type_id']][] = $row;
 }
 
+// ── Paper defaults per product type (non-paper types that still consume
+// paper stock — a type can now have more than one default paper/size) ──
+$pt_paper_defaults_all = [];
+if (!empty($active_product_types)) {
+  $pd_result = $inventory->query("
+        SELECT * FROM product_type_paper_defaults
+        WHERE product_type_id IN ($pt_ids)
+        ORDER BY sort_order ASC
+    ");
+  while ($row = $pd_result->fetch_assoc()) {
+    $pt_paper_defaults_all[$row['product_type_id']][] = $row;
+  }
+}
+
 if (isset($_GET['client_id'])) {
   $stmt = $inventory->prepare("SELECT * FROM clients WHERE id = ?");
   $stmt->bind_param("i", $_GET['client_id']);
@@ -122,6 +195,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $binding_type = $_POST['binding_type'] ?? '';
   $custom_binding = $_POST['custom_binding'] ?? '';
   $paper_sequence = $_POST['paper_sequence'] ?? [];
+  // Default — overridden below by the primary paper group's colors when
+  // groups exist (paper flow, or non-paper types that use paper stock).
+  $paper_sequence_str = implode(', ', array_map('trim', $paper_sequence));
   $special_instructions = !empty($_POST['special_instructions']) ? trim($_POST['special_instructions']) : 'None';
   $log_date = $_POST['log_date'] ?? date('Y-m-d');
   $created_by = $_SESSION['user_id'];
@@ -144,86 +220,154 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $product_type_id = !empty($_POST['product_type_id']) ? intval($_POST['product_type_id']) : null;
   $is_non_paper    = ($product_type_id !== null);
 
-  $cut_size = $cut_size_map[$product_size] ?? 1;
-  $total_sheets = $number_of_sets * $quantity;
-  $cut_sheets = $total_sheets / $cut_size;
-  $reams = $cut_sheets / 500;
-  $paper_sequence_str = implode(', ', $paper_sequence);
+  // ── Parse repeatable "paper groups" (Paper Type + Size + Cut Size + Colors) ──
+  // Quantity/Sets per Bind are shared across groups; only type/size/cut
+  // size/colors can differ per group (e.g. cover vs. inner pages).
+  $paper_groups_raw = $_POST['paper_group'] ?? [];
+  $paper_groups = [];
+  foreach ($paper_groups_raw as $g) {
+    $pg_type = trim($g['paper_type'] ?? '');
+    $pg_size = trim($g['paper_size'] ?? '');
+    if ($pg_type === '' || $pg_size === '') continue; // skip incomplete rows
+    $colors = array_values(array_filter(
+      array_map('trim', $g['paper_sequence'] ?? []),
+      fn($c) => $c !== ''
+    ));
+    $paper_groups[] = [
+      'paper_type'        => $pg_type,
+      'paper_size'        => $pg_size,
+      'custom_paper_size' => trim($g['custom_paper_size'] ?? ''),
+      'cut_size'          => $g['cut_size'] ?? 'whole',
+      'copies_per_set'    => max(1, intval($g['copies_per_set'] ?? 1)),
+      'paper_sequence'    => $colors,
+    ];
+  }
 
+  // Legacy/primary columns on job_orders — first group's values, kept for
+  // backward compatibility with search and any code reading them directly.
+  // Full multi-group detail lives in job_order_paper_items.
+  if (!$is_non_paper && !empty($paper_groups)) {
+    $primary           = $paper_groups[0];
+    $paper_type        = $primary['paper_type'];
+    $paper_size        = $primary['paper_size'];
+    $custom_paper_size = $primary['custom_paper_size'];
+    $product_size      = $primary['cut_size'];
+    $copies_per_set    = $primary['copies_per_set'];
+    $paper_sequence_str = implode(', ', $primary['paper_sequence']);
+  }
+
+  $reams = 0;
   $products_used = [];
   $not_found = [];
   $np_reams = 0; // reams deducted for a non-paper product type that still uses paper stock
 
   if (!$is_non_paper) {
-    foreach ($paper_sequence as $color) {
-      $color = trim($color);
-      $stock_stmt = $inventory->prepare("
-        SELECT p.id, (
-          (
-            SELECT IFNULL(SUM(delivered_reams), 0)
-            FROM delivery_logs
-            WHERE product_id = p.id
-          ) * 500 - (
-            SELECT IFNULL(SUM(used_sheets + COALESCE(spoilage_sheets, 0)), 0)
-            FROM usage_logs
-            WHERE product_id = p.id
-          )
-        ) AS available
-        FROM products p
-        WHERE p.product_type = ? AND p.product_group = ? AND p.product_name = ?
-        LIMIT 1
-      ");
-      $stock_stmt->bind_param("sss", $paper_type, $paper_size, $color);
-      $stock_stmt->execute();
-      $result = $stock_stmt->get_result();
-      $stock_stmt->close();
+    if (empty($paper_groups)) {
+      $not_found[] = "<i class='fas fa-exclamation-circle'></i> Add at least one paper type/size.";
+    }
 
-      if ($result && $result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        // Allow negative stock — just record the product for usage logging
-        $products_used[] = ['product_id' => $row['id'], 'color' => $color, 'sheets' => $cut_sheets];
-      } else {
-        $not_found[] = "<i class='fas fa-exclamation-circle'></i> Product not found for <strong>$color</strong>.";
+    foreach ($paper_groups as $group) {
+      $group_cut_size    = $cut_size_map[$group['cut_size']] ?? 1;
+      $group_total_sheets = $number_of_sets * $quantity;
+      $group_cut_sheets  = $group_total_sheets / $group_cut_size;
+      $reams += $group_cut_sheets / 500;
+
+      foreach ($group['paper_sequence'] as $color) {
+        $stock_stmt = $inventory->prepare("
+          SELECT p.id, (
+            (
+              SELECT IFNULL(SUM(delivered_reams), 0)
+              FROM delivery_logs
+              WHERE product_id = p.id
+            ) * 500 - (
+              SELECT IFNULL(SUM(used_sheets + COALESCE(spoilage_sheets, 0)), 0)
+              FROM usage_logs
+              WHERE product_id = p.id
+            )
+          ) AS available
+          FROM products p
+          WHERE p.product_type = ? AND p.product_group = ? AND p.product_name = ?
+          LIMIT 1
+        ");
+        $stock_stmt->bind_param("sss", $group['paper_type'], $group['paper_size'], $color);
+        $stock_stmt->execute();
+        $result = $stock_stmt->get_result();
+        $stock_stmt->close();
+
+        if ($result && $result->num_rows > 0) {
+          $row = $result->fetch_assoc();
+          // Allow negative stock — just record the product for usage logging
+          $products_used[] = ['product_id' => $row['id'], 'color' => $color, 'sheets' => $group_cut_sheets];
+        } else {
+          $not_found[] = "<i class='fas fa-exclamation-circle'></i> Product not found for <strong>{$group['paper_type']} / {$group['paper_size']} / $color</strong>.";
+        }
       }
     }
   } else {
     // ── Non-paper product type: check if it still consumes paper stock ──
-    $pt_stmt = $inventory->prepare("SELECT requires_paper, paper_type, paper_size, cut_size FROM product_types WHERE id = ? LIMIT 1");
+    $pt_stmt = $inventory->prepare("SELECT requires_paper FROM product_types WHERE id = ? LIMIT 1");
     $pt_stmt->bind_param("i", $product_type_id);
     $pt_stmt->execute();
     $pt_row = $pt_stmt->get_result()->fetch_assoc();
     $pt_stmt->close();
 
+    $np_paper_groups = [];
+    $np_reams = 0;
+
     if ($pt_row && !empty($pt_row['requires_paper'])) {
-      // The admin-configured type/size/cut size are just defaults — staff can
-      // override any of them per order from the "Paper Stock Used" fields.
-      $np_paper_type  = trim($_POST['np_paper_type'] ?? '') !== '' ? trim($_POST['np_paper_type']) : $pt_row['paper_type'];
-      $np_paper_size  = trim($_POST['np_paper_size'] ?? '') !== '' ? trim($_POST['np_paper_size']) : $pt_row['paper_size'];
-      $np_paper_color = trim($_POST['np_paper_color'] ?? ''); // optional — blank means "any/no specific color"
-      $np_cut_size_key = trim($_POST['np_cut_size'] ?? '') !== '' ? trim($_POST['np_cut_size']) : ($pt_row['cut_size'] ?? 'whole');
-      $np_cut_size   = $cut_size_map[$np_cut_size_key] ?? 1;
-      $np_sheets     = $quantity / $np_cut_size;
-      $np_reams      = $np_sheets / 500;
+      // Staff can add, remove, or override any of the admin-configured defaults
+      // per order from the "Paper Stock Used" fields — a type can consume
+      // more than one paper type/size (e.g. a box liner + a wrapper).
+      foreach ($_POST['np_paper_group'] ?? [] as $g) {
+        $g_type = trim($g['paper_type'] ?? '');
+        $g_size = trim($g['paper_size'] ?? '');
+        if ($g_type === '' || $g_size === '') continue;
+        $g_color   = trim($g['color'] ?? ''); // optional — blank means "any/no specific color"
+        $g_cut_key = $g['cut_size'] ?? 'whole';
+        $g_cut_size = $cut_size_map[$g_cut_key] ?? 1;
+        $g_sheets  = $quantity / $g_cut_size;
+        $np_reams += $g_sheets / 500;
 
-      if ($np_paper_color !== '') {
-        $np_stock_stmt = $inventory->prepare("SELECT id FROM products WHERE product_type = ? AND product_group = ? AND product_name = ? LIMIT 1");
-        $np_stock_stmt->bind_param("sss", $np_paper_type, $np_paper_size, $np_paper_color);
-      } else {
-        $np_stock_stmt = $inventory->prepare("SELECT id FROM products WHERE product_type = ? AND product_group = ? LIMIT 1");
-        $np_stock_stmt->bind_param("ss", $np_paper_type, $np_paper_size);
-      }
-      $np_stock_stmt->execute();
-      $np_result = $np_stock_stmt->get_result();
-      $np_stock_stmt->close();
+        if ($g_color !== '') {
+          $np_stock_stmt = $inventory->prepare("SELECT id FROM products WHERE product_type = ? AND product_group = ? AND product_name = ? LIMIT 1");
+          $np_stock_stmt->bind_param("sss", $g_type, $g_size, $g_color);
+        } else {
+          $np_stock_stmt = $inventory->prepare("SELECT id FROM products WHERE product_type = ? AND product_group = ? LIMIT 1");
+          $np_stock_stmt->bind_param("ss", $g_type, $g_size);
+        }
+        $np_stock_stmt->execute();
+        $np_result = $np_stock_stmt->get_result();
+        $np_stock_stmt->close();
 
-      if ($np_result && $np_result->num_rows > 0) {
-        $np_row = $np_result->fetch_assoc();
-        // Allow negative stock — just record the product for usage logging
-        $products_used[] = ['product_id' => $np_row['id'], 'color' => $np_paper_color ?: null, 'sheets' => $np_sheets];
-      } else {
-        $color_note = $np_paper_color !== '' ? " / $np_paper_color" : '';
-        $not_found[] = "<i class='fas fa-exclamation-circle'></i> Paper stock not found for <strong>$np_paper_type / $np_paper_size$color_note</strong>.";
+        if ($np_result && $np_result->num_rows > 0) {
+          $np_row = $np_result->fetch_assoc();
+          // Allow negative stock — just record the product for usage logging
+          $products_used[] = ['product_id' => $np_row['id'], 'color' => $g_color ?: null, 'sheets' => $g_sheets];
+          $np_paper_groups[] = [
+            'paper_type'        => $g_type,
+            'paper_size'        => $g_size,
+            'custom_paper_size' => '',
+            'cut_size'          => $g_cut_key,
+            'copies_per_set'    => 1,
+            'paper_sequence'    => [$g_color !== '' ? $g_color : 'Any'],
+          ];
+        } else {
+          $color_note = $g_color !== '' ? " / $g_color" : '';
+          $not_found[] = "<i class='fas fa-exclamation-circle'></i> Paper stock not found for <strong>$g_type / $g_size$color_note</strong>.";
+        }
       }
+    }
+
+    // Legacy columns on job_orders — first group's values, same
+    // backward-compat pattern as the paper flow above.
+    if (!empty($np_paper_groups)) {
+      $primary           = $np_paper_groups[0];
+      $paper_type        = $primary['paper_type'];
+      $paper_size        = $primary['paper_size'];
+      $custom_paper_size = '';
+      $product_size      = $primary['cut_size'];
+      $copies_per_set    = 1;
+      $paper_sequence_str = implode(', ', $primary['paper_sequence']);
     }
   }
 
@@ -359,6 +503,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $usage_stmt->execute();
       }
       $usage_stmt->close();
+
+      // Persist the full multi-group breakdown — paper flow uses
+      // $paper_groups, non-paper "Paper Stock Used" uses $np_paper_groups.
+      $groups_to_persist = !$is_non_paper ? $paper_groups : $np_paper_groups;
+      if (!empty($groups_to_persist)) {
+        $jopi_stmt = $inventory->prepare("
+          INSERT INTO job_order_paper_items
+            (job_order_id, paper_type, paper_size, custom_paper_size, cut_size, copies_per_set, paper_sequence, sort_order)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        foreach ($groups_to_persist as $i => $group) {
+          $seq_str = implode(', ', $group['paper_sequence']);
+          $jopi_stmt->bind_param(
+            "issssisi",
+            $job_order_id,
+            $group['paper_type'],
+            $group['paper_size'],
+            $group['custom_paper_size'],
+            $group['cut_size'],
+            $group['copies_per_set'],
+            $seq_str,
+            $i
+          );
+          $jopi_stmt->execute();
+        }
+        $jopi_stmt->close();
+      }
 
       if ($is_non_paper) {
         $_SESSION['message'] = !empty($products_used)
@@ -659,6 +830,29 @@ if (!empty($displayed_job_ids)) {
   $fv_result = $fv_stmt->get_result();
   while ($row = $fv_result->fetch_assoc()) {
     $job_field_values[$row['job_order_id']][] = $row;
+  }
+}
+
+// ── Paper groups for paper-flow job orders (Paper Type/Size can vary per
+// group within one order, e.g. cover vs. inner pages) — same scoping as
+// $job_field_values above. Jobs saved before this feature existed have no
+// rows here; the renderer falls back to the legacy single paper_type/size
+// columns on job_orders for those.
+$job_paper_items = [];
+if (!empty($displayed_job_ids)) {
+  $placeholders = implode(',', array_fill(0, count($displayed_job_ids), '?'));
+  $pi_types = str_repeat('i', count($displayed_job_ids));
+  $pi_stmt = $inventory->prepare("
+      SELECT job_order_id, paper_type, paper_size, custom_paper_size, cut_size, copies_per_set, paper_sequence
+      FROM job_order_paper_items
+      WHERE job_order_id IN ($placeholders)
+      ORDER BY sort_order ASC
+  ");
+  $pi_stmt->bind_param($pi_types, ...$displayed_job_ids);
+  $pi_stmt->execute();
+  $pi_result = $pi_stmt->get_result();
+  while ($row = $pi_result->fetch_assoc()) {
+    $job_paper_items[$row['job_order_id']][] = $row;
   }
 }
 ?>
@@ -1100,58 +1294,31 @@ if (!empty($displayed_job_ids)) {
                 <label for="number_of_sets">Sets per Bind *</label>
                 <input type="number" id="number_of_sets" name="number_of_sets" min="1" required value="<?= htmlspecialchars($prefill['number_of_sets'] ?? '') ?>">
               </div>
-              <div class="form-group">
-                <label for="product_size">Cut Size *</label>
-                <select id="product_size" name="product_size" required>
-                  <option value="">Select</option>
-                  <option value="whole" <?= ($prefill['product_size'] ?? '') === 'whole' ? 'selected' : '' ?>>Whole</option>
-                  <option value="1/2" <?= ($prefill['product_size'] ?? '') === '1/2'  ? 'selected' : '' ?>>1/2</option>
-                  <option value="1/3" <?= ($prefill['product_size'] ?? '') === '1/3'  ? 'selected' : '' ?>>1/3</option>
-                  <option value="1/4" <?= ($prefill['product_size'] ?? '') === '1/4'  ? 'selected' : '' ?>>1/4</option>
-                  <option value="1/6" <?= ($prefill['product_size'] ?? '') === '1/6'  ? 'selected' : '' ?>>1/6</option>
-                  <option value="1/8" <?= ($prefill['product_size'] ?? '') === '1/8'  ? 'selected' : '' ?>>1/8</option>
-                  <option value="1/10" <?= ($prefill['product_size'] ?? '') === '1/10' ? 'selected' : '' ?>>1/10</option>
-                  <option value="1/12" <?= ($prefill['product_size'] ?? '') === '1/12' ? 'selected' : '' ?>>1/12</option>
-                  <option value="1/14" <?= ($prefill['product_size'] ?? '') === '1/14' ? 'selected' : '' ?>>1/14</option>
-                  <option value="1/16" <?= ($prefill['product_size'] ?? '') === '1/16' ? 'selected' : '' ?>>1/16</option>
-                  <option value="1/18" <?= ($prefill['product_size'] ?? '') === '1/18' ? 'selected' : '' ?>>1/18</option>
-                  <option value="1/20" <?= ($prefill['product_size'] ?? '') === '1/20' ? 'selected' : '' ?>>1/20</option>
-                  <option value="1/22" <?= ($prefill['product_size'] ?? '') === '1/22' ? 'selected' : '' ?>>1/22</option>
-                  <option value="1/24" <?= ($prefill['product_size'] ?? '') === '1/24' ? 'selected' : '' ?>>1/24</option>
-                  <option value="1/25" <?= ($prefill['product_size'] ?? '') === '1/25' ? 'selected' : '' ?>>1/25</option>
-                  <option value="1/26" <?= ($prefill['product_size'] ?? '') === '1/26' ? 'selected' : '' ?>>1/26</option>
-                  <option value="1/28" <?= ($prefill['product_size'] ?? '') === '1/28' ? 'selected' : '' ?>>1/28</option>
-                  <option value="1/30" <?= ($prefill['product_size'] ?? '') === '1/30' ? 'selected' : '' ?>>1/30</option>
-                  <option value="1/32" <?= ($prefill['product_size'] ?? '') === '1/32' ? 'selected' : '' ?>>1/32</option>
-                  <option value="1/36" <?= ($prefill['product_size'] ?? '') === '1/36' ? 'selected' : '' ?>>1/36</option>
-                  <option value="1/40" <?= ($prefill['product_size'] ?? '') === '1/40' ? 'selected' : '' ?>>1/40</option>
-                  <option value="1/48" <?= ($prefill['product_size'] ?? '') === '1/48' ? 'selected' : '' ?>>1/48</option>
-                  <option value="1/50" <?= ($prefill['product_size'] ?? '') === '1/50' ? 'selected' : '' ?>>1/50</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="paper_type">Paper / Media Type *</label>
-                <select id="paper_type" name="paper_type" required value="<?= htmlspecialchars($prefill['paper_type'] ?? '') ?>">
-                  <option value="">Select</option>
-                  <?php
-                  $product_types_q = $inventory->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
-                  while ($type = $product_types_q->fetch_assoc()):
-                  ?>
-                    <option value="<?= htmlspecialchars($type['product_type']) ?>" <?= ($prefill['paper_type'] ?? '') === $type['product_type'] ? 'selected' : '' ?>><?= htmlspecialchars($type['product_type']) ?></option>
-                  <?php endwhile; ?>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="paper_size">Paper Size *</label>
-                <select id="paper_size" name="paper_size" required value="<?= htmlspecialchars($prefill['paper_size'] ?? '') ?>">
-                  <option value="">Select</option>
-                </select>
-                <input type="text" id="custom_paper_size" name="custom_paper_size" placeholder="Enter custom paper size" style="display: none; margin-top: 0.5rem;" value="<?= htmlspecialchars($prefill['custom_paper_size'] ?? '') ?>">
-              </div>
-              <div class="form-group">
-                <label for="copies_per_set">Number of Copies per Set *</label>
-                <input type="number" id="copies_per_set" name="copies_per_set" min="1" placeholder="e.g. 2, 3, 4" required value="<?= htmlspecialchars($prefill['copies_per_set'] ?? '') ?>">
-              </div>
+            </div>
+
+            <div class="form-group">
+              <label style="display:block;margin-bottom:8px;">Paper Types Used *</label>
+              <div id="paper-groups-container"><?php
+                $prefill_groups = $prefill['paper_group'] ?? null;
+                if (is_array($prefill_groups) && !empty($prefill_groups)) {
+                  $gi = 0;
+                  foreach ($prefill_groups as $g) {
+                    echo render_paper_group_html($gi, $g, $cut_size_map, $inventory);
+                    $gi++;
+                  }
+                } else {
+                  echo render_paper_group_html(0, [], $cut_size_map, $inventory);
+                }
+              ?></div>
+              <button type="button" id="addPaperGroupBtn" class="btn btn-outline" style="margin-top:6px;">
+                <i class="fas fa-plus"></i> Add Another Paper Type
+              </button>
+              <small style="color:var(--gray);display:block;margin-top:6px;">
+                Add a separate paper type/size for each part of the job that uses different stock (e.g. cover vs. inner pages). Quantity and Sets per Bind above apply to all of them.
+              </small>
+            </div>
+
+            <div class="form-grid">
               <div class="form-group">
                 <label for="binding_type">Type of Binding *</label>
                 <select id="binding_type" name="binding_type" required value="<?= htmlspecialchars($prefill['binding_type'] ?? '') ?>">
@@ -1164,10 +1331,16 @@ if (!empty($displayed_job_ids)) {
               </div>
             </div>
 
-            <div class="form-group">
-              <label>Color of Paper (In-Proper Order) *</label>
-              <div id="paper-sequence-container"></div>
-            </div>
+            <!-- Legacy single-value fields, kept only for the non-paper "Paper Stock
+                 Used" flow, which writes its single type/size/cut size choice here so
+                 it still saves through the same job_orders columns as before. The
+                 paper flow above ignores these and uses #paper-groups-container / the
+                 job_order_paper_items table instead. -->
+            <input type="hidden" id="paper_type" name="paper_type" value="<?= htmlspecialchars($prefill['paper_type'] ?? '') ?>">
+            <input type="hidden" id="paper_size" name="paper_size" value="<?= htmlspecialchars($prefill['paper_size'] ?? '') ?>">
+            <input type="hidden" id="custom_paper_size" name="custom_paper_size" value="<?= htmlspecialchars($prefill['custom_paper_size'] ?? '') ?>">
+            <input type="hidden" id="product_size" name="product_size" value="<?= htmlspecialchars($prefill['product_size'] ?? '') ?>">
+            <input type="hidden" id="copies_per_set" name="copies_per_set" value="<?= htmlspecialchars($prefill['copies_per_set'] ?? '') ?>">
 
             <div class="form-group">
               <label for="special_instructions">Other Special Instructions</label>
@@ -1193,34 +1366,12 @@ if (!empty($displayed_job_ids)) {
               <label style="font-weight:600;font-size:13px;display:block;margin-bottom:10px;">
                 <i class="fas fa-scroll"></i> Paper Stock Used
               </label>
-              <div class="form-grid">
-                <div class="form-group">
-                  <label for="np_paper_type">Paper Type</label>
-                  <select id="np_paper_type" name="np_paper_type" class="form-control">
-                    <option value="">Select</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="np_paper_size">Paper Size</label>
-                  <select id="np_paper_size" name="np_paper_size" class="form-control">
-                    <option value="">Select paper type first</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="np_paper_color">Color</label>
-                  <select id="np_paper_color" name="np_paper_color" class="form-control">
-                    <option value="">Select paper size first</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="np_cut_size">Cut Size</label>
-                  <select id="np_cut_size" name="np_cut_size" class="form-control">
-                    <option value="">Select</option>
-                  </select>
-                </div>
-              </div>
-              <small style="color:var(--gray);font-size:11px;">
-                Defaults come from this product type's settings but can be changed per order. Order Quantity ÷ Cut Size sheets will be deducted from the selected paper stock.
+              <div id="np-paper-groups-container"></div>
+              <button type="button" id="addNpPaperGroupBtn" class="btn btn-outline btn-sm" style="margin-top:4px;">
+                <i class="fas fa-plus"></i> Add Another Paper Type
+              </button>
+              <small style="color:var(--gray);display:block;margin-top:8px;">
+                Defaults come from this product type's settings but can be changed, added to, or removed per order. Order Quantity ÷ Cut Size sheets will be deducted from each paper stock.
               </small>
             </div>
 
@@ -1577,7 +1728,9 @@ if (!empty($displayed_job_ids)) {
       ptOptionsAll: <?= json_encode($pt_options_all) ?>,
       ptPricingAll: <?= json_encode($pt_pricing_all) ?>,
       productTypesById: <?= json_encode(array_column($active_product_types, null, 'id')) ?>,
+      ptPaperDefaultsAll: <?= json_encode($pt_paper_defaults_all) ?>,
       cutSizeOptions: <?= json_encode(array_keys($cut_size_map)) ?>,
+      nextPaperGroupIndex: <?= (int)($gi ?? 1) ?>,
       todayDate: "<?= date('Y-m-d') ?>"
     };
   </script>

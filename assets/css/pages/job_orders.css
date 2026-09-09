@@ -752,6 +752,7 @@ body {
   border-bottom: 1px solid var(--light-gray);
   vertical-align: middle;
   border-right: 1px solid var(--light-gray);
+  max-width: 300px;
 }
 
 .order-details-table th {
@@ -768,6 +769,16 @@ body {
 .order-details-table tr:hover td {
   background-color: var(--light);
   cursor: pointer;
+}
+
+.order-details-table td.specs-cell {
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+.spec-group strong {
+  color: var(--dark);
 }
 
 .sequence-item {

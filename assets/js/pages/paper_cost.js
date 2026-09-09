@@ -264,32 +264,31 @@ function initPaperPricing() {
 }
 
 function calculatePaperCost() {
-  if (isSpecialPaper) {
-    let total = 0;
-    layerData.forEach((l) => {
-      total += l.price_per_sheet * cutSheets;
-    });
-    return total;
-  }
   const method =
     document.getElementById("paper_pricing_method")?.value || "ream";
   let total = 0;
-  switch (method) {
-    case "piece":
-      layerData.forEach((l) => {
-        const pps =
-          l.price_per_sheet > 0 ? l.price_per_sheet : l.unit_price / 500;
-        total += pps * cutSheets;
-      });
-      break;
-    case "custom":
-      total =
-        parseFloat(document.getElementById("custom_paper_cost")?.value) || 0;
-      break;
-    default:
-      layerData.forEach((l) => {
-        total += l.unit_price * reams;
-      });
+  let hasNonSpecial = false;
+  // Each layer carries its own group's cut_sheets/reams now (different
+  // paper groups in the same job can have different cut sizes), and its own
+  // is_special flag — special-paper layers are always priced per-sheet
+  // regardless of the selected method, same as when there was only one group.
+  layerData.forEach((l) => {
+    if (l.is_special) {
+      total += l.price_per_sheet * l.cut_sheets;
+      return;
+    }
+    hasNonSpecial = true;
+    if (method === "piece") {
+      const pps =
+        l.price_per_sheet > 0 ? l.price_per_sheet : l.unit_price / 500;
+      total += pps * l.cut_sheets;
+    } else if (method !== "custom") {
+      total += l.unit_price * l.reams;
+    }
+  });
+  if (method === "custom" && hasNonSpecial) {
+    total +=
+      parseFloat(document.getElementById("custom_paper_cost")?.value) || 0;
   }
   return total;
 }
@@ -500,7 +499,7 @@ function calculate() {
   document.getElementById("summary-labor").textContent =
     `₱${laborCost.toFixed(2)}`;
   document.getElementById("summary-printing").textContent =
-    printingCost > 0 ? `₱${printingCost.toFixed(2)}` : "—";
+    printingCost > 0 ? `₱${printingCost.toFixed(2)}` : "None";
   document.getElementById("summary-total").textContent =
     `₱${grandTotal.toFixed(2)}`;
 
@@ -513,29 +512,40 @@ function updatePaperCostDisplay() {
   const container = document.getElementById("paper_details_display");
   if (!container) return;
   let html = "";
+  // Tag each layer with its paper type/size when the job has more than one
+  // paper group, so it's clear which group a color belongs to.
+  const distinctGroups = new Set(
+    layerData.map((l) => `${l.paper_type}|${l.paper_size}|${l.cut_size}`),
+  ).size;
+  const showGroupTag = distinctGroups > 1;
+
   if (layerData.length > 0) {
+    const nonSpecialCount = layerData.filter((x) => !x.is_special).length || 1;
     layerData.forEach((l) => {
       let costStr = "",
         metaStr = "";
-      if (method === "piece" || isSpecialPaper) {
+      if (l.is_special || method === "piece") {
         const pps =
           l.price_per_sheet > 0 ? l.price_per_sheet : l.unit_price / 500;
-        costStr = `₱${(pps * cutSheets).toFixed(2)}`;
-        metaStr = `₱${pps.toFixed(4)}/sheet × ${cutSheets} sheets`;
+        costStr = `₱${(pps * l.cut_sheets).toFixed(2)}`;
+        metaStr = `₱${pps.toFixed(4)}/sheet × ${l.cut_sheets.toFixed(2)} sheets`;
       } else if (method === "custom") {
         const cc =
           parseFloat(document.getElementById("custom_paper_cost")?.value) || 0;
-        costStr = `₱${(cc / layerData.length).toFixed(2)}`;
+        costStr = `₱${(cc / nonSpecialCount).toFixed(2)}`;
         metaStr = "Custom price allocation";
       } else {
-        costStr = `₱${l.cost_ream.toFixed(2)}`;
+        costStr = `₱${(l.unit_price * l.reams).toFixed(2)}`;
         metaStr = `₱${l.unit_price.toFixed(2)}/ream × ${l.reams.toFixed(2)} reams`;
       }
+      const groupTag = showGroupTag
+        ? ` <span style="font-size:10px;color:var(--text-muted)">(${escapeHtml(l.paper_type)} / ${escapeHtml(l.paper_size)})</span>`
+        : "";
       html += `<div class="paper-layer">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
                                 <div class="layer-title">${l.color}</div>
-                                <div class="layer-type">→ ${l.mapped}</div>
+                                <div class="layer-type">→ ${l.mapped}${groupTag}</div>
                             </div>
                             <div class="layer-cost">${costStr}</div>
                         </div>

@@ -1,0 +1,75 @@
+-- Run this once against the AMDP inventory database before deploying the
+-- updated job_orders.php / job_order_card_renderer.php.
+--
+-- Stores the full multi-paper-type breakdown for a job order (e.g. Cover
+-- Stock/Long for the cover + Bond Paper/Short for the inner pages, all under
+-- one job order with a shared quantity/number_of_sets).
+--
+-- job_orders.paper_type / paper_size / custom_paper_size / product_size /
+-- copies_per_set / paper_sequence are left in place and now hold only the
+-- FIRST group's values, kept for backward compatibility with existing
+-- search filters and any other code that reads those columns directly.
+
+CREATE TABLE IF NOT EXISTS job_order_paper_items (
+    id                 INT AUTO_INCREMENT PRIMARY KEY,
+    job_order_id       INT NOT NULL,
+    paper_type         VARCHAR(100) NOT NULL,
+    paper_size         VARCHAR(100) NOT NULL,
+    custom_paper_size  VARCHAR(100) DEFAULT NULL,
+    cut_size           VARCHAR(20)  NOT NULL DEFAULT 'whole',
+    copies_per_set     INT NOT NULL DEFAULT 1,
+    paper_sequence     TEXT NOT NULL,
+    sort_order         INT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_jopi_job_order
+        FOREIGN KEY (job_order_id) REFERENCES job_orders(id)
+        ON DELETE CASCADE,
+    INDEX idx_jopi_job_order (job_order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Optional backfill: give every existing paper-flow job order (product_type_id
+-- IS NULL) a single row in the new table built from its legacy columns, so
+-- job_order_card_renderer.php shows the same info via the new multi-group
+-- display path instead of falling back to the legacy one. Safe to skip —
+-- the renderer already falls back correctly for jobs with no rows here.
+INSERT INTO job_order_paper_items
+    (job_order_id, paper_type, paper_size, custom_paper_size, cut_size, copies_per_set, paper_sequence, sort_order)
+SELECT
+    id, paper_type, paper_size, custom_paper_size, product_size, copies_per_set, paper_sequence, 0
+FROM job_orders
+WHERE product_type_id IS NULL
+  AND paper_type IS NOT NULL AND paper_type <> ''
+  AND id NOT IN (SELECT DISTINCT job_order_id FROM job_order_paper_items);
+
+
+  -- Run this once, in addition to migration_job_order_paper_items.sql, before
+-- deploying the updated product_types.php / job_orders.php.
+--
+-- Lets a non-paper product type (that still consumes paper stock) declare
+-- MORE THAN ONE default paper type/size/cut size — e.g. a boxed product
+-- that uses both a box liner and a wrapper of a different stock.
+--
+-- product_types.paper_type / paper_size / cut_size are left in place and
+-- now hold only the FIRST default's values, kept for backward compatibility
+-- with any other code that reads those columns directly.
+ 
+CREATE TABLE IF NOT EXISTS product_type_paper_defaults (
+    id               INT AUTO_INCREMENT PRIMARY KEY,
+    product_type_id  INT NOT NULL,
+    paper_type       VARCHAR(100) NOT NULL,
+    paper_size       VARCHAR(100) NOT NULL,
+    cut_size         VARCHAR(20)  NOT NULL DEFAULT 'whole',
+    sort_order       INT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_ptpd_product_type
+        FOREIGN KEY (product_type_id) REFERENCES product_types(id)
+        ON DELETE CASCADE,
+    INDEX idx_ptpd_type (product_type_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ 
+-- Backfill: give every product type currently flagged requires_paper = 1
+-- a single default row built from its legacy columns.
+INSERT INTO product_type_paper_defaults (product_type_id, paper_type, paper_size, cut_size, sort_order)
+SELECT id, paper_type, paper_size, COALESCE(cut_size, 'whole'), 0
+FROM product_types
+WHERE requires_paper = 1
+  AND paper_type IS NOT NULL AND paper_type <> ''
+  AND id NOT IN (SELECT DISTINCT product_type_id FROM product_type_paper_defaults);

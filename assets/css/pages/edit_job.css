@@ -209,7 +209,7 @@
 body {
   background: var(--lighter-gray);
   color: var(--dark);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .container {
@@ -379,7 +379,7 @@ body {
 
 .form-content {
   padding: 20px;
-  max-height: calc(100vh - 260px);
+  max-height: calc(90vh - 260px);
   overflow-y: auto;
 }
 
@@ -517,6 +517,183 @@ textarea.form-control {
 .btn-outline:hover {
   background: var(--light-gray);
   color: var(--dark);
+}
+
+/* ── Print Type selector (toggle cards) ──────────────────────────
+   These classes are set by JS (edit_job.js toggles "active" on
+   .print-type-card) but previously had no styling at all, so
+   nothing visually indicated which one was selected. */
+#print-type-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.print-type-option {
+  cursor: pointer;
+}
+
+.print-type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 104px;
+  padding: 14px 10px;
+  border: 1.5px solid var(--light-gray);
+  border-radius: var(--border-radius);
+  background: var(--white);
+  color: var(--gray);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: center;
+  transition: var(--transition);
+  position: relative;
+}
+
+.print-type-card i {
+  font-size: 20px;
+  color: var(--gray);
+  transition: var(--transition);
+}
+
+.print-type-option:hover .print-type-card:not(.active) {
+  border-color: var(--primary);
+  color: var(--dark);
+  background: var(--lighter-gray);
+}
+
+.print-type-option:hover .print-type-card:not(.active) i {
+  color: var(--primary);
+}
+
+.print-type-card.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--secondary);
+  font-weight: 600;
+  box-shadow: 0 0 0 3px rgba(79, 94, 255, 0.12);
+}
+
+.print-type-card.active i {
+  color: var(--primary);
+}
+
+.print-type-card.active::after {
+  content: "\f058";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--white);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px var(--white);
+}
+
+/* ── Paper Type Groups (collapsible cards) ───────────────────────
+   Each group can be collapsed to a single summary row so a job
+   with many paper types stays scannable instead of one long
+   uninterrupted scroll of identical forms. */
+#paper-groups-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.paper-group {
+  border: 1px solid var(--light-gray);
+  border-radius: var(--border-radius);
+  background: var(--white);
+  overflow: hidden;
+}
+
+.pg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  background: var(--lighter-gray);
+  transition: background-color 0.15s ease;
+}
+
+.pg-header:hover {
+  background: var(--light-gray);
+}
+
+.pg-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.pg-chevron {
+  color: var(--gray);
+  font-size: 12px;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.paper-group.collapsed .pg-chevron {
+  transform: rotate(-90deg);
+}
+
+.pg-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dark);
+  flex-shrink: 0;
+}
+
+.pg-summary {
+  font-size: 12.5px;
+  color: var(--gray);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-summary-colors {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--secondary);
+  background: var(--primary-light);
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.paper-group .removePaperGroupBtn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 15px;
+  flex-shrink: 0;
+  padding: 2px;
+  line-height: 1;
+}
+
+.pg-body {
+  padding: 14px 16px;
+  border-top: 1px solid var(--light-gray);
+}
+
+.paper-group.collapsed .pg-body {
+  display: none;
 }
 
 @media (max-width: 768px) {

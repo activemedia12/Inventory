@@ -7,6 +7,24 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once '../config/db.php';
 
+/**
+ * Figures out where "back" should go: the page that linked here, as long as
+ * it's actually part of this app (never trust an arbitrary redirect target).
+ * On GET this reads the Referer header; on POST it reads the hidden
+ * "return_to" field the form carries forward from that GET load, since the
+ * Referer on a self-submitting POST is just this same edit page.
+ */
+function resolve_return_url(string $candidate, string $fallback): string
+{
+    if ($candidate === '') return $fallback;
+    $host = parse_url($candidate, PHP_URL_HOST);
+    $curHost = $_SERVER['HTTP_HOST'] ?? '';
+    if ($host && $curHost && strcasecmp($host, $curHost) === 0) {
+        return $candidate;
+    }
+    return $fallback;
+}
+
 $job_id = intval($_GET['id'] ?? 0);
 if ($job_id <= 0) {
     header("Location: job_orders.php");
@@ -24,6 +42,127 @@ if (!$job) {
     header("Location: job_orders.php");
     exit;
 }
+
+$return_to = ($_SERVER['REQUEST_METHOD'] === 'POST')
+    ? resolve_return_url($_POST['return_to'] ?? '', 'job_orders.php')
+    : resolve_return_url($_SERVER['HTTP_REFERER'] ?? '', 'job_orders.php');
+
+// Cut-size options — matches job_orders.php (up to 1/50). Defined at file
+// scope so both the POST handler and the GET-rendered form/JS data can use it.
+$cut_size_map = [
+    '1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, '1/10' => 10,
+    '1/12' => 12, '1/14' => 14, '1/16' => 16, '1/18' => 18, '1/20' => 20,
+    '1/22' => 22, '1/24' => 24, '1/25' => 25, '1/26' => 26, '1/28' => 28,
+    '1/30' => 30, '1/32' => 32, '1/36' => 36, '1/40' => 40, '1/48' => 48,
+    '1/50' => 50, 'whole' => 1,
+];
+
+// Whether this job order is a non-paper product type (t-shirts, mugs, etc.)
+$is_non_paper = !empty($job['product_type_id']);
+
+// Renders one repeatable "paper group" block (Paper Type / Size / Cut Size /
+// Copies per Set + its own color sequence). Mirrors job_orders.php's create
+// form so both use the same paper_group[idx][...] field naming.
+function render_paper_group_html($idx, $group, $cut_size_map, $inventory, $spoilage_map = [], $collapsed = false) {
+    $pg_type   = $group['paper_type'] ?? '';
+    $pg_size   = $group['paper_size'] ?? '';
+    $pg_custom = $group['custom_paper_size'] ?? '';
+    $pg_cut    = $group['cut_size'] ?? '';
+    $pg_copies = $group['copies_per_set'] ?? '';
+    $pg_seq    = $group['paper_sequence'] ?? [];
+    if (!is_array($pg_seq)) {
+        // Defensive: job_order_paper_items rows store this as a comma-separated
+        // string, not an array — callers should convert first, but just in case.
+        $pg_seq = array_map('trim', explode(',', (string)$pg_seq));
+    }
+    $pg_spoil  = [];
+    foreach ($pg_seq as $c) {
+        $pg_spoil[] = $spoilage_map[$c] ?? 0;
+    }
+
+    // Summary shown in the collapsed header row so a job with many paper
+    // types stays scannable at a glance without expanding every card.
+    $pg_seq_clean = array_values(array_filter($pg_seq, fn($c) => $c !== ''));
+    $size_label = $pg_size === 'custom' ? ($pg_custom !== '' ? $pg_custom : 'Custom') : $pg_size;
+    $summary = ($pg_type !== '' && $pg_size !== '')
+        ? $pg_type . ' / ' . $size_label
+        : 'Not yet configured';
+
+    ob_start();
+    ?>
+    <div class="paper-group<?= $collapsed ? ' collapsed' : '' ?>" data-group-index="<?= $idx ?>" data-presize='<?= htmlspecialchars(json_encode($pg_size), ENT_QUOTES) ?>' data-preseq='<?= htmlspecialchars(json_encode($pg_seq), ENT_QUOTES) ?>' data-prespoil='<?= htmlspecialchars(json_encode($pg_spoil), ENT_QUOTES) ?>'>
+        <div class="pg-header">
+            <div class="pg-header-left">
+                <i class="fas fa-chevron-down pg-chevron"></i>
+                <span class="pg-title">Paper <?= $idx + 1 ?></span>
+                <span class="pg-summary"><?= htmlspecialchars($summary) ?></span>
+                <?php if (!empty($pg_seq_clean)): ?>
+                    <span class="pg-summary-colors"><?= htmlspecialchars(implode(', ', $pg_seq_clean)) ?></span>
+                <?php endif; ?>
+            </div>
+            <button type="button" class="removePaperGroupBtn" title="Remove this paper type">
+                <i class="fas fa-times-circle"></i>
+            </button>
+        </div>
+        <div class="pg-body">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Paper / Media Type *</label>
+                    <select name="paper_group[<?= $idx ?>][paper_type]" class="form-control pg-paper-type" required>
+                        <option value="">Select</option>
+                        <?php
+                        $types = $inventory->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
+                        while ($row = $types->fetch_assoc()):
+                        ?>
+                            <option value="<?= htmlspecialchars($row['product_type']) ?>" <?= $pg_type === $row['product_type'] ? 'selected' : '' ?>><?= htmlspecialchars($row['product_type']) ?></option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Paper Size *</label>
+                    <select name="paper_group[<?= $idx ?>][paper_size]" class="form-control pg-paper-size" required>
+                        <option value="">Select</option>
+                    </select>
+                    <input type="text" name="paper_group[<?= $idx ?>][custom_paper_size]" class="form-control pg-custom-paper-size" placeholder="Enter custom paper size" style="display:none;margin-top:.5rem;" value="<?= htmlspecialchars($pg_custom) ?>">
+                </div>
+                <div class="form-group">
+                    <label>Cut Size *</label>
+                    <select name="paper_group[<?= $idx ?>][cut_size]" class="form-control pg-cut-size" required>
+                        <option value="">Select</option>
+                        <?php foreach (array_keys($cut_size_map) as $cs): ?>
+                            <option value="<?= $cs ?>" <?= $pg_cut === $cs ? 'selected' : '' ?>><?= $cs === 'whole' ? 'Whole' : $cs ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Number of Copies per Set *</label>
+                    <input type="number" name="paper_group[<?= $idx ?>][copies_per_set]" class="form-control pg-copies-per-set" min="1" required value="<?= htmlspecialchars($pg_copies) ?>">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Color of Paper (In-Proper Order) *</label>
+                <div class="pg-sequence-container"></div>
+            </div>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
+// This job's existing paper-group breakdown (empty for jobs saved before
+// this feature existed, or for non-paper jobs).
+$job_paper_items = [];
+$jpi_stmt = $inventory->prepare("
+    SELECT paper_type, paper_size, custom_paper_size, cut_size, copies_per_set, paper_sequence
+    FROM job_order_paper_items WHERE job_order_id = ? ORDER BY sort_order ASC
+");
+$jpi_stmt->bind_param("i", $job_id);
+$jpi_stmt->execute();
+$jpi_res = $jpi_stmt->get_result();
+while ($row = $jpi_res->fetch_assoc()) {
+    $job_paper_items[] = $row;
+}
+$jpi_stmt->close();
 
 // ── POST handler ─────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -73,35 +212,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $new_sequence        = $_POST['paper_sequence'] ?? [];
     $paper_sequence_str  = implode(', ', array_map('trim', $new_sequence));
 
-    // Cut size map — matches job_orders.php (up to 1/50)
-    $cut_size_map = [
-        '1/2' => 2,
-        '1/3' => 3,
-        '1/4' => 4,
-        '1/6' => 6,
-        '1/8' => 8,
-        '1/10' => 10,
-        '1/12' => 12,
-        '1/14' => 14,
-        '1/16' => 16,
-        '1/18' => 18,
-        '1/20' => 20,
-        '1/22' => 22,
-        '1/24' => 24,
-        '1/25' => 25,
-        '1/26' => 26,
-        '1/28' => 28,
-        '1/30' => 30,
-        '1/32' => 32,
-        '1/36' => 36,
-        '1/40' => 40,
-        '1/48' => 48,
-        '1/50' => 50,
-        'whole' => 1,
-    ];
+    $product_type_id     = !empty($_POST['product_type_id']) ? intval($_POST['product_type_id']) : null;
+    $is_non_paper         = ($product_type_id !== null);
+
+    // ── Parse repeatable "paper groups" (paper flow only) ──────────────
+    // Quantity/Sets per Bind are shared across groups; only type/size/cut
+    // size/colors/spoilage can differ per group (e.g. cover vs. inner pages).
+    $paper_groups_raw = $_POST['paper_group'] ?? [];
+    $paper_groups = [];
+    foreach ($paper_groups_raw as $g) {
+        $pg_type = trim($g['paper_type'] ?? '');
+        $pg_size = trim($g['paper_size'] ?? '');
+        if ($pg_type === '' || $pg_size === '') continue; // skip incomplete rows
+        $paper_groups[] = [
+            'paper_type'        => $pg_type,
+            'paper_size'        => $pg_size,
+            'custom_paper_size' => trim($g['custom_paper_size'] ?? ''),
+            'cut_size'          => $g['cut_size'] ?? 'whole',
+            'copies_per_set'    => max(1, intval($g['copies_per_set'] ?? 1)),
+            // Keep raw index alignment with 'spoilage' below — filtered later per-loop.
+            'paper_sequence'    => array_map('trim', $g['paper_sequence'] ?? []),
+            'spoilage'          => is_array($g['spoilage'] ?? null) ? $g['spoilage'] : [],
+        ];
+    }
+
+    // Legacy/primary columns on job_orders — first group's values, kept for
+    // backward compatibility with search and any code reading them directly.
+    // Full multi-group detail lives in job_order_paper_items. Non-paper jobs
+    // keep using the single values read above (populated via the "Paper
+    // Stock Used" JS copy trick), since they never submit paper_group[].
+    if (!$is_non_paper && !empty($paper_groups)) {
+        $primary            = $paper_groups[0];
+        $paper_type         = $primary['paper_type'];
+        $paper_size         = $primary['paper_size'];
+        $custom_paper_size  = $primary['custom_paper_size'];
+        $product_size       = $primary['cut_size'];
+        $copies_per_set     = $primary['copies_per_set'];
+        $paper_sequence_str = implode(', ', array_filter($primary['paper_sequence'], fn($c) => $c !== ''));
+    }
+
     $cut_size             = $cut_size_map[$product_size] ?? 1;
-    $total_sets           = $quantity * $number_of_sets;
-    $used_sheets_per_product = intval($total_sets / $cut_size);
+
+    // Non-paper product types have no meaningful "sets per bind" — matches
+    // job_orders.php's create-flow reams calc (quantity ÷ cut size only),
+    // so editing "Sets per Bind" on a non-paper job can't skew the deduction.
+    if ($is_non_paper) {
+        $used_sheets_per_product = intval($quantity / $cut_size);
+    } else {
+        $total_sets              = $quantity * $number_of_sets;
+        $used_sheets_per_product = intval($total_sets / $cut_size);
+    }
 
     // Update job order
     $stmt = $inventory->prepare("UPDATE job_orders SET
@@ -111,11 +271,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         custom_binding = ?, special_instructions = ?, paper_sequence = ?,
         tin = ?, client_by = ?, tax_type = ?, ocn_number = ?, date_issued = ?,
         taxpayer_name = ?, rdo_code = ?,
-        province = ?, city = ?, barangay = ?, street = ?, building_no = ?, floor_no = ?, zip_code = ?
+        province = ?, city = ?, barangay = ?, street = ?, building_no = ?, floor_no = ?, zip_code = ?,
+        product_type_id = ?
         WHERE id = ?");
 
     $stmt->bind_param(
-        "ssssssiisssssissssssssssssssssssi",
+        "ssssssiisssssissssssssssssssssssii",
         $log_date,
         $client_name,
         $client_address,
@@ -148,6 +309,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $building_no,
         $floor_no,
         $zip_code,
+        $product_type_id,
         $job_id
     );
 
@@ -159,79 +321,146 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $stmt->close();
 
-    // ── Fix 4: Fetch all product IDs at once (no N+1) ────────────────
-    $product_ids = []; // color => product_id
-    if (!empty($new_sequence)) {
-        $unique_colors = array_unique(array_map('trim', $new_sequence));
-        $placeholders  = implode(',', array_fill(0, count($unique_colors), '?'));
-        $id_stmt = $inventory->prepare(
-            "SELECT id, product_name FROM products
-             WHERE product_type = ? AND product_group = ? AND product_name IN ($placeholders)
-             LIMIT " . count($unique_colors)
-        );
-        $bind_types = 'ss' . str_repeat('s', count($unique_colors));
-        $bind_args  = array_merge([$paper_type, $paper_size], array_values($unique_colors));
-        $id_stmt->bind_param($bind_types, ...$bind_args);
-        $id_stmt->execute();
-        $id_result = $id_stmt->get_result();
-        while ($row = $id_result->fetch_assoc()) {
-            $product_ids[$row['product_name']] = $row['id'];
+    // ── Fetch all product IDs at once (no N+1) ────────────────────────
+    if (!$is_non_paper && !empty($paper_groups)) {
+        // ── Multi-group paper flow ──
+        $product_ids = []; // "type|size|color" => product_id
+        $seen_pairs = [];
+        foreach ($paper_groups as $group) {
+            $colors = array_values(array_unique(array_filter($group['paper_sequence'], fn($c) => $c !== '')));
+            if (empty($colors)) continue;
+            $key_prefix = $group['paper_type'] . '|' . $group['paper_size'] . '|';
+            if (isset($seen_pairs[$key_prefix])) continue;
+            $seen_pairs[$key_prefix] = true;
+
+            $placeholders = implode(',', array_fill(0, count($colors), '?'));
+            $id_stmt = $inventory->prepare(
+                "SELECT id, product_name FROM products
+                 WHERE product_type = ? AND product_group = ? AND product_name IN ($placeholders)
+                 LIMIT " . count($colors)
+            );
+            $bind_types = 'ss' . str_repeat('s', count($colors));
+            $bind_args  = array_merge([$group['paper_type'], $group['paper_size']], $colors);
+            $id_stmt->bind_param($bind_types, ...$bind_args);
+            $id_stmt->execute();
+            $id_result = $id_stmt->get_result();
+            while ($row = $id_result->fetch_assoc()) {
+                $product_ids[$key_prefix . $row['product_name']] = $row['id'];
+            }
+            $id_stmt->close();
         }
-        $id_stmt->close();
-    }
 
-    // ── Fix 8: Validate stock using prepared statements ───────────────
-    foreach ($new_sequence as $i => $color) {
-        $color  = trim($color);
-        $spoil  = intval($spoilage[$i] ?? 0);
-        $prod_id = $product_ids[$color] ?? null;
-        if (!$prod_id) continue;
+        // ── Delete old usage logs ──
+        $del_logs = $inventory->prepare("DELETE FROM usage_logs WHERE job_order_id = ?");
+        $del_logs->bind_param("i", $job_id);
+        $del_logs->execute();
+        $del_logs->close();
 
-        // Delivered sheets
-        $del_stmt = $inventory->prepare(
-            "SELECT IFNULL(SUM(delivered_reams), 0) AS total FROM delivery_logs WHERE product_id = ?"
-        );
-        $del_stmt->bind_param("i", $prod_id);
-        $del_stmt->execute();
-        $delivered_sheets = (int)$del_stmt->get_result()->fetch_assoc()['total'] * 500;
-        $del_stmt->close();
-
-        // Used sheets EXCLUDING current job
-        $used_stmt = $inventory->prepare(
-            "SELECT IFNULL(SUM(used_sheets + spoilage_sheets), 0) AS total
-             FROM usage_logs WHERE product_id = ? AND job_order_id != ?"
-        );
-        $used_stmt->bind_param("ii", $prod_id, $job_id);
-        $used_stmt->execute();
-        $used_sheets = (int)$used_stmt->get_result()->fetch_assoc()['total'];
-        $used_stmt->close();
-
-        // Allow negative stock — no blocking on insufficient stock
-    }
-
-    // ── Delete old usage logs (prepared statement) ────────────────────
-    $del_logs = $inventory->prepare("DELETE FROM usage_logs WHERE job_order_id = ?");
-    $del_logs->bind_param("i", $job_id);
-    $del_logs->execute();
-    $del_logs->close();
-
-    // ── Insert updated usage logs ─────────────────────────────────────
-    if (!empty($product_ids)) {
+        // ── Insert updated usage logs, one per color per group ──
         $log_stmt = $inventory->prepare(
             "INSERT INTO usage_logs (product_id, used_sheets, spoilage_sheets, log_date, job_order_id, usage_note)
              VALUES (?, ?, ?, ?, ?, ?)"
         );
-        foreach ($new_sequence as $i => $color) {
-            $color   = trim($color);
-            $spoil   = intval($spoilage[$i] ?? 0);
-            $prod_id = $product_ids[$color] ?? null;
-            if (!$prod_id) continue;
+        foreach ($paper_groups as $group) {
+            $group_cut_size    = $cut_size_map[$group['cut_size']] ?? 1;
+            $group_total_sheets = $quantity * $number_of_sets;
+            $group_used_sheets = intval($group_total_sheets / $group_cut_size);
+            $key_prefix = $group['paper_type'] . '|' . $group['paper_size'] . '|';
 
-            $note = "Updated job order for " . $client_name;
-            $log_stmt->bind_param("iiisis", $prod_id, $used_sheets_per_product, $spoil, $log_date, $job_id, $note);
-            $log_stmt->execute();
+            foreach ($group['paper_sequence'] as $i => $color) {
+                if ($color === '') continue;
+                $prod_id = $product_ids[$key_prefix . $color] ?? null;
+                if (!$prod_id) continue;
+                $spoil = intval($group['spoilage'][$i] ?? 0);
+                $note  = "Updated job order for " . $client_name;
+                $log_stmt->bind_param("iiisis", $prod_id, $group_used_sheets, $spoil, $log_date, $job_id, $note);
+                $log_stmt->execute();
+            }
         }
         $log_stmt->close();
+
+        // ── Replace job_order_paper_items with the current group breakdown ──
+        $del_items = $inventory->prepare("DELETE FROM job_order_paper_items WHERE job_order_id = ?");
+        $del_items->bind_param("i", $job_id);
+        $del_items->execute();
+        $del_items->close();
+
+        $jopi_stmt = $inventory->prepare("
+            INSERT INTO job_order_paper_items
+                (job_order_id, paper_type, paper_size, custom_paper_size, cut_size, copies_per_set, paper_sequence, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        foreach ($paper_groups as $i => $group) {
+            $seq_str = implode(', ', array_filter($group['paper_sequence'], fn($c) => $c !== ''));
+            $jopi_stmt->bind_param(
+                "issssisi",
+                $job_id,
+                $group['paper_type'],
+                $group['paper_size'],
+                $group['custom_paper_size'],
+                $group['cut_size'],
+                $group['copies_per_set'],
+                $seq_str,
+                $i
+            );
+            $jopi_stmt->execute();
+        }
+        $jopi_stmt->close();
+    } else {
+        // ── Non-paper flow (or a paper submission with no valid groups) —
+        // unchanged single-sequence logic, using the legacy fields the
+        // "Paper Stock Used" JS copies its choice into. ──
+        $product_ids = []; // color => product_id
+        if (!empty($new_sequence)) {
+            $unique_colors = array_unique(array_map('trim', $new_sequence));
+            $placeholders  = implode(',', array_fill(0, count($unique_colors), '?'));
+            $id_stmt = $inventory->prepare(
+                "SELECT id, product_name FROM products
+                 WHERE product_type = ? AND product_group = ? AND product_name IN ($placeholders)
+                 LIMIT " . count($unique_colors)
+            );
+            $bind_types = 'ss' . str_repeat('s', count($unique_colors));
+            $bind_args  = array_merge([$paper_type, $paper_size], array_values($unique_colors));
+            $id_stmt->bind_param($bind_types, ...$bind_args);
+            $id_stmt->execute();
+            $id_result = $id_stmt->get_result();
+            while ($row = $id_result->fetch_assoc()) {
+                $product_ids[$row['product_name']] = $row['id'];
+            }
+            $id_stmt->close();
+        }
+
+        // ── Delete old usage logs (prepared statement) ────────────────────
+        $del_logs = $inventory->prepare("DELETE FROM usage_logs WHERE job_order_id = ?");
+        $del_logs->bind_param("i", $job_id);
+        $del_logs->execute();
+        $del_logs->close();
+
+        // ── Insert updated usage logs ─────────────────────────────────────
+        if (!empty($product_ids)) {
+            $log_stmt = $inventory->prepare(
+                "INSERT INTO usage_logs (product_id, used_sheets, spoilage_sheets, log_date, job_order_id, usage_note)
+                 VALUES (?, ?, ?, ?, ?, ?)"
+            );
+            foreach ($new_sequence as $i => $color) {
+                $color   = trim($color);
+                $spoil   = intval($spoilage[$i] ?? 0);
+                $prod_id = $product_ids[$color] ?? null;
+                if (!$prod_id) continue;
+
+                $note = "Updated job order for " . $client_name;
+                $log_stmt->bind_param("iiisis", $prod_id, $used_sheets_per_product, $spoil, $log_date, $job_id, $note);
+                $log_stmt->execute();
+            }
+            $log_stmt->close();
+        }
+
+        // A non-paper edit (or a legacy job with no groups) has no per-group
+        // breakdown to keep — clear out any stale rows from a previous save.
+        $del_items = $inventory->prepare("DELETE FROM job_order_paper_items WHERE job_order_id = ?");
+        $del_items->bind_param("i", $job_id);
+        $del_items->execute();
+        $del_items->close();
     }
 
     // Also update the client record with latest details
@@ -263,9 +492,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $client_upd->execute();
     $client_upd->close();
 
-    // PRG redirect
+    // ── Save/clear dynamic field values for non-paper jobs ────────────
+    $del_fv = $inventory->prepare("DELETE FROM job_order_field_values WHERE job_order_id = ?");
+    $del_fv->bind_param("i", $job_id);
+    $del_fv->execute();
+    $del_fv->close();
+
+    if ($is_non_paper && !empty($_POST['pt_field'])) {
+        $fv_stmt = $inventory->prepare(
+            "INSERT INTO job_order_field_values (job_order_id, field_id, field_value)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE field_value = VALUES(field_value)"
+        );
+        foreach ($_POST['pt_field'] as $field_id => $value) {
+            $fid = intval($field_id);
+            $val = trim($value);
+            $fv_stmt->bind_param("iis", $job_id, $fid, $val);
+            $fv_stmt->execute();
+        }
+        $fv_stmt->close();
+    }
+
+    // Auto-save estimated total cost for non-paper jobs (from JS calculation) —
+    // only while no cost has been set yet, so it doesn't clobber a value
+    // staff already entered via "Set Total Cost".
+    if ($is_non_paper && !empty($_POST['np_estimated_cost']) && empty(floatval($job['total_cost'] ?? 0))) {
+        $np_cost = floatval($_POST['np_estimated_cost']);
+        if ($np_cost > 0) {
+            $update_cost = $inventory->prepare("UPDATE job_orders SET total_cost = ? WHERE id = ?");
+            $update_cost->bind_param("di", $np_cost, $job_id);
+            $update_cost->execute();
+            $update_cost->close();
+        }
+    }
+
+    // PRG redirect — back to wherever the user came from (preserving any
+    // filters/pagination on the job orders list), falling back to the
+    // plain list if that isn't available or safe.
     $_SESSION['message'] = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> Job order updated successfully.</div>";
-    header("Location: job_orders.php");
+    header("Location: $return_to");
     exit;
 }
 
@@ -273,6 +538,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $provinces = [];
 $res = $inventory->query("SELECT DISTINCT province FROM locations ORDER BY province ASC");
 while ($row = $res->fetch_assoc()) $provinces[] = $row['province'];
+
+// ── Active product types + fields/options/pricing (non-paper support) ──
+// Mirrors job_orders.php so the same print-type selector, dynamic fields,
+// and "Paper Stock Used" section can be reused here for editing.
+$active_product_types_result = $inventory->query("
+    SELECT pt.*, COUNT(ptf.id) AS field_count
+    FROM product_types pt
+    LEFT JOIN product_type_fields ptf ON ptf.product_type_id = pt.id
+    WHERE pt.is_active = 1
+    GROUP BY pt.id
+    ORDER BY pt.sort_order ASC, pt.name ASC
+");
+$active_product_types = [];
+while ($row = $active_product_types_result->fetch_assoc()) {
+    $active_product_types[] = $row;
+}
+
+$pt_fields_all = [];
+$pt_options_all = [];
+if (!empty($active_product_types)) {
+    $pt_ids = implode(',', array_column($active_product_types, 'id'));
+
+    $fields_result = $inventory->query("
+        SELECT * FROM product_type_fields
+        WHERE product_type_id IN ($pt_ids)
+        ORDER BY sort_order ASC
+    ");
+    while ($row = $fields_result->fetch_assoc()) {
+        $pt_fields_all[$row['product_type_id']][] = $row;
+    }
+
+    $options_result = $inventory->query("
+        SELECT o.*, f.product_type_id
+        FROM product_type_field_options o
+        JOIN product_type_fields f ON o.field_id = f.id
+        WHERE f.product_type_id IN ($pt_ids)
+        ORDER BY o.sort_order ASC
+    ");
+    while ($row = $options_result->fetch_assoc()) {
+        $pt_options_all[$row['field_id']][] = $row;
+    }
+}
+
+$pt_pricing_all = [];
+$pricing_result = $inventory->query("
+    SELECT product_type_id, variant_field_id, variant_value, price_per_piece
+    FROM product_type_pricing
+    ORDER BY product_type_id, effective_date DESC
+");
+while ($row = $pricing_result->fetch_assoc()) {
+    $pt_pricing_all[$row['product_type_id']][] = $row;
+}
+
+// This job's already-saved dynamic field values, keyed by field_id, so the
+// non-paper form can be pre-filled when editing.
+$existing_field_values = [];
+$efv_stmt = $inventory->prepare("SELECT field_id, field_value FROM job_order_field_values WHERE job_order_id = ?");
+$efv_stmt->bind_param("i", $job_id);
+$efv_stmt->execute();
+$efv_res = $efv_stmt->get_result();
+while ($row = $efv_res->fetch_assoc()) {
+    $existing_field_values[$row['field_id']] = $row['field_value'];
+}
+$efv_stmt->close();
+
+// Whether this job's saved paper_type/size actually reflect real paper stock
+// usage (vs. the "N/A" dummy written for non-paper types that don't consume
+// paper) — same check used by job_order_card_renderer.php.
+$np_uses_paper = $is_non_paper && !empty(trim($job['paper_type'] ?? '')) && trim($job['paper_type']) !== 'N/A';
+$np_saved_color = trim(explode(',', $job['paper_sequence'] ?? '')[0] ?? '');
+if ($np_saved_color === 'Any') $np_saved_color = '';
 
 // ── Fetch spoilage map for this job ───────────────────────────────────
 $spoilage_map = [];
@@ -346,10 +682,6 @@ unset($_SESSION['message']);
                     <a href="papers.php">
                         <i class="fas fa-boxes"></i> <span>Products</span>
                     </a>
-                    <ul class="submenu">
-                        <li><a href="papers.php">Papers</a></li>
-                        <li><a href="insuances.php">Consumables</a></li>
-                    </ul>
                 </li>
                 <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
                 <li class="active"><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
@@ -379,12 +711,13 @@ unset($_SESSION['message']);
             <div class="info-banner">
                 <div class="icon"><i class="fas fa-building"></i></div>
                 <div>
-                    <div class="value"><?= htmlspecialchars($job['client_name']) ?> — <?= htmlspecialchars($job['project_name']) ?></div>
+                    <div class="value"><?= htmlspecialchars($job['client_name']) ?> - <?= htmlspecialchars($job['project_name']) ?></div>
                     <div class="label">Ordered <?= date('M j, Y', strtotime($job['log_date'])) ?> &middot; Qty <?= (int)$job['quantity'] ?> &middot; <?= (int)$job['number_of_sets'] ?> set(s)</div>
                 </div>
             </div>
 
             <form method="post" class="edit-form">
+                <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to) ?>">
                 <div class="form-tabs">
                     <div class="form-tab active" data-tab="client-info"><i class="fas fa-building"></i> Client Info</div>
                     <div class="form-tab" data-tab="order-details"><i class="fas fa-clipboard-list"></i> Order Details</div>
@@ -524,15 +857,11 @@ unset($_SESSION['message']);
                             <div class="form-grid">
                                 <div class="form-group">
                                     <label>Order Quantity *</label>
-                                    <input type="number" name="quantity" min="1" class="form-control" value="<?= $job['quantity'] ?>" required>
+                                    <input type="number" id="quantity" name="quantity" min="1" class="form-control" value="<?= $job['quantity'] ?>" required>
                                 </div>
-                                <div class="form-group">
+                                <div class="form-group" id="number-of-sets-group">
                                     <label>Sets per Bind *</label>
-                                    <input type="number" name="number_of_sets" min="1" class="form-control" value="<?= $job['number_of_sets'] ?>" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>Copies per Set *</label>
-                                    <input type="number" id="copies_per_set" name="copies_per_set" min="1" class="form-control" value="<?= $job['copies_per_set'] ?>" required>
+                                    <input type="number" id="number_of_sets" name="number_of_sets" min="1" class="form-control" value="<?= $job['number_of_sets'] ?>" required>
                                 </div>
                             </div>
                         </div>
@@ -542,69 +871,73 @@ unset($_SESSION['message']);
                     <!-- ── Specifications ── -->
                     <div class="tab-content" id="specifications">
                       <div class="tab-grid">
-                        <div class="form-section">
-                            <h3 class="section-title"><i class="fas fa-file-alt"></i> Paper Details</h3>
+
+                        <div class="form-section span-2">
+                            <h3 class="section-title"><i class="fas fa-tags"></i> Print Type</h3>
                             <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Cut Size *</label>
-                                    <select id="product_size" name="product_size" class="form-control" required>
-                                        <?php foreach (
-                                            [
-                                                'whole',
-                                                '1/2',
-                                                '1/3',
-                                                '1/4',
-                                                '1/6',
-                                                '1/8',
-                                                '1/10',
-                                                '1/12',
-                                                '1/14',
-                                                '1/16',
-                                                '1/18',
-                                                '1/20',
-                                                '1/22',
-                                                '1/24',
-                                                '1/25',
-                                                '1/26',
-                                                '1/28',
-                                                '1/30',
-                                                '1/32',
-                                                '1/36',
-                                                '1/40',
-                                                '1/48',
-                                                '1/50'
-                                            ] as $size
-                                        ): ?>
-                                            <option value="<?= $size ?>" <?= $job['product_size'] === $size ? 'selected' : '' ?>><?= $size ?></option>
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <div id="print-type-selector" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;">
+                                        <label class="print-type-option" data-type="paper">
+                                            <input type="radio" name="print_category" value="paper" <?= !$is_non_paper ? 'checked' : '' ?> style="display:none;">
+                                            <div class="print-type-card <?= !$is_non_paper ? 'active' : '' ?>">
+                                                <i class="fas fa-file-alt"></i>
+                                                <span>Receipts</span>
+                                            </div>
+                                        </label>
+                                        <?php foreach ($active_product_types as $pt): ?>
+                                            <label class="print-type-option" data-type="pt_<?= $pt['id'] ?>">
+                                                <input type="radio" name="print_category" value="pt_<?= $pt['id'] ?>" <?= ((int)($job['product_type_id'] ?? 0) === (int)$pt['id']) ? 'checked' : '' ?> style="display:none;">
+                                                <div class="print-type-card <?= ((int)($job['product_type_id'] ?? 0) === (int)$pt['id']) ? 'active' : '' ?>">
+                                                    <i class="fas <?= htmlspecialchars($pt['icon'] ?? 'fa-print') ?>"></i>
+                                                    <span><?= htmlspecialchars($pt['name']) ?></span>
+                                                </div>
+                                            </label>
                                         <?php endforeach; ?>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Paper / Media Type *</label>
-                                    <select id="paper_type" name="paper_type" class="form-control" required>
-                                        <option value="">Select</option>
-                                        <?php
-                                        $types = $inventory->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
-                                        while ($row = $types->fetch_assoc()):
-                                        ?>
-                                            <option value="<?= htmlspecialchars($row['product_type']) ?>" <?= $job['paper_type'] === $row['product_type'] ? 'selected' : '' ?>><?= htmlspecialchars($row['product_type']) ?></option>
-                                        <?php endwhile; ?>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Paper Size *</label>
-                                    <select id="paper_size" name="paper_size" class="form-control" required>
-                                        <option value="">Select</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Custom Paper Size</label>
-                                    <input type="text" name="custom_paper_size" class="form-control" value="<?= htmlspecialchars($job['custom_paper_size']) ?>">
+                                    </div>
+                                    <input type="hidden" name="product_type_id" id="selected_product_type_id" value="<?= htmlspecialchars($job['product_type_id'] ?? '') ?>">
                                 </div>
                             </div>
                         </div>
 
-                        <div class="form-section">
+                        <div class="form-section" id="paper-specs-section" style="<?= $is_non_paper ? 'display:none' : '' ?>">
+                            <h3 class="section-title"><i class="fas fa-file-alt"></i> Paper Types Used</h3>
+                            <div id="paper-groups-container"><?php
+                                if (!empty($job_paper_items)) {
+                                    $total_groups = count($job_paper_items);
+                                    foreach ($job_paper_items as $gi => $g) {
+                                        $g['paper_sequence'] = array_map('trim', explode(',', $g['paper_sequence'] ?? ''));
+                                        echo render_paper_group_html($gi, $g, $cut_size_map, $inventory, $spoilage_map, $total_groups > 1);
+                                    }
+                                } else {
+                                    // Legacy job with no job_order_paper_items rows yet — synthesize
+                                    // one group from the job's existing single-value columns.
+                                    echo render_paper_group_html(0, [
+                                        'paper_type'        => $job['paper_type'],
+                                        'paper_size'        => $job['paper_size'],
+                                        'custom_paper_size' => $job['custom_paper_size'],
+                                        'cut_size'          => $job['product_size'],
+                                        'copies_per_set'    => $job['copies_per_set'],
+                                        'paper_sequence'    => array_map('trim', explode(',', $job['paper_sequence'] ?? '')),
+                                    ], $cut_size_map, $inventory, $spoilage_map, false);
+                                }
+                            ?></div>
+                            <button type="button" id="addPaperGroupBtn" class="btn btn-outline" style="margin-top:6px;">
+                                <i class="fas fa-plus"></i> Add Another Paper Type
+                            </button>
+                            <small style="color:var(--gray,#888);display:block;margin-top:6px;">
+                                Add a separate paper type/size for each part of the job that uses different stock (e.g. cover vs. inner pages). Quantity and Sets per Bind apply to all of them.
+                            </small>
+
+                            <!-- Legacy single-value fields, kept only for the non-paper "Paper
+                                 Stock Used" flow below, which still writes its single choice here. -->
+                            <input type="hidden" id="paper_type" name="paper_type" value="">
+                            <input type="hidden" id="paper_size" name="paper_size" value="">
+                            <input type="hidden" id="custom_paper_size" name="custom_paper_size" value="">
+                            <input type="hidden" id="product_size" name="product_size" value="">
+                            <input type="hidden" id="copies_per_set" name="copies_per_set" value="">
+                        </div>
+
+                        <div class="form-section" id="paper-binding-section" style="<?= $is_non_paper ? 'display:none' : '' ?>">
                             <h3 class="section-title"><i class="fas fa-book"></i> Binding &amp; Finishing</h3>
                             <div class="form-grid">
                                 <div class="form-group">
@@ -626,16 +959,63 @@ unset($_SESSION['message']);
                             </div>
                         </div>
 
-                        <div class="form-section">
-                            <h3 class="section-title"><i class="fas fa-palette"></i> Paper Sequence</h3>
-                            <div id="paper-sequence-container"></div>
+                        <!-- ── Non-paper Dynamic Fields Section ── -->
+                        <div class="form-section span-2" id="nonpaper-specs-section" style="<?= $is_non_paper ? '' : 'display:none' ?>">
+                            <h3 class="section-title"><i class="fas fa-sliders-h"></i> Job Specifications</h3>
+                            <div id="dynamic-fields-container" class="form-grid"></div>
+
+                            <!-- Paper stock section: only shown for product types flagged as "requires paper" -->
+                            <div id="np-paper-stock-section" style="display:none;margin-top:16px;padding:14px 16px;background:#f5f5f5;border-radius:10px;">
+                                <label style="font-weight:600;font-size:13px;display:block;margin-bottom:10px;">
+                                    <i class="fas fa-scroll"></i> Paper Stock Used
+                                </label>
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="np_paper_type">Paper Type</label>
+                                        <select id="np_paper_type" name="np_paper_type" class="form-control">
+                                            <option value="">Select</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="np_paper_size">Paper Size</label>
+                                        <select id="np_paper_size" name="np_paper_size" class="form-control">
+                                            <option value="">Select paper type first</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="np_paper_color">Color</label>
+                                        <select id="np_paper_color" name="np_paper_color" class="form-control">
+                                            <option value="">Select paper size first</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="np_cut_size">Cut Size</label>
+                                        <select id="np_cut_size" name="np_cut_size" class="form-control">
+                                            <option value="">Select</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <small style="color:#888;font-size:11px;">
+                                    Defaults come from this product type's settings but can be changed per order. Order Quantity ÷ Cut Size sheets will be deducted from the selected paper stock.
+                                </small>
+                            </div>
+
+                            <!-- Cost estimate display -->
+                            <div id="np-cost-estimate" style="display:none;margin-top:16px;padding:14px 18px;background:#f5f5f5;border-radius:10px;border-left:4px solid var(--primary,#2f6feb);">
+                                <strong style="font-size:13px;color:#888;">Estimated Project Price</strong>
+                                <div style="font-size:20px;font-weight:700;color:var(--primary,#2f6feb);margin-top:4px;">
+                                    ₱<span id="np-cost-value">0.00</span>
+                                </div>
+                                <small style="color:#888;font-size:11px;">This price will be auto-saved as the initial project cost only while none has been set yet. Adjust later via "Set Total Cost".</small>
+                            </div>
+                            <input type="hidden" name="np_estimated_cost" id="np_estimated_cost" value="0">
                         </div>
                       </div>
                     </div>
                 </div>
 
                 <div class="form-actions">
-                    <a href="job_orders.php" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Cancel</a>
+                    <a href="<?= htmlspecialchars($return_to) ?>" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Cancel</a>
                     <button type="submit" id="mainsubBtn" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
                 </div>
             </form>
@@ -683,13 +1063,23 @@ unset($_SESSION['message']);
     <script>
         window.JO_DATA = {
             allProducts: <?= json_encode($all_products) ?>,
-            preType: <?= json_encode($job['paper_type']) ?>,
-            preSize: <?= json_encode($job['paper_size']) ?>,
-            preCopies: <?= (int)$job['copies_per_set'] ?>,
-            preSeq: <?= json_encode(array_map('trim', explode(',', $job['paper_sequence']))) ?>,
-            preSpoilage: <?= json_encode($spoilage_map) ?>,
+            nextPaperGroupIndex: <?= json_encode(max(1, count($job_paper_items))) ?>,
             savedProvince: <?= json_encode($job['province'] ?? '') ?>,
-            savedCity: <?= json_encode($job['city'] ?? '') ?>
+            savedCity: <?= json_encode($job['city'] ?? '') ?>,
+
+            // ── Non-paper support ──
+            ptFieldsAll: <?= json_encode($pt_fields_all) ?>,
+            ptOptionsAll: <?= json_encode($pt_options_all) ?>,
+            ptPricingAll: <?= json_encode($pt_pricing_all) ?>,
+            productTypesById: <?= json_encode(array_column($active_product_types, null, 'id')) ?>,
+            cutSizeOptions: <?= json_encode(array_keys($cut_size_map)) ?>,
+            currentProductTypeId: <?= json_encode($job['product_type_id'] ?? null) ?>,
+            existingFieldValues: <?= json_encode($existing_field_values) ?>,
+            npCurrentQuantity: <?= (int)$job['quantity'] ?>,
+            npPaperType: <?= json_encode($np_uses_paper ? $job['paper_type'] : '') ?>,
+            npPaperSize: <?= json_encode($np_uses_paper ? $job['paper_size'] : '') ?>,
+            npPaperColor: <?= json_encode($np_uses_paper ? $np_saved_color : '') ?>,
+            npCutSize: <?= json_encode($job['product_size'] ?? 'whole') ?>
         };
     </script>                                        
 

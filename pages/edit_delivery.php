@@ -7,6 +7,24 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 
 require_once '../config/db.php';
 
+/**
+ * Figures out where "back" should go: the page that linked here, as long as
+ * it's actually part of this app (never trust an arbitrary redirect target).
+ * On GET this reads the Referer header; on POST it reads the hidden
+ * "return_to" field the form carries forward from that GET load, since the
+ * Referer on a self-submitting POST is just this same edit page.
+ */
+function resolve_return_url(string $candidate, string $fallback): string
+{
+    if ($candidate === '') return $fallback;
+    $host = parse_url($candidate, PHP_URL_HOST);
+    $curHost = $_SERVER['HTTP_HOST'] ?? '';
+    if ($host && $curHost && strcasecmp($host, $curHost) === 0) {
+        return $candidate;
+    }
+    return $fallback;
+}
+
 $delivery_id = intval($_GET['id'] ?? 0);
 if ($delivery_id <= 0) {
     echo "Invalid delivery ID.";
@@ -30,6 +48,11 @@ if ($result->num_rows === 0) {
 $delivery = $result->fetch_assoc();
 $product_id = $delivery['product_id'];
 
+$default_return = "delivery.php?id=$product_id&tab=delivery";
+$return_to = ($_SERVER['REQUEST_METHOD'] === 'POST')
+    ? resolve_return_url($_POST['return_to'] ?? '', $default_return)
+    : resolve_return_url($_SERVER['HTTP_REFERER'] ?? '', $default_return);
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $delivery_date = $_POST['delivery_date'] ?? '';
@@ -50,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $update_stmt->bind_param("sdssssi", $delivery_date, $delivered_reams, $supplier_name, $amount_per_ream, $unit, $delivery_note, $delivery_id);
 
         if ($update_stmt->execute()) {
-            header("Location: delivery.php?id=$product_id&tab=delivery");
+            header("Location: $return_to");
             exit;
         } else {
             echo "<script>alert('Error updating delivery: " . addslashes($inventory->error) . "');</script>";
@@ -110,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="info-banner">
             <div class="icon"><i class="fas fa-box"></i></div>
             <div>
-                <div class="value"><?= htmlspecialchars($delivery['product_type']) ?> — <?= htmlspecialchars($delivery['product_group']) ?> — <?= htmlspecialchars($delivery['product_name']) ?></div>
+                <div class="value"><?= htmlspecialchars($delivery['product_type']) ?> - <?= htmlspecialchars($delivery['product_group']) ?> - <?= htmlspecialchars($delivery['product_name']) ?></div>
                 <div class="label">Original delivery on <?= date('M j, Y', strtotime($delivery['delivery_date'])) ?></div>
             </div>
         </div>
@@ -122,6 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <div class="form-card-body">
                 <form method="POST">
+                    <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to) ?>">
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Delivery Date</label>
@@ -160,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <div class="form-actions">
-                        <a href="delivery.php?id=<?= $product_id ?>&tab=delivery" class="btn btn-outline">
+                        <a href="<?= htmlspecialchars($return_to) ?>" class="btn btn-outline">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                         <button type="submit" class="btn btn-primary">

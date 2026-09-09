@@ -167,16 +167,17 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                                   </span>
                                 <?php else: ?>
                                   <span class="badge badge-secondary">
-                                    <i class="fas fa-file-alt"></i> Paper
+                                    <i class="fas fa-file-alt"></i> Receipt
                                   </span>
                                 <?php endif; ?>
                               </td>
 
                               <td><?= $order['quantity'] ?></td>
 
-                              <td>
+                              <td class="specs-cell">
                                 <?php
-                                  $np_uses_paper = $pt_id && !empty(trim($order['paper_type'] ?? '')) && trim($order['paper_type']) !== 'N/A';
+                                  $np_paper_groups_display = !empty($job_paper_items[$order['id']]) ? $job_paper_items[$order['id']] : [];
+                                  $np_uses_paper = $pt_id && (!empty($np_paper_groups_display) || (!empty(trim($order['paper_type'] ?? '')) && trim($order['paper_type']) !== 'N/A'));
                                 ?>
                                 <?php if ($pt_id && isset($job_field_values[$order['id']])): ?>
                                   <!-- Non-paper job: show dynamic field values -->
@@ -195,30 +196,101 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                                       </div>
                                     <?php endforeach; ?>
                                     <?php if ($np_uses_paper): ?>
-                                      <div style="font-size:12px;border-top:1px dashed var(--light-gray);padding-top:4px;margin-top:2px;">
-                                        <strong><i class="fas fa-scroll"></i> Paper Used:</strong>
-                                        <?= htmlspecialchars($order['paper_type']) ?> / <?= htmlspecialchars($order['paper_size']) ?>
-                                        <?php if (!empty($order['paper_sequence']) && trim($order['paper_sequence']) !== 'Any'): ?>
-                                          (<?= htmlspecialchars($order['paper_sequence']) ?>)
+                                      <div class="spec-group" style="display:flex;flex-direction:column;gap:3px;font-size:12px;border-top:1px dashed var(--light-gray);padding-top:4px;margin-top:2px;">
+                                        <?php if (!empty($np_paper_groups_display)): ?>
+                                          <?php $npCount = count($np_paper_groups_display); ?>
+                                          <?php foreach ($np_paper_groups_display as $gi => $ng): ?>
+                                            <div<?= $gi > 0 ? ' style="border-top:1px dashed var(--light-gray);padding-top:4px;margin-top:2px;"' : '' ?>>
+                                              <?php if ($npCount > 1): ?><strong>Paper <?= $gi + 1 ?>:</strong> <?php endif; ?><?= htmlspecialchars($ng['paper_type']) ?> / <?= htmlspecialchars($ng['paper_size']) ?>
+                                              <br><strong>Cut Size:</strong> <?= htmlspecialchars($ng['cut_size']) ?>
+                                              <?php if (!empty($ng['paper_sequence']) && trim($ng['paper_sequence']) !== 'Any'): ?>
+                                                <div>
+                                                  <strong>Paper:</strong>
+                                                  <?php foreach (explode(',', $ng['paper_sequence']) as $seq): ?>
+                                                    <span class="sequence-item"><?= trim(htmlspecialchars($seq)) ?></span>
+                                                  <?php endforeach; ?>
+                                                </div>
+                                              <?php endif; ?>
+                                            </div>
+                                          <?php endforeach; ?>
+                                        <?php else: ?>
+                                          <div>
+                                            <?= htmlspecialchars($order['paper_type']) ?> / <?= htmlspecialchars($order['paper_size']) ?>
+                                            <br><strong>Cut Size:</strong> <?= htmlspecialchars($order['product_size']) ?>
+                                            <?php if (!empty($order['paper_sequence']) && trim($order['paper_sequence']) !== 'Any'): ?>
+                                              <div>
+                                                <strong>Paper:</strong>
+                                                <?php foreach (explode(',', $order['paper_sequence']) as $seq): ?>
+                                                  <span class="sequence-item"><?= trim(htmlspecialchars($seq)) ?></span>
+                                                <?php endforeach; ?>
+                                              </div>
+                                            <?php endif; ?>
+                                          </div>
                                         <?php endif; ?>
-                                        <br><strong>Cut Size:</strong> <?= htmlspecialchars($order['product_size']) ?>
                                       </div>
                                     <?php endif; ?>
                                   </div>
                                 <?php elseif ($pt_id && $np_uses_paper): ?>
                                   <!-- Non-paper job with no custom fields, but still consumes paper -->
-                                  <div style="font-size:12px;">
-                                    <strong><i class="fas fa-scroll"></i> Paper Used:</strong>
-                                    <?= htmlspecialchars($order['paper_type']) ?> / <?= htmlspecialchars($order['paper_size']) ?>
-                                    <?php if (!empty($order['paper_sequence']) && trim($order['paper_sequence']) !== 'Any'): ?>
-                                      (<?= htmlspecialchars($order['paper_sequence']) ?>)
+                                  <div class="spec-group" style="display:flex;flex-direction:column;gap:3px;font-size:12px;">
+                                    <?php if (!empty($np_paper_groups_display)): ?>
+                                      <?php $npCount = count($np_paper_groups_display); ?>
+                                      <?php foreach ($np_paper_groups_display as $gi => $ng): ?>
+                                        <div<?= $gi > 0 ? ' style="border-top:1px dashed var(--light-gray);padding-top:4px;margin-top:2px;"' : '' ?>>
+                                          <?php if ($npCount > 1): ?><strong>Paper <?= $gi + 1 ?>:</strong> <?php endif; ?><?= htmlspecialchars($ng['paper_type']) ?> / <?= htmlspecialchars($ng['paper_size']) ?>
+                                          <br><strong>Cut Size:</strong> <?= htmlspecialchars($ng['cut_size']) ?>
+                                          <?php if (!empty($ng['paper_sequence']) && trim($ng['paper_sequence']) !== 'Any'): ?>
+                                            <div>
+                                              <strong>Paper:</strong>
+                                              <?php foreach (explode(',', $ng['paper_sequence']) as $seq): ?>
+                                                <span class="sequence-item"><?= trim(htmlspecialchars($seq)) ?></span>
+                                              <?php endforeach; ?>
+                                            </div>
+                                          <?php endif; ?>
+                                        </div>
+                                      <?php endforeach; ?>
+                                    <?php else: ?>
+                                      <div>
+                                        <?= htmlspecialchars($order['paper_type']) ?> / <?= htmlspecialchars($order['paper_size']) ?>
+                                        <br><strong>Cut Size:</strong> <?= htmlspecialchars($order['product_size']) ?>
+                                        <?php if (!empty($order['paper_sequence']) && trim($order['paper_sequence']) !== 'Any'): ?>
+                                          <div>
+                                            <strong>Paper:</strong>
+                                            <?php foreach (explode(',', $order['paper_sequence']) as $seq): ?>
+                                              <span class="sequence-item"><?= trim(htmlspecialchars($seq)) ?></span>
+                                            <?php endforeach; ?>
+                                          </div>
+                                        <?php endif; ?>
+                                      </div>
                                     <?php endif; ?>
-                                    <br><strong>Cut Size:</strong> <?= htmlspecialchars($order['product_size']) ?>
                                   </div>
                                 <?php elseif ($pt_id): ?>
                                   <span class="text-muted">No specifications recorded</span>
+                                <?php elseif (!empty($job_paper_items[$order['id']])): ?>
+                                  <!-- Paper job with multiple paper type/size groups -->
+                                  <div style="display:flex;flex-direction:column;gap:3px;font-size:12px;">
+                                    <div><strong>Sets:</strong> <?= $order['number_of_sets'] ?></div>
+                                    <div><strong>Serial Range:</strong> <?= htmlspecialchars($order['serial_range']) ?></div>
+                                    <div><strong>Binding:</strong> <?= $order['binding_type'] === 'Custom' ? htmlspecialchars($order['custom_binding']) : htmlspecialchars($order['binding_type']) ?></div>
+                                    <?php foreach ($job_paper_items[$order['id']] as $gi => $group): ?>
+                                      <div style="border-top:1px dashed var(--light-gray);padding-top:4px;margin-top:2px;">
+                                        <strong><?= count($job_paper_items[$order['id']]) > 1 ? 'Paper ' . ($gi + 1) . ':' : 'Paper:' ?></strong>
+                                        <?= htmlspecialchars($group['paper_type']) ?> /
+                                        <?= $group['paper_size'] === 'custom' ? htmlspecialchars($group['custom_paper_size']) : htmlspecialchars($group['paper_size']) ?>
+                                        <br><strong>Cut Size:</strong> <?= htmlspecialchars($group['cut_size']) ?>
+                                        &nbsp;<strong>Copies/Set:</strong> <?= (int)$group['copies_per_set'] ?>
+                                        <div>
+                                          <strong>Colors:</strong>
+                                          <?php foreach (explode(',', $group['paper_sequence']) as $color): ?>
+                                            <span class="sequence-item"><?= trim(htmlspecialchars($color)) ?></span>
+                                          <?php endforeach; ?>
+                                        </div>
+                                      </div>
+                                    <?php endforeach; ?>
+                                  </div>
                                 <?php else: ?>
-                                  <!-- Paper job: show original paper-specific info, same as before -->
+                                  <!-- Paper job: show original paper-specific info, same as before
+                                       (legacy jobs saved before multi-paper-group support) -->
                                   <div style="display:flex;flex-direction:column;gap:3px;font-size:12px;">
                                     <div><strong>Sets:</strong> <?= $order['number_of_sets'] ?></div>
                                     <div><strong>Cut Size:</strong> <?= htmlspecialchars($order['product_size']) ?></div>

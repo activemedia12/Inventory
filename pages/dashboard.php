@@ -408,7 +408,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             <div style="display:flex; align-items:center; gap:10px; background:var(--warning-bg); border-left:3px solid var(--warning); padding:10px 16px; border-radius:6px; font-size:13px; margin-bottom:20px;">
                 <i class="fas fa-exclamation-triangle" style="color:var(--warning); flex-shrink:0;"></i>
                 <span style="color:var(--warning);">
-                    This month: <?= implode(' &amp; ', $notice_parts) ?> —
+                    This month: <?= implode(' &amp; ', $notice_parts) ?> -
                     <a href="job_orders.php" style="color:var(--primary); font-weight:600;">complete them to see accurate figures</a>
                 </span>
             </div>

@@ -213,47 +213,71 @@ $active = $_GET['tab'] ?? 'manpower-rates';
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../assets/css/pages/manage_prices.css">
 </head>
 
 <body>
-
-  <!-- Topbar -->
-  <div class="topbar">
-    <div class="container">
-      <div class="inner">
-        <div class="topbar-left">
-          <?php if ($job_id): ?>
-            <a href="paper_cost.php?id=<?= $job_id ?>" class="btn-back">
-              <i class="bi bi-arrow-left"></i> Back
-            </a>
-          <?php endif; ?>
-          <div>
-            <div class="topbar-title"><i class="bi bi-tags me-2"></i>Manage Price Lists</div>
-            <div class="topbar-sub">Update and maintain all pricing information</div>
-          </div>
-        </div>
-        <button type="submit" form="masterForm" class="btn-save-all">
-          <i class="bi bi-check-circle-fill"></i> Save All Changes
-        </button>
+  <div class="sidebar-con">
+    <div class="sidebar">
+      <div class="brand">
+        <img src="../assets/images/plainlogo.png" alt="Active Media Printing Logo">
       </div>
+      <ul class="nav-menu">
+        <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
+        <li>
+          <a href="papers.php">
+            <i class="fas fa-boxes"></i> <span>Products</span>
+          </a>
+        </li>
+        <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
+        <li class="active"><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+        <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
+        <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
+        <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
+      </ul>
     </div>
   </div>
 
+  <div class="main-content">
   <div class="container">
+
+    <header class="page-header">
+      <div class="page-title">
+        <h1><i class="fas fa-tags"></i> Manage Price Lists</h1>
+        <div class="breadcrumb">
+          <a href="job_orders.php">Job Orders</a> <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+          <?php if ($job_id): ?>
+            <a href="paper_cost.php?id=<?= $job_id ?>">Cost Calculator</a> <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+          <?php endif; ?>
+          <span>Manage Price Lists</span>
+        </div>
+      </div>
+      <div class="page-header-actions">
+        <?php if ($job_id): ?>
+          <a href="paper_cost.php?id=<?= $job_id ?>" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Back</a>
+        <?php endif; ?>
+        <button type="submit" form="masterForm" class="btn btn-primary">
+          <i class="fas fa-check-circle"></i> Save All Changes
+        </button>
+      </div>
+    </header>
 
     <?php if ($saved): ?>
       <div class="alert-success-custom">
-        <i class="bi bi-check-circle-fill" style="font-size:18px"></i>
+        <i class="fas fa-check-circle" style="font-size:16px"></i>
         Price list updated successfully!
-        <button style="margin-left:auto;background:none;border:none;cursor:pointer;color:#065f46;font-size:18px" onclick="this.parentElement.remove()">×</button>
+        <button style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--success);font-size:18px" onclick="this.parentElement.remove()">×</button>
       </div>
       <script>
         setTimeout(() => document.querySelector('.alert-success-custom')?.remove(), 3000);
       </script>
     <?php endif; ?>
 
+    <div class="price-shell">
     <!-- Tab Navigation -->
     <div class="price-tabs-wrapper">
       <div class="price-tabs" id="priceTabs">
@@ -282,6 +306,8 @@ $active = $_GET['tab'] ?? 'manpower-rates';
       <input type="hidden" name="active_tab" id="activeTabInput" value="<?= htmlspecialchars($active) ?>">
       <?php if ($job_id): ?><input type="hidden" name="job_id_ref" value="<?= $job_id ?>"><?php endif; ?>
 
+      <div class="price-tab-content">
+
       <!-- ── MANPOWER RATES ── -->
       <div class="tab-content-pane <?= $active === 'manpower-rates' ? 'active' : '' ?>" id="tab-manpower-rates">
         <div class="price-card">
@@ -291,7 +317,7 @@ $active = $_GET['tab'] ?? 'manpower-rates';
             </h6>
             <span style="font-size:11.5px;color:var(--text-muted)"><?= count($manpower_rates) ?> tasks</span>
           </div>
-          <div style="overflow-x:auto">
+          <div class="table-scroll">
             <table class="price-table">
               <thead>
                 <tr>
@@ -332,7 +358,7 @@ $active = $_GET['tab'] ?? 'manpower-rates';
             </h6>
             <span style="font-size:11.5px;color:var(--text-muted)"><?= count($paper_prices) ?> entries</span>
           </div>
-          <div style="overflow-x:auto">
+          <div class="table-scroll">
             <table class="price-table">
               <thead>
                 <tr>
@@ -384,7 +410,7 @@ $active = $_GET['tab'] ?? 'manpower-rates';
             </h6>
             <span style="font-size:11.5px;color:var(--text-muted)"><?= count($ordinary_prices) ?> products</span>
           </div>
-          <div style="overflow-x:auto">
+          <div class="table-scroll">
             <table class="price-table">
               <thead>
                 <tr>
@@ -401,7 +427,7 @@ $active = $_GET['tab'] ?? 'manpower-rates';
                       <input type="hidden" name="ordinary[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
                     </td>
                     <td>
-                      <span style="background:var(--primary-light);color:var(--primary);padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600">
+                      <span class="badge-pill">
                         <?= htmlspecialchars($row['product_group']) ?>
                       </span>
                     </td>
@@ -426,7 +452,7 @@ $active = $_GET['tab'] ?? 'manpower-rates';
             </h6>
             <span style="font-size:11.5px;color:var(--text-muted)"><?= count($special_prices) ?> products</span>
           </div>
-          <div style="overflow-x:auto">
+          <div class="table-scroll">
             <table class="price-table">
               <thead>
                 <tr>
@@ -443,7 +469,7 @@ $active = $_GET['tab'] ?? 'manpower-rates';
                       <input type="hidden" name="special[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
                     </td>
                     <td>
-                      <span style="background:var(--primary-light);color:var(--primary);padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600">
+                      <span class="badge-pill">
                         <?= htmlspecialchars($row['product_group']) ?>
                       </span>
                     </td>
@@ -468,7 +494,7 @@ $active = $_GET['tab'] ?? 'manpower-rates';
             </h6>
             <span style="font-size:11.5px;color:var(--text-muted)"><?= count($printing_types) ?> types</span>
           </div>
-          <div style="overflow-x:auto">
+          <div class="table-scroll">
             <table class="price-table">
               <thead>
                 <tr>
@@ -498,7 +524,7 @@ $active = $_GET['tab'] ?? 'manpower-rates';
                     </td>
                     <?php if ($isDigital || $isRiso): ?>
                       <td colspan="3" style="text-align:center;color:var(--text-muted);font-size:12.5px;font-style:italic">
-                        — not used for <?= $isDigital ? 'Digital' : 'Riso' ?> printing —
+                        - not used for <?= $isDigital ? 'Digital' : 'Riso' ?> printing -
                         <input type="hidden" name="printing[<?= $row['id'] ?>][base_cost]" value="<?= $row['base_cost'] ?>">
                         <input type="hidden" name="printing[<?= $row['id'] ?>][per_sheet_cost]" value="<?= $row['per_sheet_cost'] ?>">
                         <input type="hidden" name="printing[<?= $row['id'] ?>][apply_to_paper_cost]" value="0">
@@ -525,11 +551,11 @@ $active = $_GET['tab'] ?? 'manpower-rates';
       <div class="tab-content-pane <?= $active === 'digital-prices' ? 'active' : '' ?>" id="tab-digital-prices">
 
         <!-- Info banner -->
-        <div style="background:linear-gradient(135deg,#1877f2 0%,#0f4c9e 100%);border-radius:14px;padding:18px 22px;margin-bottom:20px;color:#fff;display:flex;align-items:center;gap:14px">
-          <i class="bi bi-display" style="font-size:28px;opacity:0.8"></i>
+        <div class="section-banner">
+          <div class="icon"><i class="bi bi-display"></i></div>
           <div>
-            <div style="font-weight:700;font-size:1rem">Digital Printing Price Matrix</div>
-            <div style="font-size:12px;opacity:0.8;margin-top:2px">Set per-paper prices for each digital printing option. Back-to-back printing doubles the price automatically in the calculator.</div>
+            <div class="title">Digital Printing Price Matrix</div>
+            <div class="sub">Set per-paper prices for each digital printing option. Back-to-back printing doubles the price automatically in the calculator.</div>
           </div>
         </div>
 
@@ -559,9 +585,9 @@ $active = $_GET['tab'] ?? 'manpower-rates';
               <div class="price-card-header">
                 <h6>
                   <div class="card-icon"><i class="<?= $ptInfo['icon'] ?>"></i></div>
-                  <?= $ptInfo['label'] ?> — Prices per Paper
+                  <?= $ptInfo['label'] ?> - Prices per Paper
                 </h6>
-                <span style="font-size:11.5px;color:var(--text-muted)">Edit prices below — click Save All when done</span>
+                <span style="font-size:11.5px;color:var(--text-muted)">Edit prices below - click Save All when done</span>
               </div>
               <div class="card-body" style="padding:20px">
                 <div class="color-mode-grid">
@@ -640,11 +666,11 @@ $active = $_GET['tab'] ?? 'manpower-rates';
       <!-- ── RISO PRINTING PRICES ── -->
       <div class="tab-content-pane <?= $active === 'riso-prices' ? 'active' : '' ?>" id="tab-riso-prices">
 
-        <div style="background:linear-gradient(135deg,#e67e22 0%,#c0392b 100%);border-radius:14px;padding:18px 22px;margin-bottom:20px;color:#fff;display:flex;align-items:center;gap:14px">
-          <i class="bi bi-printer" style="font-size:28px;opacity:0.8"></i>
+        <div class="section-banner warm">
+          <div class="icon"><i class="bi bi-printer"></i></div>
           <div>
-            <div style="font-weight:700;font-size:1rem">Riso Printing Price Matrix</div>
-            <div style="font-size:12px;opacity:0.8;margin-top:2px">Prices are per ream (500 sheets). Back-to-back adds a flat &#8369;200 surcharge to the total.</div>
+            <div class="title">Riso Printing Price Matrix</div>
+            <div class="sub">Prices are per ream (500 sheets). Back-to-back adds a flat &#8369;200 surcharge to the total.</div>
           </div>
         </div>
 
@@ -655,13 +681,13 @@ $active = $_GET['tab'] ?? 'manpower-rates';
             </h6>
             <span style="font-size:11.5px;color:var(--text-muted)"><?= count($riso_prices_list) ?> entries</span>
           </div>
-          <div style="overflow-x:auto">
+          <div class="table-scroll">
             <table class="price-table">
               <thead>
                 <tr>
-                  <th style="background:#e67e22">Paper Name</th>
-                  <th style="background:#e67e22">Size</th>
-                  <th style="background:#e67e22">Price / Ream (&#8369;)</th>
+                  <th style="background:var(--warning);color:#fff">Paper Name</th>
+                  <th style="background:var(--warning);color:#fff">Size</th>
+                  <th style="background:var(--warning);color:#fff">Price / Ream (&#8369;)</th>
                 </tr>
               </thead>
               <tbody>
@@ -684,7 +710,7 @@ $active = $_GET['tab'] ?? 'manpower-rates';
                       <?= htmlspecialchars($row['paper_name']) ?>
                     </td>
                     <td>
-                      <span style="background:#fff3e0;color:#e67e22;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600">
+                      <span class="badge-pill warm">
                         <?= htmlspecialchars($sizeLabels[$row['size_label']] ?? strtoupper($row['size_label'])) ?>
                       </span>
                     </td>
@@ -702,9 +728,12 @@ $active = $_GET['tab'] ?? 'manpower-rates';
         </div>
       </div><!-- /tab-riso-prices -->
 
+      </div><!-- /price-tab-content -->
     </form><!-- /masterForm -->
+    </div><!-- /price-shell -->
 
   </div><!-- /container -->
+  </div><!-- /main-content -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../assets/js/pages/manage_prices.js"></script>
 </body>
