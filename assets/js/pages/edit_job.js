@@ -371,9 +371,25 @@ function npSizesForType(type) {
   ].sort();
 }
 
-function populateNpPaperTypeSelect(selectedType) {
-  const sel = document.getElementById("np_paper_type");
-  if (!sel) return;
+function npDistinctPaperTypes() {
+  return [...new Set(paperProductsAll.map((p) => p.product_type))].sort();
+}
+
+function npSizesForType(type) {
+  return [
+    ...new Set(
+      paperProductsAll
+        .filter((p) => p.product_type === type)
+        .map((p) => p.product_group),
+    ),
+  ].sort();
+}
+
+const ptPaperDefaultsAll = window.JO_DATA.ptPaperDefaultsAll || {};
+let nextNpGroupIndex = window.JO_DATA.nextNpGroupIndex || 1;
+
+function populateNpGroupTypeSelect(rowEl, selectedType) {
+  const sel = rowEl.querySelector(".np-paper-type");
   sel.innerHTML = '<option value="">Select</option>';
   npDistinctPaperTypes().forEach((t) => {
     const opt = document.createElement("option");
@@ -384,10 +400,9 @@ function populateNpPaperTypeSelect(selectedType) {
   });
 }
 
-function populateNpPaperSizeSelect(selectedSize) {
-  const type = document.getElementById("np_paper_type")?.value;
-  const sel = document.getElementById("np_paper_size");
-  if (!sel) return;
+function populateNpGroupSizeSelect(rowEl, selectedSize) {
+  const type = rowEl.querySelector(".np-paper-type").value;
+  const sel = rowEl.querySelector(".np-paper-size");
   const sizes = type ? npSizesForType(type) : [];
   if (!type || sizes.length === 0) {
     sel.innerHTML = '<option value="">Select paper type first</option>';
@@ -403,11 +418,10 @@ function populateNpPaperSizeSelect(selectedSize) {
   });
 }
 
-function populateNpPaperColorSelect(selectedColor) {
-  const type = document.getElementById("np_paper_type")?.value;
-  const size = document.getElementById("np_paper_size")?.value;
-  const sel = document.getElementById("np_paper_color");
-  if (!sel) return;
+function populateNpGroupColorSelect(rowEl, selectedColor) {
+  const type = rowEl.querySelector(".np-paper-type").value;
+  const size = rowEl.querySelector(".np-paper-size").value;
+  const sel = rowEl.querySelector(".np-paper-color");
   const matches = paperProductsAll.filter(
     (p) => p.product_type === type && p.product_group === size,
   );
@@ -431,9 +445,8 @@ function populateNpPaperColorSelect(selectedColor) {
   });
 }
 
-function populateNpCutSizeSelect(selectedCutSize) {
-  const sel = document.getElementById("np_cut_size");
-  if (!sel) return;
+function populateNpGroupCutSizeSelect(rowEl, selectedCutSize) {
+  const sel = rowEl.querySelector(".np-cut-size");
   const ordered = ["whole", ...cutSizeOptions.filter((c) => c !== "whole")];
   sel.innerHTML = "";
   ordered.forEach((c) => {
@@ -446,47 +459,137 @@ function populateNpCutSizeSelect(selectedCutSize) {
   });
 }
 
+function initNpPaperGroup(rowEl) {
+  const typeSelect = rowEl.querySelector(".np-paper-type");
+  const sizeSelect = rowEl.querySelector(".np-paper-size");
+
+  let preselectSize = "";
+  let preselectColor = "";
+  try {
+    preselectSize = JSON.parse(rowEl.dataset.presize || '""');
+  } catch (e) {
+    preselectSize = "";
+  }
+  try {
+    preselectColor = JSON.parse(rowEl.dataset.precolor || '""');
+  } catch (e) {
+    preselectColor = "";
+  }
+
+  typeSelect.addEventListener("change", () => {
+    populateNpGroupSizeSelect(rowEl);
+    populateNpGroupColorSelect(rowEl);
+  });
+  sizeSelect.addEventListener("change", () => {
+    populateNpGroupColorSelect(rowEl);
+  });
+  rowEl.querySelector(".np-remove-group-btn").addEventListener("click", () => {
+    // Unlike the paper flow, removing the last row here is fine — paper
+    // stock consumption is optional for a non-paper product type.
+    rowEl.remove();
+  });
+
+  // The size/color selects have no server-rendered <option>s (built by JS),
+  // so their saved values come from data-presize/data-precolor, not .value.
+  if (typeSelect.value) {
+    populateNpGroupSizeSelect(rowEl, preselectSize);
+    populateNpGroupColorSelect(rowEl, preselectColor);
+  }
+}
+
+function buildNpPaperGroupRow(idx, prefill) {
+  const row = document.createElement("div");
+  row.className = "np-paper-group";
+  row.dataset.groupIndex = idx;
+  row.style.cssText =
+    "display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:10px;";
+  row.innerHTML = `
+    <div class="form-group" style="margin:0;">
+      <label style="font-size:11px;">Paper Type</label>
+      <select class="form-control np-paper-type" name="np_paper_group[${idx}][paper_type]">
+        <option value="">Select</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label style="font-size:11px;">Paper Size</label>
+      <select class="form-control np-paper-size" name="np_paper_group[${idx}][paper_size]">
+        <option value="">Select paper type first</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label style="font-size:11px;">Color</label>
+      <select class="form-control np-paper-color" name="np_paper_group[${idx}][color]">
+        <option value="">Select paper size first</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label style="font-size:11px;">Cut Size</label>
+      <select class="form-control np-cut-size" name="np_paper_group[${idx}][cut_size]">
+        <option value="">Select</option>
+      </select>
+    </div>
+    <button type="button" class="np-remove-group-btn" title="Remove" style="background:none;border:none;color:var(--danger,#d9463c);cursor:pointer;font-size:15px;padding:6px;">
+      <i class="fas fa-times-circle"></i>
+    </button>
+  `;
+
+  populateNpGroupTypeSelect(row, prefill?.paper_type || "");
+  populateNpGroupCutSizeSelect(row, prefill?.cut_size || "whole");
+  initNpPaperGroup(row);
+  if (prefill?.paper_type) {
+    populateNpGroupSizeSelect(row, prefill.paper_size || "");
+    populateNpGroupColorSelect(row, prefill.color || "");
+  }
+
+  return row;
+}
+
+function addNpPaperGroup(prefill) {
+  const container = document.getElementById("np-paper-groups-container");
+  const idx = nextNpGroupIndex++;
+  container.appendChild(buildNpPaperGroupRow(idx, prefill));
+}
+
+document
+  .getElementById("addNpPaperGroupBtn")
+  ?.addEventListener("click", () => addNpPaperGroup());
+
 function setupNpPaperStock(ptId, prefill) {
   const section = document.getElementById("np-paper-stock-section");
+  const container = document.getElementById("np-paper-groups-container");
   const pt = productTypesById[ptId];
   const requiresPaper = pt && pt.requires_paper && pt.requires_paper != 0;
-  if (!section) return;
+  if (!section || !container) return;
 
   if (!requiresPaper) {
     section.style.display = "none";
+    container.innerHTML = "";
     return;
   }
 
   section.style.display = "block";
+
   if (prefill) {
-    populateNpPaperTypeSelect(
-      window.JO_DATA.npPaperType || pt.paper_type || "",
-    );
-    populateNpPaperSizeSelect(
-      window.JO_DATA.npPaperSize || pt.paper_size || "",
-    );
-    populateNpPaperColorSelect(window.JO_DATA.npPaperColor || "");
-    populateNpCutSizeSelect(window.JO_DATA.npCutSize || pt.cut_size || "whole");
+    // Existing job data is already server-rendered into the container with
+    // its own data-presize/data-precolor prefills — just wire up the rows
+    // that are already there instead of rebuilding them.
+    container.querySelectorAll(".np-paper-group").forEach(initNpPaperGroup);
+    if (!container.querySelector(".np-paper-group")) {
+      // Non-paper type requires paper but this job has no saved groups yet
+      // (e.g. it was just switched to this type) — seed from its defaults.
+      const defaults = ptPaperDefaultsAll[ptId] || [];
+      if (defaults.length) defaults.forEach((d) => addNpPaperGroup(d));
+      else addNpPaperGroup();
+    }
   } else {
-    populateNpPaperTypeSelect(pt.paper_type || "");
-    populateNpPaperSizeSelect(pt.paper_size || "");
-    populateNpPaperColorSelect();
-    populateNpCutSizeSelect(pt.cut_size || "whole");
+    // User is switching to a different non-paper type in this form —
+    // discard whatever was there and start from the new type's defaults.
+    container.innerHTML = "";
+    const defaults = ptPaperDefaultsAll[ptId] || [];
+    if (defaults.length) defaults.forEach((d) => addNpPaperGroup(d));
+    else addNpPaperGroup();
   }
 }
-
-document
-  .getElementById("np_paper_type")
-  ?.addEventListener("change", function () {
-    populateNpPaperSizeSelect();
-    populateNpPaperColorSelect();
-  });
-
-document
-  .getElementById("np_paper_size")
-  ?.addEventListener("change", function () {
-    populateNpPaperColorSelect();
-  });
 
 function renderDynamicFields(ptId, prefill) {
   const container = document.getElementById("dynamic-fields-container");
@@ -695,53 +798,15 @@ function setDummyPaperFields() {
 }
 
 // Registered before the insufficient-stock-modal submit listener below, so
-// it always runs first: copies the non-paper "Paper Stock Used" choices
-// into the shared paper_type/paper_size/product_size/paper_sequence fields
-// (same trick job_orders.js uses) before that listener inspects the form.
+// it always runs first. np_paper_group[idx][...] fields (built by
+// setupNpPaperStock/addNpPaperGroup) already submit under their own names —
+// PHP reads them directly — so there's nothing to copy here anymore. If
+// this product type doesn't consume paper at all, the legacy paper_type/
+// paper_size/product_size hidden fields are just left for
+// setDummyPaperFields() below to fill with "N/A" placeholders.
 document.querySelector(".edit-form")?.addEventListener("submit", function () {
   const ptId = document.getElementById("selected_product_type_id")?.value;
   if (!ptId) return;
-
-  const paperStockSection = document.getElementById("np-paper-stock-section");
-  document
-    .querySelectorAll('[name="paper_sequence[]"]')
-    .forEach((el) => el.remove());
-
-  if (paperStockSection && paperStockSection.style.display !== "none") {
-    const npType = document.getElementById("np_paper_type")?.value;
-    const npSize = document.getElementById("np_paper_size")?.value;
-    const npColor = document.getElementById("np_paper_color")?.value;
-    const npCut = document.getElementById("np_cut_size")?.value;
-
-    // paper_type/paper_size/product_size are now plain hidden inputs (the
-    // visible selects moved into repeatable paper groups), so just set
-    // .value directly — no <option> needs to exist for a hidden field.
-    function ensureOptionAndSet(id, val) {
-      if (!val) return;
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (el.tagName === "SELECT") {
-        if (![...el.options].some((o) => o.value === val)) {
-          const opt = document.createElement("option");
-          opt.value = val;
-          opt.textContent = val;
-          el.appendChild(opt);
-        }
-      }
-      el.value = val;
-    }
-
-    ensureOptionAndSet("paper_type", npType);
-    ensureOptionAndSet("paper_size", npSize);
-    ensureOptionAndSet("product_size", npCut);
-
-    const colorField = document.createElement("input");
-    colorField.type = "hidden";
-    colorField.name = "paper_sequence[]";
-    colorField.value = npColor || "Any";
-    this.appendChild(colorField);
-  }
-
   setDummyPaperFields();
 });
 
