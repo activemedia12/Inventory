@@ -87,18 +87,332 @@ function toggleSection(element) {
   }
 }
 
+// ── Multi-select paper items with live per-item pricing ─────────────
+// selectedItems: id -> { name, price } for every currently-selected
+// paper item. The DOM row (#selected-item-<id>) is the source of truth
+// for the live-edited qty/price values; this map just tracks which
+// items are selected and their last-known/fetched price.
+const selectedItems = new Map();
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function selectItem(element) {
-  // Remove previous selection
-  document.querySelectorAll(".product-item.selected").forEach((el) => {
-    el.classList.remove("selected");
+  const id = element.dataset.value;
+  const name = element.textContent.trim();
+
+  if (element.classList.contains("selected")) {
+    element.classList.remove("selected");
+    removeSelectedItem(id);
+    return;
+  }
+
+  element.classList.add("selected");
+  addSelectedItem(id, name);
+}
+
+function addSelectedItem(id, name, prefill) {
+  if (selectedItems.has(id)) return;
+  selectedItems.set(id, {
+    name,
+    price: prefill && prefill.price !== undefined ? prefill.price : null,
+  });
+  renderSelectedItemRow(id, name, prefill);
+  updateSelectedItemsHint();
+
+  if (
+    !prefill ||
+    prefill.price === undefined ||
+    prefill.price === null ||
+    prefill.price === ""
+  ) {
+    fetchItemPrice(id);
+  }
+
+  saveFormState();
+}
+
+function removeSelectedItem(id) {
+  selectedItems.delete(id);
+
+  const row = document.getElementById(`selected-item-${id}`);
+  if (row) row.remove();
+
+  const treeItem = document.querySelector(`.product-item[data-value="${id}"]`);
+  if (treeItem) treeItem.classList.remove("selected");
+
+  updateSelectedItemsHint();
+  saveFormState();
+}
+
+function renderSelectedItemRow(id, name, prefill) {
+  const list = document.getElementById("selected-items-list");
+  if (!list) return;
+
+  const row = document.createElement("div");
+  row.className = "selected-item-row";
+  row.id = `selected-item-${id}`;
+  row.dataset.id = id;
+
+  const qtyVal = prefill && prefill.qty !== undefined ? prefill.qty : "";
+  const priceVal =
+    prefill && prefill.price !== undefined && prefill.price !== null
+      ? prefill.price
+      : "";
+  const safeName = escapeHtml(name);
+
+  row.innerHTML = `
+    <input type="hidden" name="product_id[]" value="${id}">
+    <div class="selected-item-top">
+      <span class="selected-item-name" title="${safeName}">${safeName}</span>
+      <button type="button" class="remove-item-btn" title="Remove ${safeName}" aria-label="Remove ${safeName}">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="selected-item-fields">
+      <div class="selected-item-field">
+        <label for="qty-${id}">Quantity</label>
+        <input type="number" id="qty-${id}" name="delivered_reams[]" min="0.01" step="0.01"
+          placeholder="e.g., 2, 3, 4" class="selected-item-qty" value="${qtyVal}"
+          title="Quantity delivered for ${safeName}" required>
+      </div>
+      <div class="selected-item-field">
+        <label for="price-${id}">Amount per Unit (₱)</label>
+        <span class="selected-item-price-wrap">
+          ₱<input type="number" id="price-${id}" name="amount_per_ream[]" min="0.01" step="0.01"
+            placeholder="${priceVal ? "" : "Loading..."}" class="selected-item-price${priceVal ? "" : " price-loading"}"
+            title="Amount per unit for ${safeName}" value="${priceVal}">
+        </span>
+      </div>
+    </div>
+  `;
+
+  // Bound directly instead of an inline onclick attribute — avoids any
+  // issue with special characters in a product name breaking the
+  // generated markup, and is generally more reliable.
+  row.querySelector(".remove-item-btn").addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const treeItem = document.querySelector(
+      `.product-item[data-value="${id}"]`,
+    );
+    if (treeItem) treeItem.classList.remove("selected");
+    removeSelectedItem(id);
   });
 
-  // Add new selection
-  element.classList.add("selected");
-
-  // Update hidden input
-  document.getElementById("product_id").value = element.dataset.value;
+  list.appendChild(row);
 }
+
+// Used during state restore to re-mark a tree item as selected without
+// re-triggering its click handler (which would toggle it off).
+function markTreeItemSelected(id) {
+  const treeItem = document.querySelector(`.product-item[data-value="${id}"]`);
+  if (treeItem) treeItem.classList.add("selected");
+}
+
+function fetchItemPrice(id) {
+  const priceInput = document.querySelector(
+    `#selected-item-${id} .selected-item-price`,
+  );
+
+  fetch(`get_product_price.php?id=${encodeURIComponent(id)}`)
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.error) {
+        console.error("Failed to fetch price for product", id, data.error);
+        if (priceInput) {
+          priceInput.placeholder = "0.00";
+          priceInput.classList.remove("price-loading");
+        }
+        return;
+      }
+
+      const item = selectedItems.get(id);
+      if (item) item.price = data.unit_price;
+
+      // Don't clobber a value the user already typed while the fetch
+      // was in flight.
+      if (priceInput && !priceInput.value) {
+        priceInput.value = data.unit_price ?? "";
+      }
+      if (priceInput) priceInput.classList.remove("price-loading");
+
+      saveFormState();
+    })
+    .catch((err) => {
+      console.error("Failed to fetch price for product", id, err);
+      if (priceInput) {
+        priceInput.placeholder = "0.00";
+        priceInput.classList.remove("price-loading");
+      }
+    });
+}
+
+function updateSelectedItemsHint() {
+  const hint = document.getElementById("selected-items-hint");
+  if (!hint) return;
+  hint.classList.toggle("hidden", selectedItems.size > 0);
+}
+
+function expandAncestors(el) {
+  let current = el;
+  while (current) {
+    if (
+      current.classList &&
+      (current.classList.contains("group-items") ||
+        current.classList.contains("type-groups"))
+    ) {
+      current.style.display = "block";
+      const header = current.previousElementSibling;
+      const icon = header && header.querySelector(".toggle-icon");
+      if (icon) icon.textContent = "-";
+    }
+    current = current.parentElement;
+  }
+}
+
+// ── Delivery form persistence (localStorage) ─────────────────────────
+// Keeps the "Record New Delivery" form's contents when the user
+// navigates away and comes back, since the form itself never
+// auto-submits/saves until "Save Delivery" is pressed.
+const DELIVERY_FORM_STORAGE_KEY = "delivery_form_state";
+
+function saveFormState() {
+  const getVal = (id) => {
+    const el = document.getElementById(id);
+    return el ? el.value : "";
+  };
+
+  const state = {
+    delivery_type: getVal("delivery_type"),
+    unit: getVal("unit"),
+    supplier_name: getVal("supplier_name"),
+    delivery_date: getVal("delivery_date"),
+    delivery_note: getVal("delivery_note"),
+    insuance_name: getVal("insuance_name"),
+    delivered_quantity: getVal("delivered_quantity"),
+    insuance_unit: getVal("insuance_unit"),
+    amount_per_unit: getVal("amount_per_unit"),
+    insuance_supplier: getVal("insuance_supplier"),
+    insuance_date: getVal("insuance_date"),
+    insuance_note: getVal("insuance_note"),
+    items: Array.from(selectedItems.entries()).map(([id, data]) => {
+      const row = document.getElementById(`selected-item-${id}`);
+      const qtyEl = row && row.querySelector(".selected-item-qty");
+      const priceEl = row && row.querySelector(".selected-item-price");
+      return {
+        id,
+        name: data.name,
+        qty: qtyEl ? qtyEl.value : "",
+        price: priceEl ? priceEl.value : (data.price ?? ""),
+      };
+    }),
+  };
+
+  try {
+    localStorage.setItem(DELIVERY_FORM_STORAGE_KEY, JSON.stringify(state));
+  } catch (err) {
+    console.error("Failed to save delivery form state:", err);
+  }
+}
+
+function restoreFormState() {
+  let state = null;
+  try {
+    const raw = localStorage.getItem(DELIVERY_FORM_STORAGE_KEY);
+    if (!raw) return;
+    state = JSON.parse(raw);
+  } catch (err) {
+    console.error("Failed to parse saved delivery form state:", err);
+    return;
+  }
+  if (!state) return;
+
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el && val !== undefined && val !== null) el.value = val;
+  };
+
+  setVal("delivery_type", state.delivery_type);
+  setVal("unit", state.unit);
+  setVal("supplier_name", state.supplier_name);
+  setVal("delivery_date", state.delivery_date);
+  setVal("delivery_note", state.delivery_note);
+  setVal("insuance_name", state.insuance_name);
+  setVal("delivered_quantity", state.delivered_quantity);
+  setVal("insuance_unit", state.insuance_unit);
+  setVal("amount_per_unit", state.amount_per_unit);
+  setVal("insuance_supplier", state.insuance_supplier);
+  setVal("insuance_date", state.insuance_date);
+  setVal("insuance_note", state.insuance_note);
+
+  if (state.delivery_type) toggleDeliveryForm();
+
+  (state.items || []).forEach((item) => {
+    addSelectedItem(item.id, item.name, { qty: item.qty, price: item.price });
+    markTreeItemSelected(item.id);
+
+    const treeItem = document.querySelector(
+      `.product-item[data-value="${item.id}"]`,
+    );
+    if (treeItem) expandAncestors(treeItem);
+  });
+
+  updateSelectedItemsHint();
+
+  // Re-run so the freshly-added per-item rows get the correct
+  // required/disabled state for whichever delivery type is active.
+  if (state.delivery_type) toggleDeliveryForm();
+}
+
+function clearDeliveryForm() {
+  if (!confirm("Clear all entered delivery form data?")) return;
+
+  const form = document.querySelector(".delivery-form form");
+  if (form) form.reset();
+
+  selectedItems.clear();
+  const list = document.getElementById("selected-items-list");
+  if (list) list.innerHTML = "";
+  document
+    .querySelectorAll(".product-item.selected")
+    .forEach((el) => el.classList.remove("selected"));
+  updateSelectedItemsHint();
+
+  try {
+    localStorage.removeItem(DELIVERY_FORM_STORAGE_KEY);
+  } catch (err) {
+    console.error("Failed to clear saved delivery form state:", err);
+  }
+
+  toggleDeliveryForm();
+}
+
+// Save on any change/input across the form (delegated so it also covers
+// the dynamically-added per-item qty/price rows), and restore once the
+// page loads.
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.querySelector(".delivery-form form");
+  if (form) {
+    form.addEventListener("input", saveFormState);
+    form.addEventListener("change", saveFormState);
+    // Clear the saved draft once the delivery is actually submitted.
+    form.addEventListener("submit", () => {
+      try {
+        localStorage.removeItem(DELIVERY_FORM_STORAGE_KEY);
+      } catch (err) {
+        console.error("Failed to clear saved delivery form state:", err);
+      }
+    });
+  }
+  restoreFormState();
+});
 
 function toggleDeliveryForm() {
   const type = document.getElementById("delivery_type").value;

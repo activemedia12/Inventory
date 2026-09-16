@@ -1204,3 +1204,159 @@ input[type="date"].export-form-input {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   Multi-select paper items + per-item live pricing
+   ("Select Paper" picker on the delivery form)
+   ============================================================ */
+
+.paper-item-picker {
+  margin-bottom: 20px;
+}
+
+.paper-item-picker-body {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+/* .product-selector already has its border/padding/max-height from the
+   tree styles above — just give it a flex basis here. */
+.paper-item-picker-body .product-selector {
+  flex: 1 1 280px;
+}
+
+.paper-item-picker-selected {
+  flex: 1 1 300px;
+  min-width: 260px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.selected-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.selected-items-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--gray);
+}
+
+.selected-items-hint.hidden {
+  display: none;
+}
+
+.selected-item-row {
+  padding: 10px 12px;
+  border: 1px solid var(--light-gray);
+  border-radius: 8px;
+  background: var(--light);
+}
+
+.selected-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.selected-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selected-item-fields {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.selected-item-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 120px;
+}
+
+.selected-item-field label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--gray);
+}
+
+.selected-item-qty,
+.selected-item-price {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--light-gray);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--dark);
+  background: var(--card-bg);
+  transition: border-color 0.15s ease;
+}
+
+.selected-item-qty:focus,
+.selected-item-price:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.selected-item-price-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--gray);
+  font-size: 13px;
+}
+
+.selected-item-price.price-loading {
+  color: var(--gray);
+  font-style: italic;
+}
+
+.remove-item-btn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.remove-item-btn:hover {
+  background: var(--danger-bg);
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+@media (max-width: 600px) {
+  .paper-item-picker-body {
+    flex-direction: column;
+  }
+
+  .paper-item-picker-selected {
+    width: 100%;
+    max-height: none;
+  }
+}

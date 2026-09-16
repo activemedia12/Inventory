@@ -16,35 +16,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if ($delivery_type === 'paper') {
     // === Handle Paper Delivery ===
-    $product_id = intval($_POST['product_id']);
-    $delivered_reams = floatval($_POST['delivered_reams']);
+    // The form now supports selecting multiple paper items at once, so
+    // product_id/delivered_reams/amount_per_ream arrive as parallel arrays
+    // (one entry per selected item) instead of single scalar values.
+    $product_ids = $_POST['product_id'] ?? [];
+    $delivered_reams_list = $_POST['delivered_reams'] ?? [];
+    $amount_per_ream_list = $_POST['amount_per_ream'] ?? [];
     $unit = $_POST['unit'] ?? '';
     $delivery_note = $_POST['delivery_note'] ?? '';
     $delivery_date = $_POST['delivery_date'] ?? date('Y-m-d');
     $supplier_name = trim($_POST['supplier_name'] ?? '');
-    $amount_per_ream = floatval($_POST['amount_per_ream']);
 
-    if (strtolower($unit) === 'sheets') {
-      $delivered_reams = $delivered_reams / 500;
+    if (!is_array($product_ids)) {
+      $product_ids = [$product_ids];
     }
 
-    if ($product_id && $delivered_reams > 0 && $amount_per_ream > 0) {
-      $stmt = $inventory->prepare("INSERT INTO delivery_logs 
-          (product_id, delivered_reams, unit, delivery_note, delivery_date, supplier_name, amount_per_ream, created_by) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-      $stmt->bind_param("idssssdi", $product_id, $delivered_reams, $unit, $delivery_note, $delivery_date, $supplier_name, $amount_per_ream, $created_by);
-      $stmt->execute();
-      $stmt->close();
+    $inserted_count = 0;
+    $insert_stmt = $inventory->prepare("INSERT INTO delivery_logs 
+        (product_id, delivered_reams, unit, delivery_note, delivery_date, supplier_name, amount_per_ream, created_by) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $update_stmt = $inventory->prepare("UPDATE products SET unit_price = ? WHERE id = ?");
 
-      // Update unit price in products table
-      $update = $inventory->prepare("UPDATE products SET unit_price = ? WHERE id = ?");
-      $update->bind_param("di", $amount_per_ream, $product_id);
-      $update->execute();
-      $update->close();
+    foreach ($product_ids as $index => $raw_product_id) {
+      $product_id = intval($raw_product_id);
+      $delivered_reams = floatval($delivered_reams_list[$index] ?? 0);
+      $amount_per_ream = floatval($amount_per_ream_list[$index] ?? 0);
 
-      $_SESSION['success_message'] = "Paper delivery recorded.";
+      if (strtolower($unit) === 'sheets') {
+        $delivered_reams = $delivered_reams / 500;
+      }
+
+      if ($product_id && $delivered_reams > 0 && $amount_per_ream > 0) {
+        $insert_stmt->bind_param("idssssdi", $product_id, $delivered_reams, $unit, $delivery_note, $delivery_date, $supplier_name, $amount_per_ream, $created_by);
+        $insert_stmt->execute();
+
+        // Update unit price in products table
+        $update_stmt->bind_param("di", $amount_per_ream, $product_id);
+        $update_stmt->execute();
+
+        $inserted_count++;
+      }
+    }
+    $insert_stmt->close();
+    $update_stmt->close();
+
+    if ($inserted_count > 0) {
+      $_SESSION['success_message'] = $inserted_count === 1
+        ? "Paper delivery recorded."
+        : "Paper delivery recorded for {$inserted_count} items.";
     } else {
-      $_SESSION['warning_message'] = "Please fill out all required fields for paper delivery.";
+      $_SESSION['warning_message'] = "Please select at least one item and fill out all required fields for paper delivery.";
     }
   } elseif ($delivery_type === 'insuance') {
     // === Handle Insuance Delivery ===
@@ -203,12 +224,16 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
 
         <!-- === Paper Delivery Form === -->
         <div id="paper-form">
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="product-selector" class="form-label">Select Paper</label>
+          <!-- Kept out of .form-grid on purpose: this block's height grows
+               with every item selected, and living inside the same grid
+               row as Unit/Supplier/Date pushed those fields around as it
+               grew. As its own full-width block, it can grow freely
+               without disturbing the fields below it. -->
+          <div class="form-group paper-item-picker">
+            <label for="product-selector" class="form-label">Select Paper</label>
+            <div class="paper-item-picker-body">
               <div class="product-selector" id="product-selector">
                 <?php
-                $selected_id = $_POST['product_id'] ?? '';
                 $organized = [];
 
                 // Organize products hierarchically
@@ -237,10 +262,8 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
                             <?= htmlspecialchars($group) ?>
                           </div>
                           <div class="group-items" style="display: none;">
-                            <?php foreach ($items as $item) {
-                              $selected = ($item['id'] == $selected_id) ? 'selected' : '';
-                            ?>
-                              <div class="product-item <?= $selected ?>"
+                            <?php foreach ($items as $item) { ?>
+                              <div class="product-item"
                                 data-value="<?= $item['id'] ?>"
                                 onclick="selectItem(this)">
                                 <?= htmlspecialchars($item['product_name']) ?>
@@ -253,9 +276,18 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
                   </div>
                 <?php } ?>
               </div>
-              <input type="hidden" name="product_id" id="product_id" value="<?= $selected_id ?>">
-            </div>
 
+              <!-- Rows are added here as items are selected on the left:
+                   one per item, each with its own quantity + amount-per-
+                   unit (auto-filled with the item's current price, editable). -->
+              <div class="paper-item-picker-selected">
+                <div id="selected-items-list" class="selected-items-list"></div>
+                <p class="selected-items-hint" id="selected-items-hint">No items selected yet. You can now select one or more items per delivery.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-grid">
             <div class="form-group">
               <label for="unit">Unit</label>
               <input type="text" name="unit" id="unit" placeholder="Reams or Sheets" list="unit-options">
@@ -263,16 +295,6 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
                 <option value="Reams">
                 <option value="Sheets">
               </datalist>
-            </div>
-
-            <div class="form-group">
-              <label for="delivered_reams">Delivered Quantity</label>
-              <input type="number" name="delivered_reams" id="delivered_reams" min="0.01" step="0.01" placeholder="e.g., 2, 3, 4">
-            </div>
-
-            <div class="form-group">
-              <label for="amount_per_ream">Amount per Unit (₱)</label>
-              <input type="number" name="amount_per_ream" id="amount_per_ream" min="0.01" step="0.01" placeholder="0.00">
             </div>
 
             <div class="form-group">
@@ -339,9 +361,14 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
           </div>
         </div>
 
-        <button type="submit" class="btn">
-          <i class="fas fa-save"></i> Save Delivery
-        </button>
+        <div class="form-actions">
+          <button type="submit" class="btn">
+            <i class="fas fa-save"></i> Save Delivery
+          </button>
+          <button type="button" class="btn btn-outline" onclick="clearDeliveryForm()">
+            <i class="fas fa-eraser"></i> Clear Form
+          </button>
+        </div>
       </form>
     </div>
 
