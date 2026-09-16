@@ -249,6 +249,16 @@ document.addEventListener("DOMContentLoaded", function () {
     const removeBtn = groupEl.querySelector(".removePaperGroupBtn");
     const header = groupEl.querySelector(".pg-header");
 
+    // If a group is missing its expected children, bail out on this one row
+    // rather than throwing. This function runs in a forEach inside the
+    // DOMContentLoaded handler, so an uncaught error here aborts the rest of
+    // that handler — including the "Add Another Paper Type" button wiring,
+    // which then appears completely dead.
+    if (!typeSelect || !sizeSelect || !copiesInput) {
+      console.error("initPaperGroup: malformed paper group, skipping", groupEl);
+      return;
+    }
+
     let preselectColors = [];
     let preselectSpoilage = [];
     try {
@@ -270,34 +280,42 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Click the header to collapse/expand — keeps a job with many paper
     // types from turning into one long uninterrupted scroll.
-    header.addEventListener("click", () => {
-      groupEl.classList.toggle("collapsed");
-    });
+    if (header) {
+      header.addEventListener("click", () => {
+        groupEl.classList.toggle("collapsed");
+      });
+    }
 
     typeSelect.addEventListener("change", () => {
       updateGroupSizeOptions(groupEl);
       updateGroupSequenceOptions(groupEl);
     });
     sizeSelect.addEventListener("change", function () {
-      customSizeInput.style.display =
-        this.value === "custom" ? "block" : "none";
+      if (customSizeInput) {
+        customSizeInput.style.display =
+          this.value === "custom" ? "block" : "none";
+      }
       updateGroupSequenceOptions(groupEl);
     });
-    customSizeInput.addEventListener("input", () =>
-      refreshGroupTypeSizeSummary(groupEl),
-    );
+    if (customSizeInput) {
+      customSizeInput.addEventListener("input", () =>
+        refreshGroupTypeSizeSummary(groupEl),
+      );
+    }
     copiesInput.addEventListener("input", () =>
       updateGroupSequenceOptions(groupEl),
     );
-    removeBtn.addEventListener("click", (e) => {
-      e.stopPropagation(); // don't also toggle collapse on the header
-      if (groupsContainer.querySelectorAll(".paper-group").length <= 1) {
-        alert("A job order needs at least one paper type.");
-        return;
-      }
-      groupEl.remove();
-      renumberPaperGroups();
-    });
+    if (removeBtn) {
+      removeBtn.addEventListener("click", (e) => {
+        e.stopPropagation(); // don't also toggle collapse on the header
+        if (groupsContainer.querySelectorAll(".paper-group").length <= 1) {
+          alert("A job order needs at least one paper type.");
+          return;
+        }
+        groupEl.remove();
+        renumberPaperGroups();
+      });
+    }
 
     // Pre-filled from PHP (existing job data) — run the cascade once so
     // size/sequence options populate with the saved selections. The size
@@ -305,19 +323,39 @@ document.addEventListener("DOMContentLoaded", function () {
     // value comes from data-presize, not the live .value.
     if (typeSelect.value) {
       updateGroupSizeOptions(groupEl, preselectSize);
-      if (preselectSize === "custom") customSizeInput.style.display = "block";
+      if (preselectSize === "custom" && customSizeInput)
+        customSizeInput.style.display = "block";
       updateGroupSequenceOptions(groupEl, preselectColors, preselectSpoilage);
     } else {
       refreshGroupTypeSizeSummary(groupEl);
     }
   }
 
+  // Snapshot the markup of the first group up front, before any user edits.
+  // The Add button used to read groupsContainer.firstElementChild at click
+  // time, which throws "Cannot read properties of null (reading 'outerHTML')"
+  // and silently adds nothing whenever the container is empty.
+  const paperGroupTemplateHtml =
+    groupsContainer.firstElementChild?.outerHTML || null;
+
   groupsContainer.querySelectorAll(".paper-group").forEach(initPaperGroup);
 
   addGroupBtn.addEventListener("click", () => {
+    const templateHtml =
+      groupsContainer.firstElementChild?.outerHTML || paperGroupTemplateHtml;
+    if (!templateHtml) {
+      console.error(
+        "addPaperGroupBtn: no paper-group markup available to clone — " +
+          "#paper-groups-container rendered empty.",
+      );
+      alert(
+        "Couldn't add another paper type because the form didn't load correctly. Please refresh the page and try again.",
+      );
+      return;
+    }
     const idx = nextGroupIndex++;
     const wrapper = document.createElement("div");
-    wrapper.innerHTML = groupsContainer.firstElementChild.outerHTML;
+    wrapper.innerHTML = templateHtml;
     const newGroup = wrapper.firstElementChild;
     newGroup.dataset.groupIndex = idx;
     newGroup.dataset.presize = '""';
@@ -333,8 +371,10 @@ document.addEventListener("DOMContentLoaded", function () {
         el.value = "";
       }
     });
-    newGroup.querySelector(".pg-custom-paper-size").style.display = "none";
-    newGroup.querySelector(".pg-sequence-container").innerHTML = "";
+    const clonedCustomSize = newGroup.querySelector(".pg-custom-paper-size");
+    if (clonedCustomSize) clonedCustomSize.style.display = "none";
+    const clonedSeq = newGroup.querySelector(".pg-sequence-container");
+    if (clonedSeq) clonedSeq.innerHTML = "";
     const clonedColorsBadge = newGroup.querySelector(".pg-summary-colors");
     if (clonedColorsBadge) clonedColorsBadge.remove();
 
@@ -356,20 +396,6 @@ const cutSizeOptions = window.JO_DATA.cutSizeOptions || [];
 const existingFieldValues = window.JO_DATA.existingFieldValues || {};
 // Same product list the paper-flow selects above use.
 const paperProductsAll = window.JO_DATA.allProducts || [];
-
-function npDistinctPaperTypes() {
-  return [...new Set(paperProductsAll.map((p) => p.product_type))].sort();
-}
-
-function npSizesForType(type) {
-  return [
-    ...new Set(
-      paperProductsAll
-        .filter((p) => p.product_type === type)
-        .map((p) => p.product_group),
-    ),
-  ].sort();
-}
 
 function npDistinctPaperTypes() {
   return [...new Set(paperProductsAll.map((p) => p.product_type))].sort();
@@ -561,7 +587,13 @@ function setupNpPaperStock(ptId, prefill) {
   const requiresPaper = pt && pt.requires_paper && pt.requires_paper != 0;
   if (!section || !container) return;
 
-  if (!requiresPaper) {
+  // This job already has paper stock saved against it. Hiding the section
+  // because the type's requires_paper flag is currently off would leave the
+  // rows in the DOM but unreachable — no way to view, change, or add a paper
+  // type, while they still get submitted. Keep it visible in that case.
+  const hasExistingRows = !!container.querySelector(".np-paper-group");
+
+  if (!requiresPaper && !(prefill && hasExistingRows)) {
     section.style.display = "none";
     container.innerHTML = "";
     return;

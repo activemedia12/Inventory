@@ -410,6 +410,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // "Paper Stock Used" groups are simpler (one color each) but share the
     // exact same shape, so both can go through the same logic below.
     $groups_for_deduction = !$is_non_paper ? $paper_groups : $np_paper_groups;
+    $usage_failed = [];
 
     if (!empty($groups_for_deduction)) {
         $product_ids = []; // "type|size|color" => product_id
@@ -449,6 +450,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             "INSERT INTO usage_logs (product_id, used_sheets, spoilage_sheets, log_date, job_order_id, usage_note)
              VALUES (?, ?, ?, ?, ?, ?)"
         );
+        // Old usage logs have already been deleted above, so a failure here
+        // silently wipes the job's stock deduction instead of updating it.
         foreach ($groups_for_deduction as $group) {
             $group_cut_size = $cut_size_map[$group['cut_size']] ?? 1;
             // Non-paper types have no meaningful "sets per bind" (same as
@@ -464,7 +467,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $spoil = intval($group['spoilage'][$i] ?? 0);
                 $note  = "Updated job order for " . $client_name;
                 $log_stmt->bind_param("iiisis", $prod_id, $group_used_sheets, $spoil, $log_date, $job_id, $note);
-                $log_stmt->execute();
+                if (!$log_stmt->execute()) {
+                    $usage_failed[] = $log_stmt->error;
+                    error_log("edit_job: usage_logs insert failed for job $job_id, product $prod_id: " . $log_stmt->error);
+                }
             }
         }
         $log_stmt->close();
@@ -577,7 +583,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // PRG redirect — back to wherever the user came from (preserving any
     // filters/pagination on the job orders list), falling back to the
     // plain list if that isn't available or safe.
-    $_SESSION['message'] = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> Job order updated successfully.</div>";
+    if (!empty($usage_failed)) {
+        $_SESSION['message'] = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Job order updated, but paper stock could NOT be deducted: "
+            . htmlspecialchars($usage_failed[0])
+            . ". The previous usage records for this job were cleared — please re-check inventory.</div>";
+    } else {
+        $_SESSION['message'] = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> Job order updated successfully.</div>";
+    }
     header("Location: $return_to");
     exit;
 }

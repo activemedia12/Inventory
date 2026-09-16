@@ -314,11 +314,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $np_paper_groups = [];
     $np_reams = 0;
 
-    if ($pt_row && !empty($pt_row['requires_paper'])) {
+    // Previously this whole block was gated on $pt_row['requires_paper'].
+    // That made the deduction silently vanish whenever the DB flag disagreed
+    // with what the form actually rendered (flag turned off after the type was
+    // already in use, stale page open in a tab, flag stored as '0'/NULL, etc.)
+    // — the job saved, the success message appeared, and no stock ever moved.
+    // If the form submitted paper stock rows, we honor them. The flag only
+    // controls whether the UI offers the section in the first place.
+    if (!empty($_POST['np_paper_group'])) {
       // Staff can add, remove, or override any of the admin-configured defaults
       // per order from the "Paper Stock Used" fields — a type can consume
       // more than one paper type/size (e.g. a box liner + a wrapper).
-      foreach ($_POST['np_paper_group'] ?? [] as $g) {
+      foreach ($_POST['np_paper_group'] as $g) {
         $g_type = trim($g['paper_type'] ?? '');
         $g_size = trim($g['paper_size'] ?? '');
         if ($g_type === '' || $g_size === '') continue;
@@ -332,7 +339,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $np_stock_stmt = $inventory->prepare("SELECT id FROM products WHERE product_type = ? AND product_group = ? AND product_name = ? LIMIT 1");
           $np_stock_stmt->bind_param("sss", $g_type, $g_size, $g_color);
         } else {
-          $np_stock_stmt = $inventory->prepare("SELECT id FROM products WHERE product_type = ? AND product_group = ? LIMIT 1");
+          // No specific color chosen. Without an ORDER BY, MySQL returns an
+          // arbitrary row, so the deduction lands on an unpredictable colour
+          // and looks like "the stock I picked wasn't registered". Order it
+          // so the choice is at least stable and reproducible.
+          $np_stock_stmt = $inventory->prepare("SELECT id, product_name FROM products WHERE product_type = ? AND product_group = ? ORDER BY id ASC LIMIT 1");
           $np_stock_stmt->bind_param("ss", $g_type, $g_size);
         }
         $np_stock_stmt->execute();
@@ -341,15 +352,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($np_result && $np_result->num_rows > 0) {
           $np_row = $np_result->fetch_assoc();
+          // When no colour was chosen we now know which product actually got
+          // picked — store that name instead of the opaque 'Any', so the saved
+          // breakdown reflects the stock that was really deducted.
+          $resolved_color = $g_color !== ''
+            ? $g_color
+            : ($np_row['product_name'] ?? 'Any');
           // Allow negative stock — just record the product for usage logging
-          $products_used[] = ['product_id' => $np_row['id'], 'color' => $g_color ?: null, 'sheets' => $g_sheets];
+          $products_used[] = ['product_id' => $np_row['id'], 'color' => $resolved_color, 'sheets' => $g_sheets];
           $np_paper_groups[] = [
             'paper_type'        => $g_type,
             'paper_size'        => $g_size,
             'custom_paper_size' => '',
             'cut_size'          => $g_cut_key,
             'copies_per_set'    => 1,
-            'paper_sequence'    => [$g_color !== '' ? $g_color : 'Any'],
+            'paper_sequence'    => [$resolved_color],
           ];
         } else {
           $color_note = $g_color !== '' ? " / $g_color" : '';
@@ -495,14 +512,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($stmt->execute()) {
       $job_order_id = $inventory->insert_id;
-      $usage_stmt = $inventory->prepare("INSERT INTO usage_logs (product_id, used_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, ?, ?, ?)");
-      foreach ($products_used as $prod) {
-        $note = "Auto-deducted from job order for $client_name";
-        $prod_sheets = $prod['sheets'];
-        $usage_stmt->bind_param("idsis", $prod['product_id'], $prod_sheets, $log_date, $job_order_id, $note);
-        $usage_stmt->execute();
+      // spoilage_sheets is written explicitly as 0. It was previously omitted,
+      // so if the column is NOT NULL without a default the insert failed —
+      // and because the return value was ignored, the job still saved and the
+      // "reams used" message still appeared while no stock ever moved.
+      $usage_stmt = $inventory->prepare("INSERT INTO usage_logs (product_id, used_sheets, spoilage_sheets, log_date, job_order_id, usage_note) VALUES (?, ?, 0, ?, ?, ?)");
+      $usage_failed = [];
+      if (!$usage_stmt) {
+        $usage_failed[] = $inventory->error;
+        error_log("job_orders: failed to prepare usage_logs insert: " . $inventory->error);
+      } else {
+        foreach ($products_used as $prod) {
+          $note = "Auto-deducted from job order for $client_name";
+          $prod_sheets = $prod['sheets'];
+          $usage_stmt->bind_param("idsis", $prod['product_id'], $prod_sheets, $log_date, $job_order_id, $note);
+          if (!$usage_stmt->execute()) {
+            $usage_failed[] = $usage_stmt->error;
+            error_log("job_orders: usage_logs insert failed for job $job_order_id, product {$prod['product_id']}: " . $usage_stmt->error);
+          }
+        }
+        $usage_stmt->close();
       }
-      $usage_stmt->close();
 
       // Persist the full multi-group breakdown — paper flow uses
       // $paper_groups, non-paper "Paper Stock Used" uses $np_paper_groups.
@@ -531,10 +561,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $jopi_stmt->close();
       }
 
-      if ($is_non_paper) {
+      if (!empty($usage_failed)) {
+        // Don't claim stock was deducted when it wasn't.
+        $_SESSION['message'] = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Job order saved, but paper stock could NOT be deducted: "
+          . htmlspecialchars($usage_failed[0])
+          . ". Please record the usage manually and report this error.</div>";
+      } elseif ($is_non_paper) {
         $_SESSION['message'] = !empty($products_used)
           ? "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> Job order saved. Reams used from paper stock: " . number_format($np_reams, 2) . "</div>"
-          : "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> Job order saved.</div>";
+          : "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> Job order saved. No paper stock was deducted for this product type.</div>";
       } else {
         $_SESSION['message'] = "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> Job order saved. Reams used per paper: " . number_format($reams, 2) . "</div>";
       }

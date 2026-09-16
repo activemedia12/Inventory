@@ -1813,10 +1813,27 @@ document.addEventListener("DOMContentLoaded", function () {
 
   groupsContainer.querySelectorAll(".paper-group").forEach(initPaperGroup);
 
+  // Snapshot the first group's markup up front so the Add button still works
+  // if the container is ever empty at click time (reading firstElementChild
+  // directly throws and silently adds nothing).
+  const paperGroupTemplateHtml =
+    groupsContainer.firstElementChild?.outerHTML || null;
+
   addGroupBtn.addEventListener("click", () => {
+    const templateHtml =
+      groupsContainer.firstElementChild?.outerHTML || paperGroupTemplateHtml;
+    if (!templateHtml) {
+      console.error(
+        "addPaperGroupBtn: no paper-group markup available to clone.",
+      );
+      alert(
+        "Couldn't add another paper type because the form didn't load correctly. Please refresh the page and try again.",
+      );
+      return;
+    }
     const idx = nextGroupIndex++;
     const wrapper = document.createElement("div");
-    wrapper.innerHTML = groupsContainer.firstElementChild.outerHTML;
+    wrapper.innerHTML = templateHtml;
     const newGroup = wrapper.firstElementChild;
     newGroup.dataset.groupIndex = idx;
     newGroup.dataset.presize = '""';
@@ -1831,8 +1848,10 @@ document.addEventListener("DOMContentLoaded", function () {
         el.value = "";
       }
     });
-    newGroup.querySelector(".pg-custom-paper-size").style.display = "none";
-    newGroup.querySelector(".pg-sequence-container").innerHTML = "";
+    const clonedCustomSize = newGroup.querySelector(".pg-custom-paper-size");
+    if (clonedCustomSize) clonedCustomSize.style.display = "none";
+    const clonedSeq = newGroup.querySelector(".pg-sequence-container");
+    if (clonedSeq) clonedSeq.innerHTML = "";
 
     groupsContainer.appendChild(newGroup);
     initPaperGroup(newGroup);
