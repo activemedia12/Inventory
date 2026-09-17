@@ -82,6 +82,142 @@ document.addEventListener("click", function (e) {
   });
 })();
 
+// ── Scroll-aware sticky search card ─────────────────────────────────
+// Scrolling down collapses everything in .search-card except the quick
+// search bar (so the sticky panel can't cover the whole screen while
+// Advanced Filters is open); scrolling up brings it back. Always shown
+// near the top of the page regardless of direction.
+//
+// max-height is driven from JS (not a fixed CSS number) because animating
+// max-height only eases smoothly between two explicit pixel values — a
+// guessed constant either clips tall content (Advanced Filters can get
+// tall on narrow screens) or makes short content "snap" instead of
+// gliding, since the transition duration is spread across the full
+// guessed range even though the visible change happens in a fraction of
+// it. Measuring real scrollHeight each time avoids both problems.
+(function () {
+  const searchCard = document.querySelector(".search-card");
+  if (!searchCard) return;
+
+  const collapsibleEls = Array.from(
+    searchCard.querySelectorAll(
+      "h3, .active-filter-chips, .advanced-filters, .search-row-actions",
+    ),
+  );
+  if (!collapsibleEls.length) return;
+
+  const SHOW_NEAR_TOP_PX = 80; // always expanded above this scroll position
+  const DIRECTION_THRESHOLD_PX = 6; // ignore tiny jitters (trackpads, etc.)
+  const TOGGLE_LOCKOUT_MS = 350; // let the transition + any layout settle before re-evaluating
+
+  let collapsed = false;
+  let referenceY = window.scrollY;
+  let ticking = false;
+  let lastToggleTime = 0;
+
+  function clearPendingRaf(el) {
+    if (el._joRaf) {
+      cancelAnimationFrame(el._joRaf);
+      el._joRaf = null;
+    }
+  }
+
+  function clearTransitionEnd(el) {
+    if (el._joTransitionHandler) {
+      el.removeEventListener("transitionend", el._joTransitionHandler);
+      el._joTransitionHandler = null;
+    }
+  }
+
+  function collapseEl(el) {
+    clearTransitionEnd(el);
+    clearPendingRaf(el); // don't let a stale "finish expanding" callback fight this
+    // Pin to current real height first, then let the next frame ease it
+    // down to 0 — jumping straight to "0" from "auto" can't animate.
+    el.style.maxHeight = el.scrollHeight + "px";
+    void el.offsetHeight; // force reflow so the browser registers the start value
+    el._joRaf = requestAnimationFrame(function () {
+      el._joRaf = null;
+      el.style.maxHeight = "0px";
+    });
+  }
+
+  function expandEl(el) {
+    clearTransitionEnd(el);
+    clearPendingRaf(el); // cancel any queued "collapse to 0" from a reversed scroll
+    el.style.maxHeight = el.scrollHeight + "px";
+    // Once fully open, drop the inline max-height so the element goes back
+    // to natural sizing (so it isn't stuck at a stale height if its
+    // content changes later, e.g. filter chips being added/removed).
+    const handler = function (e) {
+      if (e.target === el && e.propertyName === "max-height") {
+        el.style.maxHeight = "";
+      }
+    };
+    el._joTransitionHandler = handler;
+    el.addEventListener("transitionend", handler);
+  }
+
+  function setCollapsed(next) {
+    if (next === collapsed) return;
+    collapsed = next;
+    lastToggleTime = performance.now();
+    searchCard.classList.toggle("jo-scroll-collapsed", collapsed);
+    collapsibleEls.forEach(collapsed ? collapseEl : expandEl);
+  }
+
+  function update() {
+    ticking = false;
+    const now = performance.now();
+    const currentY = window.scrollY;
+
+    // Ignore direction checks for a short window right after we toggle —
+    // the collapse/expand animation itself changes page layout above the
+    // viewport, which can trigger a stray scroll event as things settle.
+    // Acting on that would misread our own animation as user input and
+    // immediately flip back, which is what caused the rapid-scroll
+    // flicker loop. We still refresh the reference point so a real scroll
+    // that happens during the lockout isn't lost once it ends.
+    if (now - lastToggleTime < TOGGLE_LOCKOUT_MS) {
+      referenceY = currentY;
+      return;
+    }
+
+    if (currentY <= SHOW_NEAR_TOP_PX) {
+      setCollapsed(false);
+      referenceY = currentY;
+      return;
+    }
+
+    // Measure movement against the last point where we actually decided
+    // something, not the previous frame — comparing frame-to-frame makes
+    // this trip on the tiny +/- pixel wobble inertial scrolling produces
+    // (especially while a scroll is decelerating), which was re-toggling
+    // the state mid-animation. Accumulating against a fixed reference
+    // means small back-and-forth noise doesn't count until real net
+    // movement in one direction has happened.
+    const delta = currentY - referenceY;
+    if (delta > DIRECTION_THRESHOLD_PX) {
+      setCollapsed(true); // scrolling down
+      referenceY = currentY;
+    } else if (delta < -DIRECTION_THRESHOLD_PX) {
+      setCollapsed(false); // scrolling up
+      referenceY = currentY;
+    }
+  }
+
+  window.addEventListener(
+    "scroll",
+    function () {
+      if (!ticking) {
+        window.requestAnimationFrame(update);
+        ticking = true;
+      }
+    },
+    { passive: true },
+  );
+})();
+
 document.addEventListener("DOMContentLoaded", function () {
   // ── Filter URL persistence ──────────────────────────────────────
   const FILTER_KEY = "jo_filter_url";

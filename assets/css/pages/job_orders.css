@@ -329,6 +329,59 @@ body {
   top: 12px;
   z-index: 50;
   box-shadow: 0 6px 16px rgba(20, 23, 31, 0.1);
+  /* Stops the browser's scroll-anchoring from "helpfully" compensating
+     scrollY when this box's height changes (our own collapse/expand
+     animation). Without this, shrinking/growing content above the
+     viewport can trigger a synthetic scroll adjustment that the
+     scroll-direction JS misreads as the user scrolling, causing a
+     collapse/expand feedback loop — worse the faster you scroll, since
+     bigger height changes trigger bigger compensations. */
+  overflow-anchor: none;
+}
+
+/* Scroll-aware sticky search: while the page is scrolling down, everything
+   below the quick search box (title, filter chips, Advanced Filters,
+   results summary row) collapses away so the sticky panel doesn't eat the
+   whole viewport. Scrolling back up restores it. Toggled by JS adding/
+   removing .jo-scroll-collapsed on .search-card — purely visual, the
+   underlying <details open> state (and all form values) are untouched.
+   max-height is NOT set here — animating max-height needs an explicit
+   pixel value on both ends or it snaps/clips instead of easing, so the JS
+   measures each element's real scrollHeight and sets/clears an inline
+   max-height at the right moments. This block only owns the properties
+   that are safe to animate purely with CSS. */
+.search-card > h3,
+.search-card .active-filter-chips,
+.search-card .advanced-filters,
+.search-card .search-row-actions {
+  overflow: hidden;
+  opacity: 1;
+  transition:
+    max-height 0.28s ease,
+    opacity 0.18s ease,
+    margin 0.28s ease,
+    padding 0.28s ease,
+    border-width 0.28s ease;
+}
+
+.search-card.jo-scroll-collapsed > h3,
+.search-card.jo-scroll-collapsed .active-filter-chips,
+.search-card.jo-scroll-collapsed .advanced-filters,
+.search-card.jo-scroll-collapsed .search-row-actions {
+  opacity: 0;
+  margin: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-width: 0 !important;
+  pointer-events: none;
+}
+
+/* Quick search row itself always stays put — no transition needed, it
+   never collapses — but tighten the card's own bottom padding a touch
+   while collapsed so the retained bar doesn't look like it's floating in
+   too much empty space. */
+.search-card.jo-scroll-collapsed {
+  padding-bottom: 14px;
 }
 
 /* Quick search — the single box most people need. Big, obvious, first.
