@@ -181,25 +181,16 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                 </div>
                 <div class="stat-period"><?= $out_of_stock > 0 ? '⚠️ Needs restocking' : '✓ All items in stock' ?></div>
             </div>
-        </div>
 
-        <!-- Add Insuance Form -->
-        <div class="form-card">
-            <h3><i class="fas fa-plus-circle"></i> Add New Consumable</h3>
-            <p class="form-note"><strong>Note:</strong> don't use the description field to specify the item type.</p>
-            <form method="POST">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="item_name">Item Name</label>
-                        <input type="text" id="item_name" name="item_name" required placeholder="e.g., Staples - 10.65mm">
-                    </div>
-                    <div class="form-group">
-                        <label for="description">Description (optional)</label>
-                        <input type="text" id="description" name="description">
-                    </div>
-                </div>
-                <button type="submit" class="btn" style="margin-top:16px;"><i class="fas fa-save"></i> Add Consumable</button>
-            </form>
+            <!-- Add Insuance Form (compact single-row form, sized to match the stat cards) -->
+            <div class="form-card stat-row-form">
+                <div class="stat-row-form-label"><i class="fas fa-plus-circle"></i> Add New Consumable</div>
+                <form method="POST" class="inline-add-form">
+                    <input type="text" name="item_name" required placeholder="Item name (e.g., Staples - 10.65mm)" title="Item Name">
+                    <input type="text" name="description" placeholder="Description (optional)" title="Description — don't use this to specify the item type">
+                    <button type="submit" class="btn" title="Add Consumable"><i class="fas fa-save"></i> Add</button>
+                </form>
+            </div>
         </div>
 
         <div class="form-card">

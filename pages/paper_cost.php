@@ -778,7 +778,7 @@ $js_reams        = $reams;
                                                     ?>
                                                         <div class="price-option-row" id="row_<?= $cssInputId ?>"
                                                             onclick="selectDigitalOption('<?= $sizeKey ?>','<?= $ctKey ?>','<?= $cssInputId ?>')">
-                                                            <i class="bi bi-check-circle option-radio" style="color:var(--border)"></i>
+                                                            <i class="bi bi-check-circle option-radio"></i>
                                                             <span class="option-label"><?= $ctLabel ?></span>
                                                             <div class="option-price-input">
                                                                 <span style="color:var(--text-muted);font-size:11px">₱</span>
@@ -800,7 +800,7 @@ $js_reams        = $reams;
                                                 ?>
                                                     <div class="price-option-row" id="row_<?= $cssInputId ?>"
                                                         onclick="selectDigitalOption('<?= htmlspecialchars($sizeLabel, ENT_QUOTES) ?>',null,'<?= $cssInputId ?>')">
-                                                        <i class="bi bi-check-circle option-radio" style="color:var(--border)"></i>
+                                                        <i class="bi bi-check-circle option-radio"></i>
                                                         <span class="option-label"><?= htmlspecialchars($sizeLabel) ?></span>
                                                         <div class="option-price-input">
                                                             <span style="color:var(--text-muted);font-size:11px">₱</span>

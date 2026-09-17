@@ -162,20 +162,38 @@ unset($_SESSION['message']);
 // FETCH Dropdowns
 $project_names = $inventory->query("SELECT DISTINCT project_name FROM job_orders ORDER BY project_name");
 
+// Quick Search — a single "search-everything" box that ORs across the
+// client/project/paper columns. This is the primary, always-visible field;
+// the field-specific inputs below live inside the Advanced Filters panel
+// for people who need to target one column precisely.
+$search_q = strtolower(trim($_GET['search_q'] ?? ''));
+
 $search_client = strtolower(trim($_GET['search_client'] ?? ''));
 $search_project = strtolower(trim($_GET['search_project'] ?? ''));
 $search_paper = strtolower(trim($_GET['search_paper'] ?? ''));
 $search_paper_size = strtolower(trim($_GET['search_paper_size'] ?? ''));
 $search_unpriced = isset($_GET['search_unpriced']) && $_GET['search_unpriced'] === '1';
 $search_priced = isset($_GET['search_priced']) && $_GET['search_priced'] === '1';
+// Print type filter: '' = All Types, 'paper' = Receipts (product_type_id IS NULL),
+// 'pt_<id>' = a specific active product type. Same value scheme as the
+// print-type selector in the Create Job Order form below.
+$search_print_type = trim($_GET['search_print_type'] ?? '');
 
 // New ones
 $search_date_from = trim($_GET['search_date_from'] ?? '');
 $search_date_to   = trim($_GET['search_date_to']   ?? '');
 
-// For price range (assuming you store total_cost as DECIMAL or similar)
-$search_price_min = trim($_GET['search_price_min'] ?? '');
-$search_price_max = trim($_GET['search_price_max'] ?? '');
+// Amount range filters — Total Cost is the amount charged to the client
+// (total_cost); Expenses is the production/manufacturing cost (grand_total).
+$search_cost_min = trim($_GET['search_cost_min'] ?? '');
+$search_cost_max = trim($_GET['search_cost_max'] ?? '');
+$search_cost_min = is_numeric($search_cost_min) ? $search_cost_min : '';
+$search_cost_max = is_numeric($search_cost_max) ? $search_cost_max : '';
+
+$search_expenses_min = trim($_GET['search_expenses_min'] ?? '');
+$search_expenses_max = trim($_GET['search_expenses_max'] ?? '');
+$search_expenses_min = is_numeric($search_expenses_min) ? $search_expenses_min : '';
+$search_expenses_max = is_numeric($search_expenses_max) ? $search_expenses_max : '';
 
 // Handle POST submission (PRG pattern)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -634,6 +652,21 @@ $where = "WHERE 1=1";
 $params = [];
 $types = "";
 
+if (!empty($search_q)) {
+  $where .= " AND (
+        LOWER(j.client_name) LIKE ?
+        OR LOWER(j.project_name) LIKE ?
+        OR LOWER(j.paper_type) LIKE ?
+        OR LOWER(j.paper_size) LIKE ?
+    )";
+  $like = '%' . $search_q . '%';
+  $params[] = $like;
+  $params[] = $like;
+  $params[] = $like;
+  $params[] = $like;
+  $types .= "ssss";
+}
+
 if (!empty($search_client)) {
   $where .= " AND LOWER(j.client_name) LIKE ?";
   $params[] = '%' . $search_client . '%';
@@ -658,6 +691,18 @@ if (!empty($search_paper_size)) {
   $types .= "s";
 }
 
+// ── Print type filter ────────────────────────────────────────────────
+if ($search_print_type === 'paper') {
+  $where .= " AND j.product_type_id IS NULL";
+} elseif (strpos($search_print_type, 'pt_') === 0) {
+  $pt_id = intval(substr($search_print_type, 3));
+  if ($pt_id > 0) {
+    $where .= " AND j.product_type_id = ?";
+    $params[] = $pt_id;
+    $types .= "i";
+  }
+}
+
 // ── Date range filter ────────────────────────────────────────────────
 if (!empty($search_date_from) && !empty($search_date_to)) {
   $where .= " AND j.log_date BETWEEN ? AND ?";
@@ -672,6 +717,30 @@ if (!empty($search_date_from) && !empty($search_date_to)) {
   $where .= " AND j.log_date <= ?";
   $params[] = $search_date_to;
   $types   .= "s";
+}
+
+// ── Amount range filters ────────────────────────────────────────────
+// Two separate ranges: Total Cost (total_cost — the amount charged to the
+// client) and Expenses (grand_total — production/manufacturing cost).
+if ($search_cost_min !== '') {
+  $where .= " AND j.total_cost >= ?";
+  $params[] = (float) $search_cost_min;
+  $types   .= "d";
+}
+if ($search_cost_max !== '') {
+  $where .= " AND j.total_cost <= ?";
+  $params[] = (float) $search_cost_max;
+  $types   .= "d";
+}
+if ($search_expenses_min !== '') {
+  $where .= " AND j.grand_total >= ?";
+  $params[] = (float) $search_expenses_min;
+  $types   .= "d";
+}
+if ($search_expenses_max !== '') {
+  $where .= " AND j.grand_total <= ?";
+  $params[] = (float) $search_expenses_max;
+  $types   .= "d";
 }
 
 if ($search_unpriced) {
@@ -808,6 +877,93 @@ while ($row = $result->fetch_assoc()) {
 }
 
 $total_results = $active_total + $completed_total;
+
+// ── Active filter chips ─────────────────────────────────────────────
+// Builds one removable chip per applied filter, so people can see at a
+// glance what's narrowing the list and drop a single one — instead of the
+// all-or-nothing "Clear Filters" link being the only way back.
+function remove_filter_url(array $keys) {
+  $q = $_GET;
+  foreach ($keys as $k) unset($q[$k]);
+  unset($q['completed_page']); // filtered set changed, back to page 1
+  $qs = http_build_query($q);
+  return 'job_orders.php' . ($qs !== '' ? '?' . $qs : '');
+}
+
+$active_filter_chips = [];
+
+if (!empty($_GET['search_q'])) {
+  $active_filter_chips[] = ['label' => 'Search: "' . htmlspecialchars(trim($_GET['search_q'])) . '"', 'url' => remove_filter_url(['search_q'])];
+}
+if (!empty($_GET['search_client'])) {
+  $active_filter_chips[] = ['label' => 'Client: ' . htmlspecialchars(trim($_GET['search_client'])), 'url' => remove_filter_url(['search_client'])];
+}
+if (!empty($_GET['search_project'])) {
+  $active_filter_chips[] = ['label' => 'Project: ' . htmlspecialchars(trim($_GET['search_project'])), 'url' => remove_filter_url(['search_project'])];
+}
+if (!empty($_GET['search_paper'])) {
+  $active_filter_chips[] = ['label' => 'Paper: ' . htmlspecialchars(trim($_GET['search_paper'])), 'url' => remove_filter_url(['search_paper'])];
+}
+if (!empty($_GET['search_paper_size'])) {
+  $active_filter_chips[] = ['label' => 'Paper Size: ' . htmlspecialchars(trim($_GET['search_paper_size'])), 'url' => remove_filter_url(['search_paper_size'])];
+}
+if ($search_date_from !== '' || $search_date_to !== '') {
+  if ($search_date_from !== '' && $search_date_to !== '') {
+    $date_label = htmlspecialchars($search_date_from) . ' – ' . htmlspecialchars($search_date_to);
+  } elseif ($search_date_from !== '') {
+    $date_label = 'From ' . htmlspecialchars($search_date_from);
+  } else {
+    $date_label = 'Until ' . htmlspecialchars($search_date_to);
+  }
+  $active_filter_chips[] = ['label' => 'Date: ' . $date_label, 'url' => remove_filter_url(['search_date_from', 'search_date_to'])];
+}
+if ($search_cost_min !== '' || $search_cost_max !== '') {
+  if ($search_cost_min !== '' && $search_cost_max !== '') {
+    $cost_label = '₱' . number_format((float)$search_cost_min) . ' – ₱' . number_format((float)$search_cost_max);
+  } elseif ($search_cost_min !== '') {
+    $cost_label = 'From ₱' . number_format((float)$search_cost_min);
+  } else {
+    $cost_label = 'Up to ₱' . number_format((float)$search_cost_max);
+  }
+  $active_filter_chips[] = ['label' => 'Total Cost: ' . $cost_label, 'url' => remove_filter_url(['search_cost_min', 'search_cost_max'])];
+}
+if ($search_expenses_min !== '' || $search_expenses_max !== '') {
+  if ($search_expenses_min !== '' && $search_expenses_max !== '') {
+    $exp_label = '₱' . number_format((float)$search_expenses_min) . ' – ₱' . number_format((float)$search_expenses_max);
+  } elseif ($search_expenses_min !== '') {
+    $exp_label = 'From ₱' . number_format((float)$search_expenses_min);
+  } else {
+    $exp_label = 'Up to ₱' . number_format((float)$search_expenses_max);
+  }
+  $active_filter_chips[] = ['label' => 'Expenses: ' . $exp_label, 'url' => remove_filter_url(['search_expenses_min', 'search_expenses_max'])];
+}
+if ($search_unpriced) {
+  $active_filter_chips[] = ['label' => 'Without Costs', 'url' => remove_filter_url(['search_unpriced'])];
+}
+if ($search_priced) {
+  $active_filter_chips[] = ['label' => 'With Costs', 'url' => remove_filter_url(['search_priced'])];
+}
+if ($search_print_type !== '') {
+  if ($search_print_type === 'paper') {
+    $pt_label = 'Receipts';
+  } else {
+    $pt_label = 'Print Type';
+    foreach ($active_product_types as $pt) {
+      if ('pt_' . $pt['id'] === $search_print_type) { $pt_label = $pt['name']; break; }
+    }
+  }
+  $active_filter_chips[] = ['label' => htmlspecialchars($pt_label), 'url' => remove_filter_url(['search_print_type'])];
+}
+
+// Whether any *advanced* (non-quick-search) filter is active — used to
+// auto-expand the Advanced Filters panel so a bookmarked/shared filtered
+// link doesn't hide the very filters that produced it.
+$advanced_filters_active = !empty($_GET['search_client']) || !empty($_GET['search_project'])
+  || !empty($_GET['search_paper']) || !empty($_GET['search_paper_size'])
+  || $search_date_from !== '' || $search_date_to !== ''
+  || $search_cost_min !== '' || $search_cost_max !== ''
+  || $search_expenses_min !== '' || $search_expenses_max !== ''
+  || $search_unpriced || $search_priced || $search_print_type !== '';
 
 $product_query = $inventory->query("
   SELECT 
@@ -965,78 +1121,6 @@ if (!empty($displayed_job_ids)) {
     <?php if ($message): ?>
       <?php echo $message; ?>
     <?php endif; ?>
-
-    <!-- Search Form (auto-applies as you type/select — no Filter button needed) -->
-    <div class="card search-card">
-      <h3>
-        <i class="fas fa-search"></i> Search Job Orders
-        <span id="searchLiveBadge" class="live-badge" style="display:none;">
-          <i class="fas fa-circle-notch fa-spin"></i> Searching...
-        </span>
-      </h3>
-      <form method="get" class="search-form" id="searchForm">
-        <div class="search-row search-row-fields">
-          <div class="form-group search-field">
-            <label for="search_client"><i class="fas fa-user"></i> Client Name</label>
-            <input type="text" id="search_client" name="search_client" placeholder="Search by client..." value="<?= htmlspecialchars($_GET['search_client'] ?? '') ?>" autocomplete="off">
-          </div>
-          <div class="form-group search-field">
-            <label for="search_project"><i class="fas fa-folder"></i> Project Name</label>
-            <input type="text" id="search_project" name="search_project" placeholder="Search by project..." value="<?= htmlspecialchars($_GET['search_project'] ?? '') ?>" autocomplete="off">
-          </div>
-          <div class="form-group search-field">
-            <label for="search_paper"><i class="fas fa-file"></i> Paper Type</label>
-            <input type="text" id="search_paper" name="search_paper" placeholder="e.g. Carbonless, Ordinary..." value="<?= htmlspecialchars($_GET['search_paper'] ?? '') ?>" autocomplete="off">
-          </div>
-          <div class="form-group search-field">
-            <label for="search_paper_size"><i class="fas fa-ruler-combined"></i> Paper Size</label>
-            <input type="text" id="search_paper_size" name="search_paper_size" placeholder="e.g. Long, Short, 11x17..." value="<?= htmlspecialchars($_GET['search_paper_size'] ?? '') ?>" autocomplete="off">
-          </div>
-          <div class="form-group search-field">
-            <label><i class="fas fa-calendar"></i> Date Range</label>
-            <div class="date-range-inputs">
-              <input type="date" name="search_date_from" value="<?= htmlspecialchars($search_date_from ?? '') ?>">
-              <span class="date-sep">to</span>
-              <input type="date" name="search_date_to" value="<?= htmlspecialchars($search_date_to ?? '') ?>">
-            </div>
-          </div>
-        </div>
-
-        <div class="search-row search-row-actions">
-          <div class="status-seg" role="group" aria-label="Cost status filter">
-            <button type="button" data-value="" class="<?= (!$search_unpriced && !$search_priced) ? 'active' : '' ?>">
-              <i class="fas fa-list"></i> All Orders
-            </button>
-            <button type="button" data-value="unpriced" class="<?= $search_unpriced ? 'active' : '' ?>">
-              <i class="fas fa-hourglass-half"></i> Without Costs
-            </button>
-            <button type="button" data-value="priced" class="<?= $search_priced ? 'active' : '' ?>">
-              <i class="fas fa-check-circle"></i> With Costs
-            </button>
-          </div>
-          <input type="hidden" name="search_unpriced" id="hidden_search_unpriced" value="<?= $search_unpriced ? '1' : '0' ?>">
-          <input type="hidden" name="search_priced" id="hidden_search_priced" value="<?= $search_priced ? '1' : '0' ?>">
-
-          <div class="results-summary <?= $total_results > 0 ? '' : 'no-results' ?>">
-            <?php if ($total_results > 0): ?>
-              <i class="fas fa-list-ul"></i>
-              <span>
-                <strong><?= number_format($total_results) ?></strong> job order<?= $total_results === 1 ? '' : 's' ?> found
-                <?php if (!empty(array_filter($_GET))): ?>
-                  <span class="results-summary-sub">matching your search</span>
-                <?php endif; ?>
-              </span>
-            <?php else: ?>
-              <span>
-                <span class="results-summary-sub">No job orders found matching your filters. Try adjusting or removing some filters.</span>
-              </span>
-            <?php endif; ?>
-          </div>
-
-          <a href="job_orders.php" class="btn btn-outline" style="text-decoration: none;" onclick="sessionStorage.removeItem('jo_filter_url')"><i class="fas fa-sync-alt"></i> Clear Filters</a>
-        </div>
-      </form>
-    </div>
 
     <div class="card">
       <div class="collapsible-form-header" onclick="toggleForm()">
@@ -1432,6 +1516,153 @@ if (!empty($displayed_job_ids)) {
       </div>
     </div>
 
+    <!-- Search Form (auto-applies as you type/select — no Filter button needed) -->
+    <div class="card search-card">
+      <h3>
+        <i class="fas fa-search"></i> Search Job Orders
+        <span id="searchLiveBadge" class="live-badge" style="display:none;">
+          <i class="fas fa-circle-notch fa-spin"></i> Searching...
+        </span>
+      </h3>
+      <form method="get" class="search-form" id="searchForm">
+
+        <!-- Quick search: the one box most people need. Matches client,
+             project, paper type and paper size at once. -->
+        <div class="quick-search-row">
+          <div class="quick-search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="search_q" name="search_q" placeholder="Search by client, project, paper type or size…" value="<?= htmlspecialchars($_GET['search_q'] ?? '') ?>" autocomplete="off">
+            <?php if (!empty($_GET['search_q'])): ?>
+              <a href="<?= remove_filter_url(['search_q']) ?>" class="quick-search-clear" title="Clear search"><i class="fas fa-times"></i></a>
+            <?php endif; ?>
+            <button type="submit" class="quick-search-btn"><i class="fas fa-search"></i> <span>Search</span></button>
+          </div>
+        </div>
+
+        <?php if (!empty($active_filter_chips)): ?>
+          <div class="active-filter-chips">
+            <span class="active-filter-chips-label">Filters:</span>
+            <?php foreach ($active_filter_chips as $chip): ?>
+              <a href="<?= $chip['url'] ?>" class="filter-chip">
+                <?= $chip['label'] ?> <i class="fas fa-times"></i>
+              </a>
+            <?php endforeach; ?>
+            <a href="job_orders.php" class="filter-chip filter-chip-clear-all" onclick="sessionStorage.removeItem('jo_filter_url')">Clear all</a>
+          </div>
+        <?php endif; ?>
+
+        <details class="advanced-filters" <?= $advanced_filters_active ? 'open' : '' ?>>
+          <summary>
+            <i class="fas fa-sliders-h"></i> Advanced Filters
+            <?php if ($advanced_filters_active): ?><span class="advanced-badge"><?= count($active_filter_chips) - (!empty($_GET['search_q']) ? 1 : 0) ?></span><?php endif; ?>
+            <i class="fas fa-chevron-down advanced-chevron"></i>
+          </summary>
+
+          <div class="search-columns">
+            <div class="search-col search-col-inputs">
+              <div class="form-group search-field">
+                <label for="search_client"><i class="fas fa-user"></i> Client Name</label>
+                <input type="text" id="search_client" name="search_client" placeholder="Exact client field..." value="<?= htmlspecialchars($_GET['search_client'] ?? '') ?>" autocomplete="off">
+              </div>
+              <div class="form-group search-field">
+                <label for="search_project"><i class="fas fa-folder"></i> Project Name</label>
+                <input type="text" id="search_project" name="search_project" placeholder="Exact project field..." value="<?= htmlspecialchars($_GET['search_project'] ?? '') ?>" autocomplete="off">
+              </div>
+              <div class="form-group search-field">
+                <label for="search_paper"><i class="fas fa-file"></i> Paper Type</label>
+                <input type="text" id="search_paper" name="search_paper" placeholder="e.g. Carbonless, Ordinary..." value="<?= htmlspecialchars($_GET['search_paper'] ?? '') ?>" autocomplete="off">
+              </div>
+              <div class="form-group search-field">
+                <label for="search_paper_size"><i class="fas fa-ruler-combined"></i> Paper Size</label>
+                <input type="text" id="search_paper_size" name="search_paper_size" placeholder="e.g. Long, Short, 11x17..." value="<?= htmlspecialchars($_GET['search_paper_size'] ?? '') ?>" autocomplete="off">
+              </div>
+              <div class="form-group search-field search-field-grow">
+                <label><i class="fas fa-calendar"></i> Date Range</label>
+                <div class="date-range-inputs">
+                  <input type="date" name="search_date_from" value="<?= htmlspecialchars($search_date_from ?? '') ?>">
+                  <span class="date-sep">to</span>
+                  <input type="date" name="search_date_to" value="<?= htmlspecialchars($search_date_to ?? '') ?>">
+                </div>
+              </div>
+              <div class="form-group search-field search-field-full">
+                <label><i class="fas fa-coins"></i> Total Cost / Amount Charged (₱)</label>
+                <div class="date-range-inputs">
+                  <input type="number" min="0" step="0.01" name="search_cost_min" placeholder="Min" value="<?= htmlspecialchars($search_cost_min) ?>">
+                  <span class="date-sep">to</span>
+                  <input type="number" min="0" step="0.01" name="search_cost_max" placeholder="Max" value="<?= htmlspecialchars($search_cost_max) ?>">
+                </div>
+              </div>
+              <div class="form-group search-field">
+                <label><i class="fas fa-receipt"></i> Expenses (₱)</label>
+                <div class="date-range-inputs">
+                  <input type="number" min="0" step="0.01" name="search_expenses_min" placeholder="Min" value="<?= htmlspecialchars($search_expenses_min) ?>">
+                  <span class="date-sep">to</span>
+                  <input type="number" min="0" step="0.01" name="search_expenses_max" placeholder="Max" value="<?= htmlspecialchars($search_expenses_max) ?>">
+                </div>
+              </div>
+            </div>
+
+            <div class="search-col search-col-selectables">
+              <div class="form-group">
+                <label><i class="fas fa-filter"></i> Cost Status</label>
+                <div class="status-seg" role="group" aria-label="Cost status filter">
+                  <button type="button" data-value="" class="<?= (!$search_unpriced && !$search_priced) ? 'active' : '' ?>">
+                    <i class="fas fa-list"></i> All Orders
+                  </button>
+                  <button type="button" data-value="unpriced" class="<?= $search_unpriced ? 'active' : '' ?>">
+                    <i class="fas fa-hourglass-half"></i> Without Costs
+                  </button>
+                  <button type="button" data-value="priced" class="<?= $search_priced ? 'active' : '' ?>">
+                    <i class="fas fa-check-circle"></i> With Costs
+                  </button>
+                </div>
+                <input type="hidden" name="search_unpriced" id="hidden_search_unpriced" value="<?= $search_unpriced ? '1' : '0' ?>">
+                <input type="hidden" name="search_priced" id="hidden_search_priced" value="<?= $search_priced ? '1' : '0' ?>">
+              </div>
+
+              <div class="form-group">
+                <label><i class="fas fa-tags"></i> Print Type</label>
+                <div class="print-type-seg" role="group" aria-label="Print type filter">
+                  <button type="button" data-value="" class="<?= $search_print_type === '' ? 'active' : '' ?>">
+                    <i class="fas fa-list"></i> All Types
+                  </button>
+                  <button type="button" data-value="paper" class="<?= $search_print_type === 'paper' ? 'active' : '' ?>">
+                    <i class="fas fa-file-alt"></i> Receipts
+                  </button>
+                  <?php foreach ($active_product_types as $pt): $pt_value = 'pt_' . $pt['id']; ?>
+                    <button type="button" data-value="<?= $pt_value ?>" class="<?= $search_print_type === $pt_value ? 'active' : '' ?>">
+                      <i class="fas <?= htmlspecialchars($pt['icon'] ?? 'fa-print') ?>"></i> <?= htmlspecialchars($pt['name']) ?>
+                    </button>
+                  <?php endforeach; ?>
+                </div>
+                <input type="hidden" name="search_print_type" id="hidden_search_print_type" value="<?= htmlspecialchars($search_print_type) ?>">
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <div class="search-row search-row-actions">
+          <div class="results-summary <?= $total_results > 0 ? '' : 'no-results' ?>">
+            <?php if ($total_results > 0): ?>
+              <i class="fas fa-list-ul"></i>
+              <span>
+                <strong><?= number_format($total_results) ?></strong> job order<?= $total_results === 1 ? '' : 's' ?> found
+                <?php if (!empty(array_filter($_GET))): ?>
+                  <span class="results-summary-sub">matching your search</span>
+                <?php endif; ?>
+              </span>
+            <?php else: ?>
+              <span>
+                <span class="results-summary-sub">No job orders found matching your filters. Try adjusting or removing some filters.</span>
+              </span>
+            <?php endif; ?>
+          </div>
+
+          <a href="job_orders.php" class="btn btn-outline" style="text-decoration: none;" onclick="sessionStorage.removeItem('jo_filter_url')"><i class="fas fa-sync-alt"></i> Clear Filters</a>
+        </div>
+      </form>
+    </div>
+
     <div class="status-sections-2x2-grid">
 
       <div class="status-column pending-column">
@@ -1480,6 +1711,10 @@ if (!empty($displayed_job_ids)) {
 
     </div>
   </div>
+
+  <button type="button" id="closeAllFoldersFab" class="close-all-folders-fab" onclick="closeAllFolders()" title="Close all folders">
+    <i class="fas fa-compress-alt"></i> <span>Close All Folders</span>
+  </button>
 
   <div id="jobModal" class="modal" style="display: none;">
     <div class="modal-content">

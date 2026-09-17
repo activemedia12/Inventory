@@ -6,6 +6,8 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../config/db.php';
+require_once 'papers_data.php';
+require_once 'papers_table_render.php';
 
 // Quick Stats
 $total_products = $inventory->query("SELECT COUNT(*) AS total FROM products")->fetch_assoc()['total'];
@@ -21,10 +23,6 @@ $out_of_stock = $inventory->query("
     ) AS stock ON p.id = stock.product_id
     WHERE IFNULL(balance, 0) <= 0
 ")->fetch_assoc()['total'];
-
-// Fetch filters
-$product_types = $inventory->query("SELECT DISTINCT product_type FROM products ORDER BY product_type");
-$product_groups = $inventory->query("SELECT DISTINCT product_group FROM products ORDER BY product_group");
 
 // Handle Add Product
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_type'], $_POST['product_group'], $_POST['product_name'], $_POST['unit_price'])) {
@@ -116,68 +114,14 @@ if (isset($_SESSION['success_message'])) {
   unset($_SESSION['warning_message']);
 }
 
-// Filters
-$stock_unit = $_GET['stock_unit'] ?? 'reams';
-$type_filter = $_GET['product_type'] ?? '';
-$size_filter = $_GET['product_group'] ?? '';
-$name_filter = $_GET['product_name'] ?? '';
+// Filters (partial, case-insensitive search terms)
+$stock_unit = ($_GET['stock_unit'] ?? 'reams') === 'sheets' ? 'sheets' : 'reams';
+$type_filter = trim($_GET['product_type'] ?? '');
+$size_filter = trim($_GET['product_group'] ?? '');
+$name_filter = trim($_GET['product_name'] ?? '');
 
-// Build main query
-$sql = "
-  SELECT 
-    p.id,
-    p.product_type, 
-    p.product_group AS paper_size, 
-    p.product_name, 
-    p.unit_price,
-    COALESCE(d.total_delivered, 0) - COALESCE(u.total_used, 0) AS available_sheets,
-    u2.username
-  FROM products p
-  LEFT JOIN (
-    SELECT product_id, SUM(delivered_reams * 500) AS total_delivered
-    FROM delivery_logs
-    GROUP BY product_id
-  ) d ON d.product_id = p.id
-  LEFT JOIN (
-    SELECT product_id, SUM(used_sheets + COALESCE(spoilage_sheets, 0)) AS total_used
-    FROM usage_logs
-    GROUP BY product_id
-  ) u ON u.product_id = p.id
-  LEFT JOIN users u2 ON p.created_by = u2.id
-  WHERE 1=1
-";
-
-$params = [];
-$types = '';
-if ($type_filter) {
-  $sql .= " AND p.product_type = ?";
-  $params[] = $type_filter;
-  $types .= 's';
-}
-if ($size_filter) {
-  $sql .= " AND p.product_group = ?";
-  $params[] = $size_filter;
-  $types .= 's';
-}
-if ($name_filter) {
-  $sql .= " AND p.product_name = ?";
-  $params[] = $name_filter;
-  $types .= 's';
-}
-$sql .= " ORDER BY p.product_type, p.product_group, p.product_name";
-
-$stmt = $inventory->prepare($sql);
-if ($types) {
-  $stmt->bind_param($types, ...$params);
-}
-$stmt->execute();
-$result = $stmt->get_result();
-
-$products = [];
-while ($row = $result->fetch_assoc()) {
-  $products[] = $row;
-}
-$stmt->close();
+$products = get_filtered_papers($inventory, $type_filter, $size_filter, $name_filter);
+$is_admin = ($_SESSION['role'] ?? '') === 'admin';
 ?>
 
 <!DOCTYPE html>
@@ -194,6 +138,15 @@ $stmt->close();
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
   <link rel="stylesheet" href="../assets/css/pages/papers.css">
+  <style>
+    /* Dim the table briefly while a live search request is in flight.
+       Move this into papers.css if/when convenient. */
+    #papers-table-content.papers-table-loading {
+      opacity: 0.5;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+    }
+  </style>
 </head>
 
 <body>
@@ -277,67 +230,42 @@ $stmt->close();
         </div>
         <div class="stat-period"><?= $out_of_stock > 0 ? '⚠️ Needs restocking' : '✓ All items in stock' ?></div>
       </div>
-    </div>
 
-    <!-- Add Product Form -->
-    <div class="form-card">
-      <h3><i class="fas fa-plus-circle"></i> Add New Paper</h3>
-      <form method="POST">
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="product_type">Paper Type</label>
-            <input type="text" id="product_type" name="product_type" placeholder="e.g. Bond Paper" required>
-          </div>
-
-          <div class="form-group">
-            <label for="product_group">Paper Size</label>
-            <input type="text" id="product_group" name="product_group" placeholder="e.g. A4" required>
-          </div>
-
-          <div class="form-group">
-            <label for="product_name">Paper Name</label>
-            <input type="text" id="product_name" name="product_name" placeholder="e.g. Premium White" required>
-          </div>
-
-          <div class="form-group">
-            <label for="unit_price">Unit Price</label>
-            <input type="number" step="0.01" id="unit_price" name="unit_price" placeholder="0.00" required>
-          </div>
-        </div>
-        <button type="submit" class="btn"><i class="fas fa-save"></i> Add Paper</button>
-      </form>
+      <!-- Add Product Form (compact single-row form, sized to match the stat cards) -->
+      <div class="form-card stat-row-form">
+        <div class="stat-row-form-label"><i class="fas fa-plus-circle"></i> Add New Paper</div>
+        <form method="POST" class="inline-add-form">
+          <input type="text" name="product_type" placeholder="Type (e.g. Ordinary)" title="Paper Type" required>
+          <input type="text" name="product_group" placeholder="Size (e.g. A4)" title="Paper Size" required>
+          <input type="text" name="product_name" placeholder="Name (e.g. White)" title="Paper Name" required>
+          <input type="number" step="0.01" name="unit_price" placeholder="₱0.00" title="Unit Price" required>
+          <button type="submit" class="btn" title="Add Paper"><i class="fas fa-save"></i> Add</button>
+        </form>
+      </div>
     </div>
 
     <!-- Filter Form -->
     <div class="form-card">
       <h3><i class="fas fa-filter"></i> Filter Papers</h3>
-      <form method="get" class="form-grid">
+      <div class="form-grid">
         <div class="form-group">
-          <label for="product_type_filter">Type</label>
-          <select id="product_type_filter" name="product_type" onchange="this.form.submit()">
-            <option value="">All Types</option>
-            <?php while ($row = $product_types->fetch_assoc()): ?>
-              <option value="<?= htmlspecialchars($row['product_type']) ?>" <?= $type_filter === $row['product_type'] ? 'selected' : '' ?>>
-                <?= htmlspecialchars($row['product_type']) ?>
-              </option>
-            <?php endwhile; ?>
-          </select>
+          <label for="filter_product_type">Paper Type</label>
+          <input type="text" id="filter_product_type" name="product_type" placeholder="e.g. Bond Paper"
+            value="<?= htmlspecialchars($type_filter) ?>" autocomplete="off">
         </div>
 
         <div class="form-group">
-          <label for="product_group_filter">Size</label>
-          <select id="product_group_filter" name="product_group" onchange="this.form.submit()">
-            <option value="">All Sizes</option>
-            <?php while ($row = $product_groups->fetch_assoc()): ?>
-              <option value="<?= htmlspecialchars($row['product_group']) ?>" <?= $size_filter === $row['product_group'] ? 'selected' : '' ?>>
-                <?= htmlspecialchars($row['product_group']) ?>
-              </option>
-            <?php endwhile; ?>
-          </select>
+          <label for="filter_product_name">Paper Name</label>
+          <input type="text" id="filter_product_name" name="product_name" placeholder="e.g. Premium White"
+            value="<?= htmlspecialchars($name_filter) ?>" autocomplete="off">
         </div>
 
-        <input type="hidden" name="stock_unit" value="<?= htmlspecialchars($stock_unit) ?>">
-      </form>
+        <div class="form-group">
+          <label for="filter_product_group">Paper Size</label>
+          <input type="text" id="filter_product_group" name="product_group" placeholder="e.g. A4"
+            value="<?= htmlspecialchars($size_filter) ?>" autocomplete="off">
+        </div>
+      </div>
     </div>
 
     <!-- Products Table -->
@@ -345,119 +273,16 @@ $stmt->close();
       <h3>
         <span><i class="fas fa-box-open"></i> Paper Inventory</span>
         <span class="stock-toggle">
-          <form method="get" style="display:inline;">
-            <input type="hidden" name="product_type" value="<?= htmlspecialchars($type_filter) ?>">
-            <input type="hidden" name="product_group" value="<?= htmlspecialchars($size_filter) ?>">
-            <input type="hidden" name="product_name" value="<?= htmlspecialchars($name_filter) ?>">
-            <select name="stock_unit" onchange="this.form.submit()">
-              <option value="reams" <?= $stock_unit == 'reams' ? 'selected' : '' ?>>Reams</option>
-              <option value="sheets" <?= $stock_unit == 'sheets' ? 'selected' : '' ?>>Sheets</option>
-            </select>
-          </form>
+          <select id="stock_unit_select" name="stock_unit">
+            <option value="reams" <?= $stock_unit == 'reams' ? 'selected' : '' ?>>Reams</option>
+            <option value="sheets" <?= $stock_unit == 'sheets' ? 'selected' : '' ?>>Sheets</option>
+          </select>
         </span>
       </h3>
 
-      <?php
-      // Group products by type, then by size (product_group) within each type,
-      // so every size's item count and combined stock is easy to spot at a glance.
-      $grouped_products = [];
-      foreach ($products as $prod) {
-        $grouped_products[$prod['product_type']][$prod['paper_size']][] = $prod;
-      }
-
-      // Same thresholds used on the dashboard: <=0 sheets is out of stock,
-      // under 10,000 sheets (20 reams) is running low.
-      function paper_stock_class($sheets)
-      {
-        if ($sheets <= 0) return 'low';
-        if ($sheets < 10000) return 'mid';
-        return 'high';
-      }
-
-      function format_stock($sheets, $stock_unit)
-      {
-        return $stock_unit === 'reams'
-          ? number_format($sheets / 500, 2) . ' reams'
-          : number_format($sheets, 2) . ' sheets';
-      }
-      ?>
-
-      <?php if (empty($grouped_products)): ?>
-        <div class="empty-message"><i class="fas fa-info-circle"></i> No papers found for the selected filters.</div>
-      <?php endif; ?>
-
-      <?php foreach ($grouped_products as $type => $sizes):
-        $type_item_count = array_sum(array_map('count', $sizes));
-        $type_total_sheets = 0;
-        foreach ($sizes as $items) {
-          $type_total_sheets += array_sum(array_column($items, 'available_sheets'));
-        }
-      ?>
-        <div class="product-type-block">
-          <h4 class="collapsible-header" data-key="<?= htmlspecialchars($type) ?>" onclick="toggleProductGroup(this)">
-            <span><i class="fas fa-chevron-right"></i> <?= htmlspecialchars($type) ?></span>
-            <span class="type-header-meta">
-              <span class="badge"><?= count($sizes) ?> size<?= count($sizes) === 1 ? '' : 's' ?></span>
-              <span class="badge"><?= $type_item_count ?> item<?= $type_item_count === 1 ? '' : 's' ?></span>
-              <span class="stock-pill <?= paper_stock_class($type_total_sheets) ?>"><?= format_stock($type_total_sheets, $stock_unit) ?></span>
-            </span>
-          </h4>
-
-          <div class="product-content">
-            <div class="size-groups">
-              <?php foreach ($sizes as $size => $items):
-                $size_total_sheets = array_sum(array_column($items, 'available_sheets'));
-              ?>
-                <div class="size-group">
-                  <div class="size-group-header">
-                    <div class="size-group-title">
-                      <span class="size-tag"><i class="fas fa-ruler-combined"></i> <?= htmlspecialchars($size) ?></span>
-                      <span class="size-count"><?= count($items) ?> item<?= count($items) === 1 ? '' : 's' ?></span>
-                    </div>
-                    <span class="stock-pill <?= paper_stock_class($size_total_sheets) ?>">
-                      <?= format_stock($size_total_sheets, $stock_unit) ?> total
-                    </span>
-                  </div>
-
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Unit Price</th>
-                        <th>Stock</th>
-                        <?php if ($_SESSION['role'] === 'admin'): ?>
-                          <th>Recorded By</th>
-                          <th>Actions</th>
-                        <?php endif; ?>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <?php foreach ($items as $prod): ?>
-                        <tr class="clickable-row" data-id="<?= $prod['id'] ?>">
-                          <td><?= htmlspecialchars($prod['product_name']) ?></td>
-                          <td>₱<?= number_format($prod['unit_price'], 2) ?></td>
-                          <td>
-                            <span class="stock-pill <?= paper_stock_class($prod['available_sheets']) ?>">
-                              <?= format_stock($prod['available_sheets'], $stock_unit) ?>
-                            </span>
-                          </td>
-                          <?php if ($_SESSION['role'] === 'admin'): ?>
-                            <td><?= htmlspecialchars($prod['username'] ?? 'Unknown') ?></td>
-                            <td class="action-cell">
-                              <a href="edit_product.php?id=<?= $prod['id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>
-                              <a href="delete_product.php?id=<?= $prod['id'] ?>" onclick="return confirm('Are you sure you want to delete this product?')" title="Delete"><i class="fas fa-trash"></i></a>
-                            </td>
-                          <?php endif; ?>
-                        </tr>
-                      <?php endforeach; ?>
-                    </tbody>
-                  </table>
-                </div>
-              <?php endforeach; ?>
-            </div>
-          </div>
-        </div>
-      <?php endforeach; ?>
+      <div id="papers-table-content">
+        <?= render_papers_table($products, $stock_unit, $is_admin) ?>
+      </div>
     </div>
 
   </div>

@@ -71,6 +71,15 @@ document.addEventListener("click", function (e) {
       submitForm();
     });
   });
+
+  // Print-type filter chips
+  const hiddenPrintType = document.getElementById("hidden_search_print_type");
+  form.querySelectorAll(".print-type-seg button").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      hiddenPrintType.value = this.dataset.value;
+      submitForm();
+    });
+  });
 })();
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -1143,6 +1152,48 @@ window.toggleDate = function (el) {
   const dateKey = normalizeKey(date);
 
   sessionStorage.setItem(`date-${clientKey}-${projectKey}-${dateKey}`, !isOpen);
+};
+
+// ✅ Close ALL folders (client / project / date) at once — and persist
+// that as closed so a page refresh doesn't reopen them from sessionStorage.
+window.closeAllFolders = function () {
+  document.querySelectorAll(".compact-client").forEach((clientEl) => {
+    const clientNameEl = clientEl.querySelector(".compact-client-name");
+    if (!clientNameEl) return;
+    const clientKey = normalizeKey(clientNameEl.textContent);
+
+    const projectGroup = clientEl.querySelector(".compact-project-group");
+    if (projectGroup) projectGroup.style.display = "none";
+    sessionStorage.setItem(`client-${clientKey}`, false);
+
+    clientEl
+      .querySelectorAll(".compact-project-header")
+      .forEach((projectEl) => {
+        const projectSpan = projectEl.querySelector("span");
+        if (!projectSpan) return;
+        const projectKey = normalizeKey(projectSpan.textContent);
+        sessionStorage.setItem(`project-${clientKey}-${projectKey}`, false);
+
+        const projectContent = projectEl.nextElementSibling;
+        if (!projectContent) return;
+        projectContent.style.display = "none";
+
+        projectContent
+          .querySelectorAll(".compact-date-header")
+          .forEach((dateEl) => {
+            const dateTextEl = dateEl.querySelector(".compact-date-text");
+            if (!dateTextEl) return;
+            const dateKey = normalizeKey(dateTextEl.textContent);
+            sessionStorage.setItem(
+              `date-${clientKey}-${projectKey}-${dateKey}`,
+              false,
+            );
+
+            const dateContent = dateEl.nextElementSibling;
+            if (dateContent) dateContent.style.display = "none";
+          });
+      });
+  });
 };
 
 // ✅ Restore all states on load (updated)
