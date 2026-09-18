@@ -509,32 +509,20 @@ if (isset($_SESSION['user_id'])) {
 </head>
 
 <body>
-    <header class="header">
-        <div class="container">
-            <nav class="navbar">
-                <a href="#" class="logo">
-                    <img src="../assets/images/plainlogo.png" alt="Active Media" class="logo-image">
-                    <span>Active Media Designs & Printing</span>
-                </a>
+    <!-- Side Pill Navigation -->
+    <nav class="side-nav" id="sideNav" aria-label="Primary">
+        <ul class="side-nav-list">
+            <li><a href="sub-main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li><a href="sub-ai_image.php" class="active"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
+            <li><a href="sub-about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
+            <li><a href="sub-contact.php"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
 
-                <ul class="nav-links">
-                    <li><a href="sub-main.php"><i class="fas fa-home"></i> Home</a></li>
-                    <li><a href="sub-ai_image.php"  class="active"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="sub-about.php"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="sub-contact.php"><i class="fas fa-phone"></i> Contact</a></li>
-                </ul>
+            <li class="side-nav-divider"></li>
 
-                <div class="auth-buttons">
-                    <a href="../accounts/login.php" class="btn log">Login</a>
-                    <a href="../accounts/customer.php" class="btn sign">Sign Up</a>
-                </div>
-
-                <div class="mobile-menu-toggle">
-                    <i class="fas fa-bars"></i>
-                </div>
-            </nav>
-        </div>
-    </header>
+            <li><a href="../accounts/login.php" class="log"><i class="fas fa-right-to-bracket"></i><span class="side-nav-label">Login</span></a></li>
+            <li><a href="../accounts/customer.php" class="sign"><i class="fas fa-user-plus"></i><span class="side-nav-label">Sign Up</span></a></li>
+        </ul>
+    </nav>
 
     <!-- AI Generator Section -->
     <section class="ai-generator-page">

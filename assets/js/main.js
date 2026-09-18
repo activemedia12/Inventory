@@ -14,77 +14,32 @@ const hiddenElements = document.querySelectorAll(".hide");
 hiddenElements.forEach((el) => observer.observe(el));
 
 document.addEventListener("DOMContentLoaded", function () {
-  // Header shadow on scroll
-  const header = document.querySelector(".header");
-  if (header) {
-    const toggleHeaderShadow = () => {
-      header.classList.toggle("scrolled", window.scrollY > 8);
-    };
-    toggleHeaderShadow();
-    window.addEventListener("scroll", toggleHeaderShadow, { passive: true });
-  }
+  // Side pill navigation — tap-to-expand for touch devices
+  const sideNavList = document.querySelector(".side-nav-list");
+  if (sideNavList) {
+    sideNavList.addEventListener("click", function (e) {
+      const isCollapsed = !sideNavList.classList.contains("active");
+      const linkClicked = e.target.closest("a");
 
-  const mobileMenuToggle = document.querySelector(".mobile-menu-toggle");
-
-  if (mobileMenuToggle) {
-    mobileMenuToggle.addEventListener("click", function (e) {
-      e.stopPropagation();
-      // Get references to all possible elements
-      const navLinks = document.querySelector(".nav-links");
-      const userInfo = document.querySelector(".user-info"); // For logged-in users
-      const authButtons = document.querySelector(".auth-buttons"); // For public users
-
-      // Toggle nav links
-      if (navLinks) navLinks.classList.toggle("active");
-
-      // Toggle user info (if exists - logged-in version)
-      if (userInfo) {
-        userInfo.classList.toggle("active");
+      // First tap on a touch device expands the pill instead of
+      // immediately following the link; second tap on the same
+      // link navigates normally.
+      if (isCollapsed && window.matchMedia("(hover: none)").matches) {
+        e.preventDefault();
+        sideNavList.classList.add("active");
+        return;
       }
 
-      // Toggle auth buttons (if exists - public version)
-      if (authButtons) {
-        authButtons.classList.toggle("active");
-      }
-
-      // Toggle menu icon
-      const icon = this.querySelector("i");
-      if (icon) {
-        if (icon.classList.contains("fa-bars")) {
-          icon.classList.remove("fa-bars");
-          icon.classList.add("fa-times");
-        } else {
-          icon.classList.remove("fa-times");
-          icon.classList.add("fa-bars");
-        }
+      if (!linkClicked) {
+        e.stopPropagation();
+        sideNavList.classList.toggle("active");
       }
     });
 
     document.addEventListener("click", function (e) {
-      const navLinks = document.querySelector(".nav-links");
-      const userInfo = document.querySelector(".user-info");
-      const authButtons = document.querySelector(".auth-buttons");
-      const isOpen =
-        (navLinks && navLinks.classList.contains("active")) ||
-        (userInfo && userInfo.classList.contains("active")) ||
-        (authButtons && authButtons.classList.contains("active"));
-
-      if (!isOpen) return;
-
-      const clickedInsideMenu = e.target.closest(
-        ".nav-links, .user-info, .auth-buttons, .mobile-menu-toggle",
-      );
-      if (clickedInsideMenu) return;
-
-      if (navLinks) navLinks.classList.remove("active");
-      if (userInfo) userInfo.classList.remove("active");
-      if (authButtons) authButtons.classList.remove("active");
-
-      const icon = mobileMenuToggle.querySelector("i");
-      if (icon) {
-        icon.classList.remove("fa-times");
-        icon.classList.add("fa-bars");
-      }
+      if (!sideNavList.classList.contains("active")) return;
+      if (e.target.closest(".side-nav")) return;
+      sideNavList.classList.remove("active");
     });
   }
 
@@ -325,6 +280,7 @@ function autoResize(textarea) {
     var overlay = root.querySelector(".scroll-expand__overlay");
     var title = root.querySelector(".scroll-expand__title");
     var hint = root.querySelector(".scroll-expand__hint");
+    var mark = root.querySelector(".intro-media__mark");
 
     if (!track || !stage || !frame || !media) return;
 
@@ -416,12 +372,23 @@ function autoResize(textarea) {
         hint.style.transform = "translate3d(0," + 8 * gone + "px,0)";
       }
 
+      /* How "in" the readable overlay text is — also used below to
+         recede the logo mark so it stops competing with that text. */
+      var inn = smoothstep(0.68, 1, p);
+
       if (overlay) {
-        var inn = smoothstep(0.68, 1, p);
         overlay.style.opacity = String(inn);
         overlay.style.transform = "translate3d(0," + 18 * (1 - inn) + "px,0)";
         /* Don't let invisible buttons swallow clicks */
         overlay.classList.toggle("is-live", inn > 0.6);
+      }
+
+      /* The mark is meant to be the resting-card visual. Once the
+         overlay text is about to read on top of it, fade it down to
+         a faint watermark instead of letting it fight the copy for
+         attention (both sit dead-center on the same point). */
+      if (mark) {
+        mark.style.opacity = String(1 - 0.82 * inn);
       }
     }
 
@@ -522,7 +489,6 @@ function autoResize(textarea) {
     }
 
     /* The logo can shift layout once it decodes */
-    var mark = root.querySelector(".intro-media__mark");
     if (mark && !mark.complete) {
       mark.addEventListener("load", onResize, { once: true });
     }

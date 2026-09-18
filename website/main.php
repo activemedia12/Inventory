@@ -100,59 +100,61 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 </head>
 
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <nav class="navbar">
-                <a href="#" class="logo">
-                    <img src="../assets/images/plainlogo.png" alt="Active Media" class="logo-image">
-                    <span>Active Media Designs & Printing</span>
-                </a>
+    <!-- Side Pill Navigation -->
+    <nav class="side-nav" id="sideNav" aria-label="Primary">
+        <ul class="side-nav-list">
+            <li><a href="main.php" class="active"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li><a href="ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
+            <li><a href="about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
+            <li><a href="contact.php"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
 
-                <ul class="nav-links">
-                    <li><a href="main.php" class="active"><i class="fas fa-home"></i> Home</a></li>
-                    <li><a href="ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="about.php"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="contact.php"><i class="fas fa-phone"></i> Contact</a></li>
-                </ul>
+            <li class="side-nav-divider"></li>
 
-                <div class="features">
-                    <a href="#" class="chat-icon" id="chatButton">
+            <li>
+                <a href="#" class="chat-icon" id="chatButton">
+                    <span class="side-nav-icon">
                         <i class="fas fa-comments"></i>
                         <span class="chat-count" id="chatCount">0</span>
-                    </a>
-                    <a href="view_cart.php" class="cart-icon">
+                    </span>
+                    <span class="side-nav-label">Chat</span>
+                </a>
+            </li>
+            <li>
+                <a href="view_cart.php" class="cart-icon">
+                    <span class="side-nav-icon">
                         <i class="fas fa-shopping-cart"></i>
                         <span class="cart-count"><?php echo $cart_count; ?></span>
-                    </a>
-                </div>
+                    </span>
+                    <span class="side-nav-label">Cart</span>
+                </a>
+            </li>
 
-                <div class="user-info" id="user-info">
-                    <a href="../pages/website/profile.php" class="user-profile">
-                        <i class="fas fa-user"></i>
-                        <span class="user-name">
-                            <?php
-                            if (!empty($user_data['first_name'])) {
-                                echo htmlspecialchars($user_data['first_name']);
-                            } elseif (!empty($user_data['company_name'])) {
-                                echo htmlspecialchars($user_data['company_name']);
-                            } else {
-                                echo 'User';
-                            }
-                            ?>
-                        </span>
-                    </a>
-                    <a href="../accounts/logout.php" class="logout-btn">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </a>
-                </div>
+            <li class="side-nav-divider"></li>
 
-                <div class="mobile-menu-toggle">
-                    <i class="fas fa-bars"></i>
-                </div>
-            </nav>
-        </div>
-    </header>
+            <li>
+                <a href="../pages/website/profile.php" class="user-profile">
+                    <i class="fas fa-user"></i>
+                    <span class="side-nav-label user-name">
+                        <?php
+                        if (!empty($user_data['first_name'])) {
+                            echo htmlspecialchars($user_data['first_name']);
+                        } elseif (!empty($user_data['company_name'])) {
+                            echo htmlspecialchars($user_data['company_name']);
+                        } else {
+                            echo 'User';
+                        }
+                        ?>
+                    </span>
+                </a>
+            </li>
+            <li>
+                <a href="../accounts/logout.php" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="side-nav-label">Log Out</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
 
     <!-- Site Intro — Scroll Expand -->
     <section class="scroll-expand" id="site-intro"
