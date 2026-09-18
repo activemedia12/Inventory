@@ -156,8 +156,8 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
     <!-- Site Intro — Scroll Expand -->
     <section class="scroll-expand" id="site-intro"
-        data-start-width="30"
-        data-start-height="40"
+        data-start-width="10"
+        data-start-height="20"
         data-start-radius="100"
         data-end-radius="0"
         data-media-zoom="1.5"
@@ -186,21 +186,21 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     <!-- Fades in only once the frame reaches full bleed -->
                     <div class="scroll-expand__overlay">
                         <div class="intro-overlay">
-                            <span class="intro-overlay__eyebrow"><span class="reg-mark"></span> Offset · Digital · RISO Printing</span>
-                            <h1 class="intro-overlay__title">Four inks, <span class="registered" data-text="one press.">one press.</span></h1>
-                            <p class="intro-overlay__text">Active Media Designs & Printing turns your files into finished print — flyers, business cards, packaging, and large runs — with the quality and turnaround your business can count on.</p>
+                            <span class="intro-overlay__eyebrow">Active Media Designs & Printing</span>
+                            <h1 class="intro-overlay__title">Prints that <span class="registered" data-text="speak.">speak.</span></h1>
+                            <!-- <p class="intro-overlay__text">Active Media Designs & Printing turns your files into finished print — flyers, business cards, packaging, and large runs — with the quality and turnaround your business can count on.</p> -->
 
                             <div class="intro-overlay__stats">
                                 <div class="intro-stat">
-                                    <span class="intro-stat__value">4</span>
-                                    <span class="intro-stat__label">Print processes</span>
+                                    <span class="intro-stat__value">Over 1000+ clients</span>
+                                    <span class="intro-stat__label">Satisfied customers</span>
                                 </div>
                                 <div class="intro-stat">
-                                    <span class="intro-stat__value">Same-day</span>
-                                    <span class="intro-stat__label">Proofing available</span>
+                                    <span class="intro-stat__value">Fast & Free delivery nationwide</span>
+                                    <span class="intro-stat__label">Quick turnaround</span>
                                 </div>
                                 <div class="intro-stat">
-                                    <span class="intro-stat__value">Malolos</span>
+                                    <span class="intro-stat__value">10+ years in service</span>
                                     <span class="intro-stat__label">Locally based</span>
                                 </div>
                             </div>
@@ -214,7 +214,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 </div>
 
                 <!-- Held over the resting frame, lifts away as it opens -->
-                <div class="scroll-expand__title">Four inks.<br>One press.</div>
+                <div class="scroll-expand__title">Welcome to<br>Active Media</div>
 
                 <!-- Disappears the moment you start scrolling -->
                 <div class="scroll-expand__hint">Scroll <i class="fas fa-arrow-down"></i></div>

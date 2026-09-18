@@ -2081,7 +2081,7 @@ img {
   letter-spacing: -0.03em;
   line-height: 0.95;
   color: var(--paper-white);
-  text-shadow: 0 4px 32px rgba(10, 8, 5, 0.6);
+  text-shadow: 0 4px 10px rgba(10, 8, 5, 0.6);
   pointer-events: none;
   will-change: opacity, transform;
 }
@@ -2127,11 +2127,7 @@ img {
 
 .intro-media {
   background:
-    radial-gradient(
-      120% 90% at 50% 38%,
-      rgba(250, 247, 241, 0.06),
-      transparent 70%
-    ),
+    radial-gradient(120% 90% at 50% 38%, rgb(40, 40, 40), transparent 70%),
     var(--ink);
   display: flex;
   align-items: center;
@@ -2157,8 +2153,9 @@ img {
   z-index: 1;
   width: min(22vw, 220px);
   max-width: none;
-  opacity: 0.95;
+  opacity: 1;
   filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.5));
+  margin: 6px 0 0 3px;
 }
 
 .intro-media__rule {
