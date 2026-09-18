@@ -522,7 +522,7 @@ function autoResize(textarea) {
     }
 
     /* The logo can shift layout once it decodes */
-    var mark = root.querySelector(".press-sheet__mark");
+    var mark = root.querySelector(".intro-media__mark");
     if (mark && !mark.complete) {
       mark.addEventListener("load", onResize, { once: true });
     }

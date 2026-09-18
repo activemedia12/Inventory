@@ -84,48 +84,17 @@ if ($result === false) {
         </div>
     </header>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="hero-background">
-            <div class="hero-halftone"></div>
-            <img src="../assets/images/plainlogo.png" alt="" class="hero-mark">
-            <div class="hero-overlay"></div>
-        </div>
-        <div class="container hero-grid">
-            <div class="hero-content">
-                <span class="hero-kicker"><span class="reg-mark"></span> Offset · Digital · RISO Printing</span>
-                <h1 class="hero-title">Four inks, <span class="registered" data-text="one press.">one press.</span></h1>
-                <p class="hero-subtitle">Active Media Designs & Printing turns your files into finished print — flyers, business cards, packaging, and large runs — with the quality and turnaround your business can count on.</p>
-                <div class="hero-actions">
-                    <a href="#services" class="btn btn-primary">Explore Services</a>
-                    <a href="../accounts/login.php" class="btn btn-secondary">Request a Quote</a>
-                </div>
-            </div>
-            <div class="hero-visual">
-                <span class="hero-badge"><span class="hero-badge-dot"></span> Locally based in Malolos</span>
-                <div class="logo-stage">
-                    <svg class="logo-stage-ring" viewBox="0 0 300 300" width="340" height="340" aria-hidden="true">
-                        <circle cx="150" cy="150" r="128" fill="none" stroke="currentColor" stroke-width="1" />
-                        <circle cx="150" cy="150" r="148" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 8" />
-                    </svg>
-                    <img src="../assets/images/plainlogo.png" alt="Active Media Designs & Printing mark" class="logo-stage-image">
-                </div>
-            </div>
-        </div>
-        <div class="hero-fade"></div>
-    </section>
-
-    <!-- Scroll Expand -->
-    <section class="scroll-expand" id="pressExpand"
-        data-start-width="42"
-        data-start-height="58"
-        data-start-radius="24"
+    <!-- Site Intro — Scroll Expand -->
+    <section class="scroll-expand" id="site-intro"
+        data-start-width="30"
+        data-start-height="40"
+        data-start-radius="100"
         data-end-radius="0"
         data-media-zoom="1.35"
         data-scroll-distance="1.2"
-        data-hold-distance="0.35"
-        data-smoothing="0.1"
-        data-overlay-scrim="0.45">
+        data-hold-distance="2"
+        data-smoothing="0.2"
+        data-overlay-scrim="0.5">
 
         <div class="scroll-expand__track">
             <div class="scroll-expand__stage">
@@ -133,46 +102,42 @@ if ($result === false) {
                 <!-- The frame is what gets clipped open as you scroll -->
                 <div class="scroll-expand__frame">
 
-                    <!-- Media: a CSS-built press sheet, so it looks sharp at any size.
-                         Swap the whole .press-sheet block for a single
-                         <img class="scroll-expand__media" src="..."> if you get a
-                         real press/shop photo later. -->
-                    <div class="scroll-expand__media press-sheet">
-                        <div class="press-sheet__plates"></div>
-                        <div class="press-sheet__halftone"></div>
-                        <div class="press-sheet__registration">
-                            <span class="press-sheet__crop press-sheet__crop--tl"></span>
-                            <span class="press-sheet__crop press-sheet__crop--tr"></span>
-                            <span class="press-sheet__crop press-sheet__crop--bl"></span>
-                            <span class="press-sheet__crop press-sheet__crop--br"></span>
-                        </div>
-                        <img src="../assets/images/plainlogo.png" alt="" class="press-sheet__mark">
+                    <!-- Media: minimal ink panel + mark, built in CSS so it
+                         stays crisp at any size. Swap for a real photo any
+                         time: <img class="scroll-expand__media" src="..."> -->
+                    <div class="scroll-expand__media intro-media">
+                        <div class="intro-media__grid"></div>
+                        <img src="../assets/images/plainlogo.png" alt="" class="intro-media__mark">
+                        <span class="intro-media__rule"></span>
                     </div>
 
                     <div class="scroll-expand__scrim"></div>
 
                     <!-- Fades in only once the frame reaches full bleed -->
                     <div class="scroll-expand__overlay">
-                        <div class="press-overlay">
-                            <span class="press-overlay__eyebrow">
-                                <span class="reg-mark"></span> Edge to edge, every sheet
-                            </span>
-                            <h2 class="press-overlay__title">From your file to the finished stack.</h2>
-                            <p class="press-overlay__text">
-                                Offset for the long runs, digital when you needed it yesterday,
-                                RISO when the colour has to shout. One shop, four presses, no hand-offs.
-                            </p>
+                        <div class="intro-overlay">
+                            <span class="intro-overlay__eyebrow"><span class="reg-mark"></span> Offset · Digital · RISO Printing</span>
+                            <h1 class="intro-overlay__title">Four inks, <span class="registered" data-text="one press.">one press.</span></h1>
+                            <p class="intro-overlay__text">Active Media Designs & Printing turns your files into finished print — flyers, business cards, packaging, and large runs — with the quality and turnaround your business can count on.</p>
 
-                            <ul class="press-overlay__inks">
-                                <li class="ink-chip" data-ink="cyan"><span></span>Cyan</li>
-                                <li class="ink-chip" data-ink="magenta"><span></span>Magenta</li>
-                                <li class="ink-chip" data-ink="yellow"><span></span>Yellow</li>
-                                <li class="ink-chip" data-ink="black"><span></span>Key</li>
-                            </ul>
+                            <div class="intro-overlay__stats">
+                                <div class="intro-stat">
+                                    <span class="intro-stat__value">4</span>
+                                    <span class="intro-stat__label">Print processes</span>
+                                </div>
+                                <div class="intro-stat">
+                                    <span class="intro-stat__value">Same-day</span>
+                                    <span class="intro-stat__label">Proofing available</span>
+                                </div>
+                                <div class="intro-stat">
+                                    <span class="intro-stat__value">Malolos</span>
+                                    <span class="intro-stat__label">Locally based</span>
+                                </div>
+                            </div>
 
                             <div class="hero-actions">
                                 <a href="#services" class="btn btn-primary">Explore Services</a>
-                                <a href="#all-services" class="btn btn-secondary">Browse the catalogue</a>
+                                <a href="view_cart.php" class="btn btn-secondary">Request a Quote</a>
                             </div>
                         </div>
                     </div>

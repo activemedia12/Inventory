@@ -485,257 +485,11 @@ img {
   background-color: var(--paper-dim);
 }
 
-/* ---------- Hero ---------- */
-.hero {
-  position: relative;
-  padding: 88px 0 0;
-  overflow: hidden;
-  background-color: var(--ink);
-  isolation: isolate;
-}
-
-/* Soft transition into the next section instead of a hard cut */
-.hero-fade {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 140px;
-  background: linear-gradient(180deg, transparent, var(--paper));
-  z-index: 1;
-  pointer-events: none;
-}
-
-/* Background is built directly from the logo's four ink colors:
-   a halftone field, soft magenta/cyan/yellow plate glows (as if
-   misregistered like the puzzle-piece mark), and the mark itself
-   bled off the edge as a low-opacity watermark. */
-.hero-background {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-}
-
-.hero-halftone {
-  position: absolute;
-  inset: 0;
-  color: rgba(250, 247, 241, 0.1);
-  background-image: radial-gradient(currentColor 1px, transparent 1.6px);
-  background-size: 16px 16px;
-  mask-image: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0.9) 0%,
-    rgba(0, 0, 0, 0.35) 70%,
-    transparent 100%
-  );
-}
-
-.hero-mark {
-  position: absolute;
-  top: 50%;
-  right: -8%;
-  transform: translateY(-50%);
-  width: min(56vw, 780px);
-  opacity: 0.16;
-  filter: grayscale(1) brightness(1.6);
-  pointer-events: none;
-}
-
-.hero-overlay {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(
-      circle at 85% 15%,
-      rgba(253, 10, 136, 0.32),
-      transparent 42%
-    ),
-    radial-gradient(
-      circle at 12% 85%,
-      rgba(27, 130, 196, 0.4),
-      transparent 45%
-    ),
-    radial-gradient(
-      circle at 60% 100%,
-      rgba(252, 226, 1, 0.14),
-      transparent 40%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(10, 10, 10, 0.86) 0%,
-      rgba(10, 10, 10, 0.94) 100%
-    );
-  z-index: -1;
-}
-
-.hero .container.hero-grid {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1.1fr 0.75fr;
-  gap: 48px;
-  align-items: center;
-  padding-bottom: 140px;
-}
-
-.hero-content {
-  color: var(--paper-white);
-  text-align: left;
-}
-
-.hero-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--paper);
-  opacity: 0.8;
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 22px;
-}
-
-.hero-title {
-  font-size: clamp(2.4rem, 4vw, 3.6rem);
-  font-weight: 600;
-  margin-bottom: 20px;
-  position: relative;
-  width: fit-content;
-}
-
-/* Misregistration effect: a signature nod to CMYK print-plate
-   alignment, used once as the hero's single bold moment */
-.hero-title .registered {
-  position: relative;
-  display: inline-block;
-  color: var(--paper-white);
-}
-
-.hero-title .registered::before,
-.hero-title .registered::after {
-  content: attr(data-text);
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  z-index: -1;
-}
-
-.hero-title .registered::before {
-  color: var(--cmyk-magenta);
-  transform: translate(3px, 2px);
-  opacity: 0.8;
-}
-
-.hero-title .registered::after {
-  color: var(--cmyk-cyan);
-  transform: translate(-3px, -2px);
-  opacity: 0.65;
-}
-
-.hero-subtitle {
-  font-size: 1.15rem;
-  color: var(--paper);
-  opacity: 0.82;
-  max-width: 52ch;
-  margin-bottom: 34px;
-}
-
+/* ---------- Shared action row (used by CTA section + intro) ---------- */
 .hero-actions {
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
-}
-
-.hero .btn-secondary {
-  color: var(--paper-white);
-  border-color: rgba(250, 247, 241, 0.5);
-}
-
-.hero .btn-secondary:hover {
-  background-color: var(--paper-white);
-  color: var(--ink);
-}
-
-/* Logo showcase — the mark itself is the hero visual, floating in
-   a soft ink stage instead of a generic product mockup */
-.hero-visual {
-  position: relative;
-  height: 100%;
-  min-height: 340px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 26px;
-}
-
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: var(--r-pill);
-  background: rgba(250, 247, 241, 0.08);
-  border: 1px solid rgba(250, 247, 241, 0.18);
-  color: var(--paper);
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.hero-badge-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--cmyk-yellow);
-  box-shadow: 0 0 0 4px rgba(252, 226, 1, 0.18);
-}
-
-.logo-stage {
-  position: relative;
-  width: 300px;
-  height: 300px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.logo-stage-ring {
-  position: absolute;
-  inset: -30px;
-  z-index: 0;
-  color: rgba(250, 247, 241, 0.16);
-  animation: spin-slow 40s linear infinite;
-}
-
-@keyframes spin-slow {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.logo-stage-image {
-  position: relative;
-  z-index: 1;
-  width: 68%;
-  filter: drop-shadow(0 24px 48px rgba(0, 0, 0, 0.55));
-  animation: logo-float 6s var(--ease) infinite;
-}
-
-@keyframes logo-float {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-2deg);
-  }
-  50% {
-    transform: translateY(-14px) rotate(2deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .logo-stage-ring,
-  .logo-stage-image {
-    animation: none;
-  }
 }
 
 /* ---------- Section headers ---------- */
@@ -2090,49 +1844,6 @@ img {
   }
 }
 
-@media (max-width: 992px) {
-  .hero .container.hero-grid {
-    grid-template-columns: 1fr;
-    text-align: center;
-    padding-bottom: 80px;
-  }
-
-  .hero-fade {
-    height: 90px;
-  }
-
-  .hero-content {
-    text-align: center;
-  }
-
-  .hero-title {
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .hero-subtitle {
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .hero-actions {
-    justify-content: center;
-  }
-
-  .hero-visual {
-    height: auto;
-    min-height: 0;
-  }
-
-  .hero-mark {
-    opacity: 0.1;
-  }
-
-  .logo-stage {
-    transform: scale(0.85);
-  }
-}
-
 @media (max-width: 900px) {
   .nav-links,
   .features {
@@ -2288,7 +1999,6 @@ img {
   top: 0;
   width: 100%;
   overflow: hidden;
-  background-color: var(--paper);
   --se-title-size: 4rem;
   /* Height is set by JS to match the viewport */
 }
@@ -2301,6 +2011,10 @@ img {
   clip-path: inset(21% 29% 21% 29% round 24px);
   will-change: clip-path;
   background-color: var(--ink);
+  /* box-shadow is clipped away by clip-path and never actually
+     renders here — filter runs on the already-clipped shape, so
+     this is what actually gives the resting card its elevation. */
+  filter: drop-shadow(0 26px 56px rgba(0, 0, 0, 0.5));
 }
 
 .scroll-expand__media {
@@ -2366,8 +2080,7 @@ img {
   letter-spacing: -0.03em;
   line-height: 0.95;
   color: var(--paper-white);
-  text-shadow: 0 2px 28px rgba(10, 8, 5, 0.55);
-  mix-blend-mode: difference;
+  text-shadow: 0 4px 32px rgba(10, 8, 5, 0.6);
   pointer-events: none;
   will-change: opacity, transform;
 }
@@ -2406,217 +2119,196 @@ img {
 }
 
 /* =========================================================
-   Press-sheet media — built in CSS from your four brand inks
-   so it stays crisp from the small resting frame all the way
-   out to full bleed. Replace with a photo when you have one.
+   Intro media — a minimal ink panel: fine grid, the mark, and
+   a single accent rule. Swap for a real photo any time:
+   <img class="scroll-expand__media" src="...">
    ========================================================= */
 
-.press-sheet {
-  background-color: var(--ink);
-  overflow: hidden;
-}
-
-.press-sheet__plates {
-  position: absolute;
-  inset: -12%;
+.intro-media {
   background:
     radial-gradient(
-      40% 44% at 22% 30%,
-      rgba(253, 10, 136, 0.5),
+      120% 90% at 50% 38%,
+      rgba(250, 247, 241, 0.06),
       transparent 70%
     ),
-    radial-gradient(
-      42% 46% at 76% 26%,
-      rgba(27, 130, 196, 0.5),
-      transparent 70%
-    ),
-    radial-gradient(
-      46% 42% at 50% 84%,
-      rgba(252, 226, 1, 0.34),
-      transparent 72%
-    ),
-    radial-gradient(60% 60% at 50% 50%, rgba(23, 20, 15, 0.25), var(--ink) 78%);
-  filter: blur(6px);
+    var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.press-sheet__halftone {
+.intro-media__grid {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(
-    rgba(250, 247, 241, 0.16) 1px,
-    transparent 1.6px
+  background-image:
+    linear-gradient(rgba(250, 247, 241, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(250, 247, 241, 0.09) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(
+    circle at 50% 50%,
+    rgba(0, 0, 0, 0.9),
+    transparent 75%
   );
-  background-size: 15px 15px;
-  mix-blend-mode: overlay;
 }
 
-/* Crop marks, like a press proof */
-.press-sheet__registration {
-  position: absolute;
-  inset: 5.5%;
-  pointer-events: none;
+.intro-media__mark {
+  position: relative;
+  z-index: 1;
+  width: min(22vw, 220px);
+  max-width: none;
+  opacity: 0.95;
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.5));
 }
 
-.press-sheet__crop {
-  position: absolute;
-  width: 26px;
-  height: 26px;
-  border-color: rgba(250, 247, 241, 0.42);
-  border-style: solid;
-  border-width: 0;
-}
-
-.press-sheet__crop--tl {
-  top: 0;
-  left: 0;
-  border-top-width: 1px;
-  border-left-width: 1px;
-}
-.press-sheet__crop--tr {
-  top: 0;
-  right: 0;
-  border-top-width: 1px;
-  border-right-width: 1px;
-}
-.press-sheet__crop--bl {
-  bottom: 0;
-  left: 0;
-  border-bottom-width: 1px;
-  border-left-width: 1px;
-}
-.press-sheet__crop--br {
-  bottom: 0;
-  right: 0;
-  border-bottom-width: 1px;
-  border-right-width: 1px;
-}
-
-.press-sheet__mark {
+.intro-media__rule {
   position: absolute;
   left: 50%;
-  top: 50%;
-  width: min(38vw, 420px);
-  max-width: none;
-  transform: translate(-50%, -50%);
-  opacity: 0.9;
-  filter: drop-shadow(0 22px 44px rgba(0, 0, 0, 0.45));
+  bottom: 14%;
+  width: 56px;
+  height: 2px;
+  background: var(--riso-red);
+  transform: translateX(-50%);
 }
 
 /* ---------- Overlay content ---------- */
-.press-overlay {
-  max-width: 760px;
+.intro-overlay {
+  max-width: 640px;
   color: var(--paper-white);
 }
 
-.press-overlay__eyebrow {
+.intro-overlay__eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 14px;
-  font-size: 13.5px;
+  margin-bottom: 18px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--paper);
-  opacity: 0.85;
+  opacity: 0.75;
 }
 
-.press-overlay__title {
+.intro-overlay__title {
+  position: relative;
+  display: inline-block;
+  width: fit-content;
+  margin: 0 auto 18px;
   font-family: var(--font-display);
-  font-size: clamp(1.9rem, 4vw, 3.1rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.06;
-  margin-bottom: 16px;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
   color: var(--paper-white);
 }
 
-.press-overlay__text {
-  max-width: 560px;
-  margin: 0 auto 26px;
-  font-size: 1.02rem;
+/* Misregistration accent — the brand's one signature print motif,
+   kept to this single deliberate moment */
+.intro-overlay__title .registered {
+  position: relative;
+  display: inline-block;
+  color: var(--paper-white);
+}
+
+.intro-overlay__title .registered::before,
+.intro-overlay__title .registered::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: -1;
+}
+
+.intro-overlay__title .registered::before {
+  color: var(--cmyk-magenta);
+  transform: translate(3px, 2px);
+  opacity: 0.75;
+}
+
+.intro-overlay__title .registered::after {
+  color: var(--cmyk-cyan);
+  transform: translate(-3px, -2px);
+  opacity: 0.6;
+}
+
+.intro-overlay__text {
+  max-width: 52ch;
+  margin: 0 auto 36px;
+  font-size: 1.05rem;
   line-height: 1.6;
   color: var(--paper);
-  opacity: 0.88;
+  opacity: 0.82;
 }
 
-.press-overlay__inks {
+.intro-overlay__stats {
   display: flex;
   justify-content: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  list-style: none;
-  margin: 0 0 30px;
-  padding: 0;
+  margin: 0 auto 36px;
+  width: fit-content;
 }
 
-.ink-chip {
-  display: inline-flex;
+.intro-stat {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 7px 16px 7px 12px;
-  border-radius: var(--r-pill);
-  border: 1px solid rgba(250, 247, 241, 0.28);
-  background: rgba(250, 247, 241, 0.07);
-  font-size: 12.5px;
+  gap: 4px;
+  padding: 0 28px;
+  border-left: 1px solid rgba(250, 247, 241, 0.16);
+}
+
+.intro-stat:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+
+.intro-stat:last-child {
+  padding-right: 0;
+}
+
+.intro-stat__value {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
   font-weight: 600;
+  color: var(--paper-white);
+}
+
+.intro-stat__label {
+  font-size: 11.5px;
+  font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--paper);
+  opacity: 0.6;
 }
 
-.ink-chip span {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  flex: none;
-}
-
-.ink-chip[data-ink="cyan"] span {
-  background: var(--cmyk-cyan);
-}
-.ink-chip[data-ink="magenta"] span {
-  background: var(--cmyk-magenta);
-}
-.ink-chip[data-ink="yellow"] span {
-  background: var(--cmyk-yellow);
-}
-.ink-chip[data-ink="black"] span {
-  background: var(--paper-white);
-}
-
-.press-overlay .hero-actions {
+.intro-overlay .hero-actions {
   justify-content: center;
 }
 
 /* btn-secondary is built for light backgrounds — invert it here */
-.press-overlay .btn-secondary {
+.intro-overlay .btn-secondary {
   color: var(--paper-white);
   border-color: rgba(250, 247, 241, 0.5);
   background-color: transparent;
 }
 
-.press-overlay .btn-secondary:hover {
+.intro-overlay .btn-secondary:hover {
   background-color: var(--paper-white);
   color: var(--ink);
 }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 768px) {
-  .press-sheet__mark {
-    width: min(62vw, 300px);
+  .intro-media__mark {
+    width: min(38vw, 160px);
   }
 
-  .press-overlay__inks {
-    gap: 8px;
-    margin-bottom: 22px;
+  .intro-stat {
+    padding: 0 18px;
   }
 
-  .ink-chip {
-    padding: 6px 12px 6px 10px;
-    font-size: 11px;
-  }
-
-  .press-overlay .hero-actions {
+  .intro-overlay .hero-actions {
     flex-direction: column;
     align-items: stretch;
   }
