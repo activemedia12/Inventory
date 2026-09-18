@@ -1,5 +1,6 @@
 <?php
 session_start();
+$navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
 require_once '../config/db.php';
 
 /* ------------------------------
@@ -58,7 +59,7 @@ if ($result === false) {
 <body>
     <!-- Side Pill Navigation -->
     <nav class="side-nav" id="sideNav" aria-label="Primary">
-        <ul class="side-nav-list">
+        <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
             <li><a href="#" class="active"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
             <li><a href="sub-ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
             <li><a href="sub-about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>

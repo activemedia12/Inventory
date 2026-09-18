@@ -1,5 +1,6 @@
 <?php
 session_start();
+$navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../accounts/login.php");
     exit;
@@ -102,7 +103,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 <body>
     <!-- Side Pill Navigation -->
     <nav class="side-nav" id="sideNav" aria-label="Primary">
-        <ul class="side-nav-list">
+        <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
             <li><a href="main.php" class="active"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
             <li><a href="ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
             <li><a href="about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>

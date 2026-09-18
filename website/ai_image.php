@@ -1,5 +1,6 @@
 <?php
 session_start();
+$navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../accounts/login.php");
     exit;
@@ -92,429 +93,15 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
     <link rel="stylesheet" href="../assets/css/main.css">
-    <style>
-        /* AI Generator specific styles that extend the main style.css */
-        .ai-generator-page {
-            padding: 40px 0;
-            background-color: var(--bg-light);
-            min-height: 80vh;
-        }
-
-        .ai-container {
-            background: var(--bg-white);
-            padding: 40px;
-            box-shadow: var(--shadow);
-            margin: 0 auto;
-            max-width: 900px;
-            border: 1px solid var(--border-color);
-        }
-
-        .ai-header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .ai-title {
-            font-size: 2.5em;
-            margin-bottom: 15px;
-            color: var(--text-dark);
-            font-weight: 700;
-        }
-
-        .ai-subtitle {
-            font-size: 1.2em;
-            color: var(--text-light);
-            margin-bottom: 10px;
-        }
-
-        .ai-description {
-            color: var(--text-light);
-            max-width: 600px;
-            margin: 0 auto;
-            line-height: 1.6;
-        }
-
-        .input-group {
-            margin-bottom: 30px;
-        }
-
-        .section-title {
-            font-size: 1.3em;
-            margin-bottom: 15px;
-            color: var(--text-dark);
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .section-title i {
-            color: var(--primary-color);
-        }
-
-        label {
-            display: block;
-            margin-bottom: 10px;
-            font-weight: 600;
-            color: var(--text-dark);
-        }
-
-        textarea,
-        input,
-        select {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid var(--border-color);
-            background: var(--bg-white);
-            color: var(--text-dark);
-            font-size: 1rem;
-            transition: var(--transition);
-        }
-
-        textarea:focus,
-        input:focus,
-        select:focus {
-            border-color: var(--primary-color);
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(44, 90, 160, 0.1);
-        }
-
-        textarea {
-            min-height: 120px;
-            resize: vertical;
-            line-height: 1.5;
-        }
-
-        .image-container {
-            margin-top: 30px;
-            background: var(--bg-light);
-            border: 2px dashed var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 400px;
-            overflow: hidden;
-            padding: 20px;
-            transition: var(--transition);
-        }
-
-        .image-container.has-image {
-            border-color: var(--primary-color);
-            background: var(--bg-white);
-        }
-
-        .image-container img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-            display: none;
-            box-shadow: var(--shadow);
-        }
-
-        .placeholder-text {
-            color: var(--text-light);
-            text-align: center;
-            padding: 40px;
-            font-style: italic;
-        }
-
-        .loading {
-            text-align: center;
-            margin: 20px 0;
-            display: none;
-        }
-
-        .loading-spinner {
-            border: 4px solid #f3f3f3;
-            border-radius: 50%;
-            border-top: 4px solid var(--primary-color);
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        .error {
-            color: var(--accent-color);
-            background: rgba(231, 76, 60, 0.1);
-            padding: 15px;
-            margin-top: 15px;
-            display: none;
-            border-left: 4px solid var(--accent-color);
-        }
-
-        .success {
-            color: #28a745;
-            background: rgba(40, 167, 69, 0.1);
-            padding: 15px;
-            margin-top: 15px;
-            display: none;
-            border-left: 4px solid #28a745;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 25px;
-            display: none;
-            flex-wrap: wrap;
-        }
-
-        .product-select-section {
-            background: var(--bg-light);
-            padding: 25px;
-            margin-bottom: 25px;
-            border: 1px solid var(--border-color);
-        }
-
-        .product-buttons {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-top: 15px;
-        }
-
-        .product-btn {
-            flex: 1;
-            min-width: 140px;
-            padding: 15px;
-            background: var(--bg-white);
-            border: 2px solid var(--border-color);
-            cursor: pointer;
-            transition: var(--transition);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            text-align: center;
-        }
-
-        .product-btn:hover {
-            border-color: var(--primary-color);
-            transform: translateY(-2px);
-            box-shadow: var(--shadow);
-        }
-
-        .product-btn.active {
-            border-color: var(--primary-color);
-            background: rgba(44, 90, 160, 0.05);
-            box-shadow: 0 4px 12px rgba(44, 90, 160, 0.2);
-        }
-
-        .product-icon {
-            font-size: 28px;
-            color: var(--text-light);
-            transition: var(--transition);
-        }
-
-        .product-btn.active .product-icon {
-            color: var(--primary-color);
-        }
-
-        .product-name {
-            font-weight: 600;
-            font-size: 0.95em;
-            color: var(--text-dark);
-        }
-
-        /* Placement Section Styles */
-        .placement-select-section {
-            background: var(--bg-light);
-            padding: 25px;
-            margin-bottom: 25px;
-            border: 1px solid var(--border-color);
-            display: none;
-        }
-
-        .placement-buttons {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-top: 15px;
-        }
-
-        .placement-btn {
-            flex: 1;
-            min-width: 140px;
-            padding: 15px;
-            background: var(--bg-white);
-            border: 2px solid var(--border-color);
-            cursor: pointer;
-            transition: var(--transition);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            text-align: center;
-        }
-
-        .placement-btn:hover {
-            border-color: var(--primary-color);
-            transform: translateY(-2px);
-            box-shadow: var(--shadow);
-        }
-
-        .placement-btn.active {
-            border-color: var(--primary-color);
-            background: rgba(44, 90, 160, 0.05);
-            box-shadow: 0 4px 12px rgba(44, 90, 160, 0.2);
-        }
-
-        .placement-icon {
-            font-size: 24px;
-            color: var(--text-light);
-        }
-
-        .placement-btn.active .placement-icon {
-            color: var(--primary-color);
-        }
-
-        .placement-name {
-            font-weight: 600;
-            font-size: 0.9em;
-            color: var(--text-dark);
-        }
-
-        .placement-desc {
-            font-size: 0.75em;
-            color: var(--text-light);
-            margin-top: 5px;
-            line-height: 1.3;
-        }
-
-        .api-config-section {
-            background: var(--bg-light);
-            padding: 25px;
-            margin-bottom: 25px;
-            border: 1px solid var(--border-color);
-            display: none;
-        }
-
-        .api-note {
-            font-size: 0.9em;
-            color: var(--text-light);
-            margin-top: 8px;
-            line-height: 1.5;
-        }
-
-        .api-note a {
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .api-note a:hover {
-            text-decoration: underline;
-        }
-
-        .feature-badge {
-            display: inline-block;
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-            color: white;
-            padding: 4px 12px;
-            font-size: 0.8em;
-            font-weight: 600;
-            margin-left: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .style-options {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
-            margin-top: 10px;
-        }
-
-        .style-option {
-            padding: 12px 15px;
-            background: var(--bg-white);
-            border: 2px solid var(--border-color);
-            cursor: pointer;
-            transition: var(--transition);
-            text-align: center;
-            font-weight: 500;
-        }
-
-        .style-option:hover {
-            border-color: var(--primary-color);
-            transform: translateY(-1px);
-        }
-
-        .style-option.selected {
-            border-color: var(--primary-color);
-            background: rgba(44, 90, 160, 0.05);
-            color: var(--primary-color);
-        }
-
-        @media (max-width: 768px) {
-            .ai-container {
-                padding: 50px;
-                margin: 0 20px;
-            }
-
-            .ai-title {
-                font-size: 2em;
-            }
-
-            .action-buttons {
-                flex-direction: column;
-            }
-
-            .product-buttons {
-                flex-direction: column;
-            }
-
-            .placement-buttons {
-                flex-direction: column;
-            }
-
-            .product-btn,
-            .placement-btn {
-                min-width: 100%;
-            }
-
-            .style-options {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .ai-title {
-                font-size: 1.8em;
-            }
-
-            .product-select-section,
-            .placement-select-section,
-            .api-config-section {
-                padding: 20px;
-            }
-
-            .image-container {
-                min-height: 300px;
-            }
-        }
-    </style>
 </head>
 
 <body>
     <!-- Side Pill Navigation -->
     <nav class="side-nav" id="sideNav" aria-label="Primary">
-        <ul class="side-nav-list">
+        <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
             <li><a href="main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
             <li><a href="ai_image.php" class="active"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
             <li><a href="about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
@@ -569,27 +156,28 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
     </nav>
 
     <!-- AI Generator Section -->
-    <section class="ai-generator-page">
+    <section class="ai-tool-section hide">
         <div class="container">
-            <div class="ai-container">
-                <div class="ai-header">
-                    <h1 class="ai-title">AI Image Generator</h1>
-                    <p class="ai-subtitle">Create custom designs for your products with artificial intelligence</p>
-                    <p class="ai-description">
-                        Generate unique, professional designs instantly. Perfect for t-shirts, bags, mugs, and more.
-                        No design skills required!
-                    </p>
-                </div>
+            <div class="section-header">
+                <span class="section-eyebrow"><span class="reg-mark"></span> 
+                Powered by 
+                    <div class="gemini-logo">
+                        <span class="gemini-sparkle"></span>
+                        <span class="gemini-text">Gemini</span>
+                    </div>
+                </span>
+                <h1 class="section-title">AI Image Generator</h1>
+                <p class="section-subtitle">Describe it, style it, and put it straight onto a t-shirt, bag or mug — no design skills required.</p>
+            </div>
 
+            <div class="ai-card">
                 <!-- Product Selection -->
-                <div class="product-select-section">
-                    <h3 class="section-title">
+                <div class="ai-block">
+                    <h3 class="ai-block-title">
                         <i class="fas fa-tshirt"></i> Product Selection
                         <span class="feature-badge">Optional</span>
                     </h3>
-                    <p style="margin-bottom: 15px; color: var(--text-light);">
-                        Choose a product to customize. This helps us optimize your design for the best results.
-                    </p>
+                    <p class="ai-block-desc">Choose a product to customize. This helps us optimize your design for the best results.</p>
 
                     <div class="product-buttons">
                         <div class="product-btn" data-product-id="18" data-supports-front-back="true">
@@ -616,13 +204,11 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 </div>
 
                 <!-- Placement Selection -->
-                <div class="placement-select-section">
-                    <h3 class="section-title">
+                <div class="placement-select-section ai-block">
+                    <h3 class="ai-block-title">
                         <i class="fas fa-layer-group"></i> Design Placement
                     </h3>
-                    <p style="margin-bottom: 15px; color: var(--text-light);">
-                        Choose where you'd like your design to appear on the product
-                    </p>
+                    <p class="ai-block-desc">Choose where you'd like your design to appear on the product.</p>
 
                     <div class="placement-buttons">
                         <div class="placement-btn" data-placement="front">
@@ -644,20 +230,18 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 </div>
 
                 <!-- Design Input -->
-                <div class="input-group">
-                    <h3 class="section-title">
+                <div class="ai-block input-group">
+                    <h3 class="ai-block-title">
                         <i class="fas fa-paint-brush"></i> Design Description
                     </h3>
                     <label for="prompt">Describe your design in detail</label>
                     <textarea id="prompt" placeholder="Example: A colorful dragon flying over mountains during sunset, fantasy style, detailed scales..."></textarea>
-                    <small style="display: block; margin-top: 8px; color: var(--text-light);">
-                        Be specific! Include colors, style, mood, and any important details.
-                    </small>
+                    <small class="ai-hint">Be specific! Include colors, style, mood, and any important details.</small>
                 </div>
 
                 <!-- Art Style Selection -->
-                <div class="input-group">
-                    <h3 class="section-title">
+                <div class="ai-block input-group">
+                    <h3 class="ai-block-title">
                         <i class="fas fa-palette"></i> Art Style
                         <span class="feature-badge">Optional</span>
                     </h3>
@@ -675,7 +259,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 </div>
 
                 <!-- Generate Button -->
-                <button id="generate-btn" class="btn btn-primary">
+                <button id="generate-btn" class="btn btn-primary ai-generate-btn">
                     <i class="fas fa-magic"></i> Generate Image
                 </button>
 
@@ -703,13 +287,13 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     <button id="download-btn" class="btn btn-primary">
                         <i class="fas fa-download"></i> Download Image
                     </button>
-                    <button id="remove-bg-btn" class="btn btn-primary">
+                    <button id="remove-bg-btn" class="btn btn-outline">
                         <i class="fas fa-cut"></i> Remove Background
                     </button>
-                    <button id="use-design-btn" class="btn btn-primary">
+                    <button id="use-design-btn" class="btn btn-outline">
                         <i class="fas fa-tshirt"></i> Use for Product
                     </button>
-                    <button id="regenerate-btn" class="btn btn-primary">
+                    <button id="regenerate-btn" class="btn btn-outline">
                         <i class="fas fa-redo"></i> Generate Another
                     </button>
                 </div>

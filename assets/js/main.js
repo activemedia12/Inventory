@@ -1,3 +1,76 @@
+// Side pill nav — open/closed state is decided server-side (see the PHP
+// files: $navOpen reads a "sideNavOpen" cookie and prints the correct
+// class straight into the HTML), so there's no client-side restore step
+// and no flash of the wrong state on load. This script keeps that cookie
+// in sync as the user hovers/taps, closes the pill on scroll, and guards
+// against the browser reapplying :hover just because the cursor happens
+// to still be sitting over the pill (after a click, or after we close it
+// on scroll).
+(function () {
+  const sideNavList = document.querySelector(".side-nav-list");
+  if (!sideNavList) return;
+
+  function setNavOpenCookie(isOpen) {
+    document.cookie =
+      "sideNavOpen=" + (isOpen ? "1" : "0") + "; path=/; SameSite=Lax";
+  }
+
+  // Forces the pill closed regardless of where the cursor is currently
+  // resting, until the user makes a real hover/tap gesture again.
+  function suppressHoverUntilNextGesture() {
+    sideNavList.classList.add("suppress-hover");
+
+    function release() {
+      sideNavList.classList.remove("suppress-hover");
+      document.removeEventListener("mousemove", release);
+      document.removeEventListener("pointerdown", release);
+      document.removeEventListener("touchstart", release);
+    }
+
+    document.addEventListener("mousemove", release, { once: true });
+    document.addEventListener("pointerdown", release, { once: true });
+    document.addEventListener("touchstart", release, { once: true });
+  }
+
+  // Server rendered the pill closed: the cursor may still be sitting over
+  // its on-screen position from the click that navigated here, and the
+  // browser would otherwise reapply :hover the moment the page paints.
+  if (sideNavList.classList.contains("suppress-hover")) {
+    suppressHoverUntilNextGesture();
+  }
+
+  // Desktop: a real hover is what opens the pill via CSS; keep the cookie
+  // in sync so the *next* page is rendered open/closed correctly.
+  if (window.matchMedia("(hover: hover)").matches) {
+    sideNavList.addEventListener("mouseenter", function () {
+      sideNavList.classList.remove("suppress-hover");
+      setNavOpenCookie(true);
+    });
+    sideNavList.addEventListener("mouseleave", function () {
+      setNavOpenCookie(false);
+    });
+  }
+
+  // Close the pill as soon as the user scrolls (desktop or touch). Without
+  // suppressHoverUntilNextGesture here, a cursor resting on the pill would
+  // just make CSS :hover reopen it the instant "active" is removed.
+  let scrollTicking = false;
+  window.addEventListener(
+    "scroll",
+    function () {
+      if (scrollTicking || !sideNavList.classList.contains("active")) return;
+      scrollTicking = true;
+      requestAnimationFrame(function () {
+        sideNavList.classList.remove("active");
+        suppressHoverUntilNextGesture();
+        setNavOpenCookie(false);
+        scrollTicking = false;
+      });
+    },
+    { passive: true },
+  );
+})();
+
 // Mobile Menu Toggle
 const observer = new IntersectionObserver((entries) => {
   entries.forEach((entry) => {
@@ -26,13 +99,20 @@ document.addEventListener("DOMContentLoaded", function () {
       // link navigates normally.
       if (isCollapsed && window.matchMedia("(hover: none)").matches) {
         e.preventDefault();
+        sideNavList.classList.remove("suppress-hover");
         sideNavList.classList.add("active");
+        document.cookie = "sideNavOpen=1; path=/; SameSite=Lax";
         return;
       }
 
       if (!linkClicked) {
         e.stopPropagation();
+        const willBeActive = !sideNavList.classList.contains("active");
         sideNavList.classList.toggle("active");
+        document.cookie =
+          "sideNavOpen=" +
+          (willBeActive ? "1" : "0") +
+          "; path=/; SameSite=Lax";
       }
     });
 
@@ -40,6 +120,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!sideNavList.classList.contains("active")) return;
       if (e.target.closest(".side-nav")) return;
       sideNavList.classList.remove("active");
+      document.cookie = "sideNavOpen=0; path=/; SameSite=Lax";
     });
   }
 

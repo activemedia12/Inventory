@@ -331,6 +331,29 @@ img {
   box-shadow: var(--shadow-hover);
 }
 
+/* After a click navigates to a new page, the cursor is often still
+   sitting on top of the pill's on-screen position, so the browser
+   would otherwise re-apply :hover the instant the page loads. This
+   modifier (set by default in the markup, removed on the first real
+   pointer movement) forces the pill closed until the user actually
+   hovers it again on the new page. */
+.side-nav-list.suppress-hover:hover {
+  width: 56px;
+  box-shadow: var(--shadow);
+}
+
+.side-nav-list.suppress-hover:hover li a {
+  justify-content: center;
+  gap: 0;
+}
+
+.side-nav-list.suppress-hover:hover li a .side-nav-label {
+  opacity: 0;
+  max-width: 0;
+  transform: translateX(-6px);
+  transition-delay: 0s;
+}
+
 .side-nav-list li a {
   display: flex;
   align-items: center;
@@ -1830,6 +1853,10 @@ img {
   .side-nav-list.active {
     width: 188px;
   }
+
+  .side-nav-list.suppress-hover:hover {
+    width: 48px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -2293,4 +2320,472 @@ img {
   .scroll-expand__hint i {
     animation: none;
   }
+}
+
+/* ==========================================================
+   AI Tool (Image Generator) — shared by ai_image.php and
+   sub-ai_image.php. Built from the same tokens, cards, chips
+   and pill controls used across the rest of the site so the
+   tool reads as part of Active Media, not a bolted-on widget.
+   ========================================================== */
+.ai-tool-section {
+  padding: 156px 0 100px;
+}
+
+.ai-tool-section .section-header {
+  margin-bottom: 40px;
+}
+
+.ai-card {
+  max-width: 880px;
+  margin: 0 auto;
+  background-color: var(--paper-white);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 44px;
+}
+
+.ai-block {
+  background-color: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 26px;
+  margin-bottom: 26px;
+}
+
+.ai-block.input-group {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.ai-block-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.1rem;
+  margin-bottom: 6px;
+}
+
+.ai-block-title i {
+  color: var(--riso-blue);
+}
+
+.ai-block-desc {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin-bottom: 16px;
+}
+
+.feature-badge {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--riso-blue);
+  color: var(--paper-white);
+  padding: 3px 12px;
+  border-radius: var(--r-pill);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-left: 4px;
+}
+
+/* Product / placement chips */
+.product-buttons,
+.placement-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.product-btn,
+.placement-btn {
+  flex: 1;
+  min-width: 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 18px 14px;
+  background-color: var(--paper-white);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.product-btn:hover,
+.placement-btn:hover {
+  border-color: var(--riso-blue);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-sm);
+}
+
+.product-btn.active,
+.placement-btn.active {
+  border-color: var(--ink);
+  background-color: var(--ink);
+  box-shadow: var(--shadow);
+  transform: translateY(-3px);
+}
+
+.product-icon,
+.placement-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--paper-dim);
+  color: var(--ink-soft);
+  font-size: 17px;
+  transition: var(--transition);
+}
+
+.product-btn.active .product-icon,
+.placement-btn.active .placement-icon {
+  background-color: rgba(255, 255, 255, 0.18);
+  color: var(--paper-white);
+}
+
+.product-name,
+.placement-name {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+
+.product-btn.active .product-name,
+.placement-btn.active .placement-name {
+  color: var(--paper-white);
+}
+
+.placement-desc {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  margin-top: -4px;
+  line-height: 1.3;
+}
+
+.placement-btn.active .placement-desc {
+  color: rgba(250, 247, 241, 0.75);
+}
+
+/* Text inputs inside the tool */
+.ai-card label {
+  display: block;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+
+.ai-card textarea,
+.ai-card input[type="text"],
+.ai-card select {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-sm);
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  transition: var(--transition);
+}
+
+.ai-card textarea {
+  min-height: 130px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.ai-card textarea:focus,
+.ai-card input:focus,
+.ai-card select:focus {
+  outline: none;
+  border-color: var(--riso-blue);
+  background-color: var(--paper-white);
+}
+
+.ai-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
+
+/* Art style chips */
+.style-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.style-option {
+  padding: 10px 18px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--line);
+  background-color: var(--paper-white);
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.style-option:hover {
+  border-color: var(--riso-blue);
+  color: var(--ink);
+}
+
+.style-option.selected {
+  background-color: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper-white);
+}
+
+/* Generate button */
+.ai-generate-btn {
+  width: 100%;
+  justify-content: center;
+  padding: 16px;
+  font-size: 15px;
+  margin-top: 4px;
+}
+
+/* Loading state */
+.loading {
+  display: none;
+  text-align: center;
+  margin: 26px 0 6px;
+}
+
+.loading-spinner {
+  width: 38px;
+  height: 38px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  border: 4px solid var(--paper-dim);
+  border-top-color: var(--riso-red);
+  animation: aiSpin 0.9s linear infinite;
+}
+
+@keyframes aiSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading p {
+  color: var(--ink-soft);
+  font-size: 14px;
+  margin-bottom: 0;
+}
+
+/* Inline status messages */
+.error,
+.success {
+  display: none;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  border-left: 4px solid transparent;
+}
+
+.error {
+  background-color: rgba(232, 67, 43, 0.08);
+  border-left-color: var(--riso-red);
+  color: var(--riso-red-dark);
+}
+
+.success {
+  background-color: rgba(36, 71, 143, 0.08);
+  border-left-color: var(--riso-blue);
+  color: var(--riso-blue-dark);
+}
+
+/* Result frame */
+.image-container {
+  margin-top: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 380px;
+  overflow: hidden;
+  padding: 24px;
+  background-color: var(--paper-dim);
+  border: 2px dashed var(--line);
+  border-radius: var(--r-lg);
+  transition: var(--transition);
+}
+
+.image-container.has-image {
+  background-color: var(--paper-white);
+  border-style: solid;
+  border-color: var(--riso-blue);
+}
+
+.image-container img {
+  display: none;
+  max-width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow);
+}
+
+.placeholder-text {
+  text-align: center;
+  color: var(--ink-faint);
+  padding: 40px;
+}
+
+.action-buttons {
+  display: none;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+/* Guest login prompt (sub-ai_image.php) */
+.login-prompt {
+  text-align: center;
+  padding: 44px 30px;
+  border-radius: var(--r-lg);
+  background: linear-gradient(
+    135deg,
+    var(--ink) 0%,
+    var(--riso-blue-dark) 100%
+  );
+  color: var(--paper-white);
+}
+
+.login-message i {
+  display: block;
+  font-size: 2.6em;
+  margin-bottom: 14px;
+  opacity: 0.9;
+}
+
+.login-message h3 {
+  color: var(--paper-white);
+  font-size: 1.4em;
+  margin-bottom: 8px;
+}
+
+.login-message p {
+  color: rgba(250, 247, 241, 0.85);
+  font-size: 1.02em;
+  margin-bottom: 0;
+}
+
+.login-prompt .hero-actions {
+  justify-content: center;
+  margin-top: 22px;
+}
+
+.login-prompt .btn-secondary {
+  background-color: transparent;
+  border-color: rgba(250, 247, 241, 0.6);
+  color: var(--paper-white);
+}
+
+.login-prompt .btn-secondary:hover {
+  background-color: var(--paper-white);
+  color: var(--ink);
+  border-color: var(--paper-white);
+}
+
+@media (max-width: 768px) {
+  .ai-tool-section {
+    padding: 132px 0 72px;
+  }
+
+  .ai-card {
+    padding: 30px 22px;
+  }
+
+  .ai-block {
+    padding: 20px;
+  }
+
+  .product-btn,
+  .placement-btn {
+    min-width: 100%;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-buttons .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .ai-card {
+    padding: 24px 16px;
+  }
+
+  .image-container {
+    min-height: 260px;
+  }
+
+  .login-prompt {
+    padding: 32px 20px;
+  }
+}
+
+.gemini-logo {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.gemini-text {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.3px;
+  line-height: 1;
+
+  background: linear-gradient(90deg, #1683ff, #777fee, #c45eae, #f0445c);
+
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.gemini-sparkle {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+
+  background: linear-gradient(135deg, #1785ff, #8d7ff0, #d18de5);
+
+  clip-path: polygon(
+    50% 0%,
+    54% 31%,
+    67% 43%,
+    100% 50%,
+    67% 56%,
+    54% 69%,
+    50% 100%,
+    46% 69%,
+    33% 56%,
+    0% 50%,
+    33% 43%,
+    46% 31%
+  );
 }
