@@ -50,9 +50,8 @@ if ($result === false) {
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
     <link rel="stylesheet" href="../assets/css/main.css">
 </head>
 
@@ -88,233 +87,356 @@ if ($result === false) {
     <!-- Hero Section -->
     <section class="hero">
         <div class="hero-background">
+            <div class="hero-halftone"></div>
+            <img src="../assets/images/plainlogo.png" alt="" class="hero-mark">
             <div class="hero-overlay"></div>
         </div>
-        <div class="container animate__animated animate__fadeInDown">
+        <div class="container hero-grid">
             <div class="hero-content">
-                <h1 class="hero-title">Premium Printing Solutions</h1>
-                <p class="hero-subtitle">High-quality offset, digital, and RISO printing for all your business needs</p>
+                <span class="hero-kicker"><span class="reg-mark"></span> Offset · Digital · RISO Printing</span>
+                <h1 class="hero-title">Four inks, <span class="registered" data-text="one press.">one press.</span></h1>
+                <p class="hero-subtitle">Active Media Designs & Printing turns your files into finished print — flyers, business cards, packaging, and large runs — with the quality and turnaround your business can count on.</p>
                 <div class="hero-actions">
                     <a href="#services" class="btn btn-primary">Explore Services</a>
-                    <a href="../accounts/login.php" class="btn btn-secondary">Request Quote</a>
+                    <a href="../accounts/login.php" class="btn btn-secondary">Request a Quote</a>
                 </div>
+            </div>
+            <div class="hero-visual">
+                <span class="hero-badge"><span class="hero-badge-dot"></span> Locally based in Malolos</span>
+                <div class="logo-stage">
+                    <svg class="logo-stage-ring" viewBox="0 0 300 300" width="340" height="340" aria-hidden="true">
+                        <circle cx="150" cy="150" r="128" fill="none" stroke="currentColor" stroke-width="1" />
+                        <circle cx="150" cy="150" r="148" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 8" />
+                    </svg>
+                    <img src="../assets/images/plainlogo.png" alt="Active Media Designs & Printing mark" class="logo-stage-image">
+                </div>
+            </div>
+        </div>
+        <div class="hero-fade"></div>
+    </section>
+
+    <!-- Scroll Expand -->
+    <section class="scroll-expand" id="pressExpand"
+        data-start-width="42"
+        data-start-height="58"
+        data-start-radius="24"
+        data-end-radius="0"
+        data-media-zoom="1.35"
+        data-scroll-distance="1.2"
+        data-hold-distance="0.35"
+        data-smoothing="0.1"
+        data-overlay-scrim="0.45">
+
+        <div class="scroll-expand__track">
+            <div class="scroll-expand__stage">
+
+                <!-- The frame is what gets clipped open as you scroll -->
+                <div class="scroll-expand__frame">
+
+                    <!-- Media: a CSS-built press sheet, so it looks sharp at any size.
+                         Swap the whole .press-sheet block for a single
+                         <img class="scroll-expand__media" src="..."> if you get a
+                         real press/shop photo later. -->
+                    <div class="scroll-expand__media press-sheet">
+                        <div class="press-sheet__plates"></div>
+                        <div class="press-sheet__halftone"></div>
+                        <div class="press-sheet__registration">
+                            <span class="press-sheet__crop press-sheet__crop--tl"></span>
+                            <span class="press-sheet__crop press-sheet__crop--tr"></span>
+                            <span class="press-sheet__crop press-sheet__crop--bl"></span>
+                            <span class="press-sheet__crop press-sheet__crop--br"></span>
+                        </div>
+                        <img src="../assets/images/plainlogo.png" alt="" class="press-sheet__mark">
+                    </div>
+
+                    <div class="scroll-expand__scrim"></div>
+
+                    <!-- Fades in only once the frame reaches full bleed -->
+                    <div class="scroll-expand__overlay">
+                        <div class="press-overlay">
+                            <span class="press-overlay__eyebrow">
+                                <span class="reg-mark"></span> Edge to edge, every sheet
+                            </span>
+                            <h2 class="press-overlay__title">From your file to the finished stack.</h2>
+                            <p class="press-overlay__text">
+                                Offset for the long runs, digital when you needed it yesterday,
+                                RISO when the colour has to shout. One shop, four presses, no hand-offs.
+                            </p>
+
+                            <ul class="press-overlay__inks">
+                                <li class="ink-chip" data-ink="cyan"><span></span>Cyan</li>
+                                <li class="ink-chip" data-ink="magenta"><span></span>Magenta</li>
+                                <li class="ink-chip" data-ink="yellow"><span></span>Yellow</li>
+                                <li class="ink-chip" data-ink="black"><span></span>Key</li>
+                            </ul>
+
+                            <div class="hero-actions">
+                                <a href="#services" class="btn btn-primary">Explore Services</a>
+                                <a href="#all-services" class="btn btn-secondary">Browse the catalogue</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Held over the resting frame, lifts away as it opens -->
+                <div class="scroll-expand__title">Four inks.<br>One press.</div>
+
+                <!-- Disappears the moment you start scrolling -->
+                <div class="scroll-expand__hint">Scroll <i class="fas fa-arrow-down"></i></div>
+
             </div>
         </div>
     </section>
 
-    <!-- Services Overview -->
-    <section class="services-overview" id="services">
+    <!-- Services Catalog (tabbed) -->
+    <section class="catalog-section hide" id="services">
         <div class="container">
             <div class="section-header">
+                <span class="section-eyebrow"><span class="reg-mark"></span> Four inks, four crafts</span>
                 <h2 class="section-title">Our Printing Services</h2>
-                <p class="section-subtitle">Professional printing solutions tailored to your specific requirements</p>
+                <p class="section-subtitle">Every job starts with the right process — pick a method to see what it's built for.</p>
             </div>
 
-            <div class="services-grid">
-                <div class="service-card">
-                    <div class="service-icon">
-                        <i class="fas fa-industry"></i>
-                    </div>
-                    <h3>Offset Printing</h3>
-                    <p>High-volume, cost-effective printing for large quantities with consistent quality.</p>
-                    <a href="#offset" class="service-link">View Services <i class="fas fa-arrow-right"></i></a>
+            <div class="catalog-shell">
+                <div class="catalog-tabs" role="tablist">
+                    <button type="button" class="catalog-tab active" data-target="offset" data-ink="black" role="tab" aria-selected="true">
+                        <span class="catalog-tab-icon"><i class="fas fa-industry"></i></span>
+                        <span class="catalog-tab-text">
+                            <strong>Offset</strong>
+                            <small>High-volume runs</small>
+                        </span>
+                    </button>
+                    <button type="button" class="catalog-tab" data-target="digital" data-ink="cyan" role="tab" aria-selected="false">
+                        <span class="catalog-tab-icon"><i class="fas fa-print"></i></span>
+                        <span class="catalog-tab-text">
+                            <strong>Digital</strong>
+                            <small>Fast, sharp detail</small>
+                        </span>
+                    </button>
+                    <button type="button" class="catalog-tab" data-target="riso" data-ink="magenta" role="tab" aria-selected="false">
+                        <span class="catalog-tab-icon"><i class="fas fa-tint"></i></span>
+                        <span class="catalog-tab-text">
+                            <strong>RISO</strong>
+                            <small>Eco, vibrant texture</small>
+                        </span>
+                    </button>
+                    <button type="button" class="catalog-tab" data-target="other" data-ink="yellow" role="tab" aria-selected="false">
+                        <span class="catalog-tab-icon"><i class="fas fa-cogs"></i></span>
+                        <span class="catalog-tab-text">
+                            <strong>Finishing</strong>
+                            <small>Binding & more</small>
+                        </span>
+                    </button>
                 </div>
 
-                <div class="service-card">
-                    <div class="service-icon">
-                        <i class="fas fa-print"></i>
-                    </div>
-                    <h3>Digital Printing</h3>
-                    <p>Fast turnaround printing for short runs with excellent color accuracy and detail.</p>
-                    <a href="#digital" class="service-link">View Services <i class="fas fa-arrow-right"></i></a>
-                </div>
+                <div class="catalog-panels">
+                    <?php if ($offset_result && $offset_result->num_rows > 0): ?>
+                        <div class="catalog-panel active" id="offset" data-ink="black" role="tabpanel">
+                            <div class="panel-spotlight">
+                                <span class="panel-spotlight-icon"><i class="fas fa-industry"></i></span>
+                                <div class="panel-spotlight-text">
+                                    <h3>Offset Printing</h3>
+                                    <p>Ideal for large volume printing with consistent quality.</p>
+                                </div>
+                                <a href="#all-services" class="view-all" data-category="Offset Printing">
+                                    View All <i class="fas fa-arrow-right"></i>
+                                </a>
+                            </div>
+                            <div class="products-grid">
+                                <?php while ($row = $offset_result->fetch_assoc()): ?>
+                                    <div class="product-card">
+                                        <div class="product-image">
+                                            <span class="category-badge">Offset</span>
+                                            <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
+                                                <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
+                                            </a>
+                                            <div class="product-overlay">
+                                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
+                                            </div>
+                                        </div>
+                                        <div class="product-info">
+                                            <h3 class="product-name">
+                                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
+                                                    <?php echo $row["product_name"]; ?>
+                                                </a>
+                                            </h3>
+                                            <div class="product-price">From ₱<?php echo number_format($row["price"], 2); ?></div>
+                                        </div>
+                                    </div>
+                                <?php endwhile; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
 
-                <div class="service-card">
-                    <div class="service-icon">
-                        <i class="fas fa-tint"></i>
-                    </div>
-                    <h3>RISO Printing</h3>
-                    <p>Eco-friendly printing with vibrant colors and unique texture for artistic projects.</p>
-                    <a href="#riso" class="service-link">View Services <i class="fas fa-arrow-right"></i></a>
-                </div>
+                    <?php if ($digital_result && $digital_result->num_rows > 0): ?>
+                        <div class="catalog-panel" id="digital" data-ink="cyan" role="tabpanel">
+                            <div class="panel-spotlight">
+                                <span class="panel-spotlight-icon"><i class="fas fa-print"></i></span>
+                                <div class="panel-spotlight-text">
+                                    <h3>Digital Printing</h3>
+                                    <p>Fast, high-quality printing for short to medium runs.</p>
+                                </div>
+                                <a href="#all-services" class="view-all" data-category="Digital Printing">
+                                    View All <i class="fas fa-arrow-right"></i>
+                                </a>
+                            </div>
+                            <div class="products-grid">
+                                <?php while ($row = $digital_result->fetch_assoc()): ?>
+                                    <div class="product-card">
+                                        <div class="product-image">
+                                            <span class="category-badge">Digital</span>
+                                            <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
+                                                <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
+                                            </a>
+                                            <div class="product-overlay">
+                                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
+                                            </div>
+                                        </div>
+                                        <div class="product-info">
+                                            <h3 class="product-name">
+                                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
+                                                    <?php echo $row["product_name"]; ?>
+                                                </a>
+                                            </h3>
+                                            <div class="product-price">From ₱<?php echo number_format($row["price"], 2); ?></div>
+                                        </div>
+                                    </div>
+                                <?php endwhile; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
 
-                <div class="service-card">
-                    <div class="service-icon">
-                        <i class="fas fa-cogs"></i>
-                    </div>
-                    <h3>Other Services</h3>
-                    <p>Additional services including binding, finishing, and custom solutions.</p>
-                    <a href="#other" class="service-link">View Services <i class="fas fa-arrow-right"></i></a>
+                    <?php if ($riso_result && $riso_result->num_rows > 0): ?>
+                        <div class="catalog-panel" id="riso" data-ink="magenta" role="tabpanel">
+                            <div class="panel-spotlight">
+                                <span class="panel-spotlight-icon"><i class="fas fa-tint"></i></span>
+                                <div class="panel-spotlight-text">
+                                    <h3>RISO Printing</h3>
+                                    <p>Eco-friendly printing with vibrant, unique results.</p>
+                                </div>
+                                <a href="#all-services" class="view-all" data-category="RISO Printing">
+                                    View All <i class="fas fa-arrow-right"></i>
+                                </a>
+                            </div>
+                            <div class="products-grid">
+                                <?php while ($row = $riso_result->fetch_assoc()): ?>
+                                    <div class="product-card">
+                                        <div class="product-image">
+                                            <span class="category-badge">RISO</span>
+                                            <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
+                                                <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
+                                            </a>
+                                            <div class="product-overlay">
+                                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
+                                            </div>
+                                        </div>
+                                        <div class="product-info">
+                                            <h3 class="product-name">
+                                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
+                                                    <?php echo $row["product_name"]; ?>
+                                                </a>
+                                            </h3>
+                                            <div class="product-price">From ₱<?php echo number_format($row["price"], 2); ?></div>
+                                        </div>
+                                    </div>
+                                <?php endwhile; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if ($other_result && $other_result->num_rows > 0): ?>
+                        <div class="catalog-panel" id="other" data-ink="yellow" role="tabpanel">
+                            <div class="panel-spotlight">
+                                <span class="panel-spotlight-icon"><i class="fas fa-cogs"></i></span>
+                                <div class="panel-spotlight-text">
+                                    <h3>Other Services</h3>
+                                    <p>Additional printing and finishing services.</p>
+                                </div>
+                                <a href="#all-services" class="view-all" data-category="Other Services">
+                                    View All <i class="fas fa-arrow-right"></i>
+                                </a>
+                            </div>
+                            <div class="products-grid">
+                                <?php while ($row = $other_result->fetch_assoc()): ?>
+                                    <div class="product-card">
+                                        <div class="product-image">
+                                            <span class="category-badge">Other</span>
+                                            <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
+                                                <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
+                                            </a>
+                                            <div class="product-overlay">
+                                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
+                                            </div>
+                                        </div>
+                                        <div class="product-info">
+                                            <h3 class="product-name">
+                                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
+                                                    <?php echo $row["product_name"]; ?>
+                                                </a>
+                                            </h3>
+                                            <div class="product-price">From ₱<?php echo number_format($row["price"], 2); ?></div>
+                                        </div>
+                                    </div>
+                                <?php endwhile; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Offset Printing Section -->
-    <?php if ($offset_result && $offset_result->num_rows > 0): ?>
-        <section id="offset" class="printing-section">
-            <div class="container">
-                <div class="section-header">
-                    <h2 class="section-title">Offset Printing</h2>
-                    <p class="section-subtitle">Ideal for large volume printing with consistent quality</p>
-                    <a href="#all-services" class="view-all" data-category="Offset Printing">
-                        View All <i class="fas fa-arrow-right"></i>
-                    </a>
+    <!-- How It Works -->
+    <section class="process-section hide">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">How an Order Comes Together</h2>
+                <p class="section-subtitle">From file to finished print, here's what happens after you order</p>
+            </div>
+            <div class="process-grid">
+                <div class="process-step">
+                    <span class="step-num">1</span>
+                    <h3>Send your files</h3>
+                    <p>Upload artwork or request a design from our team, in the format your job needs.</p>
                 </div>
-
-                <div class="products-grid">
-                    <?php while ($row = $offset_result->fetch_assoc()): ?>
-                        <div class="product-card">
-                            <div class="product-image">
-                                <span class="category-badge">Offset</span>
-                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
-                                    <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
-                                </a>
-                                <div class="product-overlay">
-                                    <a href="service_detail_public.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
-                                </div>
-                            </div>
-                            <div class="product-info">
-                                <h3 class="product-name">
-                                    <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
-                                        <?php echo $row["product_name"]; ?>
-                                    </a>
-                                </h3>
-                                <div class="product-price">From ₱<?php echo number_format($row["price"], 2); ?></div>
-                            </div>
-                        </div>
-                    <?php endwhile; ?>
+                <div class="process-step">
+                    <span class="step-num">2</span>
+                    <h3>We proof it</h3>
+                    <p>You get a digital proof to review colors, layout and stock before anything runs.</p>
+                </div>
+                <div class="process-step">
+                    <span class="step-num">3</span>
+                    <h3>We print & finish</h3>
+                    <p>Offset, digital or RISO — plus any cutting, binding or lamination the job calls for.</p>
+                </div>
+                <div class="process-step">
+                    <span class="step-num">4</span>
+                    <h3>Pickup or delivery</h3>
+                    <p>Collect in Malolos or have it shipped to you, tracked from our floor to your door.</p>
                 </div>
             </div>
-        </section>
-    <?php endif; ?>
-
-    <!-- Repeat similar sections for Digital, RISO, Other services -->
-    <!-- Digital Printing Section -->
-    <?php if ($digital_result && $digital_result->num_rows > 0): ?>
-        <section id="digital" class="printing-section">
-            <div class="container">
-                <div class="section-header">
-                    <h2 class="section-title">Digital Printing</h2>
-                    <p class="section-subtitle">Fast, high-quality printing for short to medium runs</p>
-                    <a href="#all-services" class="view-all" data-category="Digital Printing">
-                        View All <i class="fas fa-arrow-right"></i>
-                    </a>
-                </div>
-
-                <div class="products-grid">
-                    <?php while ($row = $digital_result->fetch_assoc()): ?>
-                        <div class="product-card">
-                            <div class="product-image">
-                                <span class="category-badge">Digital</span>
-                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
-                                    <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
-                                </a>
-                                <div class="product-overlay">
-                                    <a href="service_detail_public.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
-                                </div>
-                            </div>
-                            <div class="product-info">
-                                <h3 class="product-name">
-                                    <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
-                                        <?php echo $row["product_name"]; ?>
-                                    </a>
-                                </h3>
-                                <div class="product-price">From ₱<?php echo number_format($row["price"], 2); ?></div>
-                            </div>
-                        </div>
-                    <?php endwhile; ?>
-                </div>
-            </div>
-        </section>
-    <?php endif; ?>
-
-    <?php if ($riso_result && $riso_result->num_rows > 0): ?>
-        <section id="riso" class="printing-section">
-            <div class="container">
-                <div class="section-header">
-                    <h2 class="section-title">RISO Printing</h2>
-                    <p class="section-subtitle">Eco-friendly printing with vibrant, unique results</p>
-                    <a href="#all-services" class="view-all" data-category="RISO Printing">
-                        View All <i class="fas fa-arrow-right"></i>
-                    </a>
-                </div>
-
-                <div class="products-grid">
-                    <?php while ($row = $riso_result->fetch_assoc()): ?>
-                        <div class="product-card">
-                            <div class="product-image">
-                                <span class="category-badge">RISO</span>
-                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
-                                    <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
-                                </a>
-                                <div class="product-overlay">
-                                    <a href="service_detail_public.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
-                                </div>
-                            </div>
-                            <div class="product-info">
-                                <h3 class="product-name">
-                                    <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
-                                        <?php echo $row["product_name"]; ?>
-                                    </a>
-                                </h3>
-                                <div class="product-price">From ₱<?php echo number_format($row["price"], 2); ?></div>
-                            </div>
-                        </div>
-                    <?php endwhile; ?>
-                </div>
-            </div>
-        </section>
-    <?php endif; ?>
-
-    <?php if ($other_result && $other_result->num_rows > 0): ?>
-        <section id="other" class="printing-section">
-            <div class="container">
-                <div class="section-header">
-                    <h2 class="section-title">Other Services</h2>
-                    <p class="section-subtitle">Additional printing and finishing services</p>
-                    <a href="#all-services" class="view-all" data-category="Other Services">
-                        View All <i class="fas fa-arrow-right"></i>
-                    </a>
-                </div>
-
-                <div class="products-grid">
-                    <?php while ($row = $other_result->fetch_assoc()): ?>
-                        <div class="product-card">
-                            <div class="product-image">
-                                <span class="category-badge">Other Services</span>
-                                <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
-                                    <img src="../assets/images/services/service-<?php echo $row['id']; ?>.jpg" alt="<?php echo $row["product_name"]; ?>">
-                                </a>
-                                <div class="product-overlay">
-                                    <a href="service_detail_public.php?id=<?php echo $row['id']; ?>" class="btn btn-outline">View Details</a>
-                                </div>
-                            </div>
-                            <div class="product-info">
-                                <h3 class="product-name">
-                                    <a href="service_detail_public.php?id=<?php echo $row['id']; ?>">
-                                        <?php echo $row["product_name"]; ?>
-                                    </a>
-                                </h3>
-                                <div class="product-price">From ₱<?php echo number_format($row["price"], 2); ?></div>
-                            </div>
-                        </div>
-                    <?php endwhile; ?>
-                </div>
-            </div>
-        </section>
-    <?php endif; ?>
+        </div>
+    </section>
 
     <!-- All Services Section -->
-    <section id="all-services" class="all-services-section">
+    <section id="all-services" class="all-services-section hide">
         <div class="container">
             <div class="section-header">
                 <h2 class="section-title">All Printing Services</h2>
                 <p class="section-subtitle">Browse our complete catalog of printing services</p>
             </div>
 
-            <div class="filter-bar">
-                <div class="filter-options">
+            <div class="browse-layout">
+                <aside class="filter-sidebar">
+                    <div class="search-box">
+                        <div class="search-input-wrapper">
+                            <input type="text" id="search-input" class="search-input" placeholder="Search services...">
+                            <button id="search-btn" class="search-btn">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="filter-group">
                         <label for="category-filter">Category</label>
                         <select id="category-filter" class="filter-select">
@@ -335,51 +457,42 @@ if ($result === false) {
                             <option value="price-high">Price: High to Low</option>
                         </select>
                     </div>
-                </div>
+                </aside>
 
-                <div class="search-box">
-                    <div class="search-input-wrapper">
-                        <input type="text" id="search-input" class="search-input" placeholder="Search services...">
-                        <button id="search-btn" class="search-btn">
-                            <i class="fas fa-search"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="products-grid">
-                <?php
-                if ($result->num_rows > 0) {
-                    while ($row = $result->fetch_assoc()) {
-                        echo '<div class="product-card" data-category="' . $row["category"] . '">';
-                        echo '  <div class="product-image">';
-                        echo '    <a href="service_detail_public.php?id=' . $row['id'] . '">';
-                        echo '      <img src="../assets/images/services/service-' . $row['id'] . '.jpg" alt="' . $row["product_name"] . '">';
-                        echo '    </a>';
-                        echo '    <div class="product-overlay">';
-                        echo '      <a href="service_detail_public.php?id=' . $row['id'] . '" class="btn btn-outline">View Details</a>';
-                        echo '    </div>';
-                        echo '  </div>';
-                        echo '  <div class="product-info">';
-                        echo '    <h3 class="product-name"><a href="service_detail_public.php?id=' . $row['id'] . '">' . $row["product_name"] . '</a></h3>';
-                        echo '    <span class="product-category">' . $row["category"] . '</span>';
-                        echo '    <div class="product-price">From ₱' . number_format($row["price"], 2) . '</div>';
-                        echo '  </div>';
-                        echo '</div>';
+                <div class="products-grid">
+                    <?php
+                    if ($result->num_rows > 0) {
+                        while ($row = $result->fetch_assoc()) {
+                            echo '<div class="product-card" data-category="' . $row["category"] . '">';
+                            echo '  <div class="product-image">';
+                            echo '    <a href="service_detail_public.php?id=' . $row['id'] . '">';
+                            echo '      <img src="../assets/images/services/service-' . $row['id'] . '.jpg" alt="' . $row["product_name"] . '">';
+                            echo '    </a>';
+                            echo '    <div class="product-overlay">';
+                            echo '      <a href="service_detail_public.php?id=' . $row['id'] . '" class="btn btn-outline">View Details</a>';
+                            echo '    </div>';
+                            echo '  </div>';
+                            echo '  <div class="product-info">';
+                            echo '    <h3 class="product-name"><a href="service_detail_public.php?id=' . $row['id'] . '">' . $row["product_name"] . '</a></h3>';
+                            echo '    <span class="product-category">' . $row["category"] . '</span>';
+                            echo '    <div class="product-price">From ₱' . number_format($row["price"], 2) . '</div>';
+                            echo '  </div>';
+                            echo '</div>';
+                        }
+                    } else {
+                        echo "<p class='no-results'>No services found in the database.</p>";
                     }
-                } else {
-                    echo "<p class='no-results'>No services found in the database.</p>";
-                }
 
-                // Close connection
-                $inventory->close();
-                ?>
+                    // Close connection
+                    $inventory->close();
+                    ?>
+                </div>
             </div>
         </div>
     </section>
 
     <!-- CTA Section -->
-    <section class="cta-section">
+    <section class="cta-section hide">
         <div class="container">
             <div class="cta-content">
                 <h2>Ready to Start Your Printing Project?</h2>
