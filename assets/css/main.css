@@ -299,7 +299,8 @@ img {
 
 /* ---------- Header ---------- */
 .header {
-  position: sticky;
+  position: fixed;
+  width: 100%;
   top: 0;
   z-index: 500;
   background-color: rgba(250, 247, 241, 0.85);
