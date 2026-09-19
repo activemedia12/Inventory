@@ -62,10 +62,13 @@ if (isset($_SESSION['user_id'])) {
 
     $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 }
+
+$navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -73,590 +76,97 @@ if (isset($_SESSION['user_id'])) {
     <link rel="icon" type="image/png" href="../../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
     <link rel="stylesheet" href="../../assets/css/main.css">
-    <style>
-        /* Profile-specific styles that extend the main style.css */
-        .profile-page {
-            padding: 40px 0;
-            background-color: var(--bg-light);
-            min-height: 80vh;
-        }
-        
-        .profile-header {
-            text-align: center;
-            margin-bottom: 40px;
-            padding: 40px;
-            background: var(--bg-white);
-            box-shadow: var(--shadow);
-        }
-        
-        .profile-header h1 {
-            font-size: 2.5em;
-            color: var(--text-dark);
-            margin-bottom: 10px;
-        }
-        
-        .profile-header p {
-            font-size: 1.2em;
-            color: var(--text-light);
-        }
-        
-        .profile-sections {
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 30px;
-            margin-bottom: 40px;
-        }
-        
-        .profile-section {
-            background: var(--bg-white);
-            padding: 30px;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
-        }
-        
-        .section-title {
-            color: var(--text-dark);
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 3px solid var(--primary-color);
-            font-size: 1.5em;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .user-details p {
-            margin-bottom: 15px;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .user-details strong {
-            color: var(--text-dark);
-            min-width: 140px;
-            font-weight: 600;
-        }
-        
-        .user-details span {
-            color: var(--text-light);
-            text-align: right;
-            flex: 1;
-        }
-        
-        .order-item {
-            background: var(--bg-light);
-            padding: 20px;
-            margin-bottom: 15px;
-            border-left: 4px solid var(--primary-color);
-            transition: var(--transition);
-        }
-        
-        .order-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .order-id {
-            font-weight: bold;
-            color: var(--text-dark);
-            font-size: 1.1em;
-        }
-        
-        .order-status {
-            padding: 6px 15px;
-            font-size: 0.85em;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .status-pending {
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeaa7;
-        }
-        
-        .status-paid {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-        
-        .status-processing {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-        
-        .status-completed {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .status-cancelled {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        
-        .status-ready_for_pickup {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-        
-        .order-details {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            font-size: 0.95em;
-        }
-        
-        .order-detail-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-        }
-        
-        .order-detail-label {
-            font-weight: 600;
-            color: var(--text-dark);
-        }
-        
-        .order-detail-value {
-            color: var(--text-light);
-        }
-        
-        .success-message {
-            background: #d4edda;
-            color: #155724;
-            padding: 20px;
-            margin: 20px 0;
-            border: 1px solid #c3e6cb;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-weight: 500;
-        }
-        
-        .success-message i {
-            font-size: 1.2em;
-        }
-        
-        .empty-orders {
-            text-align: center;
-            padding: 60px 40px;
-            color: var(--text-light);
-        }
-        
-        .empty-orders i {
-            font-size: 4em;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-        
-        .empty-orders h3 {
-            color: var(--text-dark);
-            margin-bottom: 15px;
-            font-size: 1.5em;
-        }
-        
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(5px);
-        }
-        
-        .modal-content {
-            background-color: var(--bg-white);
-            margin: 5% auto;
-            padding: 40px;
-            width: 85%;
-            max-width: 800px;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-            position: relative;
-        }
-        
-        .close {
-            color: var(--text-light);
-            position: absolute;
-            top: 20px;
-            right: 25px;
-            font-size: 32px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: var(--transition);
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-        }
-        
-        .close:hover {
-            color: var(--text-dark);
-            background: var(--bg-light);
-        }
-        
-        .order-items-list {
-            margin-top: 25px;
-        }
-        
-        .order-item-detail {
-            background: var(--bg-light);
-            padding: 20px;
-            margin-bottom: 15px;
-            border-left: 4px solid var(--primary-color);
-        }
-        
-        .order-item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 15px;
-        }
-        
-        .order-item-name {
-            font-weight: 600;
-            color: var(--text-dark);
-            font-size: 1.1em;
-            flex: 1;
-        }
-        
-        .order-item-price {
-            color: var(--primary-color);
-            font-weight: 600;
-            font-size: 1.1em;
-        }
-        
-        .order-item-details {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            font-size: 0.95em;
-        }
-        
-        .clickable-order {
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        
-        .clickable-order:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-hover);
-        }
-        
-        .profile-actions {
-            margin-top: 25px;
-            padding-top: 20px;
-            border-top: 1px solid var(--border-color);
-        }
-        
-        .action-btn {
-            padding: 12px 25px;
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 1em;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: var(--transition);
-            font-weight: 500;
-        }
-        
-        .action-btn:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(44, 90, 160, 0.3);
-        }
-        
-        .action-btn.secondary {
-            background: var(--text-light);
-        }
-        
-        .action-btn.secondary:hover {
-            background: #5a6268;
-        }
-        
-        .payment-proof-link {
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            transition: var(--transition);
-        }
-        
-        .payment-proof-link:hover {
-            color: var(--primary-dark);
-            gap: 8px;
-        }
-        
-        .modal-order-summary {
-            background: var(--bg-light);
-            padding: 20px;
-            margin-top: 20px;
-            border-left: 4px solid var(--primary-color);
-        }
-        
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .summary-row:last-child {
-            border-bottom: none;
-            font-weight: 600;
-            font-size: 1.1em;
-            color: var(--text-dark);
-        }
-        
-        @media (max-width: 992px) {
-            .profile-sections {
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }
-            
-            .modal-content {
-                width: 90%;
-                padding: 30px;
-                margin: 10% auto;
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .profile-header, .profile-sections {
-                font-size: 80%;
-                margin: 20px;
-            }
-            
-            .profile-header h1 {
-                font-size: 2em;
-            }
-            
-            .profile-section {
-                padding: 25px;
-            }
-            
-            .order-details {
-                grid-template-columns: 1fr;
-                gap: 8px;
-            }
-            
-            .order-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
-            }
-            
-            .user-details p {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 5px;
-            }
-            
-            .user-details strong {
-                min-width: auto;
-            }
-            
-            .user-details span {
-                text-align: left;
-            }
-            
-            .order-item-details {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        @media (max-width: 576px) {
-            .profile-page {
-                padding: 20px 0;
-            }
-            
-            .profile-header {
-                padding: 25px 15px;
-            }
-            
-            .profile-section {
-                padding: 20px;
-            }
-            
-            .modal-content {
-                padding: 25px 20px;
-                width: 95%;
-            }
-            
-            .action-btn {
-                width: 100%;
-                justify-content: center;
-                margin-bottom: 10px;
-            }
-        }
-
-        .email-verification {
-            display: flex;
-            align-items: center;
-            justify-content: space-around;
-            gap: 10px;
-        }
-        
-        .email-verified {
-            color: #28a745;
-            font-weight: 600;
-        }
-        
-        .email-not-verified {
-            color: #dc3545;
-            font-weight: 600;
-        }
-        
-        .verification-btn {
-            padding: 6px 12px;
-            background: var(--primary-color);
-            color: white;
-            border: 2px solid var(--primary-color);
-            font-size: 0.85em;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .verification-btn:hover {
-            background-color: transparent;
-            color: black;
-        }
-        
-        .account-type-badge {
-            display: inline-block;
-            padding: 6px 12px;
-            background: var(--bg-light);
-            color: var(--text-dark);
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: 600;
-        }
-        
-        .account-type-personal {
-            background: #e3f2fd;
-            color: #1565c0;
-        }
-        
-        .account-type-company {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-    </style>
 </head>
 
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <nav class="navbar">
-                <a href="#" class="logo">
-                    <img src="../../assets/images/plainlogo.png" alt="Active Media" class="logo-image">
-                    <span>Active Media Designs & Printing</span>
-                </a>
-                
-                <ul class="nav-links">
-                    <li><a href="../../website/main.php"><i class="fas fa-home"></i> Home</a></li>
-                    <li><a href="../../website/ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="../../website/about.php"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="../../website/contact.php"><i class="fas fa-phone"></i> Contact</a></li>
-                </ul>
+    <!-- Side Pill Navigation -->
+    <nav class="side-nav" id="sideNav" aria-label="Primary">
+        <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
+            <li><a href="../../website/main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li><a href="../../website/ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
+            <li><a href="../../website/about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
+            <li><a href="../../website/contact.php"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
 
-                <div class="features">
-                    <a href="#" class="chat-icon" id="chatButton">
+            <li class="side-nav-divider"></li>
+
+            <li>
+                <a href="#" class="chat-icon" id="chatButton">
+                    <span class="side-nav-icon">
                         <i class="fas fa-comments"></i>
                         <span class="chat-count" id="chatCount">0</span>
-                    </a>
-                    <a href="../../website/view_cart.php" class="cart-icon">
+                    </span>
+                    <span class="side-nav-label">Chat</span>
+                </a>
+            </li>
+            <li>
+                <a href="../../website/view_cart.php" class="cart-icon">
+                    <span class="side-nav-icon">
                         <i class="fas fa-shopping-cart"></i>
                         <span class="cart-count"><?php echo $cart_count; ?></span>
-                    </a>
-                </div>
-                
-                <div class="user-info">
-                    <a href="../website/profile.php" class="user-profile">
-                        <i class="fas fa-user"></i>
-                        <span class="user-name">
-                            <?php
-                            if (!empty($user_data['first_name'])) {
-                                echo htmlspecialchars($user_data['first_name']);
-                            } elseif (!empty($user_data['company_name'])) {
-                                echo htmlspecialchars($user_data['company_name']);
-                            } else {
-                                echo 'User';
-                            }
-                            ?>
-                        </span>
-                    </a>
-                    <a href="../../accounts/logout.php" class="logout-btn">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </a>
-                </div>
-                
-                <div class="mobile-menu-toggle">
-                    <i class="fas fa-bars"></i>
-                </div>
-            </nav>
-        </div>
-    </header>
-
-    <!-- Profile Section -->
-    <section class="profile-page">
-        <div class="container">
-            <div class="profile-header">
-                <h1><i class="fas fa-user-circle"></i> My Profile</h1>
-                <p>Manage your account and view order history</p>
-                <div class="email-verification">
-                    <?php if ($user_data['email_verified']): ?>
-                        <span class="email-verified">
-                            <i class="fas fa-check-circle"></i> Email Verified
-                        </span>
-                    <?php else: ?>
-                        <span class="email-not-verified">
-                            <i class="fas fa-exclamation-circle"></i> Email Not Verified
-                        </span>
-                        <a href="../../accounts/email-verification.php" class="verification-btn">
-                            <i class="fas fa-envelope"></i> Verify Now
-                        </a>
-                    <?php endif; ?>
-                    <span class="account-type-badge <?php echo $is_personal ? 'account-type-personal' : 'account-type-company'; ?>">
-                        <?php echo $is_personal ? 'Personal Account' : 'Company Account'; ?>
                     </span>
-                </div>
-            </div>
+                    <span class="side-nav-label">Cart</span>
+                </a>
+            </li>
 
+            <li class="side-nav-divider"></li>
+
+            <li>
+                <a href="../website/profile.php" class="user-profile active">
+                    <i class="fas fa-user"></i>
+                    <span class="side-nav-label user-name">
+                        <?php
+                        if (!empty($user_data['first_name'])) {
+                            echo htmlspecialchars($user_data['first_name']);
+                        } elseif (!empty($user_data['company_name'])) {
+                            echo htmlspecialchars($user_data['company_name']);
+                        } else {
+                            echo 'User';
+                        }
+                        ?>
+                    </span>
+                </a>
+            </li>
+            <li>
+                <a href="../../accounts/logout.php" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="side-nav-label">Log Out</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Profile Hero -->
+    <section class="profile-header hide">
+        <div class="container">
+            <span class="section-eyebrow"><span class="reg-mark"></span> Your account</span>
+            <h1><i class="fas fa-user-circle"></i> My Profile</h1>
+            <p>Manage your account and view order history</p>
+            <div class="email-verification">
+                <?php if ($user_data['email_verified']): ?>
+                    <span class="email-verified">
+                        <i class="fas fa-check-circle"></i> Email Verified
+                    </span>
+                <?php else: ?>
+                    <span class="email-not-verified">
+                        <i class="fas fa-exclamation-circle"></i> Email Not Verified
+                    </span>
+                    <a href="../../accounts/email-verification.php" class="verification-btn">
+                        <i class="fas fa-envelope"></i> Verify Now
+                    </a>
+                <?php endif; ?>
+                <span class="account-type-badge <?php echo $is_personal ? 'account-type-personal' : 'account-type-company'; ?>">
+                    <?php echo $is_personal ? 'Personal Account' : 'Company Account'; ?>
+                </span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Profile Content -->
+    <section class="profile-page hide">
+        <div class="container">
             <?php if (isset($_GET['order_success'])): ?>
                 <div class="success-message" id="success-message">
                     <i class="fas fa-check-circle"></i>
@@ -671,7 +181,7 @@ if (isset($_SESSION['user_id'])) {
                             setTimeout(() => {
                                 message.style.opacity = '0';
                                 message.style.transition = 'opacity 0.5s';
-                                
+
                                 setTimeout(() => {
                                     message.style.display = 'none';
                                 }, 500);
@@ -684,7 +194,7 @@ if (isset($_SESSION['user_id'])) {
             <div class="profile-sections">
                 <!-- Personal Information -->
                 <div class="profile-section">
-                    <h2 class="section-title">
+                    <h2 class="profile-card-title">
                         <i class="fas fa-user"></i> Account Information
                     </h2>
                     <div class="user-details">
@@ -780,7 +290,7 @@ if (isset($_SESSION['user_id'])) {
 
                 <!-- Order History Section -->
                 <div class="profile-section">
-                    <h2 class="section-title">
+                    <h2 class="profile-card-title">
                         <i class="fas fa-history"></i> Order History
                     </h2>
                     <?php if (!empty($orders)): ?>
@@ -805,10 +315,10 @@ if (isset($_SESSION['user_id'])) {
                                         <span class="order-detail-label">Payment Proof:</span>
                                         <span class="order-detail-value">
                                             <?php if (!empty($order['payment_proof'])): ?>
-                                                <a href="../../assets/uploads/payments/user_<?php echo $user_id; ?>/<?php echo $order['payment_proof']; ?>" 
-                                                   target="_blank" 
-                                                   class="payment-proof-link"
-                                                   onclick="event.stopPropagation()">
+                                                <a href="../../assets/uploads/payments/user_<?php echo $user_id; ?>/<?php echo $order['payment_proof']; ?>"
+                                                    target="_blank"
+                                                    class="payment-proof-link"
+                                                    onclick="event.stopPropagation()">
                                                     <i class="fas fa-external-link-alt"></i> View
                                                 </a>
                                             <?php else: ?>
@@ -838,10 +348,10 @@ if (isset($_SESSION['user_id'])) {
     <div id="orderModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <h2 id="modalOrderTitle" style="color: var(--text-dark); margin-bottom: 10px;">
+            <h2 id="modalOrderTitle">
                 <i class="fas fa-receipt"></i> Order Details
             </h2>
-            <p id="modalOrderSubtitle" style="color: var(--text-light); margin-bottom: 25px;">
+            <p id="modalOrderSubtitle">
                 Detailed information about your order
             </p>
             <div id="orderModalContent">
@@ -864,17 +374,17 @@ if (isset($_SESSION['user_id'])) {
                         <a href=""><i class="fab fa-linkedin-in"></i></a>
                     </div>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Services</h3>
                     <ul>
-                        <li><a href="../../website/main.php #offset">Offset Printing</a></li>
-                        <li><a href="../../website/main.php #digital">Digital Printing</a></li>
-                        <li><a href="../../website/main.php #riso">RISO Printing</a></li>
-                        <li><a href="../../website/main.php #other">Other Services</a></li>
+                        <li><a href="../../website/main.php#offset">Offset Printing</a></li>
+                        <li><a href="../../website/main.php#digital">Digital Printing</a></li>
+                        <li><a href="../../website/main.php#riso">RISO Printing</a></li>
+                        <li><a href="../../website/main.php#other">Other Services</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Company</h3>
                     <ul>
@@ -884,7 +394,7 @@ if (isset($_SESSION['user_id'])) {
                         <li><a href="../../website/about.php">Testimonials</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Support</h3>
                     <ul>
@@ -894,7 +404,7 @@ if (isset($_SESSION['user_id'])) {
                         <li><a href="../../website/contact.php">Returns</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Contact Info</h3>
                     <ul class="contact-info">
@@ -904,7 +414,7 @@ if (isset($_SESSION['user_id'])) {
                     </ul>
                 </div>
             </div>
-            
+
             <div class="footer-bottom">
                 <div class="copyright">
                     <p>&copy; 2025 Active Media Designs & Printing. All rights reserved.</p>

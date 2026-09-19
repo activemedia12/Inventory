@@ -283,10 +283,13 @@ if (isset($_SESSION['user_id'])) {
     $row = $result_cart->fetch_assoc();
     $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 }
+
+$navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -294,446 +297,97 @@ if (isset($_SESSION['user_id'])) {
     <link rel="icon" type="image/png" href="../../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
     <link rel="stylesheet" href="../../assets/css/main.css">
-    <style>
-        /* Edit Profile Specific Styles */
-        .edit-profile-page {
-            padding: 40px 0;
-            background-color: var(--bg-light);
-            min-height: 80vh;
-        }
-        
-        .edit-profile-header {
-            text-align: center;
-            margin-bottom: 40px;
-            padding: 40px;
-            background: var(--bg-white);
-            box-shadow: var(--shadow);
-        }
-        
-        .edit-profile-header h1 {
-            font-size: 2.5em;
-            color: var(--text-dark);
-            margin-bottom: 10px;
-        }
-        
-        .edit-profile-header p {
-            font-size: 1.2em;
-            color: var(--text-light);
-        }
-        
-        .edit-profile-form-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background: var(--bg-white);
-            padding: 40px;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
-        }
-        
-        .form-section {
-            margin-bottom: 40px;
-            padding-bottom: 30px;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .form-section:last-of-type {
-            border-bottom: none;
-        }
-        
-        .section-title {
-            color: var(--text-dark);
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 3px solid var(--primary-color);
-            font-size: 1.5em;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group.full-width {
-            grid-column: 1 / -1;
-        }
-        
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: var(--text-dark);
-        }
-        
-        .form-label .required {
-            color: var(--accent-color);
-            margin-left: 3px;
-        }
-        
-        .form-input, .form-select, .form-textarea {
-            width: 100%;
-            padding: 12px 16px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-size: 1em;
-            font-family: 'Poppins', sans-serif;
-            transition: var(--transition);
-        }
-        
-        .form-input:focus, .form-select:focus, .form-textarea:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(44, 90, 160, 0.1);
-        }
-        
-        .form-input.error, .form-select.error, .form-textarea.error {
-            border-color: var(--accent-color);
-        }
-        
-        .error-message {
-            color: var(--accent-color);
-            font-size: 0.85em;
-            margin-top: 5px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .form-help {
-            color: var(--text-light);
-            font-size: 0.85em;
-            margin-top: 5px;
-            font-style: italic;
-        }
-        
-        .age-display {
-            background: var(--bg-light);
-            padding: 12px 16px;
-            border-radius: 4px;
-            margin-top: 5px;
-            font-size: 0.95em;
-            color: var(--text-dark);
-            border-left: 3px solid var(--primary-color);
-        }
-        
-        .form-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid var(--border-color);
-        }
-        
-        .btn {
-            padding: 12px 30px;
-            border: none;
-            border-radius: 4px;
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-        }
-        
-        .btn-primary {
-            background: var(--primary-color);
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(44, 90, 160, 0.3);
-        }
-        
-        .btn-secondary {
-            background: var(--text-light);
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #5a6268;
-            transform: translateY(-2px);
-        }
-        
-        .btn-outline {
-            background: transparent;
-            color: var(--text-dark);
-            border: 1px solid var(--border-color);
-        }
-        
-        .btn-outline:hover {
-            background: var(--bg-light);
-            border-color: var(--text-light);
-        }
-        
-        .success-message {
-            background: #d4edda;
-            color: #155724;
-            padding: 15px 20px;
-            margin-bottom: 25px;
-            border: 1px solid #c3e6cb;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .error-message-global {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 15px 20px;
-            margin-bottom: 25px;
-            border: 1px solid #f5c6cb;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .password-toggle {
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: var(--text-light);
-            cursor: pointer;
-            padding: 5px;
-        }
-        
-        .password-input-container {
-            position: relative;
-        }
-        
-        .form-note {
-            background: #f8f9fa;
-            padding: 15px;
-            border-left: 4px solid var(--primary-color);
-            margin: 20px 0;
-            font-size: 0.9em;
-            color: var(--text-light);
-        }
-        
-        .email-verification {
-            display: flex;
-            align-items: center;
-            justify-content: space-around;
-            gap: 10px;
-        }
-        
-        .email-verified {
-            color: #28a745;
-            font-weight: 600;
-        }
-        
-        .email-not-verified {
-            color: #dc3545;
-            font-weight: 600;
-        }
-        
-        .verification-btn {
-            padding: 6px 12px;
-            background: var(--primary-color);
-            color: white;
-            border: 2px solid var(--primary-color);
-            font-size: 0.85em;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .verification-btn:hover {
-            background-color: transparent;
-            color: black;
-        }
-        
-        .account-type-badge {
-            display: inline-block;
-            padding: 6px 12px;
-            background: var(--bg-light);
-            color: var(--text-dark);
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: 600;
-        }
-        
-        .account-type-personal {
-            background: #e3f2fd;
-            color: #1565c0;
-        }
-        
-        .account-type-company {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-
-        .action-btn {
-            padding: 12px 25px;
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 1em;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: var(--transition);
-            font-weight: 500;
-            font-family: 'Poppins';
-        }
-        
-        .action-btn:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(44, 90, 160, 0.3);
-        }
-        
-        @media (max-width: 768px) {
-            .edit-profile-header, .edit-profile-form-container {
-                font-size: 80%;
-                margin: 20px;
-            }
-            
-            .edit-profile-header h1 {
-                font-size: 2em;
-            }
-            
-            .form-grid {
-                grid-template-columns: 1fr;
-                gap: 15px;
-            }
-            
-            .form-section {
-                padding-bottom: 20px;
-                margin-bottom: 30px;
-            }
-            
-            .form-buttons {
-                flex-direction: column;
-            }
-            
-            .btn {
-                width: 100%;
-                justify-content: center;
-            }
-        }
-        
-        @media (max-width: 576px) {
-            .edit-profile-page {
-                padding: 20px 0;
-            }
-            
-            .edit-profile-header {
-                padding: 25px 15px;
-            }
-            
-            .edit-profile-form-container {
-                padding: 25px;
-            }
-        }
-    </style>
 </head>
 
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <nav class="navbar">
-                <a href="#" class="logo">
-                    <img src="../../assets/images/plainlogo.png" alt="Active Media" class="logo-image">
-                    <span>Active Media Designs & Printing</span>
-                </a>
-                
-                <ul class="nav-links">
-                    <li><a href="../../website/main.php"><i class="fas fa-home"></i> Home</a></li>
-                    <li><a href="../../website/ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="../../website/about.php"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="../../website/contact.php"><i class="fas fa-phone"></i> Contact</a></li>
-                </ul>
+    <!-- Side Pill Navigation -->
+    <nav class="side-nav" id="sideNav" aria-label="Primary">
+        <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
+            <li><a href="../../website/main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li><a href="../../website/ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
+            <li><a href="../../website/about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
+            <li><a href="../../website/contact.php"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
 
-                <div class="features">
-                    <a href="#" class="chat-icon" id="chatButton">
+            <li class="side-nav-divider"></li>
+
+            <li>
+                <a href="#" class="chat-icon" id="chatButton">
+                    <span class="side-nav-icon">
                         <i class="fas fa-comments"></i>
                         <span class="chat-count" id="chatCount">0</span>
-                    </a>
-                    <a href="../../website/view_cart.php" class="cart-icon">
+                    </span>
+                    <span class="side-nav-label">Chat</span>
+                </a>
+            </li>
+            <li>
+                <a href="../../website/view_cart.php" class="cart-icon">
+                    <span class="side-nav-icon">
                         <i class="fas fa-shopping-cart"></i>
                         <span class="cart-count"><?php echo $cart_count; ?></span>
-                    </a>
-                </div>
-                
-                <div class="user-info">
-                    <a href="../website/profile.php" class="user-profile">
-                        <i class="fas fa-user"></i>
-                        <span class="user-name">
-                            <?php
-                            if (!empty($user_data['first_name'])) {
-                                echo htmlspecialchars($user_data['first_name']);
-                            } elseif (!empty($user_data['company_name'])) {
-                                echo htmlspecialchars($user_data['company_name']);
-                            } else {
-                                echo 'User';
-                            }
-                            ?>
-                        </span>
-                    </a>
-                    <a href="../../accounts/logout.php" class="logout-btn">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </a>
-                </div>
-                
-                <div class="mobile-menu-toggle">
-                    <i class="fas fa-bars"></i>
-                </div>
-            </nav>
-        </div>
-    </header>
-
-    <!-- Edit Profile Section -->
-    <section class="edit-profile-page">
-        <div class="container">
-            <div class="edit-profile-header">
-                <h1><i class="fas fa-user-edit"></i> Edit Profile</h1>
-                <p>Update your personal information and account settings</p>
-                <div class="email-verification">
-                    <?php if ($user_data['email_verified']): ?>
-                        <span class="email-verified">
-                            <i class="fas fa-check-circle"></i> Email Verified
-                        </span>
-                    <?php else: ?>
-                        <span class="email-not-verified">
-                            <i class="fas fa-exclamation-circle"></i> Email Not Verified
-                        </span>
-                        <a href="../../accounts/email-verification.php" class="verification-btn">
-                            <i class="fas fa-envelope"></i> Verify Now
-                        </a>
-                    <?php endif; ?>
-                    <span class="account-type-badge <?php echo $is_personal ? 'account-type-personal' : 'account-type-company'; ?>">
-                        <?php echo $is_personal ? 'Personal Account' : 'Company Account'; ?>
                     </span>
-                </div>
-            </div>
+                    <span class="side-nav-label">Cart</span>
+                </a>
+            </li>
 
+            <li class="side-nav-divider"></li>
+
+            <li>
+                <a href="../website/profile.php" class="user-profile active">
+                    <i class="fas fa-user"></i>
+                    <span class="side-nav-label user-name">
+                        <?php
+                        if (!empty($user_data['first_name'])) {
+                            echo htmlspecialchars($user_data['first_name']);
+                        } elseif (!empty($user_data['company_name'])) {
+                            echo htmlspecialchars($user_data['company_name']);
+                        } else {
+                            echo 'User';
+                        }
+                        ?>
+                    </span>
+                </a>
+            </li>
+            <li>
+                <a href="../../accounts/logout.php" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="side-nav-label">Log Out</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Edit Profile Hero -->
+    <section class="edit-profile-header hide">
+        <div class="container">
+            <span class="section-eyebrow"><span class="reg-mark"></span> Your account</span>
+            <h1><i class="fas fa-user-edit"></i> Edit Profile</h1>
+            <p>Update your personal information and account settings</p>
+            <div class="email-verification">
+                <?php if ($user_data['email_verified']): ?>
+                    <span class="email-verified">
+                        <i class="fas fa-check-circle"></i> Email Verified
+                    </span>
+                <?php else: ?>
+                    <span class="email-not-verified">
+                        <i class="fas fa-exclamation-circle"></i> Email Not Verified
+                    </span>
+                    <a href="../../accounts/email-verification.php" class="verification-btn">
+                        <i class="fas fa-envelope"></i> Verify Now
+                    </a>
+                <?php endif; ?>
+                <span class="account-type-badge <?php echo $is_personal ? 'account-type-personal' : 'account-type-company'; ?>">
+                    <?php echo $is_personal ? 'Personal Account' : 'Company Account'; ?>
+                </span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Edit Profile Content -->
+    <section class="edit-profile-page hide">
+        <div class="container">
             <?php if (!empty($success)): ?>
                 <div class="success-message" id="successMessage">
                     <i class="fas fa-check-circle"></i>
@@ -756,7 +410,7 @@ if (isset($_SESSION['user_id'])) {
                 <?php if ($is_personal): ?>
                     <!-- Personal Customer Form -->
                     <div class="form-section">
-                        <h2 class="section-title">
+                        <h2 class="profile-card-title">
                             <i class="fas fa-user-circle"></i> Personal Information
                         </h2>
                         <div class="form-grid">
@@ -764,7 +418,7 @@ if (isset($_SESSION['user_id'])) {
                                 <label class="form-label">First Name <span class="required">*</span></label>
                                 <input type="text" 
                                        name="first_name" 
-                                       class="form-input <?php echo isset($field_errors['first_name']) ? 'error' : ''; ?>"
+                                       class="form-input <?php echo isset($field_errors['first_name']) ? 'input-error' : ''; ?>"
                                        value="<?php echo htmlspecialchars($user_data['first_name'] ?? ''); ?>"
                                        required>
                                 <?php if (isset($field_errors['first_name'])): ?>
@@ -787,7 +441,7 @@ if (isset($_SESSION['user_id'])) {
                                 <label class="form-label">Last Name <span class="required">*</span></label>
                                 <input type="text" 
                                        name="last_name" 
-                                       class="form-input <?php echo isset($field_errors['last_name']) ? 'error' : ''; ?>"
+                                       class="form-input <?php echo isset($field_errors['last_name']) ? 'input-error' : ''; ?>"
                                        value="<?php echo htmlspecialchars($user_data['last_name'] ?? ''); ?>"
                                        required>
                                 <?php if (isset($field_errors['last_name'])): ?>
@@ -827,7 +481,7 @@ if (isset($_SESSION['user_id'])) {
                                 <label class="form-label">Contact Number <span class="required">*</span></label>
                                 <input type="text" 
                                        name="personal_contact" 
-                                       class="form-input <?php echo isset($field_errors['personal_contact']) ? 'error' : ''; ?>"
+                                       class="form-input <?php echo isset($field_errors['personal_contact']) ? 'input-error' : ''; ?>"
                                        value="<?php echo htmlspecialchars($user_data['personal_contact'] ?? ''); ?>"
                                        placeholder="e.g., 09123456789"
                                        required>
@@ -843,7 +497,7 @@ if (isset($_SESSION['user_id'])) {
                     </div>
                     
                     <div class="form-section">
-                        <h2 class="section-title">
+                        <h2 class="profile-card-title">
                             <i class="fas fa-home"></i> Address Information
                         </h2>
                         <div class="form-grid">
@@ -888,7 +542,7 @@ if (isset($_SESSION['user_id'])) {
                 <?php elseif ($is_company): ?>
                     <!-- Company Customer Form -->
                     <div class="form-section">
-                        <h2 class="section-title">
+                        <h2 class="profile-card-title">
                             <i class="fas fa-building"></i> Company Information
                         </h2>
                         <div class="form-grid">
@@ -896,7 +550,7 @@ if (isset($_SESSION['user_id'])) {
                                 <label class="form-label">Company Name <span class="required">*</span></label>
                                 <input type="text" 
                                        name="company_name" 
-                                       class="form-input <?php echo isset($field_errors['company_name']) ? 'error' : ''; ?>"
+                                       class="form-input <?php echo isset($field_errors['company_name']) ? 'input-error' : ''; ?>"
                                        value="<?php echo htmlspecialchars($user_data['company_name'] ?? ''); ?>"
                                        required>
                                 <?php if (isset($field_errors['company_name'])): ?>
@@ -920,7 +574,7 @@ if (isset($_SESSION['user_id'])) {
                                 <label class="form-label">Contact Person <span class="required">*</span></label>
                                 <input type="text" 
                                        name="contact_person" 
-                                       class="form-input <?php echo isset($field_errors['contact_person']) ? 'error' : ''; ?>"
+                                       class="form-input <?php echo isset($field_errors['contact_person']) ? 'input-error' : ''; ?>"
                                        value="<?php echo htmlspecialchars($user_data['contact_person'] ?? ''); ?>"
                                        required>
                                 <?php if (isset($field_errors['contact_person'])): ?>
@@ -935,7 +589,7 @@ if (isset($_SESSION['user_id'])) {
                                 <label class="form-label">Contact Number <span class="required">*</span></label>
                                 <input type="text" 
                                        name="company_contact" 
-                                       class="form-input <?php echo isset($field_errors['company_contact']) ? 'error' : ''; ?>"
+                                       class="form-input <?php echo isset($field_errors['company_contact']) ? 'input-error' : ''; ?>"
                                        value="<?php echo htmlspecialchars($user_data['company_contact'] ?? ''); ?>"
                                        placeholder="e.g., 09123456789"
                                        required>
@@ -951,7 +605,7 @@ if (isset($_SESSION['user_id'])) {
                     </div>
                     
                     <div class="form-section">
-                        <h2 class="section-title">
+                        <h2 class="profile-card-title">
                             <i class="fas fa-map-marked-alt"></i> Company Address
                         </h2>
                         <div class="form-grid">
@@ -1023,7 +677,7 @@ if (isset($_SESSION['user_id'])) {
                 
                 <!-- Password Change Section -->
                 <div class="form-section">
-                    <h2 class="section-title">
+                    <h2 class="profile-card-title">
                         <i class="fas fa-lock"></i> Change Password
                     </h2>
                     <div class="form-note">
@@ -1037,7 +691,7 @@ if (isset($_SESSION['user_id'])) {
                                 <input type="password" 
                                        name="current_password" 
                                        id="currentPassword"
-                                       class="form-input <?php echo isset($field_errors['current_password']) ? 'error' : ''; ?>"
+                                       class="form-input <?php echo isset($field_errors['current_password']) ? 'input-error' : ''; ?>"
                                        autocomplete="current-password">
                                 <button type="button" class="password-toggle" onclick="togglePassword('currentPassword', this)">
                                     <i class="fas fa-eye"></i>
@@ -1057,7 +711,7 @@ if (isset($_SESSION['user_id'])) {
                                 <input type="password" 
                                        name="new_password" 
                                        id="newPassword"
-                                       class="form-input <?php echo isset($field_errors['new_password']) ? 'error' : ''; ?>"
+                                       class="form-input <?php echo isset($field_errors['new_password']) ? 'input-error' : ''; ?>"
                                        autocomplete="new-password">
                                 <button type="button" class="password-toggle" onclick="togglePassword('newPassword', this)">
                                     <i class="fas fa-eye"></i>
@@ -1078,7 +732,7 @@ if (isset($_SESSION['user_id'])) {
                                 <input type="password" 
                                        name="confirm_password" 
                                        id="confirmPassword"
-                                       class="form-input <?php echo isset($field_errors['confirm_password']) ? 'error' : ''; ?>"
+                                       class="form-input <?php echo isset($field_errors['confirm_password']) ? 'input-error' : ''; ?>"
                                        autocomplete="new-password">
                                 <button type="button" class="password-toggle" onclick="togglePassword('confirmPassword', this)">
                                     <i class="fas fa-eye"></i>
@@ -1100,6 +754,7 @@ if (isset($_SESSION['user_id'])) {
                     </button>
                 </div>
             </form>
+
         </div>
     </section>
 
@@ -1117,7 +772,7 @@ if (isset($_SESSION['user_id'])) {
                         <a href=""><i class="fab fa-linkedin-in"></i></a>
                     </div>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Services</h3>
                     <ul>
@@ -1127,7 +782,7 @@ if (isset($_SESSION['user_id'])) {
                         <li><a href="../../website/main.php#other">Other Services</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Company</h3>
                     <ul>
@@ -1137,7 +792,7 @@ if (isset($_SESSION['user_id'])) {
                         <li><a href="../../website/about.php">Testimonials</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Support</h3>
                     <ul>
@@ -1147,7 +802,7 @@ if (isset($_SESSION['user_id'])) {
                         <li><a href="../../website/contact.php">Returns</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Contact Info</h3>
                     <ul class="contact-info">
@@ -1157,7 +812,7 @@ if (isset($_SESSION['user_id'])) {
                     </ul>
                 </div>
             </div>
-            
+
             <div class="footer-bottom">
                 <div class="copyright">
                     <p>&copy; 2025 Active Media Designs & Printing. All rights reserved.</p>
@@ -1207,6 +862,7 @@ if (isset($_SESSION['user_id'])) {
         </div>
     </div>
 
+
     <script src="../../assets/js/main.js"></script>
     <script>
         // Profile-specific JavaScript
@@ -1242,8 +898,8 @@ if (isset($_SESSION['user_id'])) {
                 let isValid = true;
                 
                 // Clear previous error highlights
-                document.querySelectorAll('.form-input.error, .form-select.error').forEach(el => {
-                    el.classList.remove('error');
+                document.querySelectorAll('.form-input.input-error, .form-select.input-error').forEach(el => {
+                    el.classList.remove('input-error');
                 });
                 
                 // Validate required fields
@@ -1251,7 +907,7 @@ if (isset($_SESSION['user_id'])) {
                 requiredFields.forEach(field => {
                     if (!field.value.trim()) {
                         isValid = false;
-                        field.classList.add('error');
+                        field.classList.add('input-error');
                         
                         // Create error message if it doesn't exist
                         let errorDiv = field.nextElementSibling;
@@ -1274,20 +930,20 @@ if (isset($_SESSION['user_id'])) {
                 if (passwordFieldsFilled) {
                     if (!currentPassword.value.trim()) {
                         isValid = false;
-                        currentPassword.classList.add('error');
+                        currentPassword.classList.add('input-error');
                     }
                     
                     if (!newPassword.value.trim()) {
                         isValid = false;
-                        newPassword.classList.add('error');
+                        newPassword.classList.add('input-error');
                     } else if (newPassword.value.length < 8) {
                         isValid = false;
-                        newPassword.classList.add('error');
+                        newPassword.classList.add('input-error');
                     }
                     
                     if (newPassword.value !== confirmPassword.value) {
                         isValid = false;
-                        confirmPassword.classList.add('error');
+                        confirmPassword.classList.add('input-error');
                     }
                 }
                 
@@ -1295,7 +951,7 @@ if (isset($_SESSION['user_id'])) {
                     event.preventDefault();
                     
                     // Scroll to first error
-                    const firstError = form.querySelector('.error');
+                    const firstError = form.querySelector('.input-error');
                     if (firstError) {
                         firstError.scrollIntoView({
                             behavior: 'smooth',
@@ -1326,13 +982,13 @@ if (isset($_SESSION['user_id'])) {
             
             if (age < 0) {
                 ageDisplay.textContent = 'Invalid birth date (future date)';
-                ageDisplay.style.color = 'var(--accent-color)';
+                ageDisplay.style.color = 'var(--riso-red)';
             } else if (age > 120) {
                 ageDisplay.textContent = 'Age: ' + age + ' (please verify birth date)';
                 ageDisplay.style.color = '#ff9800';
             } else {
                 ageDisplay.textContent = 'Age: ' + age + ' years old';
-                ageDisplay.style.color = 'var(--text-dark)';
+                ageDisplay.style.color = 'var(--ink)';
             }
         }
         
@@ -1991,7 +1647,9 @@ if (isset($_SESSION['user_id'])) {
         window.startNewConversation = startNewConversation;
         window.deleteConversation = deleteConversation;
     </script>
+
 </body>
+
 </html>
 
 <?php
