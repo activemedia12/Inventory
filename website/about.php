@@ -866,7 +866,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             shouldAutoScroll = true;
             isUserScrolling = false;
 
-            document.getElementById('chatConversations').style.display = 'block';
+            document.getElementById('chatConversations').style.display = 'flex';
             document.getElementById('chatMessages').classList.remove('active');
             document.getElementById('chatInputArea').classList.remove('active');
             document.getElementById('chatBackBtn').classList.remove('visible');

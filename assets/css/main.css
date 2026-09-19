@@ -1362,6 +1362,7 @@ img {
   cursor: pointer;
   transition: var(--transition);
   background-color: var(--paper-white);
+  margin-bottom: 10px;
 }
 
 .chat-conversation-item:hover {
@@ -1618,7 +1619,7 @@ img {
 }
 
 .conversation-limit-warning {
-  margin: 10px 14px;
+  margin: 0 14px;
   padding: 12px;
   background-color: #fdf1ee;
   border: 1px solid var(--riso-red);
