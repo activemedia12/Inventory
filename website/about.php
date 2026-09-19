@@ -1,5 +1,6 @@
 <?php
 session_start();
+$navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../accounts/login.php");
     exit;
@@ -55,832 +56,335 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
     <link rel="stylesheet" href="../assets/css/main.css">
-    <style>
-        .about-page {
-            padding: 40px 0;
-            background-color: var(--bg-light);
-            min-height: 80vh;
-        }
-
-        .about-container {
-            background: var(--bg-white);
-            padding: 40px;
-            box-shadow: var(--shadow);
-            margin: 0 auto;
-            max-width: 1200px;
-            border: 1px solid var(--border-color);
-        }
-
-        .about-header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .about-title {
-            font-size: 2.5em;
-            margin-bottom: 15px;
-            color: var(--text-dark);
-            font-weight: 700;
-        }
-
-        .about-subtitle {
-            font-size: 1.2em;
-            color: var(--primary-color);
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        .about-description {
-            color: var(--text-light);
-            max-width: 800px;
-            margin: 0 auto;
-            line-height: 1.6;
-        }
-
-        .section-title {
-            font-size: 1.8em;
-            margin-bottom: 25px;
-            color: var(--text-dark);
-            font-weight: 600;
-            position: relative;
-            padding-bottom: 10px;
-        }
-
-        .section-title:after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 60px;
-            height: 3px;
-            background: var(--primary-color);
-        }
-
-        .section-content {
-            margin-bottom: 50px;
-        }
-
-        .section-content p {
-            margin-bottom: 20px;
-            line-height: 1.7;
-            color: var(--text-light);
-        }
-
-        .values-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 30px;
-            margin-top: 30px;
-        }
-
-        .value-card {
-            background: var(--bg-light);
-            padding: 30px;
-            text-align: center;
-            transition: var(--transition);
-            border: 1px solid var(--border-color);
-        }
-
-        .value-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow);
-            border-color: var(--primary-color);
-        }
-
-        .value-icon {
-            font-size: 2.5em;
-            color: var(--primary-color);
-            margin-bottom: 20px;
-        }
-
-        .value-title {
-            font-size: 1.3em;
-            margin-bottom: 15px;
-            color: var(--text-dark);
-            font-weight: 600;
-        }
-
-        .value-description {
-            color: var(--text-light);
-            line-height: 1.6;
-        }
-
-        .team-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 30px;
-            margin-top: 30px;
-        }
-
-        .team-member {
-            background: var(--bg-light);
-            overflow: hidden;
-            text-align: center;
-            transition: var(--transition);
-            border: 1px solid var(--border-color);
-        }
-
-        .team-member:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow);
-        }
-
-        .member-image {
-            height: 200px;
-            background: var(--primary-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 4em;
-        }
-
-        .member-info {
-            padding: 25px 20px;
-        }
-
-        .member-name {
-            font-size: 1.2em;
-            margin-bottom: 5px;
-            color: var(--text-dark);
-            font-weight: 600;
-        }
-
-        .member-role {
-            color: var(--primary-color);
-            margin-bottom: 15px;
-            font-weight: 500;
-        }
-
-        .member-bio {
-            color: var(--text-light);
-            font-size: 0.9em;
-            line-height: 1.6;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 30px;
-            margin-top: 30px;
-        }
-
-        .stat-card {
-            background: var(--bg-light);
-            padding: 30px 20px;
-            text-align: center;
-            transition: var(--transition);
-            border: 1px solid var(--border-color);
-        }
-
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow);
-        }
-
-        .stat-number {
-            font-size: 2.5em;
-            font-weight: 700;
-            color: var(--primary-color);
-            margin-bottom: 10px;
-        }
-
-        .stat-label {
-            color: var(--text-dark);
-            font-weight: 600;
-            font-size: 1.1em;
-        }
-
-        .timeline {
-            position: relative;
-            max-width: 800px;
-            margin: 40px auto 0;
-        }
-
-        .timeline:before {
-            content: '';
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: 50%;
-            width: 2px;
-            background: var(--primary-color);
-            transform: translateX(-50%);
-        }
-
-        .timeline-item {
-            position: relative;
-            margin-bottom: 40px;
-            width: 50%;
-            padding: 0 40px;
-        }
-
-        .timeline-item:nth-child(odd) {
-            left: 0;
-        }
-
-        .timeline-item:nth-child(even) {
-            left: 50%;
-        }
-
-        .timeline-content {
-            background: var(--bg-light);
-            padding: 25px;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
-            position: relative;
-        }
-
-        .timeline-item:nth-child(odd) .timeline-content:after {
-            content: '';
-            position: absolute;
-            top: 20px;
-            right: -10px;
-            width: 0;
-            height: 0;
-            border-top: 10px solid transparent;
-            border-bottom: 10px solid transparent;
-            border-left: 10px solid var(--bg-light);
-        }
-
-        .timeline-item:nth-child(even) .timeline-content:after {
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: -10px;
-            width: 0;
-            height: 0;
-            border-top: 10px solid transparent;
-            border-bottom: 10px solid transparent;
-            border-right: 10px solid var(--bg-light);
-        }
-
-        .timeline-year {
-            display: inline-block;
-            background: var(--primary-color);
-            color: white;
-            padding: 5px 15px;
-            font-weight: 600;
-            margin-bottom: 15px;
-        }
-
-        .timeline-title {
-            font-size: 1.2em;
-            margin-bottom: 10px;
-            color: var(--text-dark);
-            font-weight: 600;
-        }
-
-        .timeline-description {
-            color: var(--text-light);
-            line-height: 1.6;
-        }
-
-        .timeline-dot {
-            position: absolute;
-            top: 20px;
-            width: 20px;
-            height: 20px;
-            background: var(--primary-color);
-            border-radius: 50%;
-            z-index: 1;
-        }
-
-        .timeline-item:nth-child(odd) .timeline-dot {
-            right: -10px;
-        }
-
-        .timeline-item:nth-child(even) .timeline-dot {
-            left: -10px;
-        }
-
-        .cta-section {
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-            padding: 50px;
-            text-align: center;
-            color: white;
-            margin-top: 40px;
-        }
-
-        .cta-title {
-            font-size: 2em;
-            margin-bottom: 20px;
-            font-weight: 700;
-        }
-
-        .cta-description {
-            font-size: 1.1em;
-            margin-bottom: 30px;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
-            opacity: 0.9;
-        }
-
-        .cta-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .btn-light {
-            background: white;
-            color: var(--primary-color);
-            border: none;
-        }
-
-        .btn-light:hover {
-            background: var(--bg-light);
-        }
-
-        .btn-outline-light {
-            background: transparent;
-            color: white;
-            border: 2px solid white;
-        }
-
-        .btn-outline-light:hover {
-            background: white;
-            color: var(--primary-color);
-        }
-
-        @media (max-width: 768px) {
-            .about-container {
-                padding: 50px;
-                margin: 0 20px;
-            }
-
-            .about-title {
-                font-size: 2em;
-            }
-
-            .timeline:before {
-                left: 30px;
-            }
-
-            .timeline-item {
-                width: 100%;
-                padding-left: 70px;
-                padding-right: 0;
-            }
-
-            .timeline-item:nth-child(even) {
-                left: 0;
-            }
-
-            .timeline-item:nth-child(odd) .timeline-content:after,
-            .timeline-item:nth-child(even) .timeline-content:after {
-                display: none;
-            }
-
-            .timeline-dot {
-                left: 20px !important;
-            }
-
-            .cta-section {
-                padding: 30px;
-            }
-
-            .cta-title {
-                font-size: 120%;
-            }
-
-            .cta-description {
-                font-size: 80%
-            }
-
-            .cta-buttons {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .cta-buttons a {
-                font-size: 80%;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .about-title {
-                font-size: 1.8em;
-            }
-
-            .values-grid,
-            .team-grid,
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .section-title {
-                font-size: 1.5em;
-            }
-        }
-    </style>
 </head>
-
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <nav class="navbar">
-                <a href="#" class="logo">
-                    <img src="../assets/images/plainlogo.png" alt="Active Media" class="logo-image">
-                    <span>Active Media Designs & Printing</span>
-                </a>
+    <!-- Side Pill Navigation -->
+    <nav class="side-nav" id="sideNav" aria-label="Primary">
+        <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
+            <li><a href="main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li><a href="ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
+            <li><a href="about.php" class="active"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
+            <li><a href="contact.php"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
 
-                <ul class="nav-links">
-                    <li><a href="main.php"><i class="fas fa-home"></i> Home</a></li>
-                    <li><a href="ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="about.php" class="active"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="contact.php"><i class="fas fa-phone"></i> Contact</a></li>
-                </ul>
+            <li class="side-nav-divider"></li>
 
-                <div class="features">
-                    <a href="#" class="chat-icon" id="chatButton">
+            <li>
+                <a href="#" class="chat-icon" id="chatButton">
+                    <span class="side-nav-icon">
                         <i class="fas fa-comments"></i>
                         <span class="chat-count" id="chatCount">0</span>
-                    </a>
-                    <a href="view_cart.php" class="cart-icon">
+                    </span>
+                    <span class="side-nav-label">Chat</span>
+                </a>
+            </li>
+            <li>
+                <a href="view_cart.php" class="cart-icon">
+                    <span class="side-nav-icon">
                         <i class="fas fa-shopping-cart"></i>
                         <span class="cart-count"><?php echo $cart_count; ?></span>
-                    </a>
-                </div>
+                    </span>
+                    <span class="side-nav-label">Cart</span>
+                </a>
+            </li>
 
-                <div class="user-info" id="user-info">
-                    <a href="../pages/website/profile.php" class="user-profile">
-                        <i class="fas fa-user"></i>
-                        <span class="user-name">
-                            <?php
-                            if (!empty($user_data['first_name'])) {
-                                echo htmlspecialchars($user_data['first_name']);
-                            } elseif (!empty($user_data['company_name'])) {
-                                echo htmlspecialchars($user_data['company_name']);
-                            } else {
-                                echo 'User';
-                            }
-                            ?>
-                        </span>
-                    </a>
-                    <a href="../accounts/logout.php" class="logout-btn">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </a>
-                </div>
+            <li class="side-nav-divider"></li>
 
-                <div class="mobile-menu-toggle">
-                    <i class="fas fa-bars"></i>
-                </div>
-            </nav>
-        </div>
-    </header>
+            <li>
+                <a href="../pages/website/profile.php" class="user-profile">
+                    <i class="fas fa-user"></i>
+                    <span class="side-nav-label user-name">
+                        <?php
+                        if (!empty($user_data['first_name'])) {
+                            echo htmlspecialchars($user_data['first_name']);
+                        } elseif (!empty($user_data['company_name'])) {
+                            echo htmlspecialchars($user_data['company_name']);
+                        } else {
+                            echo 'User';
+                        }
+                        ?>
+                    </span>
+                </a>
+            </li>
+            <li>
+                <a href="../accounts/logout.php" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="side-nav-label">Log Out</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
 
-    <!-- About Section -->
-    <section class="about-page">
+    <!-- About Hero -->
+    <section class="about-hero hide">
         <div class="container">
-            <div class="about-container">
-                <div class="about-header">
-                    <h1 class="about-title">About Active Media Designs & Printing</h1>
-                    <p class="about-subtitle">Excellence in Printing & Design Since 2010</p>
-                    <p class="about-description">
-                        Active Media Designs & Printing has been at the forefront of the printing industry, 
-                        delivering exceptional quality and innovative solutions to businesses and individuals 
-                        for over a decade. Our commitment to excellence and customer satisfaction has made us 
-                        a trusted partner for all printing needs.
-                    </p>
-                </div>
+            <div class="section-header">
+                <span class="section-eyebrow"><span class="reg-mark"></span> Est. 2010 · Malolos, Bulacan</span>
+                <h1 class="section-title">About<br>Active Media Designs & Printing</h1>
+                <p class="section-subtitle">Active Media Designs & Printing has been at the forefront of the printing industry, delivering exceptional quality and innovative solutions to businesses and individuals for over a decade.</p>
+            </div>
+        </div>
+    </section>
 
+    <!-- Our Story -->
+    <section class="about-section hide">
+        <div class="container">
+            <div class="prose-block">
+                <img src="../assets/images/plainlogo.png" alt="Active Media Designs & Printing" class="story-mark">
+                <h2 class="section-title">Our Story</h2>
+                <p>
+                    Founded in 2010 by Wizermina C. Lumbad, Active Media
+                    started as a small local print shop with a vision to revolutionize the printing industry.
+                    We believed that quality printing should be accessible to everyone, from small businesses
+                    to large corporations.
+                </p>
+                <p>
+                    Over the years, we've grown from a single-office operation to a multi-location printing
+                    service provider with state-of-the-art equipment and a team of dedicated professionals.
+                    Our journey has been marked by continuous innovation, embracing new technologies while
+                    maintaining the craftsmanship that sets us apart.
+                </p>
+                <p>
+                    Today, we serve thousands of satisfied customers across the region, offering a comprehensive
+                    range of printing services from traditional offset printing to cutting-edge digital solutions
+                    and our revolutionary AI design tools.
+                </p>
+            </div>
+        </div>
+    </section>
 
-                <div class="section-content">
-                    <h2 class="section-title">Our Story</h2>
+    <!-- Mission & Vision -->
+    <section class="about-section section-tint hide">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-eyebrow"><span class="reg-mark"></span> Why We Print</span>
+                <h2 class="section-title">Our Mission & Vision</h2>
+            </div>
+            <div class="values-grid">
+                <div class="service-card">
+                    <div class="service-icon"><i class="fas fa-bullseye"></i></div>
+                    <h3>Our Mission</h3>
                     <p>
-                        Founded in 2010 by Wizermina C. Lumbad, Active Media 
-                        started as a small local print shop with a vision to revolutionize the printing industry. 
-                        We believed that quality printing should be accessible to everyone, from small businesses 
-                        to large corporations.
+                        To provide exceptional printing solutions that empower businesses and individuals
+                        to communicate effectively through high-quality, innovative, and accessible design
+                        and printing services.
                     </p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon"><i class="fas fa-eye"></i></div>
+                    <h3>Our Vision</h3>
                     <p>
-                        Over the years, we've grown from a single-office operation to a multi-location printing 
-                        service provider with state-of-the-art equipment and a team of dedicated professionals. 
-                        Our journey has been marked by continuous innovation, embracing new technologies while 
-                        maintaining the craftsmanship that sets us apart.
+                        To be the leading printing and design company recognized for excellence, innovation,
+                        and customer satisfaction, while continuously adapting to the evolving needs of our
+                        clients and the industry.
                     </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Our Values -->
+    <section class="about-section hide">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-eyebrow"><span class="reg-mark"></span> What Drives Us</span>
+                <h2 class="section-title">Our Values</h2>
+            </div>
+            <div class="values-grid values-grid--4">
+                <div class="service-card">
+                    <div class="service-icon"><i class="fas fa-award"></i></div>
+                    <h3>Quality</h3>
                     <p>
-                        Today, we serve thousands of satisfied customers across the region, offering a comprehensive 
-                        range of printing services from traditional offset printing to cutting-edge digital solutions 
-                        and our revolutionary AI design tools.
+                        We never compromise on quality. From the materials we use to the final product,
+                        every detail matters to ensure our clients receive the best possible results.
                     </p>
                 </div>
-
-                <!-- Our Mission & Vision -->
-                <div class="section-content">
-                    <h2 class="section-title">Our Mission & Vision</h2>
-                    <div class="values-grid">
-                        <div class="value-card">
-                            <div class="value-icon">
-                                <i class="fas fa-bullseye"></i>
-                            </div>
-                            <h3 class="value-title">Our Mission</h3>
-                            <p class="value-description">
-                                To provide exceptional printing solutions that empower businesses and individuals 
-                                to communicate effectively through high-quality, innovative, and accessible design 
-                                and printing services.
-                            </p>
-                        </div>
-                        <div class="value-card">
-                            <div class="value-icon">
-                                <i class="fas fa-eye"></i>
-                            </div>
-                            <h3 class="value-title">Our Vision</h3>
-                            <p class="value-description">
-                                To be the leading printing and design company recognized for excellence, innovation, 
-                                and customer satisfaction, while continuously adapting to the evolving needs of our 
-                                clients and the industry.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Our Values -->
-                <div class="section-content">
-                    <h2 class="section-title">Our Values</h2>
-                    <div class="values-grid">
-                        <div class="value-card">
-                            <div class="value-icon">
-                                <i class="fas fa-award"></i>
-                            </div>
-                            <h3 class="value-title">Quality</h3>
-                            <p class="value-description">
-                                We never compromise on quality. From the materials we use to the final product, 
-                                every detail matters to ensure our clients receive the best possible results.
-                            </p>
-                        </div>
-                        <div class="value-card">
-                            <div class="value-icon">
-                                <i class="fas fa-lightbulb"></i>
-                            </div>
-                            <h3 class="value-title">Innovation</h3>
-                            <p class="value-description">
-                                We embrace new technologies and creative approaches to stay ahead of industry 
-                                trends and provide cutting-edge solutions to our clients.
-                            </p>
-                        </div>
-                        <div class="value-card">
-                            <div class="value-icon">
-                                <i class="fas fa-users"></i>
-                            </div>
-                            <h3 class="value-title">Customer Focus</h3>
-                            <p class="value-description">
-                                Our clients are at the heart of everything we do. We listen, understand, and 
-                                deliver solutions that exceed expectations and build lasting relationships.
-                            </p>
-                        </div>
-                        <div class="value-card">
-                            <div class="value-icon">
-                                <i class="fas fa-handshake"></i>
-                            </div>
-                            <h3 class="value-title">Integrity</h3>
-                            <p class="value-description">
-                                We conduct our business with honesty, transparency, and ethical practices, 
-                                earning the trust and respect of our clients and partners.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Our Journey -->
-                <div class="section-content">
-                    <h2 class="section-title">Our Journey</h2>
-                    <div class="timeline">
-                        <div class="timeline-item">
-                            <div class="timeline-dot"></div>
-                            <div class="timeline-content">
-                                <span class="timeline-year">2010</span>
-                                <h3 class="timeline-title">Company Founded</h3>
-                                <p class="timeline-description">
-                                    Active Media was established with a focus on providing high-quality 
-                                    printing services to local businesses.
-                                </p>
-                            </div>
-                        </div>
-                        <div class="timeline-item">
-                            <div class="timeline-dot"></div>
-                            <div class="timeline-content">
-                                <span class="timeline-year">2013</span>
-                                <h3 class="timeline-title">Expansion & Growth</h3>
-                                <p class="timeline-description">
-                                    We expanded our services to include digital printing and opened our 
-                                    second location to serve a wider customer base.
-                                </p>
-                            </div>
-                        </div>
-                        <div class="timeline-item">
-                            <div class="timeline-dot"></div>
-                            <div class="timeline-content">
-                                <span class="timeline-year">2016</span>
-                                <h3 class="timeline-title">Technology Integration</h3>
-                                <p class="timeline-description">
-                                    Implemented advanced printing technologies and launched our first 
-                                    online ordering system for customer convenience.
-                                </p>
-                            </div>
-                        </div>
-                        <div class="timeline-item">
-                            <div class="timeline-dot"></div>
-                            <div class="timeline-content">
-                                <span class="timeline-year">2020</span>
-                                <h3 class="timeline-title">Digital Transformation</h3>
-                                <p class="timeline-description">
-                                    Enhanced our digital capabilities and introduced remote design 
-                                    services to adapt to changing customer needs.
-                                </p>
-                            </div>
-                        </div>
-                        <div class="timeline-item">
-                            <div class="timeline-dot"></div>
-                            <div class="timeline-content">
-                                <span class="timeline-year">2025</span>
-                                <h3 class="timeline-title">AI Innovation</h3>
-                                <p class="timeline-description">
-                                    Launched our AI-powered design tools, revolutionizing how customers 
-                                    create custom designs for their printing projects.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Our Team -->
-                <div class="section-content">
-                    <h2 class="section-title">Meet Our Team</h2>
-                    <div class="team-grid">
-                        <div class="team-member">
-                            <div class="member-image">
-                                <i class="fas fa-user"></i>
-                            </div>
-                            <div class="member-info">
-                                <h3 class="member-name">John Doe</h3>
-                                <p class="member-role">CEO & Founder</p>
-                                <p class="member-bio">
-                                    With over 15 years in the printing industry, Sarah leads our team 
-                                    with vision and dedication to excellence.
-                                </p>
-                            </div>
-                        </div>
-                        <div class="team-member">
-                            <div class="member-image">
-                                <i class="fas fa-user"></i>
-                            </div>
-                            <div class="member-info">
-                                <h3 class="member-name">John Doe</h3>
-                                <p class="member-role">Creative Director</p>
-                                <p class="member-bio">
-                                    Michael brings innovative design solutions and ensures every project 
-                                    meets our high creative standards.
-                                </p>
-                            </div>
-                        </div>
-                        <div class="team-member">
-                            <div class="member-image">
-                                <i class="fas fa-user"></i>
-                            </div>
-                            <div class="member-info">
-                                <h3 class="member-name">John Doe</h3>
-                                <p class="member-role">Print Production Manager</p>
-                                <p class="member-bio">
-                                    Emily oversees our production process, ensuring quality and efficiency 
-                                    in every print job.
-                                </p>
-                            </div>
-                        </div>
-                        <div class="team-member">
-                            <div class="member-image">
-                                <i class="fas fa-user"></i>
-                            </div>
-                            <div class="member-info">
-                                <h3 class="member-name">John Doe</h3>
-                                <p class="member-role">Technology Director</p>
-                                <p class="member-bio">
-                                    David leads our tech initiatives, including the development of our 
-                                    AI design tools and digital platforms.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Our Impact -->
-                <div class="section-content">
-                    <h2 class="section-title">Our Impact</h2>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-number">10,000+</div>
-                            <div class="stat-label">Satisfied Clients</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number">50,000+</div>
-                            <div class="stat-label">Projects Completed</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number">10+</div>
-                            <div class="stat-label">Years of Experience</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number">98%</div>
-                            <div class="stat-label">Client Retention</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Call to Action -->
-                <div class="cta-section">
-                    <h2 class="cta-title">Ready to Bring Your Ideas to Life?</h2>
-                    <p class="cta-description">
-                        Whether you need traditional printing services or want to explore our innovative 
-                        AI design tools, our team is here to help you create something amazing.
+                <div class="service-card">
+                    <div class="service-icon"><i class="fas fa-lightbulb"></i></div>
+                    <h3>Innovation</h3>
+                    <p>
+                        We embrace new technologies and creative approaches to stay ahead of industry
+                        trends and provide cutting-edge solutions to our clients.
                     </p>
-                    <div class="cta-buttons">
-                        <a href="main.php" class="btn btn-light">
-                            <i class="fas fa-shopping-cart"></i> Explore Our Services
-                        </a>
-                        <a href="ai_image.php" class="btn btn-outline-light">
-                            <i class="fas fa-robot"></i> Try AI Design Tool
-                        </a>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon"><i class="fas fa-users"></i></div>
+                    <h3>Customer Focus</h3>
+                    <p>
+                        Our clients are at the heart of everything we do. We listen, understand, and
+                        deliver solutions that exceed expectations and build lasting relationships.
+                    </p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon"><i class="fas fa-handshake"></i></div>
+                    <h3>Integrity</h3>
+                    <p>
+                        We conduct our business with honesty, transparency, and ethical practices,
+                        earning the trust and respect of our clients and partners.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Our Journey -->
+    <section class="about-section section-tint hide">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-eyebrow"><span class="reg-mark"></span> How Far We've Come</span>
+                <h2 class="section-title">Our Journey</h2>
+            </div>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <span class="timeline-year">2010</span>
+                        <h3 class="timeline-title">Company Founded</h3>
+                        <p class="timeline-description">
+                            Active Media was established with a focus on providing high-quality
+                            printing services to local businesses.
+                        </p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <span class="timeline-year">2013</span>
+                        <h3 class="timeline-title">Expansion & Growth</h3>
+                        <p class="timeline-description">
+                            We expanded our services to include digital printing and opened our
+                            second location to serve a wider customer base.
+                        </p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <span class="timeline-year">2016</span>
+                        <h3 class="timeline-title">Technology Integration</h3>
+                        <p class="timeline-description">
+                            Implemented advanced printing technologies and launched our first
+                            online ordering system for customer convenience.
+                        </p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <span class="timeline-year">2020</span>
+                        <h3 class="timeline-title">Digital Transformation</h3>
+                        <p class="timeline-description">
+                            Enhanced our digital capabilities and introduced remote design
+                            services to adapt to changing customer needs.
+                        </p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <span class="timeline-year">2025</span>
+                        <h3 class="timeline-title">AI Innovation</h3>
+                        <p class="timeline-description">
+                            Launched our AI-powered design tools, revolutionizing how customers
+                            create custom designs for their printing projects.
+                        </p>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Footer -->
-    <footer class="footer">
+    <!-- Our Team -->
+    <section class="about-section hide">
         <div class="container">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h3>AMDP</h3>
-                    <p>Professional printing services with quality, speed, and precision for all your business needs.</p>
-                    <div class="social-icons">
-                        <a href="https://www.facebook.com/profile.php?id=100063881538670"><i class="fab fa-facebook-f"></i></a>
-                        <a href=""><i class="fab fa-twitter"></i></a>
-                        <a href=""><i class="fab fa-instagram"></i></a>
-                        <a href=""><i class="fab fa-linkedin-in"></i></a>
-                    </div>
-                </div>
-                
-                <div class="footer-section">
-                    <h3>Services</h3>
-                    <ul>
-                        <li><a href="#offset">Offset Printing</a></li>
-                        <li><a href="#digital">Digital Printing</a></li>
-                        <li><a href="#riso">RISO Printing</a></li>
-                        <li><a href="#other">Other Services</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-section">
-                    <h3>Company</h3>
-                    <ul>
-                        <li><a href="about.php">About Us</a></li>
-                        <li><a href="about.php">Our Team</a></li>
-                        <li><a href="about.php">Careers</a></li>
-                        <li><a href="about.php">Testimonials</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-section">
-                    <h3>Support</h3>
-                    <ul>
-                        <li><a href="contact.php">Contact Us</a></li>
-                        <li><a href="contact.php">FAQ</a></li>
-                        <li><a href="contact.php">Shipping Info</a></li>
-                        <li><a href="contact.php">Returns</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-section">
-                    <h3>Contact Info</h3>
-                    <ul class="contact-info">
-                        <li><i class="fas fa-map-marker-alt"></i>Fausta Rd Lucero St Mabolo, Malolos, Philippines</li>
-                        <li><i class="fas fa-phone"></i> (044) 796-4101</li>
-                        <li><i class="fas fa-envelope"></i> activemediaprint@gmail.com</li>
-                    </ul>
-                </div>
+            <div class="section-header">
+                <span class="section-eyebrow"><span class="reg-mark"></span> The People Behind The Press</span>
+                <h2 class="section-title">Meet Our Team</h2>
             </div>
-            
-            <div class="footer-bottom">
-                <div class="copyright">
-                    <p>&copy; 2025 Active Media Designs & Printing. All rights reserved.</p>
+            <div class="team-grid">
+                <div class="team-card">
+                    <div class="team-avatar"><i class="fas fa-user"></i></div>
+                    <h3 class="team-name">Wizermina Lumbad</h3>
+                    <p class="team-role">CEO & Founder</p>
+                    <p class="team-bio">
+                        With over 15 years in the printing industry, Wizermina leads our team
+                        with vision and dedication to excellence.
+                    </p>
                 </div>
-                <div class="footer-links">
-                    <a href="">Privacy Policy</a>
-                    <a href="">Terms of Service</a>
-                    <a href="">Cookie Policy</a>
+                <div class="team-card">
+                    <div class="team-avatar"><i class="fas fa-user"></i></div>
+                    <h3 class="team-name">Margie Villafuerte</h3>
+                    <p class="team-role">Head Office Staff</p>
+                    <p class="team-bio">
+                        Margie brings innovative design solutions and ensures every project
+                        meets our high creative standards.
+                    </p>
+                </div>
+                <div class="team-card">
+                    <div class="team-avatar"><i class="fas fa-user"></i></div>
+                    <h3 class="team-name">Jovelyn Maclang</h3>
+                    <p class="team-role">Office Staff</p>
+                    <p class="team-bio">
+                        Jovelyn oversees our production process, ensuring quality and efficiency
+                        in every print job.
+                    </p>
+                </div>
+                <div class="team-card">
+                    <div class="team-avatar"><i class="fas fa-user"></i></div>
+                    <h3 class="team-name">Erine George</h3>
+                    <p class="team-role">Technology Director</p>
+                    <p class="team-bio">
+                        Erine leads our tech initiatives, including the development of our
+                        AI design tools and digital platforms.
+                    </p>
                 </div>
             </div>
         </div>
-    </footer>
+    </section>
+
+    <!-- Our Impact -->
+    <section class="about-section section-tint hide">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-eyebrow"><span class="reg-mark"></span> By The Numbers</span>
+                <h2 class="section-title">Our Impact</h2>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">1,000+</div>
+                    <div class="stat-label">Satisfied Clients</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">10,000+</div>
+                    <div class="stat-label">Projects Completed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">10+</div>
+                    <div class="stat-label">Years of Experience</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">98%</div>
+                    <div class="stat-label">Client Retention</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call to Action -->
+    <section class="cta-section hide">
+        <div class="container">
+            <div class="cta-content">
+                <h2>Ready to Bring Your Ideas to Life?</h2>
+                <p>Whether you need traditional printing services or want to explore our innovative AI design tools, our team is here to help you create something amazing.</p>
+                <div class="hero-actions">
+                    <a href="main.php" class="btn btn-secondary"><i class="fas fa-shopping-cart"></i> Explore Our Services</a>
+                    <a href="ai_image.php" class="btn btn-primary"><i class="fas fa-robot"></i> Try AI Design Tool</a>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <!-- Chat Widget -->
     <div class="chat-widget" id="chatWidget">
@@ -918,41 +422,86 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         </div>
     </div>
 
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>AMDP</h3>
+                    <p>Professional printing services with quality, speed, and precision for all your business needs.</p>
+                    <div class="social-icons">
+                        <a href="https://www.facebook.com/profile.php?id=100063881538670"><i class="fab fa-facebook-f"></i></a>
+                        <a href=""><i class="fab fa-twitter"></i></a>
+                        <a href=""><i class="fab fa-instagram"></i></a>
+                        <a href=""><i class="fab fa-linkedin-in"></i></a>
+                    </div>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Services</h3>
+                    <ul>
+                        <li><a href="#offset">Offset Printing</a></li>
+                        <li><a href="#digital">Digital Printing</a></li>
+                        <li><a href="#riso">RISO Printing</a></li>
+                        <li><a href="#other">Other Services</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Company</h3>
+                    <ul>
+                        <li><a href="about.php">About Us</a></li>
+                        <li><a href="about.php">Our Team</a></li>
+                        <li><a href="about.php">Careers</a></li>
+                        <li><a href="about.php">Testimonials</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Support</h3>
+                    <ul>
+                        <li><a href="contact.php">Contact Us</a></li>
+                        <li><a href="contact.php">FAQ</a></li>
+                        <li><a href="contact.php">Shipping Info</a></li>
+                        <li><a href="contact.php">Returns</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Contact Info</h3>
+                    <ul class="contact-info">
+                        <li><i class="fas fa-map-marker-alt"></i>Fausta Rd Lucero St Mabolo, Malolos, Philippines</li>
+                        <li><i class="fas fa-phone"></i> (044) 796-4101</li>
+                        <li><i class="fas fa-envelope"></i> activemediaprint@gmail.com</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <div class="copyright">
+                    <p>&copy; 2025 Active Media Designs & Printing. All rights reserved.</p>
+                </div>
+                <div class="footer-links">
+                    <a href="">Privacy Policy</a>
+                    <a href="">Terms of Service</a>
+                    <a href="">Cookie Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
     <script src="../assets/js/main.js"></script>
     <script>
-        // About page specific JavaScript
-        document.addEventListener('DOMContentLoaded', function() {
-            // Animation for stats counter (if needed)
-            const statNumbers = document.querySelectorAll('.stat-number');
-            
-            // Simple animation for stats
-            const observerOptions = {
-                threshold: 0.5,
-                rootMargin: '0px 0px -50px 0px'
-            };
-
-            const observer = new IntersectionObserver(function(entries) {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.style.opacity = '1';
-                        entry.target.style.transform = 'translateY(0)';
-                    }
-                });
-            }, observerOptions);
-
-            // Apply initial styles and observe
-            statNumbers.forEach(stat => {
-                stat.style.opacity = '0';
-                stat.style.transform = 'translateY(20px)';
-                stat.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-                observer.observe(stat);
-            });
-        });
-    </script>
-    <script>
-        // Chat functionality
+        // Chat functionality with auto-scroll improvements
         let currentConversationId = null;
         let chatRefreshInterval = null;
+
+        // Auto-scroll variables
+        let isUserScrolling = false;
+        let shouldAutoScroll = true;
+        let scrollDebounceTimer = null;
+        let lastScrollPosition = 0;
+        let scrollDirection = 'down';
 
         // Initialize chat when page loads
         document.addEventListener('DOMContentLoaded', function() {
@@ -1005,6 +554,14 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
             // Check for unread messages every minute
             setInterval(updateUnreadCount, 60000);
+
+            // Setup scroll detection when chat opens
+            setTimeout(() => {
+                const chatWidget = document.getElementById('chatWidget');
+                if (chatWidget && chatWidget.classList.contains('open')) {
+                    setupScrollDetection();
+                }
+            }, 1000);
         });
 
         // Toggle chat widget
@@ -1016,9 +573,134 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 if (widget.classList.contains('open')) {
                     loadConversations();
                     startChatRefresh();
+                    // Setup scroll detection when chat opens
+                    setTimeout(setupScrollDetection, 500);
                 } else {
                     stopChatRefresh();
                 }
+            }
+        }
+
+        // ========== AUTO-SCROLL DETECTION ==========
+        function setupScrollDetection() {
+            const messagesList = document.getElementById('messagesList');
+            if (!messagesList) return;
+
+            // Detect user scroll intent
+            messagesList.addEventListener('scroll', function() {
+                clearTimeout(scrollDebounceTimer);
+
+                // Calculate scroll position and direction
+                const currentScrollTop = messagesList.scrollTop;
+                const maxScrollTop = messagesList.scrollHeight - messagesList.clientHeight;
+
+                // Determine scroll direction
+                if (currentScrollTop < lastScrollPosition) {
+                    scrollDirection = 'up';
+                } else if (currentScrollTop > lastScrollPosition) {
+                    scrollDirection = 'down';
+                }
+                lastScrollPosition = currentScrollTop;
+
+                // If user is scrolling up, they're likely reading old messages
+                const isNearBottom = maxScrollTop - currentScrollTop <= 100; // 100px from bottom
+                isUserScrolling = true;
+
+                // If scrolling up OR not near bottom, user is reading old messages
+                if (scrollDirection === 'up' || !isNearBottom) {
+                    shouldAutoScroll = false;
+                } else {
+                    // If scrolling down and near bottom, enable auto-scroll
+                    shouldAutoScroll = true;
+                }
+
+                // Reset after user stops scrolling
+                scrollDebounceTimer = setTimeout(() => {
+                    isUserScrolling = false;
+
+                    // If user stopped near bottom, re-enable auto-scroll
+                    const newScrollTop = messagesList.scrollTop;
+                    const newMaxScroll = messagesList.scrollHeight - messagesList.clientHeight;
+                    if (newMaxScroll - newScrollTop <= 50) {
+                        shouldAutoScroll = true;
+                    }
+                }, 1000); // 1 second delay
+            });
+
+            // Also detect mouse wheel and touch events
+            messagesList.addEventListener('wheel', function() {
+                isUserScrolling = true;
+            });
+
+            messagesList.addEventListener('touchstart', function() {
+                isUserScrolling = true;
+            });
+
+            // Keyboard shortcut to jump to bottom (Ctrl+End)
+            messagesList.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'End') {
+                    e.preventDefault();
+                    scrollToBottom(messagesList, true);
+                    shouldAutoScroll = true;
+                    isUserScrolling = false;
+                }
+            });
+        }
+
+        function isAtBottom(element, threshold = 100) {
+            if (!element) return false;
+            const maxScrollTop = element.scrollHeight - element.clientHeight;
+            return maxScrollTop - element.scrollTop <= threshold;
+        }
+
+        function scrollToBottom(element, smooth = false) {
+            if (!element) return;
+
+            const scrollOptions = {
+                top: element.scrollHeight,
+                behavior: smooth ? 'smooth' : 'auto'
+            };
+
+            element.scrollTo(scrollOptions);
+            shouldAutoScroll = true;
+        }
+
+        // ========== NEW MESSAGES INDICATOR ==========
+        function showNewMessagesIndicator() {
+            const messagesList = document.getElementById('messagesList');
+            if (!messagesList) return;
+
+            // Remove existing indicator
+            const existingIndicator = document.querySelector('.new-messages-indicator');
+            if (existingIndicator) existingIndicator.remove();
+
+            // Create indicator
+            const indicator = document.createElement('div');
+            indicator.className = 'new-messages-indicator';
+            indicator.innerHTML = `
+            <button onclick="scrollToNewMessages()">
+                <i class="fas fa-arrow-down"></i>
+                New messages
+            </button>
+        `;
+
+            // Add to messages area
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                chatMessages.appendChild(indicator);
+            }
+        }
+
+        function scrollToNewMessages() {
+            const messagesList = document.getElementById('messagesList');
+            if (messagesList) {
+                scrollToBottom(messagesList, true);
+                shouldAutoScroll = true;
+                isUserScrolling = false;
+
+                // Remove indicator
+                const indicator = document.querySelector('.new-messages-indicator');
+                if (indicator) indicator.remove();
             }
         }
 
@@ -1155,6 +837,10 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         function openConversation(conversationId, title) {
             currentConversationId = conversationId;
 
+            // Reset scroll state
+            shouldAutoScroll = true;
+            isUserScrolling = false;
+
             // Update UI
             document.getElementById('chatConversations').style.display = 'none';
             document.getElementById('chatMessages').classList.add('active');
@@ -1167,11 +853,18 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
             // Mark as read
             markAsRead(conversationId);
+
+            // Setup scroll detection
+            setTimeout(setupScrollDetection, 100);
         }
 
         // Go back to conversations list
         function goBackToConversations() {
             currentConversationId = null;
+
+            // Reset scroll state
+            shouldAutoScroll = true;
+            isUserScrolling = false;
 
             document.getElementById('chatConversations').style.display = 'block';
             document.getElementById('chatMessages').classList.remove('active');
@@ -1182,7 +875,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             loadConversations();
         }
 
-        // Load messages
+        // Load messages with auto-scroll improvements
         async function loadMessages(conversationId) {
             try {
                 const response = await fetch(`../api/chat_api.php?action=messages&conversation_id=${conversationId}`);
@@ -1197,35 +890,52 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             }
         }
 
-        // Render messages
+        // Render messages with auto-scroll logic
         function renderMessages(messages) {
             const container = document.getElementById('messagesList');
             if (!container) return;
 
             const userId = <?php echo isset($_SESSION['user_id']) ? $_SESSION['user_id'] : '0'; ?>;
 
+            // Store current scroll position
+            const wasAtBottom = isAtBottom(container);
+
+            // Clear container and render messages
             container.innerHTML = messages.map(msg => {
                 const isSent = msg.sender_id == userId;
                 const isSystem = msg.message_type === 'system';
                 const isAdmin = msg.sender_role === 'admin';
 
                 return `
-                <div class="message-item ${isSent ? 'sent' : 'received'} ${isSystem ? 'system' : ''}">
-                    ${!isSent && !isSystem ? `
-                        <div class="message-sender">
-                            ${escapeHtml(msg.sender_display_name || msg.sender_username)}
-                        </div>
-                    ` : ''}
-                    <div class="message-bubble">
-                        <div class="message-text">${escapeHtml(msg.message)}</div>
-                        <div class="message-time">${formatMessageTime(msg.created_at)}</div>
+            <div class="message-item ${isSent ? 'sent' : 'received'} ${isSystem ? 'system' : ''}" data-message-id="${msg.id}">
+                ${!isSent && !isSystem ? `
+                    <div class="message-sender">
+                        ${escapeHtml(msg.sender_username)}
                     </div>
+                ` : ''}
+                <div class="message-bubble">
+                    <div class="message-text">${escapeHtml(msg.message)}</div>
+                    <div class="message-time">${formatMessageTime(msg.created_at)}</div>
                 </div>
+            </div>
             `;
             }).join('');
+
+            // Only auto-scroll if:
+            // 1. User is not actively scrolling
+            // 2. Should auto-scroll is true (user is at bottom or new message came in)
+            // 3. User was already at bottom before rendering new messages
+            if (!isUserScrolling && shouldAutoScroll && wasAtBottom) {
+                setTimeout(() => {
+                    scrollToBottom(container, true);
+                }, 100);
+            } else if (!wasAtBottom) {
+                // Show "new messages" indicator
+                showNewMessagesIndicator();
+            }
         }
 
-        // Send message
+        // Send message with auto-scroll for user's own messages
         async function sendMessage() {
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
@@ -1254,6 +964,12 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 if (data.success) {
                     input.value = '';
                     autoResize(input);
+
+                    // Force auto-scroll for user's own messages
+                    shouldAutoScroll = true;
+                    isUserScrolling = false;
+
+                    // Load messages will handle scrolling
                     loadMessages(currentConversationId);
                     updateUnreadCount();
                 } else {
@@ -1378,7 +1094,13 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             </div>
         `;
             messagesList.appendChild(systemMessage);
-            messagesList.scrollTop = messagesList.scrollHeight;
+
+            // Only scroll if user is at bottom
+            if (!isUserScrolling && shouldAutoScroll && isAtBottom(messagesList)) {
+                setTimeout(() => {
+                    scrollToBottom(messagesList, true);
+                }, 100);
+            }
         }
 
         // Add loading indicator
@@ -1446,11 +1168,22 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             }
         }
 
-        // Start auto-refresh
+        // Start auto-refresh with auto-scroll consideration
         function startChatRefresh() {
             chatRefreshInterval = setInterval(() => {
                 if (currentConversationId) {
-                    loadMessages(currentConversationId);
+                    const messagesList = document.getElementById('messagesList');
+                    if (messagesList) {
+                        const wasAtBottom = isAtBottom(messagesList);
+
+                        // Load messages
+                        loadMessages(currentConversationId);
+
+                        // Only show notification if user is not at bottom
+                        if (!wasAtBottom && !isUserScrolling && !shouldAutoScroll) {
+                            showNewMessagesIndicator();
+                        }
+                    }
                 }
                 updateUnreadCount();
             }, 5000); // Refresh every 5 seconds
@@ -1517,6 +1250,70 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             alert(message); // Simple alert for now
         }
 
+        // Add CSS for new messages indicator
+        const newMessagesIndicatorCSS = `
+        .new-messages-indicator {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            animation: fadeInUp 0.3s ease;
+        }
+        
+        .new-messages-indicator button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+        
+        .new-messages-indicator button:hover {
+            transform: translateY(-2px);
+            background: var(--primary-dark);
+        }
+        
+        .new-messages-indicator button i {
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-3px);
+            }
+            60% {
+                transform: translateY(-2px);
+            }
+        }
+    `;
+
+        // Inject CSS
+        const style = document.createElement('style');
+        style.textContent = newMessagesIndicatorCSS;
+        document.head.appendChild(style);
+
         // Make functions available globally
         window.toggleChat = toggleChat;
         window.openConversation = openConversation;
@@ -1524,6 +1321,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         window.sendMessage = sendMessage;
         window.startNewConversation = startNewConversation;
         window.deleteConversation = deleteConversation;
+        window.scrollToNewMessages = scrollToNewMessages;
     </script>
 </body>
 

@@ -1,5 +1,6 @@
 <?php
 session_start();
+$navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
 require_once '../config/db.php';
 
 // Get product ID from URL
@@ -194,14 +195,13 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
     <link rel="stylesheet" href="../assets/css/main.css">
     <style>
         /* Product Detail specific styles that extend the main style.css */
         .product-detail-page {
-            padding: 40px 0;
+            padding: 150px 0 60px;
             background-color: var(--bg-light);
         }
         
@@ -796,33 +796,20 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 </head>
 
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <nav class="navbar">
-                <a href="#" class="logo">
-                    <img src="../assets/images/plainlogo.png" alt="Active Media" class="logo-image">
-                    <span>Active Media Designs & Printing</span>
-                </a>
+    <!-- Side Pill Navigation -->
+    <nav class="side-nav" id="sideNav" aria-label="Primary">
+        <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
+            <li><a href="sub-main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li><a href="sub-ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
+            <li><a href="sub-about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
+            <li><a href="sub-contact.php"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
 
-                <ul class="nav-links">
-                    <li><a href="#" class="active"><i class="fas fa-home"></i> Home</a></li>
-                    <li><a href="sub-ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="sub-about.php"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="sub-contact.php"><i class="fas fa-phone"></i> Contact</a></li>
-                </ul>
+            <li class="side-nav-divider"></li>
 
-                <div class="auth-buttons">
-                    <a href="../accounts/login.php" class="btn log">Login</a>
-                    <a href="../accounts/customer.php" class="btn sign">Sign Up</a>
-                </div>
-
-                <div class="mobile-menu-toggle">
-                    <i class="fas fa-bars"></i>
-                </div>
-            </nav>
-        </div>
-    </header>
+            <li><a href="../accounts/login.php" class="log"><i class="fas fa-right-to-bracket"></i><span class="side-nav-label">Login</span></a></li>
+            <li><a href="../accounts/customer.php" class="sign"><i class="fas fa-user-plus"></i><span class="side-nav-label">Sign Up</span></a></li>
+        </ul>
+    </nav>
 
     <!-- Product Detail Section -->
     <section class="product-detail-page">

@@ -8,6 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 require_once '../config/db.php';
 
 $user_id = $_SESSION['user_id'];
+$navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
 
 /* ------------------------------
    1. Get USER info (personal or company)
@@ -55,511 +56,216 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
     <link rel="stylesheet" href="../assets/css/main.css">
-    <style>
-        .contact-page {
-            padding: 40px 0;
-            background-color: var(--bg-light);
-            min-height: 80vh;
-        }
-
-        .contact-container {
-            background: var(--bg-white);
-            padding: 40px;
-            box-shadow: var(--shadow);
-            margin: 0 auto;
-            max-width: 1200px;
-            border: 1px solid var(--border-color);
-        }
-
-        .contact-header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .contact-title {
-            font-size: 2.5em;
-            margin-bottom: 15px;
-            color: var(--text-dark);
-            font-weight: 700;
-        }
-
-        .contact-subtitle {
-            font-size: 1.2em;
-            color: var(--primary-color);
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        .contact-description {
-            color: var(--text-light);
-            max-width: 800px;
-            margin: 0 auto;
-            line-height: 1.6;
-        }
-
-        .contact-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 50px;
-            margin-bottom: 40px;
-        }
-
-        .section-title {
-            font-size: 1.8em;
-            margin-bottom: 25px;
-            color: var(--text-dark);
-            font-weight: 600;
-            position: relative;
-            padding-bottom: 10px;
-        }
-
-        .section-title:after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 60px;
-            height: 3px;
-            background: var(--primary-color);
-        }
-
-        .contact-info {
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-        }
-
-        .info-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 20px;
-            padding: 20px;
-            background: var(--bg-light);
-            transition: var(--transition);
-            border: 1px solid var(--border-color);
-        }
-
-        .info-item:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow);
-            border-color: var(--primary-color);
-        }
-
-        .info-icon {
-            width: 50px;
-            height: 50px;
-            background: var(--primary-color);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.2em;
-            flex-shrink: 0;
-        }
-
-        .info-content h3 {
-            margin-bottom: 8px;
-            color: var(--text-dark);
-            font-weight: 600;
-        }
-
-        .info-content p {
-            color: var(--text-light);
-            line-height: 1.6;
-            margin-bottom: 5px;
-        }
-
-        .info-content a {
-            color: var(--primary-color);
-            text-decoration: none;
-            transition: var(--transition);
-        }
-
-        .info-content a:hover {
-            color: var(--primary-dark);
-            text-decoration: underline;
-        }
-
-        .info-content i {
-            color: #1c1c1c;
-        }
-
-        .business-hours {
-            margin-top: 10px;
-        }
-
-        .hours-list {
-            list-style: none;
-            padding: 0;
-            margin: 10px 0 0 0;
-        }
-
-        .hours-list li {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .hours-list li:last-child {
-            border-bottom: none;
-        }
-
-        .hours-list .day {
-            font-weight: 500;
-            color: var(--text-dark);
-        }
-
-        .hours-list .time {
-            color: var(--text-light);
-        }
-
-        .map-section {
-            margin-top: 0;
-        }
-
-        .map-container {
-            overflow: hidden;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
-            height: 400px;
-        }
-
-        .map-container iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-
-        .faq-section {
-            margin-top: 50px;
-        }
-
-        .faq-item {
-            margin-bottom: 15px;
-            border: 1px solid var(--border-color);
-            overflow: hidden;
-        }
-
-        .faq-question {
-            padding: 20px;
-            background: var(--bg-light);
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: 600;
-            color: var(--text-dark);
-            transition: var(--transition);
-        }
-
-        .faq-question:hover {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        .faq-question i {
-            transition: var(--transition);
-        }
-
-        .faq-answer {
-            padding: 0 20px;
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease, padding 0.3s ease;
-            color: var(--text-light);
-            line-height: 1.6;
-        }
-
-        .faq-item.active .faq-answer {
-            padding: 20px;
-            max-height: 500px;
-        }
-
-        .faq-item.active .faq-question i {
-            transform: rotate(180deg);
-        }
-
-        .quick-contact {
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-            padding: 30px;
-            border: 1px solid var(--border-color);
-            text-align: center;
-        }
-
-        .quick-contact h3 {
-            margin-bottom: 15px;
-            color: white;
-            font-weight: 600;
-        }
-
-        .quick-contact p {
-            color: white;
-            margin-bottom: 20px;
-            line-height: 1.6;
-        }
-
-        .contact-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        @media (max-width: 992px) {
-            .contact-content {
-                grid-template-columns: 1fr;
-                gap: 40px;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .contact-container {
-                padding: 50px;
-                margin: 0 20px;
-            }
-
-            .contact-title {
-                font-size: 2em;
-            }
-
-            .info-item {
-                flex-direction: column;
-                text-align: center;
-                gap: 15px;
-            }
-
-            .info-icon {
-                align-self: center;
-            }
-
-            .contact-buttons {
-                flex-direction: column;
-                align-items: center;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .contact-title {
-                font-size: 1.8em;
-            }
-
-            .section-title {
-                font-size: 1.5em;
-            }
-
-            .map-container {
-                height: 300px;
-            }
-        }
-    </style>
 </head>
 
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <nav class="navbar">
-                <a href="#" class="logo">
-                    <img src="../assets/images/plainlogo.png" alt="Active Media" class="logo-image">
-                    <span>Active Media Designs & Printing</span>
-                </a>
+    <!-- Side Pill Navigation -->
+    <nav class="side-nav" id="sideNav" aria-label="Primary">
+        <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
+            <li><a href="main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li><a href="ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
+            <li><a href="about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
+            <li><a href="contact.php" class="active"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
 
-                <ul class="nav-links">
-                    <li><a href="main.php"><i class="fas fa-home"></i> Home</a></li>
-                    <li><a href="ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="about.php"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="contact.php" class="active"><i class="fas fa-phone"></i> Contact</a></li>
-                </ul>
+            <li class="side-nav-divider"></li>
 
-                <div class="features">
-                    <a href="#" class="chat-icon" id="chatButton">
+            <li>
+                <a href="#" class="chat-icon" id="chatButton">
+                    <span class="side-nav-icon">
                         <i class="fas fa-comments"></i>
                         <span class="chat-count" id="chatCount">0</span>
-                    </a>
-                    <a href="view_cart.php" class="cart-icon">
+                    </span>
+                    <span class="side-nav-label">Chat</span>
+                </a>
+            </li>
+            <li>
+                <a href="view_cart.php" class="cart-icon">
+                    <span class="side-nav-icon">
                         <i class="fas fa-shopping-cart"></i>
                         <span class="cart-count"><?php echo $cart_count; ?></span>
-                    </a>
-                </div>
+                    </span>
+                    <span class="side-nav-label">Cart</span>
+                </a>
+            </li>
 
-                <div class="user-info" id="user-info">
-                    <a href="../pages/website/profile.php" class="user-profile">
-                        <i class="fas fa-user"></i>
-                        <span class="user-name">
-                            <?php
-                            if (!empty($user_data['first_name'])) {
-                                echo htmlspecialchars($user_data['first_name']);
-                            } elseif (!empty($user_data['company_name'])) {
-                                echo htmlspecialchars($user_data['company_name']);
-                            } else {
-                                echo 'User';
-                            }
-                            ?>
-                        </span>
-                    </a>
-                    <a href="../accounts/logout.php" class="logout-btn">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </a>
-                </div>
+            <li class="side-nav-divider"></li>
 
-                <div class="mobile-menu-toggle">
-                    <i class="fas fa-bars"></i>
-                </div>
-            </nav>
-        </div>
-    </header>
+            <li>
+                <a href="../pages/website/profile.php" class="user-profile">
+                    <i class="fas fa-user"></i>
+                    <span class="side-nav-label user-name">
+                        <?php
+                        if (!empty($user_data['first_name'])) {
+                            echo htmlspecialchars($user_data['first_name']);
+                        } elseif (!empty($user_data['company_name'])) {
+                            echo htmlspecialchars($user_data['company_name']);
+                        } else {
+                            echo 'User';
+                        }
+                        ?>
+                    </span>
+                </a>
+            </li>
+            <li>
+                <a href="../accounts/logout.php" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="side-nav-label">Log Out</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
 
-    <!-- Contact Section -->
-    <section class="contact-page">
+    <!-- Contact Hero -->
+    <section class="contact-hero hide">
         <div class="container">
-            <div class="contact-container">
-                <div class="contact-header">
-                    <h1 class="contact-title">Contact Us</h1>
-                    <p class="contact-subtitle">We're Here to Help</p>
-                    <p class="contact-description">
-                        Have questions about our printing services or need assistance with your project? 
-                        Our team is ready to help you bring your ideas to life. Get in touch with us today!
-                    </p>
-                </div>
+            <div class="contact-hero__texture halftone"></div>
+            <div class="contact-hero-inner">
+                <span class="section-eyebrow"><span class="reg-mark"></span> Get in touch</span>
+                <h1 class="contact-hero-title">Let's talk about your next <span class="registered" data-text="print run.">print run.</span></h1>
+                <p class="contact-hero-sub">
+                    Questions about a service, a quote, or an order in progress? Reach us directly below,
+                    or open the chat to talk with our team in real time.
+                </p>
+            </div>
+        </div>
+    </section>
 
-                <div class="contact-content">
-                    <div class="contact-info">
-                        <h2 class="section-title">Get In Touch</h2>
-                        
-                        <div class="info-item">
-                            <div class="info-icon">
-                                <i class="fas fa-map-marker-alt"></i>
-                            </div>
-                            <div class="info-content">
+    <!-- Contact Main -->
+    <section class="contact-main hide">
+        <div class="container">
+            <div class="section-header" style="text-align:left; margin:0 0 24px;">
+                <h2 class="section-title" style="margin-bottom:6px;">Contact Information</h2>
+                <p class="section-subtitle">Four ways to reach the shop floor.</p>
+            </div>
+
+            <div class="contact-layout">
+
+                <!-- Contact info -->
+                <div class="contact-info-column">
+                    <div class="contact-info-grid">
+                        <div class="info-card" data-ink="black">
+                            <div class="info-card-icon"><i class="fas fa-map-marker-alt"></i></div>
+                            <div class="info-card-body">
                                 <h3>Visit Our Office</h3>
-                                <p>Fausta Rd, Lucero St<br>Malolos City<br>Bulacan</p>
+                                <p>Fausta Rd, Lucero St<br>Malolos City, Bulacan</p>
                                 <a href="https://www.google.com/maps/dir//Active+Media+Designs+%26+Printing/@14.8715798,120.7965735,14z/data=!4m8!4m7!1m0!1m5!1m1!1s0x339653cc016ea451:0x9d87b1b6274ebaf7!2m2!1d120.8208935!2d14.8465602?entry=ttu&g_ep=EgoyMDI1MTEyMy4xIKXMDSoASAFQAw%3D%3D" target="_blank" class="get-directions">
                                     <i class="fas fa-directions"></i> Get Directions
                                 </a>
                             </div>
                         </div>
 
-                        <div class="info-item">
-                            <div class="info-icon">
-                                <i class="fas fa-phone"></i>
-                            </div>
-                            <div class="info-content">
+                        <div class="info-card" data-ink="cyan">
+                            <div class="info-card-icon"><i class="fas fa-phone"></i></div>
+                            <div class="info-card-body">
                                 <h3>Call Us</h3>
                                 <p>Main: <a href="tel:+0447964101">(044) 796-4101</a></p>
                                 <p>Support: <a href="tel:+639987916018">(+63) 998-791-6018</a></p>
                             </div>
                         </div>
 
-                        <div class="info-item">
-                            <div class="info-icon">
-                                <i class="fas fa-envelope"></i>
-                            </div>
-                            <div class="info-content">
+                        <div class="info-card" data-ink="magenta">
+                            <div class="info-card-icon"><i class="fas fa-envelope"></i></div>
+                            <div class="info-card-body">
                                 <h3>Email Us</h3>
                                 <p>General: <a href="mailto:activemediaprint@gmail.com">activemediaprint@gmail.com</a></p>
                                 <p>Support: <a href="mailto:winnielumbad@gmail.com">winnielumbad@gmail.com</a></p>
                             </div>
                         </div>
 
-                        <div class="info-item">
-                            <div class="info-icon">
-                                <i class="fas fa-clock"></i>
-                            </div>
-                            <div class="info-content">
+                        <div class="info-card" data-ink="yellow">
+                            <div class="info-card-icon"><i class="fas fa-clock"></i></div>
+                            <div class="info-card-body">
                                 <h3>Business Hours</h3>
-                                <div class="business-hours">
-                                    <ul class="hours-list">
-                                        <li>
-                                            <span class="day">Weekdays</span>
-                                            <span class="time">8:00 AM - 5:00 PM</span>
-                                        </li>
-                                        <li>
-                                            <span class="day">Saturday</span>
-                                            <span class="time">8:00 AM - 5:00 PM</span>
-                                        </li>
-                                        <li>
-                                            <span class="day">Sunday</span>
-                                            <span class="time">Closed</span>
-                                        </li>
-                                    </ul>
-                                </div>
+                                <ul class="hours-list">
+                                    <li><span class="day">Weekdays</span><span class="time">8:00 AM – 5:00 PM</span></li>
+                                    <li><span class="day">Saturday</span><span class="time">8:00 AM – 5:00 PM</span></li>
+                                    <li><span class="day">Sunday</span><span class="time">Closed</span></li>
+                                </ul>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="map-section">
-                        <h2 class="section-title">Find Us</h2>
-                        <div class="map-container">
-                            <iframe 
-                                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3024.177631156074!2d-73.98784628459418!3d40.70583157933205!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c25a316e12cd49%3A0x5c46c56b3c5b1b0!2s123%20Print%20St%2C%20New%20York%2C%20NY%2010005!5e0!3m2!1sen!2sus!4v1633023226787!5m2!1sen!2sus" 
-                                allowfullscreen="" 
-                                loading="lazy"
-                                referrerpolicy="no-referrer-when-downgrade">
-                            </iframe>
+                <!-- Map + quick contact -->
+                <div class="contact-side">
+                    <div class="map-card">
+                        <div class="map-card-label"><i class="fas fa-location-dot" style="color:var(--riso-red);"></i> Find Us</div>
+                        <iframe
+                            src="https://www.google.com/maps?q=14.8465602,120.8208935&z=16&output=embed"
+                            allowfullscreen=""
+                            loading="lazy"
+                            referrerpolicy="no-referrer-when-downgrade">
+                        </iframe>
+                    </div>
+
+                    <div class="quick-contact">
+                        <h3>Need Immediate Assistance?</h3>
+                        <p>Prefer to speak with someone directly? Our team is available during business hours to help with your printing needs.</p>
+                        <div class="contact-buttons">
+                            <a href="tel:+0447964101" class="btn btn-primary">
+                                <i class="fas fa-phone"></i> Call Us Now
+                            </a>
+                            <a href="mailto:activemediaprint@gmail.com" class="btn btn-outline">
+                                <i class="fas fa-envelope"></i> Send Email
+                            </a>
                         </div>
                     </div>
                 </div>
 
-                <div class="quick-contact">
-                    <h3>Need Immediate Assistance?</h3>
-                    <p>Prefer to speak with someone directly? Our team is available during business hours to help with your printing needs.</p>
-                    <div class="contact-buttons">
-                        <a href="tel:+11234567890" class="btn btn-primary">
-                            <i class="fas fa-phone"></i> Call Us Now
-                        </a>
-                        <a href="mailto:info@activemedia.com" class="btn btn-secondary">
-                            <i class="fas fa-envelope"></i> Send Email
-                        </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="faq-section hide">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-eyebrow"><span class="reg-mark"></span> Before you ask</span>
+                <h2 class="section-title">Frequently Asked Questions</h2>
+                <p class="section-subtitle">Quick answers to what customers ask us most.</p>
+            </div>
+
+            <div class="faq-list">
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>What is your typical turnaround time for printing projects?</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Turnaround times vary based on the project complexity and quantity. Standard printing jobs typically take 3-5 business days, while rush services are available for an additional fee. Large or complex projects may require 7-10 business days. We'll provide a specific timeline when you request a quote.</p>
                     </div>
                 </div>
 
-                <div class="faq-section">
-                    <h2 class="section-title">Frequently Asked Questions</h2>
-                    
-                    <div class="faq-item">
-                        <div class="faq-question">
-                            <span>What is your typical turnaround time for printing projects?</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </div>
-                        <div class="faq-answer">
-                            <p>Turnaround times vary based on the project complexity and quantity. Standard printing jobs typically take 3-5 business days, while rush services are available for an additional fee. Large or complex projects may require 7-10 business days. We'll provide a specific timeline when you request a quote.</p>
-                        </div>
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>Do you offer design services if I don't have a ready-to-print file?</span>
+                        <i class="fas fa-chevron-down"></i>
                     </div>
-
-                    <div class="faq-item">
-                        <div class="faq-question">
-                            <span>Do you offer design services if I don't have a ready-to-print file?</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </div>
-                        <div class="faq-answer">
-                            <p>Yes! We have a team of experienced designers who can create custom designs for your printing projects. You can also use our AI Design Tool to generate unique designs instantly. Design services are billed separately from printing costs, and we'll provide a quote before starting any design work.</p>
-                        </div>
+                    <div class="faq-answer">
+                        <p>Yes! We have a team of experienced designers who can create custom designs for your printing projects. You can also use our AI Design Tool to generate unique designs instantly. Design services are billed separately from printing costs, and we'll provide a quote before starting any design work.</p>
                     </div>
+                </div>
 
-                    <div class="faq-item">
-                        <div class="faq-question">
-                            <span>What file formats do you accept for printing?</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </div>
-                        <div class="faq-answer">
-                            <p>We accept most common file formats including PDF, AI, EPS, PSD, JPG, PNG, and TIFF. For best results, we recommend vector files (AI, EPS) or high-resolution PDFs (300 DPI). If you're unsure about your files, our team can help you prepare them for printing.</p>
-                        </div>
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>What file formats do you accept for printing?</span>
+                        <i class="fas fa-chevron-down"></i>
                     </div>
+                    <div class="faq-answer">
+                        <p>We accept most common file formats including PDF, AI, EPS, PSD, JPG, PNG, and TIFF. For best results, we recommend vector files (AI, EPS) or high-resolution PDFs (300 DPI). If you're unsure about your files, our team can help you prepare them for printing.</p>
+                    </div>
+                </div>
 
-                    <div class="faq-item">
-                        <div class="faq-question">
-                            <span>Do you offer shipping services for completed orders?</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </div>
-                        <div class="faq-answer">
-                            <p>Yes, we offer both local delivery and nationwide shipping. Local delivery is free for orders over $200 within a 25-mile radius. For larger orders or specialized shipping needs, we work with reliable carriers to ensure your products arrive safely and on time.</p>
-                        </div>
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>Do you offer shipping services for completed orders?</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Yes, we offer both local delivery and nationwide shipping. Local delivery is free for orders over $200 within a 25-mile radius. For larger orders or specialized shipping needs, we work with reliable carriers to ensure your products arrive safely and on time.</p>
                     </div>
                 </div>
             </div>
@@ -580,7 +286,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                         <a href=""><i class="fab fa-linkedin-in"></i></a>
                     </div>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Services</h3>
                     <ul>
@@ -590,7 +296,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                         <li><a href="#other">Other Services</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Company</h3>
                     <ul>
@@ -600,7 +306,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                         <li><a href="about.php">Testimonials</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Support</h3>
                     <ul>
@@ -610,7 +316,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                         <li><a href="contact.php">Returns</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Contact Info</h3>
                     <ul class="contact-info">
@@ -620,7 +326,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     </ul>
                 </div>
             </div>
-            
+
             <div class="footer-bottom">
                 <div class="copyright">
                     <p>&copy; 2025 Active Media Designs & Printing. All rights reserved.</p>
@@ -675,10 +381,10 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         document.addEventListener('DOMContentLoaded', function() {
             // FAQ Accordion functionality
             const faqItems = document.querySelectorAll('.faq-item');
-            
+
             faqItems.forEach(item => {
                 const question = item.querySelector('.faq-question');
-                
+
                 question.addEventListener('click', () => {
                     // Close all other items
                     faqItems.forEach(otherItem => {
@@ -686,7 +392,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                             otherItem.classList.remove('active');
                         }
                     });
-                    
+
                     // Toggle current item
                     item.classList.toggle('active');
                 });
@@ -766,228 +472,110 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             }
         }
 
-        // Load conversations
-        async function loadConversations() {
-            try {
-                const response = await fetch('../api/chat_api.php?action=conversations');
-                const data = await response.json();
-
-                if (data.success) {
-                    renderConversations(data.data);
-                    updateUnreadCount();
-
-                    // Show conversation count in the UI
-                    updateConversationCount(data.data.length);
-                }
-            } catch (error) {
-                console.error('Error loading conversations:', error);
-                showChatError('Failed to load conversations. Please try again.');
-            }
-        }
-
-        // Add this function to check conversation limit
-        async function checkConversationLimit() {
-            try {
-                const response = await fetch('../api/chat_api.php?action=conversation_limit');
-                const data = await response.json();
-
-                if (data.success) {
-                    return {
-                        reached: data.reached || false,
-                        count: data.count || 0,
-                        limit: data.limit || 3
-                    };
-                }
-                return {
-                    reached: false,
-                    count: 0,
-                    limit: 3
-                };
-            } catch (error) {
-                console.error('Error checking conversation limit:', error);
-                return {
-                    reached: false,
-                    count: 0,
-                    limit: 3
-                };
-            }
-        }
-
-        // Render conversations list with delete buttons
-        function renderConversations(conversations) {
-            const container = document.getElementById('conversationsList');
-            if (!container) return;
-
-            if (conversations.length === 0) {
-                container.innerHTML = `
-                <div class="chat-empty">
-                    <i class="fas fa-comments"></i>
-                    <p>No conversations yet</p>
-                </div>
-            `;
-                return;
-            }
-
-            container.innerHTML = conversations.map(conv => `
-            <div class="chat-conversation-item ${currentConversationId === conv.id ? 'active' : ''}" 
-                 onclick="openConversation(${conv.id}, '${escapeHtml(conv.title || 'Conversation')}')">
-                <div class="conversation-header">
-                    <div class="conversation-name">${escapeHtml(conv.title || 'Conversation #' + conv.id)}</div>
-                    <button class="delete-conversation-btn" onclick="event.stopPropagation(); deleteConversation(${conv.id}, '${escapeHtml(conv.title || 'Conversation #' + conv.id)}')">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                </div>
-                <div class="conversation-last-message">${escapeHtml(conv.last_message || 'No messages yet')}</div>
-                <div class="conversation-footer">
-                    <div class="conversation-time">${formatTime(conv.last_message_time)}</div>
-                    ${conv.unread_count > 0 ? `<div class="conversation-unread">${conv.unread_count} new</div>` : ''}
-                </div>
-            </div>
-        `).join('');
-        }
-
-        // Delete conversation
-        async function deleteConversation(conversationId, conversationTitle) {
-            if (!confirm(`Are you sure you want to delete "${conversationTitle}"? This action cannot be undone.`)) {
-                return;
-            }
-
-            try {
-                showChatLoading(true);
-
-                const response = await fetch('../api/chat_api.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'delete_conversation',
-                        conversation_id: conversationId
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    // If we're currently viewing this conversation, go back to list
-                    if (currentConversationId === conversationId) {
-                        goBackToConversations();
-                    }
-
-                    // Remove the conversation item from UI
-                    const conversationItem = document.querySelector(`.chat-conversation-item[onclick*="${conversationId}"]`);
-                    if (conversationItem) {
-                        conversationItem.remove();
-                    }
-
-                    // Reload conversations list
-                    await loadConversations();
-
-                    showChatSuccess('Conversation deleted successfully.');
-                } else {
-                    showChatError(data.message || 'Failed to delete conversation.');
-                }
-            } catch (error) {
-                console.error('Error deleting conversation:', error);
-                showChatError('Failed to delete conversation. Please try again.');
-            } finally {
-                showChatLoading(false);
-            }
-        }
-
-        // Open conversation
-        function openConversation(conversationId, title) {
-            currentConversationId = conversationId;
-
-            // Update UI
-            document.getElementById('chatConversations').style.display = 'none';
-            document.getElementById('chatMessages').classList.add('active');
-            document.getElementById('chatInputArea').classList.add('active');
-            document.getElementById('chatBackBtn').classList.add('visible');
-            document.getElementById('chatTitle').textContent = title;
-
-            // Load messages
-            loadMessages(conversationId);
-
-            // Mark as read
-            markAsRead(conversationId);
-        }
-
         // Go back to conversations list
         function goBackToConversations() {
             currentConversationId = null;
+            const chatConversations = document.getElementById('chatConversations');
+            const chatMessages = document.getElementById('chatMessages');
+            const chatBackBtn = document.getElementById('chatBackBtn');
+            const chatTitle = document.getElementById('chatTitle');
 
-            document.getElementById('chatConversations').style.display = 'block';
-            document.getElementById('chatMessages').classList.remove('active');
-            document.getElementById('chatInputArea').classList.remove('active');
-            document.getElementById('chatBackBtn').classList.remove('visible');
-            document.getElementById('chatTitle').textContent = 'Messages';
+            if (chatConversations) chatConversations.style.display = 'block';
+            if (chatMessages) chatMessages.style.display = 'none';
+            if (chatBackBtn) chatBackBtn.style.display = 'none';
+            if (chatTitle) chatTitle.textContent = 'Messages';
 
             loadConversations();
         }
 
-        // Load messages
-        async function loadMessages(conversationId) {
+        // Load conversations list
+        async function loadConversations() {
             try {
-                const response = await fetch(`../api/chat_api.php?action=messages&conversation_id=${conversationId}`);
+                const response = await fetch('../api/chat_api.php?action=get_conversations');
                 const data = await response.json();
 
-                if (data.success) {
-                    renderMessages(data.data);
+                const conversationsList = document.getElementById('conversationsList');
+                if (!conversationsList) return;
+
+                if (data.success && data.conversations && data.conversations.length > 0) {
+                    conversationsList.innerHTML = data.conversations.map(conv => `
+                        <div class="conversation-item" onclick="openConversation(${conv.id}, '${escapeHtml(conv.admin_name || 'Support')}')">
+                            <div class="conversation-info">
+                                <strong>${escapeHtml(conv.admin_name || 'Support')}</strong>
+                                <p>${escapeHtml(conv.last_message || 'No messages yet')}</p>
+                            </div>
+                            <div class="conversation-meta">
+                                <span class="conversation-time">${formatTime(conv.last_message_time)}</span>
+                                ${conv.unread_count > 0 ? `<span class="unread-badge">${conv.unread_count}</span>` : ''}
+                            </div>
+                        </div>
+                    `).join('');
+                    updateConversationCount(data.conversations.length);
+                } else {
+                    conversationsList.innerHTML = '<p class="no-conversations">No conversations yet. Start a new one!</p>';
+                    updateConversationCount(0);
                 }
             } catch (error) {
-                console.error('Error loading messages:', error);
-                showChatError('Failed to load messages. Please try again.');
+                console.error('Error loading conversations:', error);
             }
         }
 
-        // Render messages
-        function renderMessages(messages) {
-            const container = document.getElementById('messagesList');
-            if (!container) return;
+        // Open a specific conversation
+        async function openConversation(conversationId, adminName) {
+            currentConversationId = conversationId;
+            const chatConversations = document.getElementById('chatConversations');
+            const chatMessages = document.getElementById('chatMessages');
+            const chatBackBtn = document.getElementById('chatBackBtn');
+            const chatTitle = document.getElementById('chatTitle');
 
-            const userId = <?php echo isset($_SESSION['user_id']) ? $_SESSION['user_id'] : '0'; ?>;
+            if (chatConversations) chatConversations.style.display = 'none';
+            if (chatMessages) chatMessages.style.display = 'flex';
+            if (chatBackBtn) chatBackBtn.style.display = 'block';
+            if (chatTitle) chatTitle.textContent = adminName;
 
-            container.innerHTML = messages.map(msg => {
-                const isSent = msg.sender_id == userId;
-                const isSystem = msg.message_type === 'system';
-                const isAdmin = msg.sender_role === 'admin';
-
-                return `
-                <div class="message-item ${isSent ? 'sent' : 'received'} ${isSystem ? 'system' : ''}">
-                    ${!isSent && !isSystem ? `
-                        <div class="message-sender">
-                            ${escapeHtml(msg.sender_display_name || msg.sender_username)}
-                        </div>
-                    ` : ''}
-                    <div class="message-bubble">
-                        <div class="message-text">${escapeHtml(msg.message)}</div>
-                        <div class="message-time">${formatMessageTime(msg.created_at)}</div>
-                    </div>
-                </div>
-            `;
-            }).join('');
+            await loadMessages(conversationId);
+            markAsRead(conversationId);
         }
 
-        // Send message
+        // Load messages for a conversation
+        async function loadMessages(conversationId) {
+            try {
+                const response = await fetch(`../api/chat_api.php?action=get_messages&conversation_id=${conversationId}`);
+                const data = await response.json();
+
+                const messagesList = document.getElementById('messagesList');
+                if (!messagesList) return;
+
+                if (data.success && data.messages) {
+                    messagesList.innerHTML = data.messages.map(msg => `
+                        <div class="message-item ${msg.sender_type === 'customer' ? 'sent' : 'received'}">
+                            <div class="message-bubble">
+                                <div class="message-text">${escapeHtml(msg.message)}</div>
+                                <div class="message-time">${formatMessageTime(msg.created_at)}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                    messagesList.scrollTop = messagesList.scrollHeight;
+                }
+            } catch (error) {
+                console.error('Error loading messages:', error);
+            }
+        }
+
+        // Send a message
         async function sendMessage() {
-            const input = document.getElementById('chatInput');
-            const message = input.value.trim();
+            const chatInput = document.getElementById('chatInput');
+            const message = chatInput ? chatInput.value.trim() : '';
 
             if (!message || !currentConversationId) return;
 
-            // Disable send button
-            const sendBtn = document.getElementById('chatSendBtn');
-            if (sendBtn) sendBtn.disabled = true;
-
             try {
-                const response = await fetch('../api/chat_api.php', {
+                const response = await fetch('../api/chat_api.php?action=send_message', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        action: 'send_message',
                         conversation_id: currentConversationId,
                         message: message
                     })
@@ -996,61 +584,37 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 const data = await response.json();
 
                 if (data.success) {
-                    input.value = '';
-                    autoResize(input);
-                    loadMessages(currentConversationId);
-                    updateUnreadCount();
+                    chatInput.value = '';
+                    autoResize(chatInput);
+                    await loadMessages(currentConversationId);
                 } else {
                     showChatError(data.message || 'Failed to send message.');
                 }
             } catch (error) {
                 console.error('Error sending message:', error);
                 showChatError('Failed to send message. Please try again.');
-            } finally {
-                if (sendBtn) sendBtn.disabled = false;
             }
         }
 
-        // Start new conversation with online admin
+        // Start a new conversation
         async function startNewConversation() {
             try {
-                // First check if user has reached conversation limit
-                const limitCheck = await checkConversationLimit();
-                if (limitCheck.reached) {
-                    showChatError(`You have reached the maximum limit of 3 active conversations. You currently have ${limitCheck.count} active conversations. Please complete or close existing conversations before starting a new one.`);
-                    return;
-                }
-
                 showChatLoading(true);
-
-                const response = await fetch('../api/chat_api.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'start_conversation',
-                        title: 'Support Request',
-                        request_online_admin: true
-                    })
+                const response = await fetch('../api/chat_api.php?action=start_conversation', {
+                    method: 'POST'
                 });
-
                 const data = await response.json();
 
                 if (data.success) {
-                    const adminInfo = data.admin_name ? ` (Connected with: ${data.admin_name})` : '';
-                    openConversation(data.conversation_id, 'Support Request');
-
-                    if (data.admin_name) {
-                        showSystemMessage(`You've been connected with administrator ${data.admin_name}. How can we help you?`);
+                    await loadConversations();
+                    if (data.conversation_id) {
+                        openConversation(data.conversation_id, data.admin_name || 'Support');
                     }
                 } else {
-                    // Handle "no admin available" gracefully
                     if (data.message && data.message.includes('No administrators')) {
                         showChatError('No administrators are currently available. Please try again later or contact support via email.');
                     } else if (data.message && data.message.includes('maximum limit')) {
                         showChatError(data.message);
-                        // Refresh conversations list to show current count
                         loadConversations();
                     } else {
                         showChatError(data.message || 'Failed to start conversation.');
@@ -1064,9 +628,32 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             }
         }
 
-        // Add this function to update conversation count display
+        // Delete a conversation
+        async function deleteConversation(conversationId) {
+            if (!confirm('Are you sure you want to delete this conversation?')) return;
+
+            try {
+                const response = await fetch('../api/chat_api.php?action=delete_conversation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        conversation_id: conversationId
+                    })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    goBackToConversations();
+                }
+            } catch (error) {
+                console.error('Error deleting conversation:', error);
+            }
+        }
+
+        // Update the "New Conversation" button + limit warning
         function updateConversationCount(count) {
-            // Update the "New Conversation" button text
             const newChatBtn = document.getElementById('newChatBtn');
             if (newChatBtn) {
                 const limitReached = count >= 3;
@@ -1080,52 +667,9 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     newChatBtn.classList.remove('limit-reached');
                 }
             }
-
-            // Also update conversation limit warning in conversations list
-            const conversationsList = document.getElementById('conversationsList');
-            if (conversationsList && count >= 3) {
-                const warningElement = document.getElementById('conversationLimitWarning');
-                if (!warningElement) {
-                    const warningDiv = document.createElement('div');
-                    warningDiv.id = 'conversationLimitWarning';
-                    warningDiv.className = 'conversation-limit-warning';
-                    warningDiv.innerHTML = `
-                    <div class="limit-warning-content">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <div>
-                            <strong>Maximum conversations reached</strong>
-                            <small>You have ${count} active conversations (maximum: 3). Please close or complete existing conversations to start new ones.</small>
-                        </div>
-                    </div>
-                `;
-                    conversationsList.parentNode.insertBefore(warningDiv, conversationsList);
-                }
-            } else {
-                const warningElement = document.getElementById('conversationLimitWarning');
-                if (warningElement) {
-                    warningElement.remove();
-                }
-            }
         }
 
-        // Helper function to show system message
-        function showSystemMessage(message) {
-            const messagesList = document.getElementById('messagesList');
-            if (!messagesList) return;
-
-            const systemMessage = document.createElement('div');
-            systemMessage.className = 'message-item system';
-            systemMessage.innerHTML = `
-            <div class="message-bubble">
-                <div class="message-text">${escapeHtml(message)}</div>
-                <div class="message-time">${formatMessageTime(new Date().toISOString())}</div>
-            </div>
-        `;
-            messagesList.appendChild(systemMessage);
-            messagesList.scrollTop = messagesList.scrollHeight;
-        }
-
-        // Add loading indicator
+        // Loading indicator
         function showChatLoading(show) {
             let loader = document.getElementById('chatLoader');
             if (!loader && show) {
@@ -1139,35 +683,8 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             }
         }
 
-        // Show success message
-        function showChatSuccess(message) {
-            // Create success notification
-            const successDiv = document.createElement('div');
-            successDiv.className = 'chat-success-notification';
-            successDiv.innerHTML = `
-            <div class="success-content">
-                <i class="fas fa-check-circle"></i>
-                <span>${escapeHtml(message)}</span>
-            </div>
-        `;
-
-            // Add to chat widget
-            const chatBody = document.querySelector('.chat-body');
-            if (chatBody) {
-                chatBody.prepend(successDiv);
-
-                // Auto-remove after 3 seconds
-                setTimeout(() => {
-                    successDiv.remove();
-                }, 3000);
-            } else {
-                alert(message); // Fallback
-            }
-        }
-
         // Mark messages as read
         async function markAsRead(conversationId) {
-            // This happens automatically when loading messages via the API
             updateUnreadCount();
         }
 
@@ -1190,17 +707,16 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             }
         }
 
-        // Start auto-refresh
+        // Start / stop auto-refresh
         function startChatRefresh() {
             chatRefreshInterval = setInterval(() => {
                 if (currentConversationId) {
                     loadMessages(currentConversationId);
                 }
                 updateUnreadCount();
-            }, 5000); // Refresh every 5 seconds
+            }, 5000);
         }
 
-        // Stop auto-refresh
         function stopChatRefresh() {
             if (chatRefreshInterval) {
                 clearInterval(chatRefreshInterval);
@@ -1208,36 +724,25 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             }
         }
 
-        // Helper functions
+        // Helpers
         function formatTime(timestamp) {
             if (!timestamp) return '';
             const date = new Date(timestamp);
             const now = new Date();
             const diff = now - date;
 
-            if (diff < 86400000) { // Less than 1 day
-                return date.toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-            } else if (diff < 604800000) { // Less than 1 week
-                return date.toLocaleDateString([], {
-                    weekday: 'short'
-                });
+            if (diff < 86400000) {
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else if (diff < 604800000) {
+                return date.toLocaleDateString([], { weekday: 'short' });
             } else {
-                return date.toLocaleDateString([], {
-                    month: 'short',
-                    day: 'numeric'
-                });
+                return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
             }
         }
 
         function formatMessageTime(timestamp) {
             const date = new Date(timestamp);
-            return date.toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
         function escapeHtml(text) {
@@ -1247,18 +752,15 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             return div.innerHTML;
         }
 
-        // Auto-resize textarea
         function autoResize(textarea) {
             if (!textarea) return;
             textarea.style.height = 'auto';
             textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
         }
 
-        // Show chat error
         function showChatError(message) {
-            // You can implement a notification system here
             console.error('Chat Error:', message);
-            alert(message); // Simple alert for now
+            alert(message);
         }
 
         // Make functions available globally
