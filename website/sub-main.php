@@ -79,7 +79,7 @@ if ($result === false) {
         data-start-radius="100"
         data-end-radius="0"
         data-media-zoom="1.5"
-        data-scroll-distance="1.2"
+        data-scroll-distance="0.8"
         data-hold-distance="2"
         data-smoothing="0.2"
         data-overlay-scrim="0.5">
@@ -105,8 +105,31 @@ if ($result === false) {
                     <div class="scroll-expand__overlay">
                         <div class="intro-overlay">
                             <span class="intro-overlay__eyebrow">Active Media Designs & Printing</span>
-                            <h1 class="intro-overlay__title">One of the finest printers of <span class="registered" data-text="Bulacan.">Bulacan.</span></h1>
-                            <!-- <p class="intro-overlay__text">Active Media Designs & Printing turns your files into finished print — flyers, business cards, packaging, and large runs — with the quality and turnaround your business can count on.</p> -->
+                            <h1 class="intro-overlay__title">One of the finest printing services of <span class="registered" data-text="Bulacan.">Bulacan.</span></h1>
+                            <p class="intro-overlay__text">From offset runs that scale to thousands of pieces, to same-day digital jobs and vibrant RISO printing, we handle every job in-house flyers, business cards, packaging, and large-format runs with the quality and turnaround your business can count on.</p>
+
+                            <div class="intro-overlay__highlights">
+                                <div class="intro-highlight">
+                                    <span class="intro-highlight__icon"><i class="fas fa-industry"></i></span>
+                                    <span class="intro-highlight__title">Offset Printing</span>
+                                    <span class="intro-highlight__text">High-volume runs, consistent quality</span>
+                                </div>
+                                <div class="intro-highlight">
+                                    <span class="intro-highlight__icon"><i class="fas fa-print"></i></span>
+                                    <span class="intro-highlight__title">Digital Printing</span>
+                                    <span class="intro-highlight__text">Fast turnaround, sharp detail</span>
+                                </div>
+                                <div class="intro-highlight">
+                                    <span class="intro-highlight__icon"><i class="fas fa-tint"></i></span>
+                                    <span class="intro-highlight__title">RISO Printing</span>
+                                    <span class="intro-highlight__text">Eco-friendly, vibrant texture</span>
+                                </div>
+                                <div class="intro-highlight">
+                                    <span class="intro-highlight__icon"><i class="fas fa-cogs"></i></span>
+                                    <span class="intro-highlight__title">Finishing &amp; More</span>
+                                    <span class="intro-highlight__text">Binding, cutting, custom touches</span>
+                                </div>
+                            </div>
 
                             <div class="intro-overlay__stats">
                                 <div class="intro-stat">

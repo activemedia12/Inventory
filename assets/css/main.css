@@ -2013,7 +2013,7 @@ img {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 6%;
+  padding: 3%;
   opacity: 0;
   pointer-events: none;
   will-change: opacity, transform;
@@ -2131,13 +2131,15 @@ img {
 
 /* ---------- Overlay content ---------- */
 .intro-overlay {
-  max-width: 640px;
+  width: 84%;
+  max-width: 1180px;
   color: var(--paper-white);
 }
 
 .intro-overlay__eyebrow {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   margin-bottom: 18px;
   font-size: 13px;
@@ -2194,12 +2196,61 @@ img {
 }
 
 .intro-overlay__text {
-  max-width: 52ch;
-  margin: 0 auto 36px;
+  max-width: 62ch;
+  margin: 0 auto 32px;
   font-size: 1.05rem;
   line-height: 1.6;
   color: var(--paper);
   opacity: 0.82;
+}
+
+/* ---------- Service highlights row ---------- */
+.intro-overlay__highlights {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  max-width: 980px;
+  margin: 0 auto 36px;
+}
+
+.intro-highlight {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 14px;
+  border: 1px solid rgba(250, 247, 241, 0.14);
+  border-radius: 12px;
+  background: rgba(250, 247, 241, 0.05);
+  backdrop-filter: blur(2px);
+}
+
+.intro-highlight__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 2px;
+  border-radius: 50%;
+  background: rgba(250, 247, 241, 0.1);
+  color: var(--paper-white);
+  font-size: 15px;
+}
+
+.intro-highlight__title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--paper-white);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.intro-highlight__text {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--paper);
+  opacity: 0.65;
 }
 
 .intro-overlay__stats {
@@ -2264,6 +2315,15 @@ img {
 @media (max-width: 768px) {
   .intro-media__mark {
     width: min(38vw, 160px);
+  }
+
+  .intro-overlay {
+    width: 94%;
+  }
+
+  .intro-overlay__highlights {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
   .intro-stat {
