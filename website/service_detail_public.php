@@ -173,6 +173,16 @@ if ($customization && in_array($product_id, [18, 19, 20, 21])) {
 // Check if product is in Other Services category (should show image customization)
 $show_image_customization = ($product['category'] === 'Other Services');
 
+// Category -> ink colour + home-page catalog tab (mirrors the catalog on the home page)
+$ink_map = [
+    'Offset Printing'  => ['ink' => 'black',   'anchor' => 'offset'],
+    'Digital Printing' => ['ink' => 'cyan',    'anchor' => 'digital'],
+    'RISO Printing'    => ['ink' => 'magenta', 'anchor' => 'riso'],
+    'Riso Printing'    => ['ink' => 'magenta', 'anchor' => 'riso'],
+    'Other Services'   => ['ink' => 'yellow',  'anchor' => 'other'],
+];
+$cat_meta = $ink_map[$product['category']] ?? ['ink' => 'black', 'anchor' => 'services'];
+
 // Get base image paths
 $base_image_path = "../assets/images/base/base-" . $product['id'] . ".jpg";
 $base_image_url = file_exists($base_image_path) ? $base_image_path : "https://via.placeholder.com/500x500/007bff/ffffff?text=Base+Image";
@@ -188,647 +198,24 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $product['product_name']; ?> - Product Details</title>
+    <title><?php echo htmlspecialchars($product['product_name']); ?> - Active Media Designs & Printing</title>
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <link rel="stylesheet" href="../assets/css/main.css">
-    <style>
-        /* Product Detail specific styles that extend the main style.css */
-        .product-detail-page {
-            padding: 150px 0 60px;
-            background-color: var(--bg-light);
-        }
-        
-        .product-detail-container {
-            background: var(--bg-white);
-            padding: 40px;
-            box-shadow: var(--shadow);
-            margin-bottom: 40px;
-            border: 1px solid var(--border-color);
-            border-radius: var(--r-lg);
-        }
-        
-        .product-detail {
-            display: flex;
-            gap: 50px;
-            align-items: flex-start;
-        }
-        
-        .product-gallery {
-            flex: 1;
-            max-width: 500px;
-        }
-        
-        .main-image {
-            width: 100%;
-            height: 450px;
-            object-fit: contain;
-            margin-bottom: 20px;
-            background: var(--bg-light);
-            border: 1.5px solid var(--border-color);
-            border-radius: var(--r-md);
-            padding: 20px;
-        }
-        
-        .thumbnail-container {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 25px;
-            flex-wrap: wrap;
-        }
-        
-        .thumbnail {
-            width: 80px;
-            height: 80px;
-            object-fit: cover;
-            cursor: pointer;
-            border: 2px solid transparent;
-            border-radius: var(--r-sm);
-            transition: var(--transition);
-            background: var(--bg-light);
-            padding: 5px;
-        }
-        
-        .thumbnail:hover,
-        .thumbnail.active {
-            border-color: var(--primary-color);
-            transform: scale(1.05);
-        }
-        
-        .product-info {
-            flex: 1;
-        }
-        
-        .product-title {
-            font-family: var(--font-display);
-            font-size: clamp(1.7rem, 3vw, 2.4rem);
-            line-height: 1.15;
-            margin-bottom: 15px;
-            color: var(--text-dark);
-            font-weight: 700;
-        }
-        
-        .product-category {
-            background-color: rgba(23, 20, 15, 0.82);
-            color: white;
-            padding: 6px 16px;
-            border-radius: var(--r-pill);
-            font-size: 0.8em;
-            font-weight: 600;
-            letter-spacing: 0.02em;
-            display: inline-block;
-            margin-bottom: 20px;
-            backdrop-filter: blur(4px);
-        }
-        
-        .product-price {
-            font-family: var(--font-display);
-            font-size: clamp(1.5rem, 2.4vw, 1.9rem);
-            color: var(--riso-blue);
-            margin-bottom: 25px;
-            font-weight: 700;
-        }
-        
-        .customization-section {
-            margin-bottom: 30px;
-            padding: 25px;
-            background: var(--bg-light);
-            border: 1px solid var(--border-color);
-            border-radius: var(--r-md);
-        }
-        
-        .section-title {
-            font-size: 1.3em;
-            margin-bottom: 20px;
-            color: var(--text-dark);
-            font-family: var(--font-display);
-            font-weight: 600;
-            padding-bottom: 10px;
-            border-bottom: 1px solid var(--line);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .section-title i {
-            color: var(--primary-color);
-        }
-        
-        .quantity-selector {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-        
-        .quantity-btn {
-            width: 45px;
-            height: 45px;
-            background: var(--bg-white);
-            border: 1.5px solid var(--border-color);
-            border-radius: var(--r-sm);
-            font-size: 1.3em;
-            cursor: pointer;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .quantity-btn:hover {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
-        
-        .quantity-input {
-            width: 80px;
-            height: 45px;
-            text-align: center;
-            border: 1.5px solid var(--border-color);
-            border-radius: var(--r-sm);
-            font-size: 1.2em;
-            font-weight: 600;
-            background: var(--bg-white);
-        }
-        
-        .image-upload-section {
-            margin-bottom: 25px;
-        }
-        
-        .upload-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 14px 24px;
-            background: var(--text-light);
-            color: white;
-            border-radius: var(--r-sm);
-            cursor: pointer;
-            transition: var(--transition);
-            font-weight: 500;
-        }
-        
-        .upload-btn:hover {
-            background: var(--ink);
-            transform: translateY(-2px);
-        }
-        
-        .upload-preview {
-            margin-top: 20px;
-            display: none;
-            text-align: center;
-            padding: 15px;
-            background: var(--bg-white);
-            border: 2px dashed var(--ink-faint);
-            border-radius: var(--r-md);
-        }
-        
-        .uploaded-image {
-            max-width: 220px;
-            max-height: 180px;
-            border: 1.5px solid var(--primary-color);
-            border-radius: var(--r-sm);
-            margin-bottom: 15px;
-        }
-        
-        .preview-section {
-            margin-bottom: 30px;
-            padding: 25px;
-            background: var(--bg-white);
-            border: 1px solid var(--border-color);
-            border-radius: var(--r-md);
-        }
-        
-        .preview-container {
-            width: 100%;
-            height: 220px;
-            background: var(--bg-light);
-            border: 2px dashed var(--ink-faint);
-            border-radius: var(--r-md);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
-            overflow: hidden;
-        }
-        
-        .mockup-preview {
-            max-width: 100%;
-            max-height: 200px;
-            display: none;
-        }
-        
-        .action-buttons {
-            display: flex;
-            gap: 20px;
-            margin-top: 30px;
-        }
-        
-        /* Draggable Design Styles */
-        .positioning-tools {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        
-        .tool-btn {
-            padding: 10px 15px;
-            background: var(--text-light);
-            color: white;
-            border: none;
-            border-radius: var(--r-sm);
-            cursor: pointer;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 0.9em;
-        }
-        
-        .tool-btn:hover {
-            background: var(--ink);
-        }
-        
-        .positioning-container {
-            width: 100%;
-            height: 400px;
-            border: 2px dashed var(--ink-faint);
-            border-radius: var(--r-md);
-            margin-bottom: 20px;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .product-base-image {
-            width: 100%;
-            height: 100%;
-            position: relative;
-        }
-        
-        #baseImage {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-        
-        .design-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-        
-        .draggable-design {
-            position: absolute;
-            cursor: move;
-            border: 2px dashed var(--primary-color);
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
-            box-sizing: border-box;
-        }
-        
-        .resize-handle {
-            position: absolute;
-            width: 12px;
-            height: 12px;
-            background: var(--primary-color);
-            bottom: -6px;
-            right: -6px;
-            cursor: nwse-resize;
-        }
-        
-        /* Visual boundary indicator */
-        .design-boundary {
-            position: absolute;
-            border: 2px dashed rgba(36, 71, 143, 0.35);
-            background-color: rgba(36, 71, 143, 0.1);
-            border-radius: var(--r-sm);
-            pointer-events: none;
-            display: none;
-        }
-        
-        /* Mockup view selector */
-        .view-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        
-        .view-btn {
-            padding: 10px 15px;
-            background: var(--text-light);
-            color: white;
-            border: none;
-            border-radius: var(--r-sm);
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        
-        .view-btn.active {
-            background: var(--primary-color);
-        }
-        
-        .view-btn:hover {
-            background: var(--primary-dark);
-        }
-        
-        /* Mockup Popup Styles */
-        .mockup-popup {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            backdrop-filter: blur(5px);
-        }
-        
-        .mockup-container {
-            background: var(--bg-white);
-            padding: 40px;
-            max-width: 90%;
-            max-height: 90%;
-            overflow: auto;
-            position: relative;
-            border-radius: var(--r-lg);
-            box-shadow: var(--shadow-lift);
-        }
-        
-        .close-popup {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            font-size: 28px;
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: var(--text-light);
-            transition: var(--transition);
-        }
-        
-        .close-popup:hover {
-            color: var(--ink);
-        }
-        
-        .mockup-images {
-            display: flex;
-            gap: 30px;
-            flex-wrap: wrap;
-            justify-content: center;
-            margin: 30px 0;
-        }
-        
-        .mockup-image {
-            text-align: center;
-            display: none;
-        }
-        
-        .mockup-image img {
-            max-width: 320px;
-            max-height: 420px;
-            border: 1.5px solid var(--border-color);
-            border-radius: var(--r-sm);
-            box-shadow: var(--shadow);
-        }
-        
-        .download-btn {
-            margin-top: 15px;
-            padding: 10px 20px;
-            background: var(--riso-blue);
-            color: white;
-            border: none;
-            border-radius: var(--r-sm);
-            cursor: pointer;
-            transition: var(--transition);
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .download-btn:hover {
-            background: var(--riso-blue-dark);
-            transform: translateY(-2px);
-        }
-        
-        .form-control:invalid {
-            border-color: var(--accent-color) !important;
-        }
-        
-        .required-field::after {
-            content: " *";
-            color: var(--accent-color);
-        }
-        
-        .validation-error {
-            color: var(--accent-color);
-            font-size: 0.875em;
-            margin-top: 5px;
-            display: none;
-        }
-        
-        .section-with-error {
-            border: 1.5px solid var(--accent-color) !important;
-            border-radius: var(--r-md);
-            background-color: rgba(232, 67, 43, 0.07) !important;
-        }
-        
-        /* Button-based option styles */
-        .option-button {
-            padding: 12px 20px;
-            background: var(--bg-light);
-            border: 1.5px solid var(--border-color);
-            border-radius: var(--r-sm);
-            cursor: pointer;
-            transition: var(--transition);
-            font-weight: 500;
-            color: var(--text-dark);
-            flex: 1;
-            min-width: 120px;
-            text-align: center;
-        }
-        
-        .option-button:hover {
-            background: var(--paper-dim);
-            border-color: var(--ink-faint);
-            transform: translateY(-2px);
-        }
-        
-        .option-button.selected {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-            box-shadow: 0 4px 12px rgba(23, 20, 15, 0.22);
-        }
-        
-        .option-button.custom-option {
-            border: 2px dashed var(--text-light);
-        }
-        
-        .option-button.custom-option.selected {
-            border: 1.5px solid var(--primary-color);
-        }
-        
-        .button-options {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .upload-type-buttons {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .upload-type-buttons label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            padding: 10px 15px;
-            background: var(--bg-light);
-            border-radius: var(--r-sm);
-            transition: var(--transition);
-        }
-
-        .upload-type-buttons label:hover {
-            background: var(--paper-dim);
-        }
-
-        .upload-type-buttons input[type="radio"] {
-            accent-color: var(--primary-color);
-        }
-
-        /* Login Prompt Styles */
-        .login-prompt {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-            color: white;
-            padding: 30px;
-            border-radius: var(--r-md);
-            text-align: center;
-        }
-
-        .login-message {
-            margin-bottom: 25px;
-        }
-
-        .login-message i {
-            font-size: 3em;
-            margin-bottom: 15px;
-            display: block;
-        }
-
-        .login-message h3 {
-            font-size: 1.5em;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        .login-message p {
-            font-size: 1.1em;
-            opacity: 0.9;
-        }
-
-        @media (max-width: 768px) {
-            .product-detail {
-                flex-direction: column;
-            }
-            
-            .product-gallery {
-                max-width: 100%;
-            }
-            
-            .main-image {
-                height: 350px;
-            }
-            
-            .action-buttons {
-                flex-direction: column;
-            }
-            
-            .mockup-container {
-                padding: 25px;
-                width: 95%;
-            }
-            
-            .mockup-images {
-                flex-direction: column;
-                gap: 20px;
-            }
-            
-            .positioning-container {
-                height: 300px;
-            }
-            
-            .option-button {
-                min-width: 100px;
-                padding: 10px 15px;
-                font-size: 0.9em;
-            }
-            
-            .button-options {
-                gap: 8px;
-            }
-
-            .upload-type-buttons {
-                flex-direction: column;
-                gap: 10px;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .product-detail-container {
-                padding: 25px;
-            }
-            
-            .product-title {
-                font-size: 1.8em;
-            }
-            
-            .product-price {
-                font-size: 1.6em;
-            }
-            
-            .customization-section {
-                padding: 20px;
-            }
-            
-            .main-image {
-                height: 280px;
-            }
-            
-            .thumbnail {
-                width: 60px;
-                height: 60px;
-            }
-
-            .login-prompt {
-                padding: 20px;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="../assets/css/service_detail.css">
 </head>
-
 <body>
     <!-- Side Pill Navigation -->
     <nav class="side-nav" id="sideNav" aria-label="Primary">
         <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
-            <li><a href="sub-main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li><a href="sub-main.php" class="active"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
             <li><a href="sub-ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
             <li><a href="sub-about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
             <li><a href="sub-contact.php"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
@@ -840,345 +227,409 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         </ul>
     </nav>
 
-    <!-- Product Detail Section -->
-    <section class="product-detail-page">
-        <div class="container">
-            <div class="product-detail-container">
-                <div class="product-detail">
-                    <div class="product-gallery">
-                        <!-- Show product images in gallery -->
-                        <?php
-                        $product_image_path = "../assets/images/services/service-" . $product['id'] . ".jpg";
-                        $product_image_url = file_exists($product_image_path) ? $product_image_path : "https://via.placeholder.com/500x500/2c5aa0/ffffff?text=Product+Image";
-                        $product_back_image_path = "../assets/images/services/service-" . $product['id'] . "-1.jpg";
-                        $product_back_image_url = file_exists($product_back_image_path) ? $product_back_image_path : "";
-                        ?>
-                        <img src="<?php echo $product_image_url; ?>" alt="<?php echo $product['product_name']; ?>" class="main-image" id="mainImage">
+    <?php
+    // Collect up to 5 product images: service-ID.jpg, service-ID-1.jpg ...
+$product_images = [];
+for ($i = 0; $i < 5; $i++) {
+    $suffix = $i > 0 ? '-' . $i : '';
+    $image_path = "../assets/images/services/service-" . $product['id'] . $suffix . ".jpg";
 
-                        <div class="thumbnail-container">
-                            <img src="<?php echo $product_image_url; ?>"
-                                alt="Thumbnail 1" class="thumbnail active" onclick="changeImage(this, 'front')">
-                            <?php if (!empty($product_back_image_url)): ?>
-                                <img src="<?php echo $product_back_image_url; ?>"
-                                    alt="Thumbnail 2" class="thumbnail" onclick="changeImage(this, 'back')">
-                            <?php endif; ?>
-                            <img src="../assets/images/services/service-<?php echo $product['id']; ?>-2.jpg"
-                                alt="Thumbnail 3" class="thumbnail" onclick="changeImage(this, 'front')">
+    if (file_exists($image_path)) {
+        $product_images[] = [
+            'path' => $image_path,
+            'alt' => $product['product_name'] . ($i > 0 ? ' - View ' . ($i + 1) : ''),
+            'index' => $i
+        ];
+    }
+}
+
+// If no images found, use placeholder
+if (empty($product_images)) {
+    $product_images[] = [
+        'path' => "https://via.placeholder.com/500x500/2c5aa0/ffffff?text=Product+Image",
+        'alt' => $product['product_name'],
+        'index' => 0
+    ];
+}
+
+$main_image = $product_images[0];
+?>
+
+    <!-- Product detail -->
+    <main class="pd-page" data-ink="<?php echo $cat_meta['ink']; ?>">
+        <div class="pd-shell">
+            <nav class="pd-crumbs" aria-label="Breadcrumb">
+                <a href="sub-main.php">Home</a>
+                <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                <a href="sub-main.php#<?php echo $cat_meta['anchor']; ?>"><?php echo htmlspecialchars($product['category']); ?></a>
+                <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                <span aria-current="page"><?php echo htmlspecialchars($product['product_name']); ?></span>
+            </nav>
+
+            <?php if (isset($_SESSION['user_id'])): ?>
+            <!-- Order form for logged in users -->
+            <form method="post" id="cartForm" action="add_to_cart.php" enctype="multipart/form-data">
+                <input type="hidden" name="add_to_cart" value="1">
+                <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
+
+                <div class="pd-top">
+                    <section class="pd-gallery" aria-label="Product images">
+                    <div class="pd-proof">
+                        <div class="pd-proof__sheet">
+                            <img src="<?php echo htmlspecialchars($main_image['path']); ?>" alt="<?php echo htmlspecialchars($main_image['alt']); ?>" class="main-image" id="mainImage">
                         </div>
                     </div>
 
-                    <div class="product-info">
-                        <h1 class="product-title"><?php echo $product['product_name']; ?></h1>
-                        <span class="product-category"><?php echo $product['category']; ?></span>
+                    <?php if (count($product_images) > 1): ?>
+                        <div class="pd-thumbs">
+                            <?php foreach ($product_images as $index => $image): ?>
+                                <img src="<?php echo htmlspecialchars($image['path']); ?>"
+                                    alt="Thumbnail <?php echo $index + 1; ?>"
+                                    class="thumbnail <?php echo $index === 0 ? 'active' : ''; ?>"
+                                    role="button" tabindex="0"
+                                    onclick="changeImage(this, <?php echo $index; ?>)"
+                                    onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }"
+                                    data-image-index="<?php echo $index; ?>">
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </section>
 
-                        <div class="product-price">From ₱<?php echo number_format($product['price'], 2); ?></div>
+                    <div class="pd-config">
+                    <header class="pd-head">
+                        <span class="pd-cat"><span class="reg-mark"></span><?php echo htmlspecialchars($product['category']); ?></span>
+                        <h1 class="pd-title"><?php echo htmlspecialchars($product['product_name']); ?></h1>
+                        <p class="pd-price"><span class="pd-price__from">From</span><span class="pd-price__amt">₱<?php echo number_format($product['price'], 2); ?></span></p>
+                    </header>
 
-                        <?php if (isset($_SESSION['user_id'])): ?>
-                            <!-- Order form for logged in users -->
-                            <form method="post" id="cartForm" action="add_to_cart.php" enctype="multipart/form-data">
-                                <input type="hidden" name="add_to_cart" value="1">
-                                <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
-
-                                <?php if ($customization && in_array($product_id, [18, 19, 20, 21])): ?>
-                                    <div class="customization-section">
-                                        <h3 class="section-title required-field"><i class="fas fa-ruler-combined"></i> Size</h3>
-                                        <?php if (!empty($size_options)): ?>
-                                            <div class="option-group" style="margin-bottom: 20px;">
-                                                <div class="button-options">
-                                                    <?php foreach ($size_options as $size): 
-                                                        $display_name = isset($size['dimensions']) ? $size['size_name'] . ' (' . $size['dimensions'] . ')' : $size['size_name'];
-                                                    ?>
-                                                        <button type="button" 
-                                                                class="option-button <?php echo $size['is_custom'] ? 'custom-option' : ''; ?>" 
-                                                                data-value="<?php echo $size['id']; ?>" 
-                                                                data-custom="<?php echo $size['is_custom']; ?>"
-                                                                onclick="selectOption(this, 'size')">
-                                                            <?php echo $display_name; ?>
-                                                        </button>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                                <input type="hidden" name="size_option" id="sizeOption" value="">
-                                                <div id="customSizeContainer" style="margin-top: 10px; display: none;">
-                                                    <input type="text" name="custom_size" placeholder="Please specify your custom size" 
-                                                           style="padding: 10px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
-                                                </div>
-                                            </div>
-                                        <?php endif; ?>
+                    <?php if ($customization && in_array($product_id, [18, 19, 20, 21])): ?>
+                        <section class="pd-panel customization-section">
+                            <h2 class="pd-panel__title required-field"><span class="pd-ico"><i class="fas fa-ruler-combined"></i></span>Size</h2>
+                            <?php if (!empty($size_options)): ?>
+                                <div class="option-group pd-field">
+                                    <div class="button-options">
+                                        <?php foreach ($size_options as $size):
+                                            $display_name = isset($size['dimensions']) ? $size['size_name'] . ' (' . $size['dimensions'] . ')' : $size['size_name'];
+                                        ?>
+                                            <button type="button"
+                                                    class="option-button <?php echo $size['is_custom'] ? 'custom-option' : ''; ?>"
+                                                    data-value="<?php echo $size['id']; ?>"
+                                                    data-custom="<?php echo $size['is_custom']; ?>"
+                                                    onclick="selectOption(this, 'size')"><?php echo htmlspecialchars($display_name); ?></button>
+                                        <?php endforeach; ?>
                                     </div>
-
-                                    <div class="customization-section">
-                                        <h3 class="section-title required-field"><i class="fas fa-palette"></i> Color</h3>
-                                        <?php if (!empty($color_options)): ?>
-                                            <div class="option-group" style="margin-bottom: 20px;">
-                                                <div class="button-options">
-                                                    <?php foreach ($color_options as $color): ?>
-                                                        <button type="button" 
-                                                                class="option-button <?php echo $color['is_custom'] ? 'custom-option' : ''; ?>" 
-                                                                data-value="<?php echo $color['id']; ?>" 
-                                                                data-custom="<?php echo $color['is_custom']; ?>"
-                                                                onclick="selectOption(this, 'color')">
-                                                            <?php echo $color['color_name']; ?>
-                                                        </button>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                                <input type="hidden" name="color_option" id="colorOption" value="">
-                                                <div id="customColorContainer" style="margin-top: 10px; display: none;">
-                                                    <input type="text" name="custom_color" placeholder="Please specify your custom color" 
-                                                           style="padding: 10px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
-                                                </div>
-                                            </div>
-                                        <?php endif; ?>
-
-                                        <?php if ($product_id == 20): ?>
-                                            <div class="option-group" style="margin-bottom: 20px;">
-                                                <button type="button" class="option-button selected" data-value="brown" onclick="selectOption(this, 'color')">
-                                                    Brown (Standard)
-                                                </button>
-                                                <input type="hidden" name="color_option" value="brown">
-                                            </div>
-                                        <?php endif; ?>
+                                    <input type="hidden" name="size_option" id="sizeOption" value="">
+                                    <div id="customSizeContainer" class="pd-custom" style="display: none;">
+                                        <label class="pd-label" for="customSizeInput">Custom size</label>
+                                        <input type="text" class="pd-input" id="customSizeInput" name="custom_size" placeholder="Please specify your custom size">
                                     </div>
-                                <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                        </section>
 
-                                <?php
-                                if (
-                                    $customization &&
-                                    !in_array($product_id, [18, 19, 20, 21]) &&
-                                    in_array($product['category'], ['RISO Printing', 'Offset Printing', 'Digital Printing'])
-                                ):
-                                ?>
-                                    <div class="customization-section">
-                                        <h3 class="section-title"><i class="fas fa-cog"></i> Printing Options</h3>
-
-                                        <?php if ($customization['has_paper_option'] && !empty($paper_options)): ?>
-                                            <div class="option-group" style="margin-bottom: 20px;">
-                                                <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Paper Type:</label>
-                                                <div class="button-options">
-                                                    <?php foreach ($paper_options as $paper): ?>
-                                                        <button type="button" class="option-button" data-value="<?php echo $paper['id']; ?>" onclick="selectOption(this, 'paper')">
-                                                            <?php echo $paper['option_name']; ?>
-                                                        </button>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                                <input type="hidden" name="paper_option" id="paperOption" value="">
-                                            </div>
-                                        <?php endif; ?>
-
-                                        <?php
-                                        // Only show for printing categories, not for Other Services (IDs 18-21)
-                                        if (
-                                            $customization['has_size_option'] &&
-                                            !in_array($product_id, [18, 19, 20, 21]) &&
-                                            in_array($product['category'], ['Riso Printing', 'Offset Printing', 'Digital Printing'])
-                                        ): ?>
-                                            <div class="option-group" style="margin-bottom: 20px;">
-                                                <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Size (in inches):</label>
-                                                <input type="text" name="size_option" placeholder="e.g., 8.5 x 11" style="padding: 10px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
-                                            </div>
-                                        <?php endif; ?>
-
-                                        <?php if ($customization['has_finish_option'] && !empty($finish_options)): ?>
-                                            <div class="option-group" style="margin-bottom: 20px;">
-                                                <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Finish:</label>
-                                                <div class="button-options">
-                                                    <?php foreach ($finish_options as $finish): ?>
-                                                        <button type="button" class="option-button" data-value="<?php echo $finish['id']; ?>" onclick="selectOption(this, 'finish')">
-                                                            <?php echo $finish['option_name']; ?>
-                                                        </button>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                                <input type="hidden" name="finish_option" id="finishOption" value="">
-                                            </div>
-                                        <?php endif; ?>
-
-                                        <?php if ($customization['has_layout_option'] && !empty($layout_options)): ?>
-                                            <div class="option-group" style="margin-bottom: 20px;">
-                                                <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Layout Option:</label>
-                                                <div class="button-options">
-                                                    <?php foreach ($layout_options as $layout): ?>
-                                                        <button type="button" class="option-button" data-value="<?php echo $layout['id']; ?>" onclick="selectLayoutOption(this)">
-                                                            <?php echo $layout['option_name']; ?>
-                                                        </button>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                                <input type="hidden" name="layout_option" id="layoutOption" value="">
-                                                
-                                                <div id="layoutInputContainer" style="margin-top: 10px; display: none;">
-                                                    <!-- Content will be populated by JavaScript based on selection -->
-                                                </div>
-                                            </div>
-                                        <?php endif; ?>
-
-                                        <?php if ($customization['has_binding_option'] && !empty($binding_options)): ?>
-                                            <div class="option-group" style="margin-bottom: 20px;">
-                                                <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Binding:</label>
-                                                <div class="button-options">
-                                                    <?php foreach ($binding_options as $binding): ?>
-                                                        <button type="button" class="option-button" data-value="<?php echo $binding['id']; ?>" onclick="selectOption(this, 'binding')">
-                                                            <?php echo $binding['option_name']; ?>
-                                                        </button>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                                <input type="hidden" name="binding_option" id="bindingOption" value="">
-                                            </div>
-                                        <?php endif; ?>
-
-                                        <?php if ($customization['has_gsm_option']): ?>
-                                            <div class="option-group" style="margin-bottom: 20px;">
-                                                <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Paper Weight (GSM):</label>
-                                                <input type="number" name="gsm_option" placeholder="e.g., 120" min="0" style="padding: 10px; border: 1px solid var(--border-color); width: 100%; background: var(--bg-white);">
-                                            </div>
-                                        <?php endif; ?>
+                        <section class="pd-panel customization-section">
+                            <h2 class="pd-panel__title required-field"><span class="pd-ico"><i class="fas fa-palette"></i></span>Color</h2>
+                            <?php if (!empty($color_options)): ?>
+                                <div class="option-group pd-field">
+                                    <div class="button-options">
+                                        <?php foreach ($color_options as $color): ?>
+                                            <button type="button"
+                                                    class="option-button <?php echo $color['is_custom'] ? 'custom-option' : ''; ?>"
+                                                    data-value="<?php echo $color['id']; ?>"
+                                                    data-custom="<?php echo $color['is_custom']; ?>"
+                                                    onclick="selectOption(this, 'color')"><?php echo htmlspecialchars($color['color_name']); ?></button>
+                                        <?php endforeach; ?>
                                     </div>
-                                <?php endif; ?>
+                                    <input type="hidden" name="color_option" id="colorOption" value="">
+                                    <div id="customColorContainer" class="pd-custom" style="display: none;">
+                                        <label class="pd-label" for="customColorInput">Custom color</label>
+                                        <input type="text" class="pd-input" id="customColorInput" name="custom_color" placeholder="Please specify your custom color">
+                                    </div>
+                                </div>
+                            <?php endif; ?>
 
-                                <div class="customization-section">
-                                    <h3 class="section-title"><i class="fas fa-shopping-cart"></i> Quantity</h3>
-                                    <div class="quantity-selector">
-                                        <button type="button" class="quantity-btn" onclick="decreaseQuantity()">-</button>
-                                        <input type="number" name="quantity" class="quantity-input" id="quantity" value="1" min="1">
-                                        <button type="button" class="quantity-btn" onclick="increaseQuantity()">+</button>
+                            <?php if ($product_id == 20): ?>
+                                <div class="option-group pd-field">
+                                    <div class="button-options">
+                                        <button type="button" class="option-button selected" data-value="brown" onclick="selectOption(this, 'color')">Brown (standard)</button>
+                                    </div>
+                                    <input type="hidden" name="color_option" value="brown">
+                                </div>
+                            <?php endif; ?>
+                        </section>
+                    <?php endif; ?>
+
+                    <?php
+                    if (
+                        $customization &&
+                        !in_array($product_id, [18, 19, 20, 21]) &&
+                        in_array($product['category'], ['RISO Printing', 'Offset Printing', 'Digital Printing'])
+                    ):
+                    ?>
+                        <section class="pd-panel customization-section">
+                            <h2 class="pd-panel__title"><span class="pd-ico"><i class="fas fa-cog"></i></span>Printing options</h2>
+
+                            <?php if ($customization['has_paper_option'] && !empty($paper_options)): ?>
+                                <div class="option-group pd-field">
+                                    <span class="pd-label required-field">Paper type</span>
+                                    <div class="button-options">
+                                        <?php foreach ($paper_options as $paper): ?>
+                                            <button type="button" class="option-button" data-value="<?php echo $paper['id']; ?>" onclick="selectOption(this, 'paper')"><?php echo htmlspecialchars($paper['option_name']); ?></button>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <input type="hidden" name="paper_option" id="paperOption" value="">
+                                </div>
+                            <?php endif; ?>
+
+                            <?php
+                            // Only show for printing categories, not for Other Services (IDs 18-21)
+                            if (
+                                $customization['has_size_option'] &&
+                                !in_array($product_id, [18, 19, 20, 21]) &&
+                                in_array($product['category'], ['Riso Printing', 'Offset Printing', 'Digital Printing'])
+                            ): ?>
+                                <div class="option-group pd-field">
+                                    <label class="pd-label required-field" for="printSizeInput">Size (in inches)</label>
+                                    <input type="text" class="pd-input" id="printSizeInput" name="size_option" placeholder="e.g., 8.5 x 11">
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if ($customization['has_finish_option'] && !empty($finish_options)): ?>
+                                <div class="option-group pd-field">
+                                    <span class="pd-label required-field">Finish</span>
+                                    <div class="button-options">
+                                        <?php foreach ($finish_options as $finish): ?>
+                                            <button type="button" class="option-button" data-value="<?php echo $finish['id']; ?>" onclick="selectOption(this, 'finish')"><?php echo htmlspecialchars($finish['option_name']); ?></button>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <input type="hidden" name="finish_option" id="finishOption" value="">
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if ($customization['has_layout_option'] && !empty($layout_options)): ?>
+                                <div class="option-group pd-field">
+                                    <span class="pd-label required-field">Layout</span>
+                                    <div class="button-options">
+                                        <?php foreach ($layout_options as $layout): ?>
+                                            <button type="button" class="option-button" data-value="<?php echo $layout['id']; ?>" onclick="selectLayoutOption(this)"><?php echo htmlspecialchars($layout['option_name']); ?></button>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <input type="hidden" name="layout_option" id="layoutOption" value="">
+
+                                    <div id="layoutInputContainer" class="pd-custom" style="display: none;">
+                                        <!-- Content will be populated by JavaScript based on selection -->
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if ($customization['has_binding_option'] && !empty($binding_options)): ?>
+                                <div class="option-group pd-field">
+                                    <span class="pd-label required-field">Binding</span>
+                                    <div class="button-options">
+                                        <?php foreach ($binding_options as $binding): ?>
+                                            <button type="button" class="option-button" data-value="<?php echo $binding['id']; ?>" onclick="selectOption(this, 'binding')"><?php echo htmlspecialchars($binding['option_name']); ?></button>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <input type="hidden" name="binding_option" id="bindingOption" value="">
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if ($customization['has_gsm_option']): ?>
+                                <div class="option-group pd-field">
+                                    <label class="pd-label required-field" for="gsmInput">Paper weight (GSM)</label>
+                                    <input type="number" class="pd-input" id="gsmInput" name="gsm_option" placeholder="e.g., 120" min="0">
+                                </div>
+                            <?php endif; ?>
+                        </section>
+                    <?php endif; ?>
+                    </div>
+                </div>
+
+                <?php if ($show_image_customization): ?>
+                    <section class="pd-panel pd-studio customization-section" aria-labelledby="studioTitle">
+                        <h2 class="pd-panel__title" id="studioTitle"><span class="pd-ico"><i class="fas fa-paint-brush"></i></span>Customize your product</h2>
+
+                        <div class="pd-studio__grid">
+                            <div class="pd-studio__col">
+                                <!-- Upload type selection -->
+                                <div class="upload-type-section">
+                                    <h3 class="pd-sub"><i class="fas fa-upload"></i> Upload type</h3>
+                                    <div class="upload-type-buttons" role="radiogroup" aria-label="Upload type">
+                                        <label>
+                                            <input type="radio" name="upload_type" value="single" checked onchange="handleUploadTypeChange()">
+                                            <span>Same on both sides</span>
+                                        </label>
+                                        <label>
+                                            <input type="radio" name="upload_type" value="separate" onchange="handleUploadTypeChange()">
+                                            <span>Different per side</span>
+                                        </label>
                                     </div>
                                 </div>
 
-                                <?php if ($show_image_customization): ?>
-                                    <div class="customization-section">
-                                        <h3 class="section-title"><i class="fas fa-paint-brush"></i> Customize Your Product</h3>
+                                <!-- Single image upload (default) -->
+                                <div class="image-upload-section" id="singleUploadSection">
+                                    <label for="designUpload" class="upload-btn required-field">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                        <span class="upload-text">Choose design image (for both sides)</span>
+                                    </label>
+                                    <input type="file" id="designUpload" name="design_upload" accept="image/*" hidden>
+                                    <div class="upload-preview" id="uploadPreview">
+                                        <img src="" alt="Uploaded design" class="uploaded-image" id="uploadedImage">
+                                        <button type="button" class="btn-remove-design" onclick="removeUploadedImage()">
+                                            <i class="fas fa-trash"></i> Remove image
+                                        </button>
+                                    </div>
+                                </div>
 
-                                        <!-- Upload Type Selection -->
-                                        <div class="upload-type-section" style="margin-bottom: 25px;">
-                                            <h4 class="section-title" style="font-size: 1.1em;"><i class="fas fa-upload"></i> Upload Type</h4>
-                                            <div class="upload-type-buttons">
-                                                <label>
-                                                    <input type="radio" name="upload_type" value="single" checked onchange="handleUploadTypeChange()">
-                                                    <span>Same Design for Front & Back</span>
-                                                </label>
-                                                <label>
-                                                    <input type="radio" name="upload_type" value="separate" onchange="handleUploadTypeChange()">
-                                                    <span>Different Designs for Front & Back</span>
-                                                </label>
-                                            </div>
-                                        </div>
-
-                                        <!-- Single Image Upload (Default) -->
-                                        <div class="image-upload-section" id="singleUploadSection">
-                                            <label for="designUpload" class="upload-btn required-field">
-                                                <i class="fas fa-upload"></i> Choose Design Image (for both sides)
-                                            </label>
-                                            <input type="file" id="designUpload" name="design_upload" accept="image/*" style="display: none;">
-                                            <div class="upload-preview" id="uploadPreview">
-                                                <img src="" alt="Uploaded design" class="uploaded-image" id="uploadedImage">
-                                                <button type="button" class="btn btn-secondary" onclick="removeUploadedImage()">
-                                                    <i class="fas fa-times"></i> Remove Image
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <!-- Separate Image Upload (Hidden by default) -->
-                                        <div class="separate-upload-section" id="separateUploadSection" style="display: none;">
-                                            <div class="front-upload" style="margin-bottom: 20px;">
-                                                <h5 style="margin-bottom: 10px; color: var(--text-dark);">
-                                                    <i class="fas fa-tshirt"></i> Front Design
-                                                </h5>
-                                                <label for="frontDesignUpload" class="upload-btn required-field">
-                                                    <i class="fas fa-upload"></i> Choose Front Design
-                                                </label>
-                                                <input type="file" id="frontDesignUpload" name="front_design_upload" accept="image/*" style="display: none;">
-                                                <div class="upload-preview" id="frontUploadPreview">
-                                                    <img src="" alt="Front design" class="uploaded-image" id="frontUploadedImage">
-                                                    <button type="button" class="btn btn-secondary" onclick="removeFrontUploadedImage()">
-                                                        <i class="fas fa-times"></i> Remove Front Image
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <?php if (!empty($back_base_image_url)): ?>
-                                                <div class="back-upload">
-                                                    <h5 style="margin-bottom: 10px; color: var(--text-dark);">
-                                                        <i class="fas fa-tshirt"></i> Back Design
-                                                    </h5>
-                                                    <label for="backDesignUpload" class="upload-btn required-field">
-                                                        <i class="fas fa-upload"></i> Choose Back Design
-                                                    </label>
-                                                    <input type="file" id="backDesignUpload" name="back_design_upload" accept="image/*" style="display: none;">
-                                                    <div class="upload-preview" id="backUploadPreview">
-                                                        <img src="" alt="Back design" class="uploaded-image" id="backUploadedImage">
-                                                        <button type="button" class="btn btn-secondary" onclick="removeBackUploadedImage()">
-                                                            <i class="fas fa-times"></i> Remove Back Image
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
-
-                                        <!-- Positioning Section -->
-                                        <div class="positioning-section">
-                                            <h4 class="section-title"><i class="fas fa-arrows-alt"></i> Position Your Design</h4>
-
-                                            <div class="view-selector">
-                                                <button type="button" class="view-btn active" id="frontViewBtn" onclick="switchView('front')">
-                                                    <i class="fas fa-tshirt"></i> Front View
-                                                </button>
-                                                <?php if (!empty($back_base_image_url)): ?>
-                                                    <button type="button" class="view-btn" id="backViewBtn" onclick="switchView('back')">
-                                                        <i class="fas fa-tshirt"></i> Back View
-                                                    </button>
-                                                <?php endif; ?>
-                                            </div>
-
-                                            <div class="positioning-tools">
-                                                <button type="button" class="tool-btn" onclick="enableDragging()" id="dragBtn">
-                                                    <i class="fas fa-arrows-alt"></i> Move Design
-                                                </button>
-                                                <button type="button" class="tool-btn" onclick="resizeDesign(1.1)">
-                                                    <i class="fas fa-search-plus"></i> Enlarge
-                                                </button>
-                                                <button type="button" class="tool-btn" onclick="resizeDesign(0.9)">
-                                                    <i class="fas fa-search-minus"></i> Shrink
-                                                </button>
-                                                <button type="button" class="tool-btn" onclick="resetDesignPosition()">
-                                                    <i class="fas fa-redo"></i> Reset
-                                                </button>
-                                                <button type="button" class="tool-btn" onclick="toggleBoundary()" id="boundaryBtn">
-                                                    <i class="fas fa-border-all"></i> Show Boundaries
-                                                </button>
-                                            </div>
-
-                                            <div class="positioning-container">
-                                                <div class="product-base-image">
-                                                    <img src="<?php echo $base_image_url; ?>" alt="Product Base" id="baseImage">
-                                                    <div id="designOverlay" class="design-overlay"></div>
-                                                    <div id="designBoundary" class="design-boundary"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="preview-section">
-                                            <h4 class="section-title"><i class="fas fa-eye"></i> Design Preview</h4>
-                                            <div class="preview-container">
-                                                <img src="" alt="Mockup Preview" class="mockup-preview" id="mockupPreview">
-                                                <p id="previewText" style="color: var(--text-light); font-style: italic;">Upload an image to generate preview</p>
-                                            </div>
-                                            <button type="button" class="btn btn-secondary" onclick="generateMockup()">
-                                                <i class="fas fa-image"></i> Generate Mockup
+                                <!-- Separate image upload (hidden by default) -->
+                                <div class="separate-upload-section" id="separateUploadSection" style="display: none;">
+                                    <div class="front-upload">
+                                        <h3 class="pd-sub"><i class="fas fa-tshirt"></i> Front design</h3>
+                                        <label for="frontDesignUpload" class="upload-btn required-field">
+                                            <i class="fas fa-cloud-upload-alt"></i>
+                                            <span class="upload-text">Choose front design</span>
+                                        </label>
+                                        <input type="file" id="frontDesignUpload" name="front_design_upload" accept="image/*" hidden>
+                                        <div class="upload-preview" id="frontUploadPreview">
+                                            <img src="" alt="Front design" class="uploaded-image" id="frontUploadedImage">
+                                            <button type="button" class="btn-remove-design" onclick="removeFrontUploadedImage()">
+                                                <i class="fas fa-trash"></i> Remove front image
                                             </button>
                                         </div>
                                     </div>
-                                <?php endif; ?>
 
-                                <div class="action-buttons">
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-shopping-cart"></i> Add to Cart
-                                    </button>
+                                    <?php if (!empty($back_base_image_url)): ?>
+                                        <div class="back-upload">
+                                            <h3 class="pd-sub"><i class="fas fa-tshirt"></i> Back design</h3>
+                                            <label for="backDesignUpload" class="upload-btn required-field">
+                                                <i class="fas fa-cloud-upload-alt"></i>
+                                                <span class="upload-text">Choose back design</span>
+                                            </label>
+                                            <input type="file" id="backDesignUpload" name="back_design_upload" accept="image/*" hidden>
+                                            <div class="upload-preview" id="backUploadPreview">
+                                                <img src="" alt="Back design" class="uploaded-image" id="backUploadedImage">
+                                                <button type="button" class="btn-remove-design" onclick="removeBackUploadedImage()">
+                                                    <i class="fas fa-trash"></i> Remove back image
+                                                </button>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
+                            </div>
 
-                                <input type="hidden" name="design_image" id="designImageInput" value="">
-                                <input type="hidden" name="front_design_image" id="frontDesignImageInput" value="">
-                                <input type="hidden" name="back_design_image" id="backDesignImageInput" value="">
-                                <input type="hidden" name="upload_type" id="uploadTypeInput" value="single">
-                            </form>
-                        <?php else: ?>
-                            <div class="login-prompt">
+                            <div class="pd-studio__col positioning-section">
+                        <h3 class="pd-sub"><i class="fas fa-arrows-alt"></i> Position your design</h3>
+
+                        <div class="view-selector">
+                            <button type="button" class="view-btn active" id="frontViewBtn" onclick="switchView('front')">
+                                <i class="fas fa-tshirt"></i> Front view
+                            </button>
+                            <?php if (!empty($back_base_image_url)): ?>
+                                <button type="button" class="view-btn" id="backViewBtn" onclick="switchView('back')">
+                                    <i class="fas fa-tshirt"></i> Back view
+                                </button>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="positioning-tools">
+                            <button type="button" class="tool-btn" onclick="enableDragging()" id="dragBtn">
+                                <i class="fas fa-arrows-alt"></i> Move design
+                            </button>
+                            <button type="button" class="tool-btn" onclick="resizeDesign(1.1)">
+                                <i class="fas fa-search-plus"></i> Enlarge
+                            </button>
+                            <button type="button" class="tool-btn" onclick="resizeDesign(0.9)">
+                                <i class="fas fa-search-minus"></i> Shrink
+                            </button>
+                            <button type="button" class="tool-btn" onclick="resetDesignPosition()">
+                                <i class="fas fa-redo"></i> Reset
+                            </button>
+                            <button type="button" class="tool-btn" onclick="toggleBoundary()" id="boundaryBtn">
+                                <i class="fas fa-border-all"></i> Show boundaries
+                            </button>
+                        </div>
+
+                        <div class="pd-canvas">
+                            <div class="positioning-container">
+                                <div class="product-base-image">
+                                    <img src="<?php echo $base_image_url; ?>" alt="Product base" id="baseImage">
+                                    <div id="designOverlay" class="design-overlay"></div>
+                                    <div id="designBoundary" class="design-boundary"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+
+                        <div class="preview-section">
+                    <div class="preview-container">
+                        <img src="" alt="Mockup preview" class="mockup-preview" id="mockupPreview">
+                        <p id="previewText">Upload an image to generate a preview</p>
+                    </div>
+                    <div class="pd-preview-actions">
+                        <h3 class="pd-sub"><i class="fas fa-eye"></i> Design preview</h3>
+                        <p class="pd-note">Generate a mockup to check how your design sits on the product, then apply it before adding to cart.</p>
+                        <button type="button" class="btn pd-btn-ink" onclick="generateMockup()">
+                            <i class="fas fa-image"></i> Generate mockup
+                        </button>
+                    </div>
+                </div>
+                    </section>
+                    <?php endif; ?>
+
+                <div class="pd-orderbar">
+                    <div class="pd-orderbar__what">
+                        <span class="pd-orderbar__name"><?php echo htmlspecialchars($product['product_name']); ?></span>
+                        <span class="pd-orderbar__price">From ₱<?php echo number_format($product['price'], 2); ?></span>
+                    </div>
+                    <div class="quantity-selector">
+                        <button type="button" class="quantity-btn" onclick="decreaseQuantity()" aria-label="Decrease quantity"><i class="fas fa-minus"></i></button>
+                        <input type="number" name="quantity" class="quantity-input" id="quantity" value="1" min="1" aria-label="Quantity">
+                        <button type="button" class="quantity-btn" onclick="increaseQuantity()" aria-label="Increase quantity"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-shopping-cart"></i> Add to cart
+                    </button>
+                </div>
+
+                <input type="hidden" name="design_image" id="designImageInput" value="">
+                <input type="hidden" name="front_design_image" id="frontDesignImageInput" value="">
+                <input type="hidden" name="back_design_image" id="backDesignImageInput" value="">
+                <input type="hidden" name="upload_type" id="uploadTypeInput" value="single">
+            </form>
+            <?php else: ?>
+            <!-- Guests: product overview + login prompt -->
+            <div class="pd-top">
+                <section class="pd-gallery" aria-label="Product images">
+                    <div class="pd-proof">
+                        <div class="pd-proof__sheet">
+                            <img src="<?php echo htmlspecialchars($main_image['path']); ?>" alt="<?php echo htmlspecialchars($main_image['alt']); ?>" class="main-image" id="mainImage">
+                        </div>
+                    </div>
+
+                    <?php if (count($product_images) > 1): ?>
+                        <div class="pd-thumbs">
+                            <?php foreach ($product_images as $index => $image): ?>
+                                <img src="<?php echo htmlspecialchars($image['path']); ?>"
+                                    alt="Thumbnail <?php echo $index + 1; ?>"
+                                    class="thumbnail <?php echo $index === 0 ? 'active' : ''; ?>"
+                                    role="button" tabindex="0"
+                                    onclick="changeImage(this, <?php echo $index; ?>)"
+                                    onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }"
+                                    data-image-index="<?php echo $index; ?>">
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </section>
+
+                <div class="pd-config">
+                    <header class="pd-head">
+                        <span class="pd-cat"><span class="reg-mark"></span><?php echo htmlspecialchars($product['category']); ?></span>
+                        <h1 class="pd-title"><?php echo htmlspecialchars($product['product_name']); ?></h1>
+                        <p class="pd-price"><span class="pd-price__from">From</span><span class="pd-price__amt">₱<?php echo number_format($product['price'], 2); ?></span></p>
+                    </header>
+
+                    <div class="login-prompt">
                                 <div class="login-message">
                                     <i class="fas fa-info-circle"></i>
                                     <h3>Please login to place an order</h3>
@@ -1193,46 +644,46 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                                     </a>
                                 </div>
                             </div>
-                        <?php endif; ?>
-                    </div>
                 </div>
             </div>
+            <?php endif; ?>
         </div>
-    </section>
+    </main>
 
-    <!-- Mockup Popup (Only show for logged in users) -->
+    <!-- Mockup Popup (only for logged in users) -->
     <?php if (isset($_SESSION['user_id'])): ?>
-    <div class="mockup-popup" id="mockupPopup">
+    <div class="mockup-popup" id="mockupPopup" role="dialog" aria-modal="true" aria-labelledby="mockupTitle">
         <div class="mockup-container">
-            <button class="close-popup" onclick="closeModal()">&times;</button>
-            <h2 style="text-align: center; color: var(--text-dark); margin-bottom: 10px;">
-                <i class="fas fa-palette"></i> Your <?php echo $product['product_name']; ?> Mockup
-            </h2>
-            <p style="text-align: center; color: var(--text-light); margin-bottom: 30px;">Preview your custom design</p>
+            <button type="button" class="close-popup" onclick="closeModal()" aria-label="Close preview"><i class="fas fa-times"></i></button>
+
+            <div class="pd-modal__head">
+                <h2 id="mockupTitle">Your <?php echo htmlspecialchars($product['product_name']); ?> mockup</h2>
+                <p>Preview your custom design</p>
+            </div>
 
             <div class="mockup-images">
                 <div class="mockup-image" id="frontMockupContainer">
-                    <img src="" alt="Front View" id="mockupFront">
-                    <p style="margin: 15px 0; font-weight: 600; color: var(--text-dark);">Front View</p>
-                    <button class="download-btn" onclick="downloadMockup('mockupFront', 'front-design.png')">
+                    <img src="" alt="Front view" id="mockupFront">
+                    <p>Front view</p>
+                    <button type="button" class="download-btn" onclick="downloadMockup('mockupFront', 'front-design.png')">
                         <i class="fas fa-download"></i> Download
                     </button>
                 </div>
                 <div class="mockup-image" id="backMockupContainer">
-                    <img src="" alt="Back View" id="mockupBack">
-                    <p style="margin: 15px 0; font-weight: 600; color: var(--text-dark);">Back View</p>
-                    <button class="download-btn" onclick="downloadMockup('mockupBack', 'back-design.png')">
+                    <img src="" alt="Back view" id="mockupBack">
+                    <p>Back view</p>
+                    <button type="button" class="download-btn" onclick="downloadMockup('mockupBack', 'back-design.png')">
                         <i class="fas fa-download"></i> Download
                     </button>
                 </div>
             </div>
 
-            <div class="action-buttons" style="margin-top: 30px; justify-content: center;">
-                <button type="button" class="btn btn-secondary" onclick="closeModal()" style="flex: none; padding: 12px 25px;">
+            <div class="pd-modal__actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">
                     <i class="fas fa-times"></i> Close
                 </button>
-                <button type="button" class="btn btn-primary" onclick="useThisDesign()" style="flex: none; padding: 12px 25px;">
-                    <i class="fas fa-check"></i> Use This Design
+                <button type="button" class="btn btn-primary" onclick="useThisDesign()">
+                    <i class="fas fa-check"></i> Use this design
                 </button>
             </div>
         </div>
@@ -1253,17 +704,17 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                         <a href=""><i class="fab fa-linkedin-in"></i></a>
                     </div>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Services</h3>
                     <ul>
-                        <li><a href="sub-main.php #offset">Offset Printing</a></li>
-                        <li><a href="sub-main.php #digital">Digital Printing</a></li>
-                        <li><a href="sub-main.php #riso">RISO Printing</a></li>
-                        <li><a href="sub-main.php #other">Other Services</a></li>
+                        <li><a href="sub-main.php#offset">Offset Printing</a></li>
+                        <li><a href="sub-main.php#digital">Digital Printing</a></li>
+                        <li><a href="sub-main.php#riso">RISO Printing</a></li>
+                        <li><a href="sub-main.php#other">Other Services</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Company</h3>
                     <ul>
@@ -1273,7 +724,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                         <li><a href="sub-about.php">Testimonials</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Support</h3>
                     <ul>
@@ -1283,7 +734,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                         <li><a href="sub-contact.php">Returns</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="footer-section">
                     <h3>Contact Info</h3>
                     <ul class="contact-info">
@@ -1293,7 +744,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                     </ul>
                 </div>
             </div>
-            
+
             <div class="footer-bottom">
                 <div class="copyright">
                     <p>&copy; 2025 Active Media Designs & Printing. All rights reserved.</p>
@@ -1308,6 +759,32 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
     </footer>
 
     <script src="../assets/js/main.js"></script>
+    <script>
+        // Page helpers: auto-hide the flash message, keep the design canvas maths current, close the mockup dialog with Escape
+        (function () {
+            var toast = document.getElementById('pdToast');
+            if (toast) {
+                var ms = parseInt(toast.getAttribute('data-ms'), 10) || 4000;
+                setTimeout(function () {
+                    toast.classList.add('is-leaving');
+                    setTimeout(function () { toast.remove(); }, 300);
+                }, ms);
+            }
+
+            // The canvas is fluid: keep the printable-area maths in step with its size
+            window.addEventListener('resize', function () {
+                if (document.getElementById('baseImage') && document.querySelector('.positioning-container')) {
+                    calculateImageBoundary();
+                }
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key !== 'Escape') return;
+                var popup = document.getElementById('mockupPopup');
+                if (popup && popup.style.display === 'flex') closeModal();
+            });
+        })();
+    </script>
     <script>
         // Global variables
         let userDesign = null;
@@ -1447,10 +924,9 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             
             // Handle custom options
             const isCustom = button.getAttribute('data-custom') === '1';
-            if (type === 'size') {
-                document.getElementById('customSizeContainer').style.display = isCustom ? 'block' : 'none';
-            } else if (type === 'color') {
-                document.getElementById('customColorContainer').style.display = isCustom ? 'block' : 'none';
+            const customBox = document.getElementById(type === 'size' ? 'customSizeContainer' : (type === 'color' ? 'customColorContainer' : ''));
+            if (customBox) {
+                customBox.style.display = isCustom ? 'block' : 'none';
             }
         }
 
@@ -1620,8 +1096,8 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             overlay.innerHTML = '';
             currentDesign = null;
             isDraggingEnabled = false;
-            document.getElementById('dragBtn').innerHTML = '<i class="fas fa-arrows-alt"></i> Move Design';
-            document.getElementById('dragBtn').style.background = '#6c757d';
+            document.getElementById('dragBtn').innerHTML = '<i class="fas fa-arrows-alt"></i> Move design';
+            document.getElementById('dragBtn').classList.remove('is-on');
         }
 
         // Switch between front and back views
@@ -1730,12 +1206,12 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             const btn = document.getElementById('boundaryBtn');
 
             if (showBoundary) {
-                btn.style.background = '#007bff';
-                btn.innerHTML = '<i class="fas fa-border-all"></i> Hide Boundaries';
+                btn.classList.add('is-on');
+                btn.innerHTML = '<i class="fas fa-border-all"></i> Hide boundaries';
                 updateBoundaryIndicator();
             } else {
-                btn.style.background = '#6c757d';
-                btn.innerHTML = '<i class="fas fa-border-all"></i> Show Boundaries';
+                btn.classList.remove('is-on');
+                btn.innerHTML = '<i class="fas fa-border-all"></i> Show boundaries';
                 document.getElementById('designBoundary').style.display = 'none';
             }
         }
@@ -1788,16 +1264,16 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             const btn = document.getElementById('dragBtn');
 
             if (isDraggingEnabled) {
-                btn.style.background = '#007bff';
-                btn.innerHTML = '<i class="fas fa-hand-paper"></i> Dragging Enabled';
+                btn.classList.add('is-on');
+                btn.innerHTML = '<i class="fas fa-hand-paper"></i> Dragging on';
 
                 if (currentDesign) {
                     currentDesign.style.cursor = 'move';
                     currentDesign.style.pointerEvents = 'auto';
                 }
             } else {
-                btn.style.background = '#6c757d';
-                btn.innerHTML = '<i class="fas fa-arrows-alt"></i> Move Design';
+                btn.classList.remove('is-on');
+                btn.innerHTML = '<i class="fas fa-arrows-alt"></i> Move design';
 
                 if (currentDesign) {
                     currentDesign.style.cursor = 'default';
@@ -1813,6 +1289,15 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             
             // Get the current design position for the active view
             const designPosition = currentView === 'front' ? frontDesignPosition : backDesignPosition;
+
+            // Keep the starting box inside the printable area, whatever the layout width is
+            calculateImageBoundary(); // make sure the boundary reflects the current canvas size
+            if (imageBoundary.width > 0 && imageBoundary.height > 0) {
+                designPosition.width = Math.min(designPosition.width, imageBoundary.width);
+                designPosition.height = Math.min(designPosition.height, imageBoundary.height);
+                designPosition.x = Math.min(Math.max(designPosition.x, imageBoundary.x), imageBoundary.x + imageBoundary.width - designPosition.width);
+                designPosition.y = Math.min(Math.max(designPosition.y, imageBoundary.y), imageBoundary.y + imageBoundary.height - designPosition.height);
+            }
             
             // Create design element with high-quality rendering
             const designElement = document.createElement('div');
@@ -1840,8 +1325,8 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             
             // Enable dragging by default when design is loaded
             isDraggingEnabled = true;
-            document.getElementById('dragBtn').style.background = '#007bff';
-            document.getElementById('dragBtn').innerHTML = '<i class="fas fa-hand-paper"></i> Dragging Enabled';
+            document.getElementById('dragBtn').classList.add('is-on');
+            document.getElementById('dragBtn').innerHTML = '<i class="fas fa-hand-paper"></i> Dragging on';
             designElement.style.cursor = 'move';
             designElement.style.pointerEvents = 'auto';
         }
@@ -2301,10 +1786,10 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
             if (layoutValue == 1) { // Assuming 1 is the ID for "User Layout"
                 layoutInputContainer.innerHTML = `
-                    <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Upload Your Design Files:</label>
-                    <input type="file" id="userLayoutUpload" name="user_layout_upload[]" multiple accept="image/*,.pdf,.ai,.psd" style="margin-bottom: 10px;">
-                    <small style="display: block; color: #6c757d; margin-bottom: 10px;">You can upload multiple files (images, PDF, AI, PSD)</small>
-                    <div id="userLayoutPreview" style="margin-top: 10px;"></div>
+                    <label for="userLayoutUpload" class="pd-label required-field">Upload your design files</label>
+                    <input type="file" id="userLayoutUpload" class="pd-file" name="user_layout_upload[]" multiple accept="image/*,.pdf,.ai,.psd">
+                    <small class="pd-hint">You can upload multiple files (images, PDF, AI, PSD)</small>
+                    <div id="userLayoutPreview" class="pd-filelist"></div>
                 `;
 
                 // Add event listener for file upload
@@ -2317,14 +1802,20 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
                             previewContainer.innerHTML = '';
 
                             if (files.length > 0) {
-                                previewContainer.innerHTML = '<p style="font-weight: 600; margin-bottom: 10px;">Uploaded Files:</p>';
+                                const title = document.createElement('p');
+                                title.className = 'pd-filelist__title';
+                                title.textContent = 'Uploaded files';
+                                previewContainer.appendChild(title);
 
                                 for (let i = 0; i < files.length; i++) {
                                     const file = files[i];
-                                    const fileElement = document.createElement('div');
-                                    fileElement.style.marginBottom = '5px';
-                                    fileElement.innerHTML = `<i class="fas fa-file"></i> ${file.name} (${formatFileSize(file.size)})`;
-                                    previewContainer.appendChild(fileElement);
+                                    const row = document.createElement('div');
+                                    row.className = 'pd-filelist__item';
+                                    row.innerHTML = '<i class="fas fa-file"></i>';
+                                    const label = document.createElement('span');
+                                    label.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
+                                    row.appendChild(label);
+                                    previewContainer.appendChild(row);
                                 }
                             }
                         });
@@ -2333,17 +1824,16 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
 
             } else if (layoutValue == 2) { // Assuming 2 is the ID for "Store Layout"
                 layoutInputContainer.innerHTML = `
-                    <label style="display: block; margin-bottom: 8px; font-weight: 600;" class="required-field">Design Specifications:</label>
-                    <textarea name="layout_details" placeholder="Please describe your design preferences, colors, text, images, and any specific requirements..." 
-                            style="width: 100%; padding: 10px; : 5px; border: 1px solid #ddd; min-height: 100px;"></textarea>
-                    <small style="display: block; color: #6c757d; margin-top: 5px;">Please be as detailed as possible to help us create your design</small>
+                    <label for="layoutDetails" class="pd-label required-field">Design specifications</label>
+                    <textarea id="layoutDetails" class="pd-input" name="layout_details" rows="4" placeholder="Please describe your design preferences, colors, text, images, and any specific requirements..."></textarea>
+                    <small class="pd-hint">Please be as detailed as possible to help us create your design</small>
                 `;
             }
 
             layoutInputContainer.style.display = 'block';
         }
 
-        // Helper function to format file size
+                // Helper function to format file size
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 Bytes';
             const k = 1024;
@@ -2353,12 +1843,15 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         }
 
         // Form validation before submitting to cart
-        document.getElementById('cartForm').addEventListener('submit', function(e) {
-            if (!validateForm()) {
-                e.preventDefault(); // Stop form submission
-                return false;
-            }
-        });
+        const cartFormEl = document.getElementById('cartForm');
+        if (cartFormEl) { // the form only exists for logged in users
+            cartFormEl.addEventListener('submit', function(e) {
+                if (!validateForm()) {
+                    e.preventDefault(); // Stop form submission
+                    return false;
+                }
+            });
+        }
 
         function validateForm() {
             const productId = <?php echo $product_id; ?>;
