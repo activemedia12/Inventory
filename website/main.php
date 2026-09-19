@@ -240,7 +240,10 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 </div>
 
                 <!-- Held over the resting frame, lifts away as it opens -->
-                <div class="scroll-expand__title">Welcome to<br>Active Media</div>
+                <div class="scroll-expand__title">
+                    <span class="se-line"><span class="se-line__inner" style="--i:0">Welcome to</span></span>
+                    <span class="se-line"><span class="se-line__inner" style="--i:1">Active Media</span></span>
+                </div>
 
                 <!-- Disappears the moment you start scrolling -->
                 <div class="scroll-expand__hint">Scroll <i class="fas fa-arrow-down"></i></div>

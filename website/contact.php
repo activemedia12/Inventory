@@ -400,9 +400,16 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         });
     </script>
     <script>
-        // Chat functionality
+        // Chat functionality with auto-scroll improvements
         let currentConversationId = null;
         let chatRefreshInterval = null;
+
+        // Auto-scroll variables
+        let isUserScrolling = false;
+        let shouldAutoScroll = true;
+        let scrollDebounceTimer = null;
+        let lastScrollPosition = 0;
+        let scrollDirection = 'down';
 
         // Initialize chat when page loads
         document.addEventListener('DOMContentLoaded', function() {
@@ -455,6 +462,14 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
             // Check for unread messages every minute
             setInterval(updateUnreadCount, 60000);
+
+            // Setup scroll detection when chat opens
+            setTimeout(() => {
+                const chatWidget = document.getElementById('chatWidget');
+                if (chatWidget && chatWidget.classList.contains('open')) {
+                    setupScrollDetection();
+                }
+            }, 1000);
         });
 
         // Toggle chat widget
@@ -466,116 +481,387 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 if (widget.classList.contains('open')) {
                     loadConversations();
                     startChatRefresh();
+                    // Setup scroll detection when chat opens
+                    setTimeout(setupScrollDetection, 500);
                 } else {
                     stopChatRefresh();
                 }
             }
         }
 
+        // ========== AUTO-SCROLL DETECTION ==========
+        function setupScrollDetection() {
+            const messagesList = document.getElementById('messagesList');
+            if (!messagesList) return;
+
+            // Detect user scroll intent
+            messagesList.addEventListener('scroll', function() {
+                clearTimeout(scrollDebounceTimer);
+
+                // Calculate scroll position and direction
+                const currentScrollTop = messagesList.scrollTop;
+                const maxScrollTop = messagesList.scrollHeight - messagesList.clientHeight;
+
+                // Determine scroll direction
+                if (currentScrollTop < lastScrollPosition) {
+                    scrollDirection = 'up';
+                } else if (currentScrollTop > lastScrollPosition) {
+                    scrollDirection = 'down';
+                }
+                lastScrollPosition = currentScrollTop;
+
+                // If user is scrolling up, they're likely reading old messages
+                const isNearBottom = maxScrollTop - currentScrollTop <= 100; // 100px from bottom
+                isUserScrolling = true;
+
+                // If scrolling up OR not near bottom, user is reading old messages
+                if (scrollDirection === 'up' || !isNearBottom) {
+                    shouldAutoScroll = false;
+                } else {
+                    // If scrolling down and near bottom, enable auto-scroll
+                    shouldAutoScroll = true;
+                }
+
+                // Reset after user stops scrolling
+                scrollDebounceTimer = setTimeout(() => {
+                    isUserScrolling = false;
+
+                    // If user stopped near bottom, re-enable auto-scroll
+                    const newScrollTop = messagesList.scrollTop;
+                    const newMaxScroll = messagesList.scrollHeight - messagesList.clientHeight;
+                    if (newMaxScroll - newScrollTop <= 50) {
+                        shouldAutoScroll = true;
+                    }
+                }, 1000); // 1 second delay
+            });
+
+            // Also detect mouse wheel and touch events
+            messagesList.addEventListener('wheel', function() {
+                isUserScrolling = true;
+            });
+
+            messagesList.addEventListener('touchstart', function() {
+                isUserScrolling = true;
+            });
+
+            // Keyboard shortcut to jump to bottom (Ctrl+End)
+            messagesList.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'End') {
+                    e.preventDefault();
+                    scrollToBottom(messagesList, true);
+                    shouldAutoScroll = true;
+                    isUserScrolling = false;
+                }
+            });
+        }
+
+        function isAtBottom(element, threshold = 100) {
+            if (!element) return false;
+            const maxScrollTop = element.scrollHeight - element.clientHeight;
+            return maxScrollTop - element.scrollTop <= threshold;
+        }
+
+        function scrollToBottom(element, smooth = false) {
+            if (!element) return;
+
+            const scrollOptions = {
+                top: element.scrollHeight,
+                behavior: smooth ? 'smooth' : 'auto'
+            };
+
+            element.scrollTo(scrollOptions);
+            shouldAutoScroll = true;
+        }
+
+        // ========== NEW MESSAGES INDICATOR ==========
+        function showNewMessagesIndicator() {
+            const messagesList = document.getElementById('messagesList');
+            if (!messagesList) return;
+
+            // Remove existing indicator
+            const existingIndicator = document.querySelector('.new-messages-indicator');
+            if (existingIndicator) existingIndicator.remove();
+
+            // Create indicator
+            const indicator = document.createElement('div');
+            indicator.className = 'new-messages-indicator';
+            indicator.innerHTML = `
+            <button onclick="scrollToNewMessages()">
+                <i class="fas fa-arrow-down"></i>
+                New messages
+            </button>
+        `;
+
+            // Add to messages area
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                chatMessages.appendChild(indicator);
+            }
+        }
+
+        function scrollToNewMessages() {
+            const messagesList = document.getElementById('messagesList');
+            if (messagesList) {
+                scrollToBottom(messagesList, true);
+                shouldAutoScroll = true;
+                isUserScrolling = false;
+
+                // Remove indicator
+                const indicator = document.querySelector('.new-messages-indicator');
+                if (indicator) indicator.remove();
+            }
+        }
+
+        // Load conversations
+        async function loadConversations() {
+            try {
+                const response = await fetch('../api/chat_api.php?action=conversations');
+                const data = await response.json();
+
+                if (data.success) {
+                    renderConversations(data.data);
+                    updateUnreadCount();
+
+                    // Show conversation count in the UI
+                    updateConversationCount(data.data.length);
+                }
+            } catch (error) {
+                console.error('Error loading conversations:', error);
+                showChatError('Failed to load conversations. Please try again.');
+            }
+        }
+
+        // Add this function to check conversation limit
+        async function checkConversationLimit() {
+            try {
+                const response = await fetch('../api/chat_api.php?action=conversation_limit');
+                const data = await response.json();
+
+                if (data.success) {
+                    return {
+                        reached: data.reached || false,
+                        count: data.count || 0,
+                        limit: data.limit || 3
+                    };
+                }
+                return {
+                    reached: false,
+                    count: 0,
+                    limit: 3
+                };
+            } catch (error) {
+                console.error('Error checking conversation limit:', error);
+                return {
+                    reached: false,
+                    count: 0,
+                    limit: 3
+                };
+            }
+        }
+
+        // Render conversations list with delete buttons
+        function renderConversations(conversations) {
+            const container = document.getElementById('conversationsList');
+            if (!container) return;
+
+            if (conversations.length === 0) {
+                container.innerHTML = `
+                <div class="chat-empty">
+                    <i class="fas fa-comments"></i>
+                    <p>No conversations yet</p>
+                </div>
+            `;
+                return;
+            }
+
+            container.innerHTML = conversations.map(conv => `
+            <div class="chat-conversation-item ${currentConversationId === conv.id ? 'active' : ''}" 
+                 onclick="openConversation(${conv.id}, '${escapeHtml(conv.title || 'Conversation')}')">
+                <div class="conversation-header">
+                    <div class="conversation-name">${escapeHtml(conv.title || 'Conversation #' + conv.id)}</div>
+                    <button class="delete-conversation-btn" onclick="event.stopPropagation(); deleteConversation(${conv.id}, '${escapeHtml(conv.title || 'Conversation #' + conv.id)}')">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+                <div class="conversation-last-message">${escapeHtml(conv.last_message || 'No messages yet')}</div>
+                <div class="conversation-footer">
+                    <div class="conversation-time">${formatTime(conv.last_message_time)}</div>
+                    ${conv.unread_count > 0 ? `<div class="conversation-unread">${conv.unread_count} new</div>` : ''}
+                </div>
+            </div>
+        `).join('');
+        }
+
+        // Delete conversation
+        async function deleteConversation(conversationId, conversationTitle) {
+            if (!confirm(`Are you sure you want to delete "${conversationTitle}"? This action cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                showChatLoading(true);
+
+                const response = await fetch('../api/chat_api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'delete_conversation',
+                        conversation_id: conversationId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // If we're currently viewing this conversation, go back to list
+                    if (currentConversationId === conversationId) {
+                        goBackToConversations();
+                    }
+
+                    // Remove the conversation item from UI
+                    const conversationItem = document.querySelector(`.chat-conversation-item[onclick*="${conversationId}"]`);
+                    if (conversationItem) {
+                        conversationItem.remove();
+                    }
+
+                    // Reload conversations list
+                    await loadConversations();
+
+                    showChatSuccess('Conversation deleted successfully.');
+                } else {
+                    showChatError(data.message || 'Failed to delete conversation.');
+                }
+            } catch (error) {
+                console.error('Error deleting conversation:', error);
+                showChatError('Failed to delete conversation. Please try again.');
+            } finally {
+                showChatLoading(false);
+            }
+        }
+
+        // Open conversation
+        function openConversation(conversationId, title) {
+            currentConversationId = conversationId;
+
+            // Reset scroll state
+            shouldAutoScroll = true;
+            isUserScrolling = false;
+
+            // Update UI
+            document.getElementById('chatConversations').style.display = 'none';
+            document.getElementById('chatMessages').classList.add('active');
+            document.getElementById('chatInputArea').classList.add('active');
+            document.getElementById('chatBackBtn').classList.add('visible');
+            document.getElementById('chatTitle').textContent = title;
+
+            // Load messages
+            loadMessages(conversationId);
+
+            // Mark as read
+            markAsRead(conversationId);
+
+            // Setup scroll detection
+            setTimeout(setupScrollDetection, 100);
+        }
+
         // Go back to conversations list
         function goBackToConversations() {
             currentConversationId = null;
-            const chatConversations = document.getElementById('chatConversations');
-            const chatMessages = document.getElementById('chatMessages');
-            const chatBackBtn = document.getElementById('chatBackBtn');
-            const chatTitle = document.getElementById('chatTitle');
 
-            if (chatConversations) chatConversations.style.display = 'block';
-            if (chatMessages) chatMessages.style.display = 'none';
-            if (chatBackBtn) chatBackBtn.style.display = 'none';
-            if (chatTitle) chatTitle.textContent = 'Messages';
+            // Reset scroll state
+            shouldAutoScroll = true;
+            isUserScrolling = false;
+
+            document.getElementById('chatConversations').style.display = 'block';
+            document.getElementById('chatMessages').classList.remove('active');
+            document.getElementById('chatInputArea').classList.remove('active');
+            document.getElementById('chatBackBtn').classList.remove('visible');
+            document.getElementById('chatTitle').textContent = 'Messages';
 
             loadConversations();
         }
 
-        // Load conversations list
-        async function loadConversations() {
-            try {
-                const response = await fetch('../api/chat_api.php?action=get_conversations');
-                const data = await response.json();
-
-                const conversationsList = document.getElementById('conversationsList');
-                if (!conversationsList) return;
-
-                if (data.success && data.conversations && data.conversations.length > 0) {
-                    conversationsList.innerHTML = data.conversations.map(conv => `
-                        <div class="conversation-item" onclick="openConversation(${conv.id}, '${escapeHtml(conv.admin_name || 'Support')}')">
-                            <div class="conversation-info">
-                                <strong>${escapeHtml(conv.admin_name || 'Support')}</strong>
-                                <p>${escapeHtml(conv.last_message || 'No messages yet')}</p>
-                            </div>
-                            <div class="conversation-meta">
-                                <span class="conversation-time">${formatTime(conv.last_message_time)}</span>
-                                ${conv.unread_count > 0 ? `<span class="unread-badge">${conv.unread_count}</span>` : ''}
-                            </div>
-                        </div>
-                    `).join('');
-                    updateConversationCount(data.conversations.length);
-                } else {
-                    conversationsList.innerHTML = '<p class="no-conversations">No conversations yet. Start a new one!</p>';
-                    updateConversationCount(0);
-                }
-            } catch (error) {
-                console.error('Error loading conversations:', error);
-            }
-        }
-
-        // Open a specific conversation
-        async function openConversation(conversationId, adminName) {
-            currentConversationId = conversationId;
-            const chatConversations = document.getElementById('chatConversations');
-            const chatMessages = document.getElementById('chatMessages');
-            const chatBackBtn = document.getElementById('chatBackBtn');
-            const chatTitle = document.getElementById('chatTitle');
-
-            if (chatConversations) chatConversations.style.display = 'none';
-            if (chatMessages) chatMessages.style.display = 'flex';
-            if (chatBackBtn) chatBackBtn.style.display = 'block';
-            if (chatTitle) chatTitle.textContent = adminName;
-
-            await loadMessages(conversationId);
-            markAsRead(conversationId);
-        }
-
-        // Load messages for a conversation
+        // Load messages with auto-scroll improvements
         async function loadMessages(conversationId) {
             try {
-                const response = await fetch(`../api/chat_api.php?action=get_messages&conversation_id=${conversationId}`);
+                const response = await fetch(`../api/chat_api.php?action=messages&conversation_id=${conversationId}`);
                 const data = await response.json();
 
-                const messagesList = document.getElementById('messagesList');
-                if (!messagesList) return;
-
-                if (data.success && data.messages) {
-                    messagesList.innerHTML = data.messages.map(msg => `
-                        <div class="message-item ${msg.sender_type === 'customer' ? 'sent' : 'received'}">
-                            <div class="message-bubble">
-                                <div class="message-text">${escapeHtml(msg.message)}</div>
-                                <div class="message-time">${formatMessageTime(msg.created_at)}</div>
-                            </div>
-                        </div>
-                    `).join('');
-                    messagesList.scrollTop = messagesList.scrollHeight;
+                if (data.success) {
+                    renderMessages(data.data);
                 }
             } catch (error) {
                 console.error('Error loading messages:', error);
+                showChatError('Failed to load messages. Please try again.');
             }
         }
 
-        // Send a message
+        // Render messages with auto-scroll logic
+        function renderMessages(messages) {
+            const container = document.getElementById('messagesList');
+            if (!container) return;
+
+            const userId = <?php echo isset($_SESSION['user_id']) ? $_SESSION['user_id'] : '0'; ?>;
+
+            // Store current scroll position
+            const wasAtBottom = isAtBottom(container);
+
+            // Clear container and render messages
+            container.innerHTML = messages.map(msg => {
+                const isSent = msg.sender_id == userId;
+                const isSystem = msg.message_type === 'system';
+                const isAdmin = msg.sender_role === 'admin';
+
+                return `
+            <div class="message-item ${isSent ? 'sent' : 'received'} ${isSystem ? 'system' : ''}" data-message-id="${msg.id}">
+                ${!isSent && !isSystem ? `
+                    <div class="message-sender">
+                        ${escapeHtml(msg.sender_username)}
+                    </div>
+                ` : ''}
+                <div class="message-bubble">
+                    <div class="message-text">${escapeHtml(msg.message)}</div>
+                    <div class="message-time">${formatMessageTime(msg.created_at)}</div>
+                </div>
+            </div>
+            `;
+            }).join('');
+
+            // Only auto-scroll if:
+            // 1. User is not actively scrolling
+            // 2. Should auto-scroll is true (user is at bottom or new message came in)
+            // 3. User was already at bottom before rendering new messages
+            if (!isUserScrolling && shouldAutoScroll && wasAtBottom) {
+                setTimeout(() => {
+                    scrollToBottom(container, true);
+                }, 100);
+            } else if (!wasAtBottom) {
+                // Show "new messages" indicator
+                showNewMessagesIndicator();
+            }
+        }
+
+        // Send message with auto-scroll for user's own messages
         async function sendMessage() {
-            const chatInput = document.getElementById('chatInput');
-            const message = chatInput ? chatInput.value.trim() : '';
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
 
             if (!message || !currentConversationId) return;
 
+            // Disable send button
+            const sendBtn = document.getElementById('chatSendBtn');
+            if (sendBtn) sendBtn.disabled = true;
+
             try {
-                const response = await fetch('../api/chat_api.php?action=send_message', {
+                const response = await fetch('../api/chat_api.php', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
+                        action: 'send_message',
                         conversation_id: currentConversationId,
                         message: message
                     })
@@ -584,37 +870,67 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                 const data = await response.json();
 
                 if (data.success) {
-                    chatInput.value = '';
-                    autoResize(chatInput);
-                    await loadMessages(currentConversationId);
+                    input.value = '';
+                    autoResize(input);
+
+                    // Force auto-scroll for user's own messages
+                    shouldAutoScroll = true;
+                    isUserScrolling = false;
+
+                    // Load messages will handle scrolling
+                    loadMessages(currentConversationId);
+                    updateUnreadCount();
                 } else {
                     showChatError(data.message || 'Failed to send message.');
                 }
             } catch (error) {
                 console.error('Error sending message:', error);
                 showChatError('Failed to send message. Please try again.');
+            } finally {
+                if (sendBtn) sendBtn.disabled = false;
             }
         }
 
-        // Start a new conversation
+        // Start new conversation with online admin
         async function startNewConversation() {
             try {
+                // First check if user has reached conversation limit
+                const limitCheck = await checkConversationLimit();
+                if (limitCheck.reached) {
+                    showChatError(`You have reached the maximum limit of 3 active conversations. You currently have ${limitCheck.count} active conversations. Please complete or close existing conversations before starting a new one.`);
+                    return;
+                }
+
                 showChatLoading(true);
-                const response = await fetch('../api/chat_api.php?action=start_conversation', {
-                    method: 'POST'
+
+                const response = await fetch('../api/chat_api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'start_conversation',
+                        title: 'Support Request',
+                        request_online_admin: true
+                    })
                 });
+
                 const data = await response.json();
 
                 if (data.success) {
-                    await loadConversations();
-                    if (data.conversation_id) {
-                        openConversation(data.conversation_id, data.admin_name || 'Support');
+                    const adminInfo = data.admin_name ? ` (Connected with: ${data.admin_name})` : '';
+                    openConversation(data.conversation_id, 'Support Request');
+
+                    if (data.admin_name) {
+                        showSystemMessage(`You've been connected with administrator ${data.admin_name}. How can we help you?`);
                     }
                 } else {
+                    // Handle "no admin available" gracefully
                     if (data.message && data.message.includes('No administrators')) {
                         showChatError('No administrators are currently available. Please try again later or contact support via email.');
                     } else if (data.message && data.message.includes('maximum limit')) {
                         showChatError(data.message);
+                        // Refresh conversations list to show current count
                         loadConversations();
                     } else {
                         showChatError(data.message || 'Failed to start conversation.');
@@ -628,32 +944,9 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             }
         }
 
-        // Delete a conversation
-        async function deleteConversation(conversationId) {
-            if (!confirm('Are you sure you want to delete this conversation?')) return;
-
-            try {
-                const response = await fetch('../api/chat_api.php?action=delete_conversation', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        conversation_id: conversationId
-                    })
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    goBackToConversations();
-                }
-            } catch (error) {
-                console.error('Error deleting conversation:', error);
-            }
-        }
-
-        // Update the "New Conversation" button + limit warning
+        // Add this function to update conversation count display
         function updateConversationCount(count) {
+            // Update the "New Conversation" button text
             const newChatBtn = document.getElementById('newChatBtn');
             if (newChatBtn) {
                 const limitReached = count >= 3;
@@ -667,9 +960,58 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     newChatBtn.classList.remove('limit-reached');
                 }
             }
+
+            // Also update conversation limit warning in conversations list
+            const conversationsList = document.getElementById('conversationsList');
+            if (conversationsList && count >= 3) {
+                const warningElement = document.getElementById('conversationLimitWarning');
+                if (!warningElement) {
+                    const warningDiv = document.createElement('div');
+                    warningDiv.id = 'conversationLimitWarning';
+                    warningDiv.className = 'conversation-limit-warning';
+                    warningDiv.innerHTML = `
+                    <div class="limit-warning-content">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div>
+                            <strong>Maximum conversations reached</strong>
+                            <small>You have ${count} active conversations (maximum: 3). Please close or complete existing conversations to start new ones.</small>
+                        </div>
+                    </div>
+                `;
+                    conversationsList.parentNode.insertBefore(warningDiv, conversationsList);
+                }
+            } else {
+                const warningElement = document.getElementById('conversationLimitWarning');
+                if (warningElement) {
+                    warningElement.remove();
+                }
+            }
         }
 
-        // Loading indicator
+        // Helper function to show system message
+        function showSystemMessage(message) {
+            const messagesList = document.getElementById('messagesList');
+            if (!messagesList) return;
+
+            const systemMessage = document.createElement('div');
+            systemMessage.className = 'message-item system';
+            systemMessage.innerHTML = `
+            <div class="message-bubble">
+                <div class="message-text">${escapeHtml(message)}</div>
+                <div class="message-time">${formatMessageTime(new Date().toISOString())}</div>
+            </div>
+        `;
+            messagesList.appendChild(systemMessage);
+
+            // Only scroll if user is at bottom
+            if (!isUserScrolling && shouldAutoScroll && isAtBottom(messagesList)) {
+                setTimeout(() => {
+                    scrollToBottom(messagesList, true);
+                }, 100);
+            }
+        }
+
+        // Add loading indicator
         function showChatLoading(show) {
             let loader = document.getElementById('chatLoader');
             if (!loader && show) {
@@ -683,8 +1025,35 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             }
         }
 
+        // Show success message
+        function showChatSuccess(message) {
+            // Create success notification
+            const successDiv = document.createElement('div');
+            successDiv.className = 'chat-success-notification';
+            successDiv.innerHTML = `
+            <div class="success-content">
+                <i class="fas fa-check-circle"></i>
+                <span>${escapeHtml(message)}</span>
+            </div>
+        `;
+
+            // Add to chat widget
+            const chatBody = document.querySelector('.chat-body');
+            if (chatBody) {
+                chatBody.prepend(successDiv);
+
+                // Auto-remove after 3 seconds
+                setTimeout(() => {
+                    successDiv.remove();
+                }, 3000);
+            } else {
+                alert(message); // Fallback
+            }
+        }
+
         // Mark messages as read
         async function markAsRead(conversationId) {
+            // This happens automatically when loading messages via the API
             updateUnreadCount();
         }
 
@@ -707,16 +1076,28 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             }
         }
 
-        // Start / stop auto-refresh
+        // Start auto-refresh with auto-scroll consideration
         function startChatRefresh() {
             chatRefreshInterval = setInterval(() => {
                 if (currentConversationId) {
-                    loadMessages(currentConversationId);
+                    const messagesList = document.getElementById('messagesList');
+                    if (messagesList) {
+                        const wasAtBottom = isAtBottom(messagesList);
+
+                        // Load messages
+                        loadMessages(currentConversationId);
+
+                        // Only show notification if user is not at bottom
+                        if (!wasAtBottom && !isUserScrolling && !shouldAutoScroll) {
+                            showNewMessagesIndicator();
+                        }
+                    }
                 }
                 updateUnreadCount();
-            }, 5000);
+            }, 5000); // Refresh every 5 seconds
         }
 
+        // Stop auto-refresh
         function stopChatRefresh() {
             if (chatRefreshInterval) {
                 clearInterval(chatRefreshInterval);
@@ -724,25 +1105,36 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             }
         }
 
-        // Helpers
+        // Helper functions
         function formatTime(timestamp) {
             if (!timestamp) return '';
             const date = new Date(timestamp);
             const now = new Date();
             const diff = now - date;
 
-            if (diff < 86400000) {
-                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            } else if (diff < 604800000) {
-                return date.toLocaleDateString([], { weekday: 'short' });
+            if (diff < 86400000) { // Less than 1 day
+                return date.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } else if (diff < 604800000) { // Less than 1 week
+                return date.toLocaleDateString([], {
+                    weekday: 'short'
+                });
             } else {
-                return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                return date.toLocaleDateString([], {
+                    month: 'short',
+                    day: 'numeric'
+                });
             }
         }
 
         function formatMessageTime(timestamp) {
             const date = new Date(timestamp);
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return date.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
         }
 
         function escapeHtml(text) {
@@ -752,16 +1144,83 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             return div.innerHTML;
         }
 
+        // Auto-resize textarea
         function autoResize(textarea) {
             if (!textarea) return;
             textarea.style.height = 'auto';
             textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
         }
 
+        // Show chat error
         function showChatError(message) {
+            // You can implement a notification system here
             console.error('Chat Error:', message);
-            alert(message);
+            alert(message); // Simple alert for now
         }
+
+        // Add CSS for new messages indicator
+        const newMessagesIndicatorCSS = `
+        .new-messages-indicator {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            animation: fadeInUp 0.3s ease;
+        }
+        
+        .new-messages-indicator button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+        
+        .new-messages-indicator button:hover {
+            transform: translateY(-2px);
+            background: var(--primary-dark);
+        }
+        
+        .new-messages-indicator button i {
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-3px);
+            }
+            60% {
+                transform: translateY(-2px);
+            }
+        }
+    `;
+
+        // Inject CSS
+        const style = document.createElement('style');
+        style.textContent = newMessagesIndicatorCSS;
+        document.head.appendChild(style);
 
         // Make functions available globally
         window.toggleChat = toggleChat;
@@ -770,6 +1229,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
         window.sendMessage = sendMessage;
         window.startNewConversation = startNewConversation;
         window.deleteConversation = deleteConversation;
+        window.scrollToNewMessages = scrollToNewMessages;
     </script>
 </body>
 

@@ -471,6 +471,11 @@ function autoResize(textarea) {
       if (mark) {
         mark.style.opacity = String(1 - 0.82 * inn);
       }
+
+      /* Expensive to keep on during the clip-path animation (see the
+         CSS comment) — only carry the shadow while the frame is still
+         basically card-sized, right at the start of the scroll range. */
+      frame.classList.toggle("is-resting", p < 0.03);
     }
 
     function measure() {
@@ -499,13 +504,27 @@ function autoResize(textarea) {
     }
 
     function tick(now) {
+      /* readProgress() calls getBoundingClientRect(), which forces a
+         layout read. Doing that here — once per animation frame —
+         instead of inside onScroll keeps it off the hot path: raw
+         "scroll" events can fire far more often than 60/sec (trackpads,
+         high-refresh mice, some mobile browsers), and reading layout
+         directly in that handler was forcing a synchronous recalc on
+         every single one of them. kick() below already collapses any
+         number of scroll events into at most one scheduled frame. */
+      target = readProgress();
+
       /* React Bits assumes 60fps: 1 - exp(-1 / (60 * smoothing)).
          Using real elapsed time keeps it identical on 120Hz screens. */
       var dt = lastTime ? Math.min((now - lastTime) / 1000, 0.1) : 1 / 60;
       lastTime = now;
 
-      var k = cfg.smoothing <= 0 ? 1 : 1 - Math.exp(-dt / cfg.smoothing);
-      current += (target - current) * k;
+      if (cfg.smoothing <= 0) {
+        current = target;
+      } else {
+        var k = 1 - Math.exp(-dt / cfg.smoothing);
+        current += (target - current) * k;
+      }
 
       if (Math.abs(target - current) < 0.0004) {
         current = target;
@@ -530,11 +549,10 @@ function autoResize(textarea) {
     }
 
     function onScroll() {
-      target = readProgress();
-      if (cfg.smoothing <= 0 || reduceMotion) {
-        current = target;
-        apply(current);
-        return;
+      if (reduceMotion) return;
+      if (introPlaying) {
+        introPlaying = false;
+        root.classList.add("is-skip");
       }
       kick();
     }
@@ -560,6 +578,22 @@ function autoResize(textarea) {
     target = readProgress();
     current = target;
     apply(current);
+
+    /* Entrance reveal is pure CSS (see "Entrance reveal" in main.css).
+       All JS does is keep it from fighting the scroll state: it only
+       plays from the very top, and is dropped the moment the visitor
+       scrolls (or if the browser restored a scrolled position). */
+    var introPlaying = current < 0.001;
+    if (introPlaying) {
+      if (frame.style.clipPath) {
+        root.style.setProperty("--se-rest-clip", frame.style.clipPath);
+      }
+      setTimeout(function () {
+        introPlaying = false;
+      }, 3000);
+    } else {
+      root.classList.add("is-skip");
+    }
 
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onResize);

@@ -211,6 +211,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             box-shadow: var(--shadow);
             margin-bottom: 40px;
             border: 1px solid var(--border-color);
+            border-radius: var(--r-lg);
         }
         
         .product-detail {
@@ -230,7 +231,8 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             object-fit: contain;
             margin-bottom: 20px;
             background: var(--bg-light);
-            border: 2px solid var(--border-color);
+            border: 1.5px solid var(--border-color);
+            border-radius: var(--r-md);
             padding: 20px;
         }
         
@@ -246,7 +248,8 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             height: 80px;
             object-fit: cover;
             cursor: pointer;
-            border: 3px solid transparent;
+            border: 2px solid transparent;
+            border-radius: var(--r-sm);
             transition: var(--transition);
             background: var(--bg-light);
             padding: 5px;
@@ -263,27 +266,33 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         }
         
         .product-title {
-            font-size: 2.2em;
+            font-family: var(--font-display);
+            font-size: clamp(1.7rem, 3vw, 2.4rem);
+            line-height: 1.15;
             margin-bottom: 15px;
             color: var(--text-dark);
             font-weight: 700;
         }
         
         .product-category {
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            background-color: rgba(23, 20, 15, 0.82);
             color: white;
-            padding: 8px 16px;
-            font-size: 0.95em;
+            padding: 6px 16px;
+            border-radius: var(--r-pill);
+            font-size: 0.8em;
+            font-weight: 600;
+            letter-spacing: 0.02em;
             display: inline-block;
             margin-bottom: 20px;
-            font-weight: 500;
+            backdrop-filter: blur(4px);
         }
         
         .product-price {
-            font-size: 2em;
-            color: var(--accent-color);
+            font-family: var(--font-display);
+            font-size: clamp(1.5rem, 2.4vw, 1.9rem);
+            color: var(--riso-blue);
             margin-bottom: 25px;
-            font-weight: bold;
+            font-weight: 700;
         }
         
         .customization-section {
@@ -291,15 +300,17 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             padding: 25px;
             background: var(--bg-light);
             border: 1px solid var(--border-color);
+            border-radius: var(--r-md);
         }
         
         .section-title {
             font-size: 1.3em;
             margin-bottom: 20px;
             color: var(--text-dark);
+            font-family: var(--font-display);
             font-weight: 600;
             padding-bottom: 10px;
-            border-bottom: 2px solid var(--border-color);
+            border-bottom: 1px solid var(--line);
             display: flex;
             align-items: center;
             gap: 10px;
@@ -320,7 +331,8 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             width: 45px;
             height: 45px;
             background: var(--bg-white);
-            border: 2px solid var(--border-color);
+            border: 1.5px solid var(--border-color);
+            border-radius: var(--r-sm);
             font-size: 1.3em;
             cursor: pointer;
             transition: var(--transition);
@@ -339,7 +351,8 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             width: 80px;
             height: 45px;
             text-align: center;
-            border: 2px solid var(--border-color);
+            border: 1.5px solid var(--border-color);
+            border-radius: var(--r-sm);
             font-size: 1.2em;
             font-weight: 600;
             background: var(--bg-white);
@@ -356,13 +369,14 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             padding: 14px 24px;
             background: var(--text-light);
             color: white;
+            border-radius: var(--r-sm);
             cursor: pointer;
             transition: var(--transition);
             font-weight: 500;
         }
         
         .upload-btn:hover {
-            background: #5a6268;
+            background: var(--ink);
             transform: translateY(-2px);
         }
         
@@ -372,13 +386,15 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             text-align: center;
             padding: 15px;
             background: var(--bg-white);
-            border: 2px dashed var(--border-color);
+            border: 2px dashed var(--ink-faint);
+            border-radius: var(--r-md);
         }
         
         .uploaded-image {
             max-width: 220px;
             max-height: 180px;
-            border: 2px solid var(--primary-color);
+            border: 1.5px solid var(--primary-color);
+            border-radius: var(--r-sm);
             margin-bottom: 15px;
         }
         
@@ -387,13 +403,15 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             padding: 25px;
             background: var(--bg-white);
             border: 1px solid var(--border-color);
+            border-radius: var(--r-md);
         }
         
         .preview-container {
             width: 100%;
             height: 220px;
             background: var(--bg-light);
-            border: 2px dashed var(--border-color);
+            border: 2px dashed var(--ink-faint);
+            border-radius: var(--r-md);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -426,6 +444,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             background: var(--text-light);
             color: white;
             border: none;
+            border-radius: var(--r-sm);
             cursor: pointer;
             transition: var(--transition);
             display: flex;
@@ -435,13 +454,14 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         }
         
         .tool-btn:hover {
-            background: #5a6268;
+            background: var(--ink);
         }
         
         .positioning-container {
             width: 100%;
             height: 400px;
-            border: 2px dashed var(--border-color);
+            border: 2px dashed var(--ink-faint);
+            border-radius: var(--r-md);
             margin-bottom: 20px;
             position: relative;
             overflow: hidden;
@@ -491,8 +511,9 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         /* Visual boundary indicator */
         .design-boundary {
             position: absolute;
-            border: 2px dashed rgba(44, 90, 160, 0.3);
-            background-color: rgba(44, 90, 160, 0.1);
+            border: 2px dashed rgba(36, 71, 143, 0.35);
+            background-color: rgba(36, 71, 143, 0.1);
+            border-radius: var(--r-sm);
             pointer-events: none;
             display: none;
         }
@@ -509,6 +530,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             background: var(--text-light);
             color: white;
             border: none;
+            border-radius: var(--r-sm);
             cursor: pointer;
             transition: var(--transition);
         }
@@ -543,7 +565,8 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             max-height: 90%;
             overflow: auto;
             position: relative;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            border-radius: var(--r-lg);
+            box-shadow: var(--shadow-lift);
         }
         
         .close-popup {
@@ -559,7 +582,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         }
         
         .close-popup:hover {
-            color: #000;
+            color: var(--ink);
         }
         
         .mockup-images {
@@ -578,16 +601,18 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         .mockup-image img {
             max-width: 320px;
             max-height: 420px;
-            border: 2px solid var(--border-color);
+            border: 1.5px solid var(--border-color);
+            border-radius: var(--r-sm);
             box-shadow: var(--shadow);
         }
         
         .download-btn {
             margin-top: 15px;
             padding: 10px 20px;
-            background: #28a745;
+            background: var(--riso-blue);
             color: white;
             border: none;
+            border-radius: var(--r-sm);
             cursor: pointer;
             transition: var(--transition);
             display: inline-flex;
@@ -596,7 +621,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         }
         
         .download-btn:hover {
-            background: #218838;
+            background: var(--riso-blue-dark);
             transform: translateY(-2px);
         }
         
@@ -617,15 +642,17 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         }
         
         .section-with-error {
-            border: 2px solid var(--accent-color) !important;
-            background-color: #f8d7da !important;
+            border: 1.5px solid var(--accent-color) !important;
+            border-radius: var(--r-md);
+            background-color: rgba(232, 67, 43, 0.07) !important;
         }
         
         /* Button-based option styles */
         .option-button {
             padding: 12px 20px;
             background: var(--bg-light);
-            border: 2px solid var(--border-color);
+            border: 1.5px solid var(--border-color);
+            border-radius: var(--r-sm);
             cursor: pointer;
             transition: var(--transition);
             font-weight: 500;
@@ -636,8 +663,8 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         }
         
         .option-button:hover {
-            background: #e9ecef;
-            border-color: #adb5bd;
+            background: var(--paper-dim);
+            border-color: var(--ink-faint);
             transform: translateY(-2px);
         }
         
@@ -645,7 +672,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             background: var(--primary-color);
             color: white;
             border-color: var(--primary-color);
-            box-shadow: 0 4px 12px rgba(44, 90, 160, 0.3);
+            box-shadow: 0 4px 12px rgba(23, 20, 15, 0.22);
         }
         
         .option-button.custom-option {
@@ -653,7 +680,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
         }
         
         .option-button.custom-option.selected {
-            border: 2px solid var(--primary-color);
+            border: 1.5px solid var(--primary-color);
         }
         
         .button-options {
@@ -675,11 +702,12 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             cursor: pointer;
             padding: 10px 15px;
             background: var(--bg-light);
+            border-radius: var(--r-sm);
             transition: var(--transition);
         }
 
         .upload-type-buttons label:hover {
-            background: #e9ecef;
+            background: var(--paper-dim);
         }
 
         .upload-type-buttons input[type="radio"] {
@@ -691,6 +719,7 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
             color: white;
             padding: 30px;
+            border-radius: var(--r-md);
             text-align: center;
         }
 

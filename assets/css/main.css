@@ -1950,7 +1950,10 @@ img {
   width: 100%;
   overflow: hidden;
   --se-title-size: 4rem;
-  /* Height is set by JS to match the viewport */
+  /* JS sets the exact height. This fallback just makes sure the stage
+     exists at first paint, so the entrance reveal below is visible. */
+  height: 100vh;
+  height: 100svh;
 }
 
 /* The frame: clip-path is what animates. The media inside never
@@ -1961,9 +1964,17 @@ img {
   clip-path: inset(21% 29% 21% 29% round 24px);
   will-change: clip-path;
   background-color: var(--ink);
-  /* box-shadow is clipped away by clip-path and never actually
-     renders here — filter runs on the already-clipped shape, so
-     this is what actually gives the resting card its elevation. */
+}
+
+/* box-shadow is clipped away by clip-path and never actually renders
+   here — filter is what gives the resting card its elevation. Kept
+   off by default and only switched on near the resting state: a
+   drop-shadow filter has to re-rasterize the blurred silhouette of
+   the clipped shape on every change, so leaving it on for the whole
+   clip-path animation was repainting a near-full-viewport shadow 60
+   times a second. It's only visible (and only needed) while the
+   frame is still card-sized anyway. */
+.scroll-expand__frame.is-resting {
   filter: drop-shadow(0 26px 56px rgba(0, 0, 0, 0.5));
 }
 
@@ -2033,6 +2044,7 @@ img {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
   padding: 0 6%;
   margin: 0;
   text-align: center;
@@ -2078,6 +2090,133 @@ img {
   50% {
     transform: translateY(5px);
   }
+}
+
+/* =========================================================
+   Entrance reveal — plays once on load, before any scrolling.
+
+   Order: the frame blooms open from its centre -> the mark
+   settles in -> the title rises line by line out of a mask ->
+   the scroll hint fades up last.
+
+   Pure CSS. Every animation uses fill-mode "backwards" (no
+   forwards), so when it ends the element falls back to what
+   the scroll code in main.js already wrote — nothing snaps.
+   Individual `scale` / `translate` are used where JS owns
+   `transform`, so the two never fight.
+   ========================================================= */
+
+.scroll-expand {
+  --se-ease: cubic-bezier(
+    0.16,
+    1,
+    0.3,
+    1
+  ); /* expo-out: quick start, long soft landing */
+}
+
+.scroll-expand__frame {
+  animation: se-frame-open 1.4s var(--se-ease) 0.15s backwards;
+}
+
+/* --se-rest-clip is written by main.js from your data-start-* values,
+   so the reveal always lands exactly on the resting card. The fallback
+   below matches the current 10 / 20 / 100 setup. */
+@keyframes se-frame-open {
+  0% {
+    clip-path: inset(50% 50% 50% 50% round 100px);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    clip-path: var(--se-rest-clip, inset(40% 45% 40% 45% round 100px));
+    opacity: 1;
+  }
+}
+
+.scroll-expand__media {
+  animation: se-media-settle 2s var(--se-ease) 0.15s backwards;
+}
+
+@keyframes se-media-settle {
+  from {
+    scale: 1.35;
+  }
+  to {
+    scale: 1;
+  }
+}
+
+.intro-media__mark {
+  animation: se-mark-in 1.2s var(--se-ease) 0.55s backwards;
+}
+
+@keyframes se-mark-in {
+  from {
+    opacity: 0;
+    scale: 0.8;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+/* Title: each line is a mask; the text rises up out of its bottom edge.
+   The generous padding (cancelled by the negative margin, so layout is
+   unchanged) keeps the text-shadow from being clipped by the mask. */
+.se-line {
+  display: block;
+  overflow: hidden;
+  padding: 0.14em 0.2em 0.5em;
+  margin: -0.14em -0.2em -0.5em;
+}
+
+.se-line__inner {
+  display: block;
+  animation: se-line-rise 1.15s var(--se-ease) calc(0.8s + var(--i, 0) * 0.14s)
+    backwards;
+}
+
+@keyframes se-line-rise {
+  from {
+    transform: translateY(140%);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.scroll-expand__hint {
+  animation: se-hint-in 0.9s var(--se-ease) 1.9s backwards;
+}
+
+@keyframes se-hint-in {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* main.js adds .is-skip if the visitor scrolls mid-reveal (or the page
+   loads already scrolled), so the intro never fights the scroll state. */
+.scroll-expand.is-skip .scroll-expand__frame,
+.scroll-expand.is-skip .scroll-expand__media,
+.scroll-expand.is-skip .intro-media__mark,
+.scroll-expand.is-skip .se-line__inner,
+.scroll-expand.is-skip .scroll-expand__hint {
+  animation: none;
 }
 
 /* =========================================================
@@ -2375,6 +2514,14 @@ img {
   .scroll-expand__title,
   .scroll-expand__hint {
     display: none;
+  }
+
+  .scroll-expand__frame,
+  .scroll-expand__media,
+  .intro-media__mark,
+  .se-line__inner,
+  .scroll-expand__hint {
+    animation: none !important;
   }
 
   .scroll-expand__hint i {
