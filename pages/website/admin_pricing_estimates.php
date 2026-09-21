@@ -13,8 +13,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['update_pricing_status'])) {
         $request_id = $_POST['request_id'];
         $new_status = $_POST['status'];
-        $final_price = $_POST['final_price'];
         $admin_notes = $_POST['admin_notes'];
+        // Per-item prices entered by the admin: item_price[item_id] => price.
+        $item_prices = isset($_POST['item_price']) && is_array($_POST['item_price']) ? $_POST['item_price'] : [];
 
         // Get the pricing request details
         $request_query = "SELECT * FROM pricing_requests WHERE id = ?";
@@ -23,15 +24,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $request_stmt->execute();
         $request_data = $request_stmt->get_result()->fetch_assoc();
 
-        // Use estimated total as final price if admin didn't enter one
-        if (empty($final_price) || $final_price <= 0) {
-            $final_price = $request_data['estimated_total'];
-        }
-
         // Update pricing_requests_items table for ALL status changes
         $selected_items = json_decode($request_data['selected_items'], true);
 
+        $final_price = 0; // recomputed below as the sum of each item's price
+
         if (is_array($selected_items)) {
+            $item_count = max(count($selected_items), 1);
+
             foreach ($selected_items as $item_id) {
                 // Check if record already exists in pricing_requests_items
                 $check_query = "SELECT id FROM pricing_requests_items WHERE pricing_request_id = ? AND cart_item_id = ?";
@@ -40,8 +40,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $check_stmt->execute();
                 $check_result = $check_stmt->get_result();
 
-                // Calculate price per item
-                $price_per_item = $final_price / count($selected_items);
+                // Use the price the admin entered for THIS item. If it was
+                // left blank, fall back to an even split of the estimated
+                // total, so a partially-filled form doesn't zero out an
+                // item the admin didn't get to.
+                if (isset($item_prices[$item_id]) && $item_prices[$item_id] !== '') {
+                    $price_per_item = (float) $item_prices[$item_id];
+                } else {
+                    $price_per_item = $request_data['estimated_total'] / $item_count;
+                }
+                $final_price += $price_per_item;
 
                 if ($check_result->num_rows > 0) {
                     // Update existing record - ALWAYS update status and admin_notes
@@ -78,7 +86,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Update the main pricing_requests table
+        // Update the main pricing_requests table. final_price is now the
+        // sum of the individual item prices above, not a value the admin
+        // typed in separately, so it can never drift from what each item
+        // actually shows.
         $query = "UPDATE pricing_requests SET status = ?, final_price = ?, admin_notes = ?, updated_at = NOW() WHERE id = ?";
         $stmt = $inventory->prepare($query);
         $stmt->bind_param("sdsi", $new_status, $final_price, $admin_notes, $request_id);
@@ -109,6 +120,54 @@ $requests_result = $inventory->query($query);
 $pricing_requests = [];
 while ($row = $requests_result->fetch_assoc()) {
     $pricing_requests[] = $row;
+}
+
+// Collect every item_id referenced across all requests so we can label
+// each item (product name / quantity) and prefill any price it was
+// already quoted at, instead of showing one combined price per request.
+$all_item_ids = [];
+foreach ($pricing_requests as $pr) {
+    $decoded = json_decode($pr['selected_items'], true);
+    if (is_array($decoded)) {
+        foreach ($decoded as $iid) {
+            $all_item_ids[(int) $iid] = true;
+        }
+    }
+}
+$all_item_ids = array_keys($all_item_ids);
+
+$item_info = [];       // item_id => ['product_name' => ..., 'quantity' => ...]
+$existing_item_prices = []; // request_id => [item_id => quoted_price]
+
+if (!empty($all_item_ids)) {
+    $placeholders = implode(',', array_fill(0, count($all_item_ids), '?'));
+    $types = str_repeat('i', count($all_item_ids));
+
+    $item_query = "SELECT ci.item_id, p.product_name, ci.quantity
+                    FROM cart_items ci
+                    JOIN products_offered p ON ci.product_id = p.id
+                    WHERE ci.item_id IN ($placeholders)";
+    $item_stmt = $inventory->prepare($item_query);
+    $item_stmt->bind_param($types, ...$all_item_ids);
+    $item_stmt->execute();
+    $item_result = $item_stmt->get_result();
+    while ($row = $item_result->fetch_assoc()) {
+        $item_info[(int) $row['item_id']] = [
+            'product_name' => $row['product_name'],
+            'quantity'     => (int) $row['quantity'],
+        ];
+    }
+
+    $prices_query = "SELECT pricing_request_id, cart_item_id, quoted_price
+                      FROM pricing_requests_items
+                      WHERE cart_item_id IN ($placeholders)";
+    $prices_stmt = $inventory->prepare($prices_query);
+    $prices_stmt->bind_param($types, ...$all_item_ids);
+    $prices_stmt->execute();
+    $prices_result = $prices_stmt->get_result();
+    while ($row = $prices_result->fetch_assoc()) {
+        $existing_item_prices[(int) $row['pricing_request_id']][(int) $row['cart_item_id']] = $row['quoted_price'];
+    }
 }
 
 // Get statistics
@@ -401,10 +460,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
 
         .table th,
         .table td {
-            padding: 10px 14px;
-            text-align: center;
+            padding: 12px 16px;
+            text-align: left;
             border-bottom: 1px solid var(--light-gray);
             font-size: 13px;
+            vertical-align: top;
+        }
+
+        .table tbody tr:hover {
+            background: var(--light);
+        }
+
+        .table th:nth-child(3),
+        .table td:nth-child(3),
+        .table th:nth-child(4),
+        .table td:nth-child(4) {
+            text-align: right;
         }
 
         .table th {
@@ -419,14 +490,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
         /* Pricing Actions */
         .pricing-actions {
             display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 260px;
         }
 
         .status-form {
             display: flex;
+            flex-direction: column;
             gap: 8px;
+            padding: 10px;
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            background: var(--light);
+        }
+
+        .status-form-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .status-form-row .status-select {
+            flex: 1;
+        }
+
+        .item-price-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px 10px;
+            border: 1px solid var(--light-gray);
+            border-radius: 6px;
+            background: var(--card-bg);
+            max-height: 170px;
+            overflow-y: auto;
+        }
+
+        .item-price-list-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--gray);
+            margin-bottom: 2px;
+        }
+
+        .item-price-row {
+            display: grid;
+            grid-template-columns: 1fr 88px;
             align-items: center;
+            gap: 8px;
+        }
+
+        .item-price-label {
+            font-size: 12px;
+            color: var(--dark);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .item-price-input {
+            width: 100%;
+            text-align: right;
+        }
+
+        .item-price-total {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--dark);
+            padding: 2px 2px 0;
         }
 
         .status-select,
@@ -447,12 +582,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
             border-color: var(--primary);
         }
 
-        .price-input {
-            width: 110px;
+        .notes-input {
+            width: 100%;
         }
 
-        .notes-input {
-            width: 180px;
+        .status-form .update-btn {
+            align-self: flex-end;
+        }
+
+        .secondary-actions {
+            display: flex;
+            gap: 8px;
         }
 
         .update-btn {
@@ -551,11 +691,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
         }
 
         .price-increase {
-            color: var(--danger);
+            color: var(--success);
         }
 
         .price-decrease {
-            color: var(--success);
+            color: var(--danger);
         }
 
         .price-same {
@@ -1093,13 +1233,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
         }
 
         .price-difference.increase {
-            background: var(--danger-bg);
-            color: var(--danger);
+            background: var(--success-bg);
+            color: var(--success);
         }
 
         .price-difference.decrease {
-            background: var(--success-bg);
-            color: var(--success);
+            background: var(--danger-bg);
+            color: var(--danger);
         }
 
         .difference-label {
@@ -1757,14 +1897,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                                     <div class="pricing-actions">
                                         <form method="post" class="status-form">
                                             <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
-                                            <select name="status" class="status-select">
-                                                <option value="pending" <?php echo $request['status'] == 'pending' ? 'selected' : ''; ?>>Pending</option>
-                                                <option value="quoted" <?php echo $request['status'] == 'quoted' ? 'selected' : ''; ?>>Checked</option>
-                                                <option value="cancelled" <?php echo $request['status'] == 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
-                                            </select>
-                                            <input type="number" name="final_price" class="price-input"
-                                                placeholder="Final Price" step="0.01" min="0"
-                                                value="<?php echo $request['final_price'] ? $request['final_price'] : ''; ?>">
+                                            <div class="status-form-row">
+                                                <select name="status" class="status-select">
+                                                    <option value="pending" <?php echo $request['status'] == 'pending' ? 'selected' : ''; ?>>Pending</option>
+                                                    <option value="quoted" <?php echo $request['status'] == 'quoted' ? 'selected' : ''; ?>>Checked</option>
+                                                    <option value="cancelled" <?php echo $request['status'] == 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
+                                                </select>
+                                            </div>
+                                            <div class="item-price-list-label">Price per item</div>
+                                            <div class="item-price-list">
+                                                <?php foreach ($selected_items as $iid):
+                                                    $iid = (int) $iid;
+                                                    $info = $item_info[$iid] ?? null;
+                                                    $label = $info ? $info['product_name'] . ' ×' . $info['quantity'] : ('Item #' . $iid);
+                                                    $prefill = $existing_item_prices[$request['id']][$iid] ?? '';
+                                                ?>
+                                                    <div class="item-price-row">
+                                                        <span class="item-price-label" title="<?php echo htmlspecialchars($label); ?>"><?php echo htmlspecialchars($label); ?></span>
+                                                        <input type="number" name="item_price[<?php echo $iid; ?>]" class="price-input item-price-input"
+                                                            placeholder="0.00" step="0.01" min="0"
+                                                            value="<?php echo $prefill !== '' ? htmlspecialchars($prefill) : ''; ?>">
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                            <div class="item-price-total">
+                                                <span>Total</span>
+                                                <span class="computed-total">₱<?php echo number_format(array_sum($existing_item_prices[$request['id']] ?? []), 2); ?></span>
+                                            </div>
                                             <input type="text" name="admin_notes" class="notes-input"
                                                 placeholder="Admin Notes"
                                                 value="<?php echo htmlspecialchars($request['admin_notes'] ?? ''); ?>">
@@ -1772,16 +1931,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                                                 <i class="fas fa-sync"></i> Update
                                             </button>
                                         </form>
-                                        <button type="button" onclick="viewRequestDetails(<?php echo $request['id']; ?>)" class="view-details" title="View Details">
-                                            <i class="fas fa-eye"></i> View Details
-                                        </button>
-                                        <form method="post" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: inline;">
-                                            <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
-                                            <button type="submit" name="delete_request" class="delete-btn"
-                                                onclick="return confirm('Are you sure you want to delete this pricing request?')" title="Delete Request">
-                                                <i class="fas fa-trash"></i> Delete
+                                        <div class="secondary-actions">
+                                            <button type="button" onclick="viewRequestDetails(<?php echo $request['id']; ?>)" class="view-details" title="View Details">
+                                                <i class="fas fa-eye"></i> View Details
                                             </button>
-                                        </form>
+                                            <form method="post" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: inline;">
+                                                <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
+                                                <button type="submit" name="delete_request" class="delete-btn"
+                                                    onclick="return confirm('Are you sure you want to delete this pricing request?')" title="Delete Request">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </button>
+                                            </form>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
@@ -1921,6 +2082,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                         message.remove();
                     }, 500);
                 }, 3000);
+            });
+        });
+
+        // As soon as the admin fills in a price for any item, flip that
+        // request's status to "Checked" automatically (only while it's
+        // still "Pending", so it never overrides a status picked on
+        // purpose, e.g. Cancelled). Also keeps the running total in sync.
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.status-form').forEach(function (form) {
+                const priceInputs = form.querySelectorAll('.item-price-input');
+                const statusSelect = form.querySelector('.status-select');
+                const totalEl = form.querySelector('.computed-total');
+
+                function refresh() {
+                    let total = 0;
+                    let hasPrice = false;
+                    priceInputs.forEach(function (i) {
+                        const val = parseFloat(i.value);
+                        if (!isNaN(val) && val > 0) {
+                            total += val;
+                            hasPrice = true;
+                        }
+                    });
+
+                    if (totalEl) {
+                        totalEl.textContent = '₱' + total.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    }
+
+                    if (hasPrice && statusSelect && statusSelect.value === 'pending') {
+                        statusSelect.value = 'quoted';
+                    }
+                }
+
+                priceInputs.forEach(function (input) {
+                    input.addEventListener('input', refresh);
+                });
             });
         });
     </script>

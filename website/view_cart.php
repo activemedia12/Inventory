@@ -79,15 +79,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['selected_items'])) {
 }
 
 $selected_total = 0;
+$selected_confirmed_count = 0;
 foreach ($cart_items as $item) {
     if (in_array($item['item_id'], $selected_items)) {
         // Use admin price if available, otherwise use unit price
-        $actual_price = $item['price_updated_by_admin'] && $item['quoted_price'] > 0
+        $item_is_confirmed = $item['price_updated_by_admin'] && $item['quoted_price'] > 0;
+        $actual_price = $item_is_confirmed
             ? $item['quoted_price']
             : $item['unit_price'];
         $selected_total += $actual_price * $item['quantity'];
+        if ($item_is_confirmed) $selected_confirmed_count++;
     }
 }
+// True when every currently-selected item already has a store-confirmed
+// price, i.e. there's nothing left to request pricing for.
+$selected_all_confirmed = (count($selected_items) > 0 && $selected_confirmed_count === count($selected_items));
 
 /* ------------------------------
    4. Handle price request submission
@@ -95,6 +101,8 @@ foreach ($cart_items as $item) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_pricing'])) {
     if (empty($selected_items)) {
         echo "<script>alert('Please select at least one item to request pricing.');</script>";
+    } elseif ($selected_all_confirmed) {
+        echo "<script>alert('All of your selected items already have a confirmed price. There\'s nothing left to request.');</script>";
     } else {
         error_log("=== PRICING REQUEST SUBMISSION START ===");
         error_log("User ID: $user_id");
@@ -481,7 +489,7 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
         }
 
         .cart-pill i {
-            color: var(--riso-red);
+            color: var(--riso-blue);
             font-size: 12px;
         }
 
@@ -976,7 +984,6 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
         }
 
         .pricing-status-alert.warning {
-            background: rgba(252, 226, 1, 0.16);
             border-color: rgba(23, 20, 15, 0.16);
         }
 
@@ -1330,16 +1337,33 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
         }
 
         .btn-ink:hover {
-            background-color: var(--riso-red);
-            border-color: var(--riso-red);
+            background-color: var(--riso-blue);
+            border-color: var(--riso-blue);
             transform: translateY(-2px);
             box-shadow: var(--shadow);
         }
 
+        .btn-ink:disabled,
+        .btn-ink[disabled] {
+            background-color: var(--line, #ccc);
+            border-color: var(--line, #ccc);
+            color: var(--paper-white);
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-ink:disabled:hover,
+        .btn-ink[disabled]:hover {
+            background-color: var(--line, #ccc);
+            border-color: var(--line, #ccc);
+            transform: none;
+            box-shadow: none;
+        }
+
         .waiting-btn {
-            background: var(--paper-dim);
-            border: 1.5px dashed var(--ink-faint);
-            color: var(--ink-soft);
+            background: color-mix(in srgb, var(--riso-blue) 50%, transparent);
+            border: 1.5px dashed var(--riso-blue);
+            color: var(--paper-white);
             cursor: not-allowed;
         }
 
@@ -1875,16 +1899,17 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
                                 <div class="cart-buttons">
                                     <button type="submit" name="proceed_to_checkout" class="btn btn-primary checkout-btn" form="cartForm"
                                         <?php echo $can_checkout ? '' : 'hidden'; ?>>
-                                        <i class="fas fa-lock"></i> Proceed to checkout
+                                        <i class="fas fa-check"></i> Proceed to checkout
                                     </button>
 
                                     <button type="button" class="btn waiting-btn" aria-disabled="true"
                                         title="<?php echo cart_h($checkout_message); ?>"
                                         <?php echo ($total_selected_items > 0 && !$can_checkout) ? '' : 'hidden'; ?>>
-                                        <i class="fas fa-clock"></i> Waiting for price confirmation
+                                        <i class="fas fa-lock"></i> Proceed to checkout
                                     </button>
 
-                                    <button type="submit" name="request_pricing" class="btn btn-ink request-btn" form="cartForm">
+                                    <button type="submit" name="request_pricing" class="btn btn-ink request-btn" form="cartForm"
+                                        <?php echo ($total_selected_items > 0 && $all_prices_updated) ? 'disabled title="All selected items already have a confirmed price."' : ''; ?>>
                                         <i class="fas fa-envelope"></i> Request price confirmation
                                     </button>
 
@@ -2375,7 +2400,7 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             if (waitingBtn) {
                 waitingBtn.hidden = selectedCount === 0 || canCheckout;
 
-                let message = 'No selected items have confirmed pricing yet';
+                let message = 'Will be available once every selected item has confirmed pricing';
                 if (confirmedCount > 0) {
                     message = `${confirmedCount} of ${selectedCount} selected items have confirmed pricing`;
                 }

@@ -78,14 +78,19 @@ if (isset($_GET['order_id'])) {
     $order_id = $_GET['order_id'];
     $user_id = $_SESSION['user_id'];
     
-    // Verify the order belongs to the user
-    $query = "SELECT o.order_id FROM orders o WHERE o.order_id = ? AND o.user_id = ?";
+    // Verify the order belongs to the user, and grab the order's stored
+    // total (this is the same value shown on the order card / used
+    // elsewhere in profile.php). We'll compare it against the sum of the
+    // line items below, since the two are calculated independently.
+    $query = "SELECT o.order_id, o.total_amount FROM orders o WHERE o.order_id = ? AND o.user_id = ?";
     $stmt = $inventory->prepare($query);
     $stmt->bind_param("ii", $order_id, $user_id);
     $stmt->execute();
     $result = $stmt->get_result();
-    
-    if ($result->num_rows > 0) {
+    $order_row = $result->fetch_assoc();
+
+    if ($order_row) {
+        $order_total_amount = (float) $order_row['total_amount'];
        // Get order items with all customization options and their proper names
         $query = "SELECT 
             oi.product_name, 
@@ -441,8 +446,27 @@ if (isset($_GET['order_id'])) {
             </div>
             <?php
         }
-        echo '<div class="order-total" style="margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; text-align: right; font-weight: bold; font-size: 1.2em;">';
-        echo '<strong>Total: ₱' . number_format($total, 2) . '</strong>';
+        // Build the same price breakdown shown at checkout (see checkout.php):
+        // subtotal = sum(unit_price * quantity), tax = 3% of subtotal.
+        $subtotal = $total;
+        $tax = round($subtotal * 0.03, 2);
+        $expected_total = $subtotal + $tax;
+
+        // The order's stored total_amount should equal subtotal + tax. If it
+        // doesn't (e.g. the order predates the tax being added, an item was
+        // edited after checkout, or a discount/fee was applied), surface the
+        // difference explicitly instead of letting the numbers silently
+        // disagree.
+        $adjustment = round($order_total_amount - $expected_total, 2);
+
+        echo '<div class="order-total" style="margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px;">';
+        echo '<div class="summary-row" style="display:flex; justify-content:space-between; padding:4px 0;"><span>Subtotal:</span><span>₱' . number_format($subtotal, 2) . '</span></div>';
+        echo '<div class="summary-row" style="display:flex; justify-content:space-between; padding:4px 0;"><span>Tax (3%):</span><span>₱' . number_format($tax, 2) . '</span></div>';
+        if (abs($adjustment) > 0.005) {
+            $adj_label = $adjustment > 0 ? 'Additional fee:' : 'Discount:';
+            echo '<div class="summary-row" style="display:flex; justify-content:space-between; padding:4px 0;"><span>' . $adj_label . '</span><span>₱' . number_format(abs($adjustment), 2) . '</span></div>';
+        }
+        echo '<div class="summary-row total-row" style="display:flex; justify-content:space-between; padding:8px 0 0; margin-top:6px; border-top:1px solid #ced4da; font-weight:bold; font-size:1.2em;"><span>Total:</span><span>₱' . number_format($order_total_amount, 2) . '</span></div>';
         echo '</div>';
         echo '</div>';
     } else {

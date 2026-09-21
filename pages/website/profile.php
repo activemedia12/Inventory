@@ -30,16 +30,36 @@ $result = $stmt->get_result();
 $user_data = $result->fetch_assoc();
 
 // Get order history
-$query = "SELECT order_id, total_amount, status, payment_proof, created_at 
-          FROM orders 
-          WHERE user_id = ? 
-          ORDER BY created_at DESC";
+// NOTE: the `orders` table has no title/name column, so we derive a display
+// title from the order's first line item (order_items.product_name).
+// Adjust "oi.order_item_id" below to whatever your order_items primary key
+// is actually called if it isn't that.
+$query = "SELECT o.order_id, o.total_amount, o.status, o.payment_proof, o.created_at,
+                 (SELECT oi.product_name
+                    FROM order_items oi
+                   WHERE oi.order_id = o.order_id
+                   ORDER BY oi.order_item_id ASC
+                   LIMIT 1) AS first_item_name,
+                 (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.order_id) AS item_count
+          FROM orders o
+          WHERE o.user_id = ? 
+          ORDER BY o.created_at DESC";
 $stmt = $inventory->prepare($query);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 $orders = [];
 while ($row = $result->fetch_assoc()) {
+    // Build the title: first item's product name, plus "+N more" when the
+    // order has additional line items. Falls back to the order number if
+    // an order somehow has no items yet.
+    $title = $row['first_item_name'] !== null && $row['first_item_name'] !== ''
+        ? $row['first_item_name']
+        : ('Order #' . $row['order_id']);
+    if ((int) $row['item_count'] > 1) {
+        $title .= ' + ' . ((int) $row['item_count'] - 1) . ' more';
+    }
+    $row['title'] = $title;
     $orders[] = $row;
 }
 
@@ -359,21 +379,34 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                             <?php foreach ($orders as $order):
                                 $status_class = preg_replace('/[^a-z0-9_-]/i', '', (string) $order['status']);
                                 $status_label = ucfirst(str_replace('_', ' ', $order['status']));
+                                $placed_text  = date('M j, Y · g:i A', strtotime($order['created_at']));
+                                $proof_url    = !empty($order['payment_proof'])
+                                    ? '../../assets/uploads/payments/user_' . (int) $user_id . '/' . rawurlencode($order['payment_proof'])
+                                    : '';
                             ?>
-                                <article class="order-card status-<?php echo $status_class; ?>" data-order-id="<?php echo (int) $order['order_id']; ?>">
+                                <article class="order-card status-<?php echo $status_class; ?>"
+                                         data-order-id="<?php echo (int) $order['order_id']; ?>"
+                                         data-title="<?php echo htmlspecialchars($order['title']); ?>"
+                                         data-status="<?php echo $status_class; ?>"
+                                         data-status-label="<?php echo htmlspecialchars($status_label); ?>"
+                                         data-date="<?php echo htmlspecialchars($placed_text); ?>"
+                                         data-total="₱<?php echo number_format($order['total_amount'], 2); ?>"
+                                         data-proof="<?php echo htmlspecialchars($proof_url); ?>"
+                                         data-items="<?php echo (int) $order['item_count']; ?>">
                                     <div class="order-card__top">
                                         <div class="order-card__id">
-                                            <h3>Order #<?php echo (int) $order['order_id']; ?></h3>
+                                            <h3><?php echo htmlspecialchars($order['title']); ?></h3>
+                                            <span class="order-card__number">Ref No. <?php echo (int) $order['order_id']; ?></span>
                                             <span class="order-status status-<?php echo $status_class; ?>"><?php echo htmlspecialchars($status_label); ?></span>
                                         </div>
                                         <div class="order-card__amount">₱<?php echo number_format($order['total_amount'], 2); ?></div>
                                     </div>
                                     <div class="order-card__foot">
-                                        <span><i class="far fa-calendar"></i> <?php echo date('M j, Y · g:i A', strtotime($order['created_at'])); ?></span>
+                                        <span><i class="far fa-calendar"></i> <?php echo htmlspecialchars($placed_text); ?></span>
                                         <span>
                                             <i class="fas fa-receipt"></i>
                                             <?php if (!empty($order['payment_proof'])): ?>
-                                                <a href="../../assets/uploads/payments/user_<?php echo (int) $user_id; ?>/<?php echo htmlspecialchars(rawurlencode($order['payment_proof'])); ?>"
+                                                <a href="<?php echo htmlspecialchars($proof_url); ?>"
                                                    target="_blank" rel="noopener" class="payment-proof-link">
                                                     Payment proof <i class="fas fa-external-link-alt"></i>
                                                 </a>
@@ -381,7 +414,7 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                                                 Proof not uploaded
                                             <?php endif; ?>
                                         </span>
-                                        <button type="button" class="order-card__open" onclick="viewOrderDetails(<?php echo (int) $order['order_id']; ?>)">
+                                        <button type="button" class="order-card__open" onclick="viewOrderDetails(<?php echo (int) $order['order_id']; ?>, <?php echo htmlspecialchars(json_encode($order['title']), ENT_QUOTES); ?>)">
                                             View details <i class="fas fa-arrow-right"></i>
                                         </button>
                                     </div>
@@ -410,13 +443,31 @@ $order_active = $order_total - $order_completed - $order_cancelled;
             <div class="acct-modal__head">
                 <span class="acct-modal__eyebrow"><span class="reg-mark"></span> Order details</span>
                 <h2 id="modalOrderTitle">Order</h2>
-                <p id="modalOrderSubtitle">Detailed information about your order</p>
+                <div class="acct-modal__meta">
+                    <span class="acct-modal__ref" id="modalOrderRef"></span>
+                    <span class="order-status" id="modalOrderStatus" hidden></span>
+                </div>
                 <button type="button" class="acct-modal__close" data-close aria-label="Close order details">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="acct-modal__body" id="orderModalContent">
-                <!-- Order items are loaded here via AJAX -->
+
+            <div class="acct-modal__scroll" id="modalScroll">
+                <div id="modalProgress"></div>
+                <dl class="acct-facts" id="modalFacts"></dl>
+
+                <div class="acct-modal__section">
+                    <h3>Items in this order</h3>
+                    <span class="acct-count" id="modalItemCount"></span>
+                </div>
+                <div class="acct-modal__body" id="orderModalContent" aria-live="polite">
+                    <!-- Order items are loaded here via AJAX -->
+                </div>
+            </div>
+
+            <div class="acct-modal__foot">
+                <p>Questions about this order? <button type="button" class="acct-modal__chat" id="modalChatBtn">Chat with us</button></p>
+                <button type="button" class="btn btn-secondary" data-close>Close</button>
             </div>
         </div>
     </div>
@@ -531,13 +582,29 @@ $order_active = $order_total - $order_completed - $order_cancelled;
     (function () {
         'use strict';
 
-        var modal     = document.getElementById('orderModal');
-        var panel     = modal.querySelector('.acct-modal__panel');
-        var titleEl   = document.getElementById('modalOrderTitle');
-        var contentEl = document.getElementById('orderModalContent');
-        var closeBtn  = modal.querySelector('[data-close]');
-        var lastFocus = null;
-        var requestId = 0;
+        var modal      = document.getElementById('orderModal');
+        var panel      = modal.querySelector('.acct-modal__panel');
+        var scrollEl   = document.getElementById('modalScroll');
+        var titleEl    = document.getElementById('modalOrderTitle');
+        var refEl      = document.getElementById('modalOrderRef');
+        var statusEl   = document.getElementById('modalOrderStatus');
+        var progressEl = document.getElementById('modalProgress');
+        var factsEl    = document.getElementById('modalFacts');
+        var countEl    = document.getElementById('modalItemCount');
+        var contentEl  = document.getElementById('orderModalContent');
+        var closeBtn   = modal.querySelector('[data-close]');
+        var chatBtn    = document.getElementById('modalChatBtn');
+        var lastFocus  = null;
+        var requestId  = 0;
+
+        // Order of a normal order's life; "cancelled" is handled separately
+        var STEPS = [
+            ['pending', 'Pending'],
+            ['paid', 'Paid'],
+            ['processing', 'Processing'],
+            ['ready_for_pickup', 'Ready for pickup'],
+            ['completed', 'Completed']
+        ];
 
         function openModal() {
             lastFocus = document.activeElement;
@@ -560,6 +627,15 @@ $order_active = $order_total - $order_completed - $order_cancelled;
 
         modal.addEventListener('click', function (e) {
             if (e.target === modal || e.target.closest('[data-close]')) closeModal();
+        });
+
+        // "Chat with us": close the dialog, then open the chat widget
+        chatBtn.addEventListener('click', function () {
+            closeModal();
+            setTimeout(function () {
+                var chatButton = document.getElementById('chatButton');
+                if (chatButton) chatButton.click();
+            }, 320);
         });
 
         document.addEventListener('keydown', function (e) {
@@ -586,15 +662,98 @@ $order_active = $order_total - $order_completed - $order_cancelled;
             }
         });
 
-        function showLoading() {
-            contentEl.innerHTML =
-                '<div class="acct-modal__state">' +
-                    '<i class="fas fa-spinner fa-spin"></i>' +
-                    '<p>Loading order details...</p>' +
-                '</div>';
+        // ---- small DOM helper ----
+        function make(tag, className, html) {
+            var node = document.createElement(tag);
+            if (className) node.className = className;
+            if (html !== undefined) node.innerHTML = html;
+            return node;
         }
 
-        function showError(orderId) {
+        // ---- header, progress tracker and key facts (from the order card) ----
+        function renderSummary(orderId, card, orderTitle) {
+            var d = card ? card.dataset : {};
+
+            titleEl.textContent = orderTitle || d.title || ('Order #' + orderId);
+            refEl.textContent = 'Ref No. ' + orderId;
+
+            if (d.status) {
+                statusEl.className = 'order-status status-' + d.status;
+                statusEl.textContent = d.statusLabel || d.status;
+                statusEl.hidden = false;
+            } else {
+                statusEl.hidden = true;
+            }
+
+            // Progress
+            progressEl.innerHTML = '';
+            var current = -1;
+            STEPS.forEach(function (step, i) { if (step[0] === d.status) current = i; });
+            if (d.status === 'completed') current = STEPS.length; // every step done
+
+            if (d.status === 'cancelled') {
+                progressEl.appendChild(make('p', 'acct-modal__alert',
+                    '<i class="fas fa-ban" aria-hidden="true"></i>' +
+                    '<span><strong>This order was cancelled.</strong> Chat with us if you have any questions.</span>'));
+            } else if (current > -1) {
+                var list = make('ol', 'acct-tracker');
+                list.setAttribute('aria-label', 'Order progress');
+                STEPS.forEach(function (step, i) {
+                    var state = i < current ? 'is-done' : (i === current ? 'is-current' : '');
+                    var item = make('li', 'acct-tracker__step ' + state,
+                        '<span class="acct-tracker__dot">' + (i < current ? '<i class="fas fa-check"></i>' : (i + 1)) + '</span>' +
+                        '<span>' + step[1] + '</span>');
+                    if (i === current) item.setAttribute('aria-current', 'step');
+                    list.appendChild(item);
+                });
+                progressEl.appendChild(list);
+            }
+
+            // Key facts
+            factsEl.innerHTML = '';
+
+            function fact(icon, label, valueNode, extra) {
+                var wrap = make('div', 'acct-fact' + (extra ? ' ' + extra : ''));
+                wrap.appendChild(make('dt', '', '<i class="' + icon + '" aria-hidden="true"></i> ' + label));
+                wrap.appendChild(valueNode);
+                factsEl.appendChild(wrap);
+            }
+
+            var placed = make('dd');
+            placed.textContent = d.date || '—';
+            fact('far fa-calendar', 'Placed', placed);
+
+            var proof = make('dd');
+            if (d.proof) {
+                var link = make('a', '', 'View proof <i class="fas fa-external-link-alt" aria-hidden="true"></i>');
+                link.href = d.proof;
+                link.target = '_blank';
+                link.rel = 'noopener';
+                proof.appendChild(link);
+            } else {
+                proof.className = 'is-empty';
+                proof.textContent = 'Not uploaded';
+            }
+            fact('fas fa-receipt', 'Payment proof', proof);
+
+            var total = make('dd');
+            total.textContent = d.total || '—';
+            fact('fas fa-wallet', 'Order total', total, 'acct-fact--total');
+
+            var items = parseInt(d.items, 10);
+            countEl.textContent = items > 0 ? items + (items === 1 ? ' item' : ' items') : '';
+        }
+
+        function showLoading() {
+            contentEl.innerHTML =
+                '<div class="acct-skel" aria-hidden="true">' +
+                    '<div class="acct-skel__card"></div>' +
+                    '<div class="acct-skel__card"></div>' +
+                '</div>' +
+                '<span class="acct-sr">Loading order details...</span>';
+        }
+
+        function showError(orderId, orderTitle) {
             contentEl.innerHTML =
                 '<div class="acct-modal__state acct-modal__state--error">' +
                     '<i class="fas fa-exclamation-triangle"></i>' +
@@ -604,16 +763,18 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                     '</button>' +
                 '</div>';
             contentEl.querySelector('[data-retry]').addEventListener('click', function () {
-                window.viewOrderDetails(orderId);
+                window.viewOrderDetails(orderId, orderTitle);
             });
         }
 
         // Called from each order card
-        window.viewOrderDetails = function (orderId) {
+        window.viewOrderDetails = function (orderId, orderTitle) {
             var thisRequest = ++requestId;
+            var card = document.querySelector('.order-card[data-order-id="' + parseInt(orderId, 10) + '"]');
 
-            titleEl.textContent = 'Order #' + orderId;
+            renderSummary(orderId, card, orderTitle);
             showLoading();
+            scrollEl.scrollTop = 0;
             if (!modal.classList.contains('is-open')) openModal();
 
             fetch('get_order_items.php?order_id=' + encodeURIComponent(orderId))
@@ -628,7 +789,7 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                 .catch(function (error) {
                     console.error('Error fetching order details:', error);
                     if (thisRequest !== requestId) return;
-                    showError(orderId);
+                    showError(orderId, orderTitle);
                 });
         };
 
@@ -636,7 +797,7 @@ $order_active = $order_total - $order_completed - $order_cancelled;
         document.querySelectorAll('.order-card').forEach(function (card) {
             card.addEventListener('click', function (e) {
                 if (e.target.closest('a, button')) return;
-                window.viewOrderDetails(card.dataset.orderId);
+                window.viewOrderDetails(card.dataset.orderId, card.dataset.title);
             });
         });
 

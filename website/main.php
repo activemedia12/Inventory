@@ -258,7 +258,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
             <div class="section-header">
                 <span class="section-eyebrow"><span class="reg-mark"></span> Four inks, four crafts</span>
                 <h2 class="section-title">Our Printing Services</h2>
-                <p class="section-subtitle">Every job starts with the right process — pick a method to see what it's built for.</p>
+                <p class="section-subtitle">Every job starts with the right process, pick a method to see what it's built for.</p>
             </div>
 
             <div class="catalog-shell">

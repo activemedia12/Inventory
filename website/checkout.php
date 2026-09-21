@@ -123,6 +123,55 @@ $result_cart = $stmt->get_result();
 $row = $result_cart->fetch_assoc();
 
 $cart_count = $row['total_items'] ? $row['total_items'] : 0;
+
+// ---------------------------------------------------------------
+// Presentation helpers (display only — the logic above is unchanged)
+// ---------------------------------------------------------------
+$navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
+
+function co_h($value)
+{
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+}
+
+// Same product-group -> brand-ink mapping the cart and catalog use
+function co_ink_for_group($group)
+{
+    $g = strtolower((string) $group);
+    if (strpos($g, 'offset') !== false)  return 'black';
+    if (strpos($g, 'digital') !== false) return 'cyan';
+    if (strpos($g, 'riso') !== false)    return 'magenta';
+    return 'yellow';
+}
+
+// <dd> with a soft "Not provided" fallback
+$dd = function ($value, $wide = false) {
+    $value = trim((string) $value);
+    return $value !== ''
+        ? '<dd>' . co_h($value) . '</dd>'
+        : '<dd class="is-empty">Not provided</dd>';
+};
+
+$customer_type = $user_data['customer_type'] ?? 'unknown';
+
+// One readable address line (no stray commas when parts are missing)
+if ($customer_type === 'personal') {
+    $address_parts = [
+        $user_data['address_line1'] ?? '',
+        $user_data['personal_city'] ?? '',
+        trim(($user_data['personal_province'] ?? '') . ' ' . ($user_data['personal_zip'] ?? '')),
+    ];
+} else {
+    $address_parts = [
+        trim(($user_data['subd_or_street'] ?? '') . ' ' . ($user_data['building_or_block'] ?? '') . ' ' . ($user_data['lot_or_room_no'] ?? '')),
+        $user_data['barangay'] ?? '',
+        $user_data['company_city'] ?? '',
+        trim(($user_data['company_province'] ?? '') . ' ' . ($user_data['company_zip'] ?? '')),
+    ];
+}
+$address_text = implode(', ', array_filter(array_map('trim', $address_parts), 'strlen'));
+
+$has_items = !empty($checkout_items);
 ?>
 
 <!DOCTYPE html>
@@ -131,1061 +180,559 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkout</title>
+    <title>Checkout - Active Media Designs & Printing</title>
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
     <link rel="stylesheet" href="../assets/css/main.css">
-    <style>
-        /* Checkout-specific styles that extend the main style.css */
-        .checkout-page {
-            padding: 40px 0;
-            background-color: var(--bg-light);
-            min-height: 80vh;
-        }
-
-        .checkout-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-
-        .checkout-header {
-            text-align: center;
-            margin-bottom: 40px;
-            padding: 40px;
-            background: var(--bg-white);
-            box-shadow: var(--shadow);
-        }
-
-        .checkout-header h1 {
-            font-size: 2.5em;
-            color: var(--text-dark);
-            margin-bottom: 10px;
-        }
-
-        .checkout-header p {
-            font-size: 1.2em;
-            color: var(--text-light);
-        }
-
-        .checkout-sections {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 30px;
-        }
-
-        .checkout-section {
-            background: var(--bg-white);
-            padding: 30px;
-            margin-bottom: 25px;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
-        }
-
-        .section-title {
-            color: var(--text-dark);
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 3px solid var(--primary-color);
-            font-size: 1.4em;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .customer-details p {
-            margin-bottom: 15px;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .customer-details strong {
-            color: var(--text-dark);
-            min-width: 140px;
-            font-weight: 600;
-        }
-
-        .customer-details span {
-            color: var(--text-light);
-            text-align: right;
-            flex: 1;
-        }
-
-        .order-summary-items {
-            margin-bottom: 25px;
-        }
-
-        .summary-item {
-            margin-bottom: 25px;
-            padding-bottom: 25px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .item-content {
-            display: flex;
-            gap: 20px;
-            align-items: flex-start;
-            margin-bottom: 20px;
-        }
-
-        .item-image {
-            flex-shrink: 0;
-        }
-
-        .item-image img {
-            width: 100px;
-            height: 100px;
-            object-fit: cover;
-            border: 2px solid var(--border-color);
-        }
-
-        .item-details {
-            flex-grow: 1;
-        }
-
-        .item-name {
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: var(--text-dark);
-            font-size: 1.1em;
-        }
-
-        .item-category {
-            color: var(--text-light);
-            margin-bottom: 8px;
-            font-size: 0.9em;
-        }
-
-        .item-price {
-            color: var(--accent-color);
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .item-total {
-            text-align: right;
-            flex-shrink: 0;
-            font-weight: 600;
-            color: #27ae60;
-            font-size: 1.1em;
-        }
-
-        /* Printing Details Styles */
-        .printing-details {
-            margin-top: 15px;
-            padding: 15px;
-            background: var(--bg-light);
-            font-size: 0.9em;
-            border-left: 4px solid var(--primary-color);
-            text-transform: uppercase;
-        }
-
-        .details-row {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .detail-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .detail-item:last-child {
-            border-bottom: none;
-        }
-
-        .detail-label {
-            font-weight: 600;
-            color: var(--text-dark);
-            min-width: 140px;
-        }
-
-        .detail-value {
-            color: var(--text-light);
-            flex: 1;
-            text-align: right;
-        }
-
-        .design-previews {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: flex-start;
-            margin-top: 15px;
-        }
-
-        .design-preview {
-            text-align: center;
-            flex: 0 0 auto;
-        }
-
-        .design-preview img {
-            width: 100px;
-            height: 100px;
-            object-fit: contain;
-            border: 2px solid var(--primary-color);
-            padding: 5px;
-            background: white;
-            transition: var(--transition);
-        }
-
-        .design-preview img:hover {
-            transform: scale(1.05);
-        }
-
-        .design-label {
-            font-size: 0.75em;
-            color: var(--text-light);
-            margin-top: 8px;
-            font-weight: 500;
-        }
-
-        .design-preview:has(img[alt*="Original"]) img {
-            border-color: #28a745;
-        }
-
-        .design-preview:has(img[alt*="Mockup"]) img {
-            border-color: var(--primary-color);
-        }
-
-        .design-placeholder {
-            width: 100px;
-            height: 100px;
-            background: #f0f0f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 2px dashed #ccc;
-        }
-
-        .custom-design-section {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 2px dashed var(--primary-color);
-        }
-
-        .custom-design-title {
-            font-weight: bold;
-            margin-bottom: 15px;
-            color: var(--primary-color);
-            font-size: 1em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .summary-totals {
-            margin-top: 25px;
-            padding-top: 20px;
-            border-top: 2px solid var(--border-color);
-        }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .summary-row:last-child {
-            border-bottom: none;
-        }
-
-        .total-row {
-            font-weight: bold;
-            font-size: 1.3em;
-            color: #27ae60;
-            border-top: 2px solid var(--border-color);
-            margin-top: 15px;
-            padding-top: 15px;
-        }
-
-        /* Payment Section */
-        .payment-section {
-            background: var(--bg-white);
-            padding: 30px;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
-            position: sticky;
-            top: 20px;
-        }
-
-        .qr-code-container {
-            text-align: center;
-            padding: 25px;
-            background: var(--bg-light);
-            margin-bottom: 25px;
-            border: 2px solid var(--border-color);
-        }
-
-        .qr-code-container h3 {
-            color: var(--text-dark);
-            margin-bottom: 20px;
-            font-size: 1.3em;
-        }
-
-        .qr-code-image {
-            max-width: 220px;
-            margin: 0 auto 20px;
-            overflow: hidden;
-            box-shadow: var(--shadow);
-        }
-
-        .qr-code-image img {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-
-        .payment-details {
-            margin-bottom: 20px;
-        }
-
-        .payment-detail {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .payment-detail:last-child {
-            border-bottom: none;
-        }
-
-        .payment-detail strong {
-            color: var(--text-dark);
-        }
-
-        .upload-section {
-            margin-top: 25px;
-        }
-
-        .file-upload {
-            margin: 20px 0;
-        }
-
-        .file-upload-label {
-            display: block;
-            margin-bottom: 10px;
-            font-weight: 600;
-            color: var(--text-dark);
-        }
-
-        .file-input {
-            width: 100%;
-            padding: 12px;
-            border: 2px dashed var(--border-color);
-            background: var(--bg-light);
-            transition: var(--transition);
-        }
-
-        .file-input:hover {
-            border-color: var(--primary-color);
-        }
-
-        .file-input:focus {
-            border-color: var(--primary-color);
-            outline: none;
-        }
-
-        .instructions {
-            margin-top: 25px;
-            padding: 20px;
-            background: var(--bg-light);
-            border-left: 4px solid var(--primary-color);
-        }
-
-        .instructions h4 {
-            color: var(--text-dark);
-            margin-bottom: 15px;
-            font-size: 1.1em;
-        }
-
-        .instructions ul {
-            list-style: none;
-            padding-left: 0;
-        }
-
-        .instructions li {
-            margin-bottom: 10px;
-            padding-left: 25px;
-            position: relative;
-            color: var(--text-light);
-        }
-
-        .instructions li:before {
-            content: '✓';
-            position: absolute;
-            left: 0;
-            color: var(--primary-color);
-            font-weight: bold;
-        }
-
-        .checkout-btn {
-            width: 100%;
-            padding: 18px;
-            background: #28a745;
-            color: white;
-            border: none;
-            font-size: 1.2em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .checkout-btn:hover {
-            background: #218838;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.3);
-        }
-
-        .checkout-btn:disabled {
-            background: var(--text-light);
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        @media (max-width: 992px) {
-            .checkout-sections {
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }
-
-            .payment-section {
-                position: static;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .checkout-page {
-                font-size: 80%;
-                padding: 20px !important;
-            }
-            .checkout-header {
-                padding: 30px 20px;
-            }
-
-            .checkout-header h1 {
-                font-size: 2em;
-            }
-
-            .checkout-section,
-            .payment-section {
-                padding: 25px;
-            }
-
-            .item-content {
-                flex-direction: column;
-                align-content: center
-            }
-
-            .item-total {
-                text-align: center;
-                margin-top: 10px;
-            }
-
-            .customer-details p {
-                flex-direction: column;
-                text-align: center;
-                gap: 5px;
-            }
-
-            .customer-details strong,
-            .customer-details span {
-                min-width: auto;
-                text-align: center;
-            }
-
-            .detail-item {
-                flex-direction: column;
-                text-align: center;
-                gap: 5px;
-            }
-
-            .detail-label,
-            .detail-value {
-                min-width: auto;
-                text-align: center;
-            }
-
-            .qr-code-image {
-                max-width: 180px;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .checkout-page {
-                padding: 20px 0;
-            }
-
-            .checkout-container {
-                padding: 0 15px;
-            }
-
-            .checkout-header {
-                padding: 25px 15px;
-            }
-
-            .checkout-section,
-            .payment-section {
-                padding: 20px;
-            }
-
-            .design-previews {
-                justify-content: center;
-            }
-
-            .qr-code-container {
-                padding: 20px;
-            }
-        }
-    </style>
 </head>
 
-<body>
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <nav class="navbar">
-                <a href="#" class="logo">
-                    <img src="../assets/images/plainlogo.png" alt="Active Media" class="logo-image">
-                    <span>Active Media Designs & Printing</span>
-                </a>
+<body class="co-page">
+    <!-- Side Pill Navigation -->
+    <nav class="side-nav" id="sideNav" aria-label="Primary">
+        <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
+            <li><a href="main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li><a href="ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
+            <li><a href="about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
+            <li><a href="contact.php"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
 
-                <ul class="nav-links">
-                    <li><a href="main.php"><i class="fas fa-home"></i> Home</a></li>
-                    <li><a href="ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="about.php"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="contact.php"><i class="fas fa-phone"></i> Contact</a></li>
-                </ul>
+            <li class="side-nav-divider"></li>
 
-                <div class="features">
-                    <a href="#" class="chat-icon" id="chatButton">
+            <li>
+                <a href="#" class="chat-icon" id="chatButton">
+                    <span class="side-nav-icon">
                         <i class="fas fa-comments"></i>
                         <span class="chat-count" id="chatCount">0</span>
-                    </a>
-                    <a href="view_cart.php" class="cart-icon">
+                    </span>
+                    <span class="side-nav-label">Chat</span>
+                </a>
+            </li>
+            <li>
+                <a href="view_cart.php" class="cart-icon active" aria-current="page">
+                    <span class="side-nav-icon">
                         <i class="fas fa-shopping-cart"></i>
-                        <span class="cart-count"><?php echo $cart_count; ?></span>
-                    </a>
-                </div>
+                        <span class="cart-count"><?php echo $cart_count > 99 ? '99+' : $cart_count; ?></span>
+                    </span>
+                    <span class="side-nav-label">Cart</span>
+                </a>
+            </li>
 
-                <div class="user-info" id="user-info">
-                    <a href="../pages/website/profile.php" class="user-profile">
-                        <i class="fas fa-user"></i>
-                        <span class="user-name">
-                            <?php
-                            if (!empty($user_data['first_name'])) {
-                                echo htmlspecialchars($user_data['first_name']);
-                            } elseif (!empty($user_data['company_name'])) {
-                                echo htmlspecialchars($user_data['company_name']);
-                            } else {
-                                echo 'User';
-                            }
-                            ?>
-                        </span>
-                    </a>
-                    <a href="../accounts/logout.php" class="logout-btn">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </a>
-                </div>
+            <li class="side-nav-divider"></li>
 
-                <div class="mobile-menu-toggle">
-                    <i class="fas fa-bars"></i>
-                </div>
-            </nav>
-        </div>
-    </header>
+            <li>
+                <a href="../pages/website/profile.php" class="user-profile">
+                    <i class="fas fa-user"></i>
+                    <span class="side-nav-label user-name">
+                        <?php
+                        if (!empty($user_data['first_name'])) {
+                            echo htmlspecialchars($user_data['first_name']);
+                        } elseif (!empty($user_data['company_name'])) {
+                            echo htmlspecialchars($user_data['company_name']);
+                        } else {
+                            echo 'User';
+                        }
+                        ?>
+                    </span>
+                </a>
+            </li>
+            <li>
+                <a href="../accounts/logout.php" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="side-nav-label">Log Out</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
 
-    <!-- Checkout Section -->
-    <section class="checkout-page">
-        <div class="checkout-container">
-            <div class="checkout-header">
-                <h1><i class="fas fa-shopping-cart"></i> Checkout</h1>
-                <p>Review your order and complete your purchase</p>
+    <!-- Checkout Hero -->
+    <section class="co-hero hide">
+        <div class="container">
+            <div class="co-hero__texture halftone"></div>
+            <div class="co-hero-inner">
+                <span class="section-eyebrow"><span class="reg-mark"></span> Checkout</span>
+                <h1 class="co-hero-title">Review &amp; <span class="registered" data-text="pay.">pay.</span></h1>
+                <p class="co-hero-sub">Review your order and complete your purchase. Pay with GCash, then upload your proof of payment.</p>
             </div>
+        </div>
+    </section>
 
-            <div class="checkout-sections">
-                <!-- Left Column: Order Details -->
-                <div class="checkout-main">
-                    <!-- Customer Information -->
-                    <div class="checkout-section">
-                        <h2 class="section-title">
-                            <i class="fas fa-user"></i> Customer Information
-                        </h2>
-                        <div class="customer-details">
-                            <?php if ($user_data['customer_type'] === 'personal'): ?>
-                                <p>
-                                    <strong>Name:</strong>
-                                    <span><?php echo htmlspecialchars($user_data['first_name'] . ' ' . $user_data['last_name']); ?></span>
-                                </p>
-                                <p>
-                                    <strong>Contact:</strong>
-                                    <span><?php echo htmlspecialchars($user_data['personal_contact']); ?></span>
-                                </p>
-                                <p>
-                                    <strong>Address:</strong>
-                                    <span>
-                                        <?php echo htmlspecialchars(
-                                            $user_data['address_line1'] . ', ' .
-                                                $user_data['personal_city'] . ', ' .
-                                                $user_data['personal_province'] . ' ' .
-                                                $user_data['personal_zip']
-                                        ); ?>
-                                    </span>
-                                </p>
-                            <?php elseif ($user_data['customer_type'] === 'company'): ?>
-                                <p>
-                                    <strong>Company:</strong>
-                                    <span><?php echo htmlspecialchars($user_data['company_name']); ?></span>
-                                </p>
-                                <p>
-                                    <strong>Contact Person:</strong>
-                                    <span><?php echo htmlspecialchars($user_data['contact_person']); ?></span>
-                                </p>
-                                <p>
-                                    <strong>Contact Number:</strong>
-                                    <span><?php echo htmlspecialchars($user_data['company_contact']); ?></span>
-                                </p>
-                                <p>
-                                    <strong>Address:</strong>
-                                    <span>
-                                        <?php echo htmlspecialchars(
-                                            $user_data['subd_or_street'] . ' ' .
-                                                $user_data['building_or_block'] . ' ' .
-                                                $user_data['lot_or_room_no'] . ', ' .
-                                                $user_data['barangay'] . ', ' .
-                                                $user_data['company_city'] . ', ' .
-                                                $user_data['company_province'] . ' ' .
-                                                $user_data['company_zip']
-                                        ); ?>
-                                    </span>
-                                </p>
-                            <?php else: ?>
-                                <p>No customer details found.</p>
-                            <?php endif; ?>
+    <!-- Checkout Main -->
+    <section class="co-main hide">
+        <div class="container">
+
+            <ol class="co-steps" aria-label="Order progress">
+                <li class="co-step is-done">
+                    <span class="co-step__num"><i class="fas fa-check"></i></span>
+                    <span><strong>Select your orders</strong><small>Tick the items you want to quote</small></span>
+                </li>
+                <li class="co-step is-done">
+                    <span class="co-step__num"><i class="fas fa-check"></i></span>
+                    <span><strong>We confirm the price</strong><small>Our team reviews each job</small></span>
+                </li>
+                <li class="co-step is-current" aria-current="step">
+                    <span class="co-step__num">3</span>
+                    <span><strong>Check out</strong><small>Pay with GCash and upload proof</small></span>
+                </li>
+            </ol>
+
+            <div class="co-layout">
+
+                <!-- Left column: order details -->
+                <div class="co-stack">
+
+                    <!-- Customer information -->
+                    <section class="co-card" data-ink="cyan">
+                        <div class="co-card__head">
+                            <div class="co-card__title">
+                                <span class="co-card__icon"><i class="fas fa-user"></i></span>
+                                <div>
+                                    <h2>Customer information</h2>
+                                    <p>Where we'll reach you about this order.</p>
+                                </div>
+                            </div>
+                            <a href="../pages/website/edit_profile.php" class="co-link co-noprint"><i class="fas fa-pen"></i> Edit details</a>
                         </div>
-                    </div>
 
-                    <!-- Order Summary -->
-                    <div class="checkout-section">
-                        <h2 class="section-title">
-                            <i class="fas fa-receipt"></i> Order Summary
-                        </h2>
-                        <div class="order-summary-items">
-                            <?php foreach ($checkout_items as $item): ?>
-                                <div class="summary-item">
-                                    <div class="item-content">
-                                        <div class="item-image">
-                                            <?php
-                                            $image_path = "../assets/images/services/service-" . $item['id'] . ".jpg";
-                                            $image_url = file_exists($image_path) ? $image_path : "https://via.placeholder.com/100x100/2c5aa0/ffffff?text=Product";
-                                            ?>
-                                            <img src="<?php echo $image_url; ?>"
-                                                alt="<?php echo $item['product_name']; ?>">
-                                        </div>
+                        <dl class="co-info">
+                            <?php if ($customer_type === 'personal'): ?>
+                                <div>
+                                    <dt><i class="fas fa-user"></i> Name</dt>
+                                    <?php echo $dd($user_data['first_name'] . ' ' . $user_data['last_name']); ?>
+                                </div>
+                                <div>
+                                    <dt><i class="fas fa-phone"></i> Contact</dt>
+                                    <?php echo $dd($user_data['personal_contact']); ?>
+                                </div>
+                                <div class="is-wide">
+                                    <dt><i class="fas fa-map-marker-alt"></i> Address</dt>
+                                    <?php echo $dd($address_text); ?>
+                                </div>
+                            <?php elseif ($customer_type === 'company'): ?>
+                                <div>
+                                    <dt><i class="fas fa-building"></i> Company</dt>
+                                    <?php echo $dd($user_data['company_name']); ?>
+                                </div>
+                                <div>
+                                    <dt><i class="fas fa-user-tie"></i> Contact person</dt>
+                                    <?php echo $dd($user_data['contact_person']); ?>
+                                </div>
+                                <div>
+                                    <dt><i class="fas fa-phone"></i> Contact number</dt>
+                                    <?php echo $dd($user_data['company_contact']); ?>
+                                </div>
+                                <div class="is-wide">
+                                    <dt><i class="fas fa-map-marker-alt"></i> Address</dt>
+                                    <?php echo $dd($address_text); ?>
+                                </div>
+                            <?php else: ?>
+                                <div class="is-wide">
+                                    <dt><i class="fas fa-info-circle"></i> Details</dt>
+                                    <dd class="is-empty">No customer details found.</dd>
+                                </div>
+                            <?php endif; ?>
+                        </dl>
+                    </section>
 
-                                        <div class="item-details">
-                                            <p class="item-name"><?php echo htmlspecialchars($item['product_name']); ?></p>
-                                            <p class="item-category"><?php echo htmlspecialchars($item['product_group']); ?></p>
-                                            <p class="item-price">
-                                                <?php if ($item['has_admin_price']): ?>
-                                                    <span style="text-decoration: line-through; color: #999; margin-right: 10px;">
-                                                        ₱<?php echo number_format($item['unit_price'], 2); ?>
-                                                    </span>
-                                                    <span style="color: #e74c3c; font-weight: bold;">
-                                                        ₱<?php echo number_format($item['actual_price'], 2); ?>
-                                                    </span>
-                                                    <br><small style="color: #27ae60;">✓ Price confirmed by admin</small>
-                                                <?php else: ?>
-                                                    ₱<?php echo number_format($item['actual_price'], 2); ?> × <?php echo $item['quantity']; ?>
-                                                <?php endif; ?>
-                                            </p>
+                    <!-- Order summary -->
+                    <section class="co-card" data-ink="magenta">
+                        <div class="co-card__head">
+                            <div class="co-card__title">
+                                <span class="co-card__icon"><i class="fas fa-receipt"></i></span>
+                                <div>
+                                    <h2>Order summary</h2>
+                                    <p><?php echo count($checkout_items); ?> <?php echo count($checkout_items) === 1 ? 'job' : 'jobs'; ?> in this order</p>
+                                </div>
+                            </div>
+                            <a href="view_cart.php" class="co-link co-noprint"><i class="fas fa-arrow-left"></i> Back to cart</a>
+                        </div>
 
-                                            <!-- Display all customization options -->
-                                            <?php if (!empty($item['size_option']) || !empty($item['color_option']) || !empty($item['finish_option_name']) || !empty($item['paper_option_name']) || !empty($item['binding_option_name']) || !empty($item['layout_option_name']) || !empty($item['gsm_option'])): ?>
-                                                <div class="printing-details">
-                                                    <div class="details-row">
-                                                        <?php
-                                                        // Determine product type based on category
-                                                        $category = strtolower($item['product_group']);
-                                                        $isTshirt = strpos($category, 't-shirt') !== false || strpos($category, 'tshirt') !== false;
-                                                        $isTote = strpos($category, 'tote') !== false;
-                                                        $isPaperBag = strpos($category, 'paper bag') !== false;
-                                                        $isMug = strpos($category, 'mug') !== false;
-                                                        ?>
+                        <?php if (!$has_items): ?>
+                            <div class="co-empty">
+                                <i class="fas fa-box-open" aria-hidden="true"></i>
+                                <p>We couldn't find those items in your cart.</p>
+                                <a href="view_cart.php" class="btn btn-secondary">Back to cart</a>
+                            </div>
+                        <?php else: ?>
+                            <div class="co-items">
+                                <?php foreach ($checkout_items as $item):
+                                    $ink = co_ink_for_group($item['product_group']);
 
-                                                        <!-- Size Options -->
-                                                        <?php if (!empty($item['size_option'])): ?>
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">
-                                                                    <?php if ($isTshirt): ?>
-                                                                        T-Shirt Size:
-                                                                    <?php elseif ($isTote): ?>
-                                                                        Tote Bag Size:
-                                                                    <?php elseif ($isPaperBag): ?>
-                                                                        Paper Bag Size:
-                                                                    <?php elseif ($isMug): ?>
-                                                                        Mug Size:
-                                                                    <?php else: ?>
-                                                                        Size:
-                                                                    <?php endif; ?>
-                                                                </span>
-                                                                <span class="detail-value">
-                                                                    <?php
-                                                                    if (!empty($item['size_option_name'])) {
-                                                                        echo htmlspecialchars($item['size_option_name']);
-                                                                        if ($isPaperBag && !empty($item['paperbag_dimensions'])) {
-                                                                            echo '<br><small>(' . htmlspecialchars($item['paperbag_dimensions']) . ')</small>';
-                                                                        }
-                                                                    } else {
-                                                                        echo htmlspecialchars($item['size_option']);
-                                                                    }
-                                                                    ?>
-                                                                    <?php if (!empty($item['custom_size'])): ?>
-                                                                        <br><small>Custom: <?php echo htmlspecialchars($item['custom_size']); ?></small>
-                                                                    <?php endif; ?>
-                                                                </span>
-                                                            </div>
-                                                        <?php endif; ?>
+                                    // Product type. `product_group` holds the category ("Other Services"),
+                                    // so the product name is checked too, otherwise T-shirts, mugs and
+                                    // bags were never recognised.
+                                    $category   = strtolower($item['product_group'] . ' ' . $item['product_name']);
+                                    $isTshirt   = strpos($category, 't-shirt') !== false || strpos($category, 'tshirt') !== false;
+                                    $isTote     = strpos($category, 'tote') !== false;
+                                    $isPaperBag = strpos($category, 'paper bag') !== false;
+                                    $isMug      = strpos($category, 'mug') !== false;
 
-                                                        <!-- Color Options -->
-                                                        <?php if (!empty($item['color_option'])): ?>
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">
-                                                                    <?php if ($isTshirt): ?>
-                                                                        T-Shirt Color:
-                                                                    <?php elseif ($isTote): ?>
-                                                                        Tote Bag Color:
-                                                                    <?php elseif ($isMug): ?>
-                                                                        Mug Color:
-                                                                    <?php else: ?>
-                                                                        Color:
-                                                                    <?php endif; ?>
-                                                                </span>
-                                                                <span class="detail-value">
-                                                                    <?php
-                                                                    if (!empty($item['color_option_name'])) {
-                                                                        echo htmlspecialchars($item['color_option_name']);
-                                                                    } else {
-                                                                        echo htmlspecialchars($item['color_option']);
-                                                                    }
-                                                                    ?>
-                                                                    <?php if (!empty($item['custom_color'])): ?>
-                                                                        <br><small>Custom: <?php echo htmlspecialchars($item['custom_color']); ?></small>
-                                                                    <?php endif; ?>
-                                                                </span>
-                                                            </div>
-                                                        <?php endif; ?>
+                                    $image_path = "../assets/images/services/service-" . $item['id'] . ".jpg";
+                                    $has_image  = file_exists($image_path);
 
-                                                        <!-- Printing Options (only show for printing products) -->
-                                                        <?php if (!$isTshirt && !$isTote && !$isPaperBag && !$isMug): ?>
-                                                            <?php if (!empty($item['finish_option_name'])): ?>
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">Finish:</span>
-                                                                    <span class="detail-value"><?php echo htmlspecialchars($item['finish_option_name']); ?></span>
-                                                                </div>
-                                                            <?php endif; ?>
+                                    // ---- Customisation options -> chips ----
+                                    $chips = [];
 
-                                                            <?php if (!empty($item['paper_option_name'])): ?>
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">Paper:</span>
-                                                                    <span class="detail-value"><?php echo htmlspecialchars($item['paper_option_name']); ?></span>
-                                                                </div>
-                                                            <?php endif; ?>
+                                    if (!empty($item['size_option'])) {
+                                        $size_label = $isTshirt ? 'T-Shirt Size' : ($isTote ? 'Tote Bag Size' : ($isPaperBag ? 'Paper Bag Size' : ($isMug ? 'Mug Size' : 'Size')));
+                                        if (!empty($item['size_option_name'])) {
+                                            $size_html = co_h($item['size_option_name']);
+                                            if ($isPaperBag && !empty($item['paperbag_dimensions'])) {
+                                                $size_html .= '<br><small>(' . co_h($item['paperbag_dimensions']) . ')</small>';
+                                            }
+                                        } else {
+                                            $size_html = co_h($item['size_option']);
+                                        }
+                                        if (!empty($item['custom_size'])) {
+                                            $size_html .= '<br><small>Custom: ' . co_h($item['custom_size']) . '</small>';
+                                        }
+                                        $chips[] = [$size_label, $size_html];
+                                    }
 
-                                                            <?php if (!empty($item['binding_option_name'])): ?>
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">Binding:</span>
-                                                                    <span class="detail-value"><?php echo htmlspecialchars($item['binding_option_name']); ?></span>
-                                                                </div>
-                                                            <?php endif; ?>
+                                    if (!empty($item['color_option'])) {
+                                        $color_label = $isTshirt ? 'T-Shirt Color' : ($isTote ? 'Tote Bag Color' : ($isMug ? 'Mug Color' : 'Color'));
+                                        $color_html  = !empty($item['color_option_name']) ? co_h($item['color_option_name']) : co_h($item['color_option']);
+                                        if (!empty($item['custom_color'])) {
+                                            $color_html .= '<br><small>Custom: ' . co_h($item['custom_color']) . '</small>';
+                                        }
+                                        $chips[] = [$color_label, $color_html];
+                                    }
 
-                                                            <?php if (!empty($item['layout_option_name'])): ?>
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">Layout Type:</span>
-                                                                    <span class="detail-value">
-                                                                        <?php echo htmlspecialchars($item['layout_option_name']); ?>
-                                                                        <?php if (!empty($item['layout_details'])): ?>
-                                                                            <br><small>Details: <?php echo htmlspecialchars($item['layout_details']); ?></small>
-                                                                        <?php endif; ?>
-                                                                    </span>
-                                                                </div>
-                                                            <?php endif; ?>
+                                    // Printing options only apply to printing products
+                                    if (!$isTshirt && !$isTote && !$isPaperBag && !$isMug) {
+                                        if (!empty($item['finish_option_name'])) {
+                                            $chips[] = ['Finish', co_h($item['finish_option_name'])];
+                                        }
+                                        if (!empty($item['paper_option_name'])) {
+                                            $chips[] = ['Paper', co_h($item['paper_option_name'])];
+                                        }
+                                        if (!empty($item['binding_option_name'])) {
+                                            $chips[] = ['Binding', co_h($item['binding_option_name'])];
+                                        }
+                                        if (!empty($item['layout_option_name'])) {
+                                            $layout_html = co_h($item['layout_option_name']);
+                                            if (!empty($item['layout_details'])) {
+                                                $layout_html .= '<br><small>Details: ' . co_h($item['layout_details']) . '</small>';
+                                            }
+                                            $chips[] = ['Layout Type', $layout_html];
+                                        }
+                                        if (!empty($item['gsm_option'])) {
+                                            $chips[] = ['GSM', co_h($item['gsm_option'])];
+                                        }
+                                    }
 
-                                                            <?php if (!empty($item['gsm_option'])): ?>
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">GSM:</span>
-                                                                    <span class="detail-value"><?php echo htmlspecialchars($item['gsm_option']); ?></span>
-                                                                </div>
-                                                            <?php endif; ?>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                </div>
-                                            <?php endif; ?>
+                                    // ---- Custom design previews ----
+                                    $tiles = [];
+                                    $uploadType = '';
+                                    if (!empty($item['design_image'])) {
+                                        $designData = $item['design_image'];
+                                        $frontMockup = '';
+                                        $backMockup = '';
+                                        $uploadedFile = '';
+                                        $frontUploadedFile = '';
+                                        $backUploadedFile = '';
+                                        $uploadType = '';
 
-                                            <!-- Custom Design Previews -->
-                                            <?php
-                                            if (!empty($item['design_image'])) {
-                                                $designData = $item['design_image'];
-                                                $frontMockup = '';
-                                                $backMockup = '';
-                                                $uploadedFile = '';
-                                                $frontUploadedFile = '';
-                                                $backUploadedFile = '';
-                                                $uploadType = '';
+                                        // Check if it's JSON format
+                                        $isJson = false;
+                                        $designArray = json_decode($designData, true);
 
-                                                // Check if it's JSON format
-                                                $isJson = false;
-                                                $designArray = json_decode($designData, true);
+                                        if (json_last_error() === JSON_ERROR_NONE && is_array($designArray)) {
+                                            $isJson = true;
+                                            $uploadType = $designArray['upload_type'] ?? 'single';
 
+                                            // Get ALL images - FIXED: Extract all file types
+                                            $frontMockup = $designArray['front_mockup'] ?? '';
+                                            $backMockup = $designArray['back_mockup'] ?? '';
+                                            $uploadedFile = $designArray['uploaded_file'] ?? '';
+                                            $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
+                                            $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
+
+                                        } else {
+                                            // Try to fix JSON if it's malformed
+                                            if (preg_match('/\{.*\}/', $designData)) {
+                                                $fixedJson = str_replace('\"', '"', $designData);
+                                                $fixedJson = stripslashes($fixedJson);
+
+                                                $designArray = json_decode($fixedJson, true);
                                                 if (json_last_error() === JSON_ERROR_NONE && is_array($designArray)) {
                                                     $isJson = true;
                                                     $uploadType = $designArray['upload_type'] ?? 'single';
-                                                    
-                                                    // Get ALL images - FIXED: Extract all file types
                                                     $frontMockup = $designArray['front_mockup'] ?? '';
                                                     $backMockup = $designArray['back_mockup'] ?? '';
                                                     $uploadedFile = $designArray['uploaded_file'] ?? '';
                                                     $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
                                                     $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
-                                                    
-                                                } else {
-                                                    // Try to fix JSON if it's malformed
-                                                    if (preg_match('/\{.*\}/', $designData)) {
-                                                        $fixedJson = str_replace('\"', '"', $designData);
-                                                        $fixedJson = stripslashes($fixedJson);
-                                                        
-                                                        $designArray = json_decode($fixedJson, true);
-                                                        if (json_last_error() === JSON_ERROR_NONE && is_array($designArray)) {
-                                                            $isJson = true;
-                                                            $uploadType = $designArray['upload_type'] ?? 'single';
-                                                            $frontMockup = $designArray['front_mockup'] ?? '';
-                                                            $backMockup = $designArray['back_mockup'] ?? '';
-                                                            $uploadedFile = $designArray['uploaded_file'] ?? '';
-                                                            $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
-                                                            $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
-                                                        }
-                                                    } else {
-                                                        // Legacy format - single image
-                                                        $uploadedFile = $designData;
-                                                        $uploadType = 'single';
-                                                    }
                                                 }
+                                            } else {
+                                                // Legacy format - single image
+                                                $uploadedFile = $designData;
+                                                $uploadType = 'single';
+                                            }
+                                        }
 
-                                                // Display design previews if we have valid images
-                                                $hasDesigns = !empty($frontMockup) || !empty($backMockup) || !empty($uploadedFile) || !empty($frontUploadedFile) || !empty($backUploadedFile);
+                                        // Display design previews if we have valid images
+                                        $hasDesigns = !empty($frontMockup) || !empty($backMockup) || !empty($uploadedFile) || !empty($frontUploadedFile) || !empty($backUploadedFile);
 
-                                                if ($hasDesigns): ?>
-                                                    <div class="custom-design-section">
-                                                        <div class="custom-design-title">
-                                                            <i class="fas fa-palette"></i> Custom Design
-                                                            <span style="font-size: 0.8em; color: var(--text-light); margin-left: 10px;">
-                                                                (<?php echo $uploadType === 'single' ? 'Same design for both sides' : 'Different designs for front/back'; ?>)
-                                                            </span>
+                                        if ($uploadType === 'single' && !empty($uploadedFile)) {
+                                            $tiles[] = ['Original File', $uploadedFile, 'fa-file-image'];
+                                        }
+                                        if (!empty($frontUploadedFile)) {
+                                            $tiles[] = ['Front Original', $frontUploadedFile, 'fa-file-image'];
+                                        }
+                                        if (!empty($backUploadedFile)) {
+                                            $tiles[] = ['Back Original', $backUploadedFile, 'fa-file-image'];
+                                        }
+                                        if (!empty($frontMockup)) {
+                                            $tiles[] = ['Front Mockup', $frontMockup, 'fa-image'];
+                                        }
+                                        if (!empty($backMockup)) {
+                                            $tiles[] = ['Back Mockup', $backMockup, 'fa-image'];
+                                        }
+                                    }
+                                ?>
+                                    <article class="co-item" data-ink="<?php echo $ink; ?>">
+                                        <div class="co-item__image">
+                                            <?php if ($has_image): ?>
+                                                <img src="<?php echo co_h($image_path); ?>" alt="<?php echo co_h($item['product_name']); ?>" loading="lazy">
+                                            <?php else: ?>
+                                                <i class="fas fa-image" aria-hidden="true"></i>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <div class="co-item__body">
+                                            <span class="co-item__group"><?php echo co_h($item['product_group']); ?></span>
+                                            <h3 class="co-item__name"><?php echo co_h($item['product_name']); ?></h3>
+                                            <p class="co-item__price">
+                                                <?php if ($item['has_admin_price']): ?>
+                                                    <s>₱<?php echo number_format($item['unit_price'], 2); ?></s>
+                                                <?php endif; ?>
+                                                <strong>₱<?php echo number_format($item['actual_price'], 2); ?></strong>
+                                                <span>× <?php echo (int) $item['quantity']; ?></span>
+                                                <?php if ($item['has_admin_price']): ?>
+                                                    <span class="co-tag"><i class="fas fa-check"></i> Price confirmed by admin</span>
+                                                <?php endif; ?>
+                                            </p>
+                                        </div>
+
+                                        <div class="co-item__total">₱<?php echo number_format($item['actual_price'] * $item['quantity'], 2); ?></div>
+
+                                        <?php if (!empty($chips) || !empty($tiles)): ?>
+                                            <div class="co-item__extras">
+                                                <?php if (!empty($chips)): ?>
+                                                    <div class="co-details">
+                                                        <?php foreach ($chips as $chip): ?>
+                                                            <div class="co-detail">
+                                                                <span class="co-detail__label"><?php echo $chip[0]; ?></span>
+                                                                <span class="co-detail__value"><?php echo $chip[1]; ?></span>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <?php if (!empty($tiles)): ?>
+                                                    <div class="co-design">
+                                                        <div class="co-design__title">
+                                                            <span><i class="fas fa-palette"></i> Custom design</span>
+                                                            <small>(<?php echo $uploadType === 'single' ? 'Same design for both sides' : 'Different designs for front/back'; ?>)</small>
                                                         </div>
-                                                        <div class="design-previews">
-                                                            <?php
-                                                            // Show uploaded original files
-                                                            if ($uploadType === 'single' && !empty($uploadedFile)):
-                                                                $uploadedFilePath = "../assets/uploads/" . $uploadedFile;
-                                                                $uploadedFileExists = file_exists($uploadedFilePath);
+                                                        <div class="co-design__tiles">
+                                                            <?php foreach ($tiles as $tile):
+                                                                $tile_path   = "../assets/uploads/" . $tile[1];
+                                                                $tile_exists = file_exists($tile_path);
                                                             ?>
-                                                                <div class="design-preview">
-                                                                    <?php if ($uploadedFileExists): ?>
-                                                                        <img src="<?php echo $uploadedFilePath; ?>"
-                                                                            alt="Original Design File">
+                                                                <figure class="co-tile">
+                                                                    <?php if ($tile_exists): ?>
+                                                                        <a href="<?php echo co_h($tile_path); ?>" target="_blank" rel="noopener">
+                                                                            <img src="<?php echo co_h($tile_path); ?>" alt="<?php echo co_h($tile[0]); ?>" loading="lazy">
+                                                                        </a>
                                                                     <?php else: ?>
-                                                                        <div class="design-placeholder">
-                                                                            <i class="fas fa-file-image" style="font-size: 24px; color: #999;"></i>
-                                                                        </div>
+                                                                        <div class="co-tile__missing" title="Preview not available"><i class="fas <?php echo $tile[2]; ?>"></i></div>
                                                                     <?php endif; ?>
-                                                                    <div class="design-label">Original File</div>
-                                                                </div>
-                                                            <?php endif; ?>
-
-                                                            <?php if (!empty($frontUploadedFile) || !empty($backUploadedFile)): ?>
-                                                                <?php if (!empty($frontUploadedFile)):
-                                                                    $frontUploadedFilePath = "../assets/uploads/" . $frontUploadedFile;
-                                                                    $frontUploadedFileExists = file_exists($frontUploadedFilePath);
-                                                                ?>
-                                                                    <div class="design-preview">
-                                                                        <?php if ($frontUploadedFileExists): ?>
-                                                                            <img src="<?php echo $frontUploadedFilePath; ?>"
-                                                                                alt="Front Original Design">
-                                                                        <?php else: ?>
-                                                                            <div class="design-placeholder">
-                                                                                <i class="fas fa-file-image" style="font-size: 24px; color: #999;"></i>
-                                                                            </div>
-                                                                        <?php endif; ?>
-                                                                        <div class="design-label">Front Original</div>
-                                                                    </div>
-                                                                <?php endif; ?>
-
-                                                                <?php if (!empty($backUploadedFile)):
-                                                                    $backUploadedFilePath = "../assets/uploads/" . $backUploadedFile;
-                                                                    $backUploadedFileExists = file_exists($backUploadedFilePath);
-                                                                ?>
-                                                                    <div class="design-preview">
-                                                                        <?php if ($backUploadedFileExists): ?>
-                                                                            <img src="<?php echo $backUploadedFilePath; ?>"
-                                                                                alt="Back Original Design">
-                                                                        <?php else: ?>
-                                                                            <div class="design-placeholder">
-                                                                                <i class="fas fa-file-image" style="font-size: 24px; color: #999;"></i>
-                                                                            </div>
-                                                                        <?php endif; ?>
-                                                                        <div class="design-label">Back Original</div>
-                                                                    </div>
-                                                                <?php endif; ?>
-                                                            <?php endif; ?>
-
-                                                            <!-- Mockup Previews -->
-                                                            <?php
-                                                            // Front mockup
-                                                            if (!empty($frontMockup)):
-                                                                $frontMockupPath = "../assets/uploads/" . $frontMockup;
-                                                                $frontMockupExists = file_exists($frontMockupPath);
-                                                            ?>
-                                                                <div class="design-preview">
-                                                                    <?php if ($frontMockupExists): ?>
-                                                                        <img src="<?php echo $frontMockupPath; ?>"
-                                                                            alt="Front Mockup">
-                                                                    <?php else: ?>
-                                                                        <div class="design-placeholder" style="border-color: var(--primary-color);">
-                                                                            <i class="fas fa-image" style="font-size: 24px; color: var(--primary-color);"></i>
-                                                                        </div>
-                                                                    <?php endif; ?>
-                                                                    <div class="design-label">Front Mockup</div>
-                                                                </div>
-                                                            <?php endif; ?>
-
-                                                            <?php
-                                                            // Back mockup
-                                                            if (!empty($backMockup)):
-                                                                $backMockupPath = "../assets/uploads/" . $backMockup;
-                                                                $backMockupExists = file_exists($backMockupPath);
-                                                            ?>
-                                                                <div class="design-preview">
-                                                                    <?php if ($backMockupExists): ?>
-                                                                        <img src="<?php echo $backMockupPath; ?>"
-                                                                            alt="Back Mockup">
-                                                                    <?php else: ?>
-                                                                        <div class="design-placeholder" style="border-color: var(--primary-color);">
-                                                                            <i class="fas fa-image" style="font-size: 24px; color: var(--primary-color);"></i>
-                                                                        </div>
-                                                                    <?php endif; ?>
-                                                                    <div class="design-label">Back Mockup</div>
-                                                                </div>
-                                                            <?php endif; ?>
+                                                                    <figcaption><?php echo co_h($tile[0]); ?></figcaption>
+                                                                </figure>
+                                                            <?php endforeach; ?>
                                                         </div>
                                                     </div>
-                                            <?php endif;
-                                            }
-                                            ?>
-                                        </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </article>
+                                <?php endforeach; ?>
+                            </div>
 
-                                        <div class="item-total">
-                                            ₱<?php echo number_format($item['actual_price'] * $item['quantity'], 2); ?>
-                                        </div>
-                                    </div>
+                            <div class="co-totals">
+                                <div class="co-totals__row">
+                                    <span>Subtotal</span>
+                                    <span>₱<?php echo number_format($subtotal, 2); ?></span>
                                 </div>
-                            <?php endforeach; ?>
-                        </div>
+                                <div class="co-totals__row">
+                                    <span>Tax (3%)</span>
+                                    <span>₱<?php echo number_format($tax, 2); ?></span>
+                                </div>
+                                <div class="co-totals__row co-totals__row--total">
+                                    <span>Total amount</span>
+                                    <span>₱<?php echo number_format($total, 2); ?></span>
+                                </div>
+                            </div>
 
-                        <div class="summary-totals">
-                            <div class="summary-row">
-                                <span>Subtotal:</span>
-                                <span>₱<?php echo number_format($subtotal, 2); ?></span>
-                            </div>
-                            <div class="summary-row">
-                                <span>Tax (3%):</span>
-                                <span>₱<?php echo number_format($tax, 2); ?></span>
-                            </div>
-                            <div class="summary-row total-row">
-                                <span>Total Amount:</span>
-                                <span>₱<?php echo number_format($total, 2); ?></span>
-                            </div>
-                        </div>
-                    </div>
+                            <button type="button" class="btn btn-secondary co-print co-noprint" onclick="window.print()">
+                                <i class="fas fa-print"></i> Print order summary
+                            </button>
+                        <?php endif; ?>
+                    </section>
                 </div>
 
-                <!-- Right Column: Payment -->
-                <div class="payment-section">
-                    <h2 class="section-title">
-                        <i class="fas fa-credit-card"></i> Payment Method
-                    </h2>
+                <!-- Right column: payment -->
+                <aside class="co-pay">
+                    <div class="co-pay__bar" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+                    <div class="co-pay__body">
+                        <span class="section-eyebrow"><span class="reg-mark"></span> Payment method</span>
+                        <h2>Pay with InstaPay</h2>
 
-                    <div class="qr-code-container">
-                        <h3>GCash Payment</h3>
-                        <div class="qr-code-image">
-                            <img src="../assets/images/gcash-qr.jpg" alt="GCash QR Code">
+                        <div class="co-amount">
+                            <span>Amount to pay</span>
+                            <strong>₱<?php echo number_format($total, 2); ?></strong>
                         </div>
-                        <div class="payment-details">
-                            <div class="payment-detail">
-                                <strong>GCash Number:</strong>
-                                <span>0998-791-****</span>
-                            </div>
-                            <div class="payment-detail">
-                                <strong>Account Name:</strong>
-                                <span>WI******A L.</span>
-                            </div>
-                            <div class="payment-detail">
-                                <strong>Amount to Pay:</strong>
-                                <span style="color: #27ae60; font-weight: bold;">₱<?php echo number_format($total, 2); ?></span>
-                            </div>
+
+                        <div class="co-payto">
+                            <a href="../assets/images/gcash-qr.jpg" target="_blank" rel="noopener" class="co-qr" title="Open the QR code full size">
+                                <img src="../assets/images/gcash-qr.jpg" alt="GCash QR Code">
+                                <p style="font-size: 0.6rem; color: #666; text-align: center; margin-top: 0.5rem;">
+                                    Transfer fees may apply.
+                                </p>
+                            </a>
+                            <dl class="co-gcash">
+                                <div>
+                                    <dt>GCash number</dt>
+                                    <dd>0998-791-6018</dd>
+                                </div>
+                                <div>
+                                    <dt>Account name</dt>
+                                    <dd>WI******A L.</dd>
+                                </div>
+                            </dl>
                         </div>
+
+                        <form action="../pages/website/process_order.php" method="post" enctype="multipart/form-data" id="checkoutForm" novalidate>
+                            <input type="hidden" name="selected_items" value="<?php echo co_h(implode(',', $selected_items)); ?>">
+                            <input type="hidden" name="total_amount" value="<?php echo co_h($total); ?>">
+
+                            <div class="co-upload" id="uploadBox">
+                                <input type="file" name="payment_proof" id="payment_proof" accept="image/*,.pdf" class="co-upload__input" required>
+                                <label for="payment_proof" class="co-upload__drop">
+                                    <span class="co-upload__icon"><i class="fas fa-upload"></i></span>
+                                    <span class="co-upload__text">
+                                        <strong>Upload payment proof</strong>
+                                        <small>Screenshot of your GCash payment confirmation (JPG, PNG or PDF, up to 5MB)</small>
+                                    </span>
+                                </label>
+                                <div class="co-upload__file" id="uploadFile">
+                                    <span class="co-upload__thumb" id="uploadThumb"><i class="fas fa-file-image"></i></span>
+                                    <span class="co-upload__meta">
+                                        <strong id="uploadName"></strong>
+                                        <small id="uploadSize"></small>
+                                    </span>
+                                    <button type="button" class="co-upload__remove" id="uploadRemove" aria-label="Remove file">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <p class="co-upload__error" id="uploadError" role="alert" hidden></p>
+                            </div>
+
+                            <div class="co-howto">
+                                <h3>Payment instructions</h3>
+                                <ol>
+                                    <li>Scan the QR code or send payment to our GCash number</li>
+                                    <li>Take a screenshot of your payment confirmation</li>
+                                    <li>Upload the screenshot as proof of payment</li>
+                                    <li>Your order will be processed within 24 hours</li>
+                                    <li>You will receive order updates via email/SMS</li>
+                                </ol>
+                            </div>
+
+                        </form>
                     </div>
 
-                    <form action="../pages/website/process_order.php" method="post" enctype="multipart/form-data" class="upload-section">
-                        <input type="hidden" name="selected_items" value="<?php echo implode(',', $selected_items); ?>">
-                        <input type="hidden" name="total_amount" value="<?php echo $total; ?>">
-
-                        <div class="file-upload">
-                            <label for="payment_proof" class="file-upload-label">
-                                <i class="fas fa-upload"></i> Upload Payment Proof
-                            </label>
-                            <input type="file" name="payment_proof" id="payment_proof" accept="image/*,.pdf" class="file-input" required>
-                            <small style="display: block; margin-top: 8px; color: var(--text-light);">
-                                Upload screenshot of your GCash payment confirmation (JPG, PNG, or PDF)
-                            </small>
-                        </div>
-
-                        <div class="instructions">
-                            <h4>Payment Instructions</h4>
-                            <ul>
-                                <li>Scan the QR code or send payment to our GCash number</li>
-                                <li>Take a screenshot of your payment confirmation</li>
-                                <li>Upload the screenshot as proof of payment</li>
-                                <li>Your order will be processed within 24 hours</li>
-                                <li>You will receive order updates via email/SMS</li>
-                            </ul>
-                        </div>
-
-                        <button type="submit" class="checkout-btn" id="confirm-order-btn">
-                            <i class="fas fa-check"></i> Confirm Order
+                    <div class="co-pay__foot">
+                        <button type="submit" form="checkoutForm" class="btn btn-primary co-submit" id="confirm-order-btn"<?php echo $has_items ? '' : ' disabled'; ?>>
+                            <i class="fas fa-check"></i> Confirm order
                         </button>
-                    </form>
-                </div>
+                    </div>
+                </aside>
+
             </div>
         </div>
     </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>AMDP</h3>
+                    <p>Professional printing services with quality, speed, and precision for all your business needs.</p>
+                    <div class="social-icons">
+                        <a href="https://www.facebook.com/profile.php?id=100063881538670"><i class="fab fa-facebook-f"></i></a>
+                        <a href=""><i class="fab fa-twitter"></i></a>
+                        <a href=""><i class="fab fa-instagram"></i></a>
+                        <a href=""><i class="fab fa-linkedin-in"></i></a>
+                    </div>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Services</h3>
+                    <ul>
+                        <li><a href="main.php#offset">Offset Printing</a></li>
+                        <li><a href="main.php#digital">Digital Printing</a></li>
+                        <li><a href="main.php#riso">RISO Printing</a></li>
+                        <li><a href="main.php#other">Other Services</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Company</h3>
+                    <ul>
+                        <li><a href="about.php">About Us</a></li>
+                        <li><a href="about.php">Our Team</a></li>
+                        <li><a href="about.php">Careers</a></li>
+                        <li><a href="about.php">Testimonials</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Support</h3>
+                    <ul>
+                        <li><a href="contact.php">Contact Us</a></li>
+                        <li><a href="contact.php">FAQ</a></li>
+                        <li><a href="contact.php">Shipping Info</a></li>
+                        <li><a href="contact.php">Returns</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Contact Info</h3>
+                    <ul class="contact-info">
+                        <li><i class="fas fa-map-marker-alt"></i>Fausta Rd Lucero St Mabolo, Malolos, Philippines</li>
+                        <li><i class="fas fa-phone"></i> (044) 796-4101</li>
+                        <li><i class="fas fa-envelope"></i> activemediaprint@gmail.com</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <div class="copyright">
+                    <p>&copy; 2025 Active Media Designs & Printing. All rights reserved.</p>
+                </div>
+                <div class="footer-links">
+                    <a href="">Privacy Policy</a>
+                    <a href="">Terms of Service</a>
+                    <a href="">Cookie Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
 
     <!-- Chat Widget -->
     <div class="chat-widget" id="chatWidget">
@@ -1225,127 +772,146 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
     <script src="../assets/js/main.js"></script>
     <script>
-        // Checkout-specific JavaScript that extends the main script.js
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize checkout functionality
-            setupCheckout();
-        });
+        // Checkout: payment-proof upload (validation, preview, drag & drop) and submit state
+        (function () {
+            'use strict';
 
-        function setupCheckout() {
-            const confirmOrderBtn = document.getElementById('confirm-order-btn');
-            const paymentProofInput = document.getElementById('payment_proof');
-            const checkoutForm = document.querySelector('form');
+            var form      = document.getElementById('checkoutForm');
+            if (!form) return;
 
-            // File upload validation
-            if (paymentProofInput) {
-                paymentProofInput.addEventListener('change', function(e) {
-                    const file = e.target.files[0];
-                    if (file) {
-                        const fileSize = file.size / 1024 / 1024; // MB
-                        const fileType = file.type;
+            var input     = document.getElementById('payment_proof');
+            var box       = document.getElementById('uploadBox');
+            var thumb     = document.getElementById('uploadThumb');
+            var nameEl    = document.getElementById('uploadName');
+            var sizeEl    = document.getElementById('uploadSize');
+            var removeBtn = document.getElementById('uploadRemove');
+            var errorEl   = document.getElementById('uploadError');
+            var submitBtn = document.getElementById('confirm-order-btn');
+            var submitHtml = submitBtn ? submitBtn.innerHTML : '';
+            var MAX_MB    = 5;
+            var previewUrl = null;
 
-                        // Validate file type
-                        if (!fileType.match('image/*') && fileType !== 'application/pdf') {
-                            alert('Please upload only image files (JPG, PNG) or PDF files.');
-                            this.value = '';
-                            return;
-                        }
-
-                        // Validate file size (max 5MB)
-                        if (fileSize > 5) {
-                            alert('File size must be less than 5MB.');
-                            this.value = '';
-                            return;
-                        }
-
-                        // Show file name
-                        console.log('File selected:', file.name);
-                    }
-                });
+            function showError(message) {
+                errorEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + message;
+                errorEl.hidden = false;
+                box.classList.add('has-error');
             }
 
-            // Form submission handling
-            if (checkoutForm) {
-                checkoutForm.addEventListener('submit', function(e) {
-                    if (!paymentProofInput.value) {
-                        e.preventDefault();
-                        alert('Please upload your payment proof before confirming the order.');
-                        paymentProofInput.focus();
-                        return;
-                    }
-
-                    // Show loading state
-                    if (confirmOrderBtn) {
-                        confirmOrderBtn.disabled = true;
-                        confirmOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-                    }
-
-                    // Form will submit normally
-                });
+            function clearError() {
+                errorEl.hidden = true;
+                errorEl.textContent = '';
+                box.classList.remove('has-error');
             }
 
-            // Add smooth scrolling for better UX
-            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-                anchor.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const target = document.querySelector(this.getAttribute('href'));
-                    if (target) {
-                        target.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start'
-                        });
-                    }
-                });
+            function resetFile() {
+                input.value = '';
+                box.classList.remove('has-file');
+                if (previewUrl) {
+                    URL.revokeObjectURL(previewUrl);
+                    previewUrl = null;
+                }
+            }
+
+            function formatSize(bytes) {
+                return bytes >= 1048576
+                    ? (bytes / 1048576).toFixed(1) + ' MB'
+                    : Math.max(1, Math.round(bytes / 1024)) + ' KB';
+            }
+
+            function handleFile(file) {
+                clearError();
+                if (!file) {
+                    resetFile();
+                    return;
+                }
+
+                // Validate file type
+                if (file.type.indexOf('image/') !== 0 && file.type !== 'application/pdf') {
+                    resetFile();
+                    showError('Please upload only image files (JPG, PNG) or PDF files.');
+                    return;
+                }
+
+                // Validate file size (max 5MB)
+                if (file.size / 1024 / 1024 > MAX_MB) {
+                    resetFile();
+                    showError('File size must be less than 5MB.');
+                    return;
+                }
+
+                // Show what was chosen
+                nameEl.textContent = file.name;
+                sizeEl.textContent = formatSize(file.size);
+                if (previewUrl) URL.revokeObjectURL(previewUrl);
+
+                if (file.type.indexOf('image/') === 0) {
+                    previewUrl = URL.createObjectURL(file);
+                    thumb.innerHTML = '<img src="' + previewUrl + '" alt="">';
+                } else {
+                    previewUrl = null;
+                    thumb.innerHTML = '<i class="fas fa-file-pdf"></i>';
+                }
+                box.classList.add('has-file');
+            }
+
+            input.addEventListener('change', function () {
+                handleFile(input.files[0]);
             });
 
-            // Add print functionality for order summary
-            const printOrderSummary = () => {
-                const orderContent = document.querySelector('.checkout-main').innerHTML;
-                const printWindow = window.open('', '_blank');
-                printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Order Summary - Active Media</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; padding: 20px; }
-                        .section-title { color: #2c3e50; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
-                        .summary-item { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
-                        .total-row { font-weight: bold; color: #27ae60; border-top: 2px solid #eee; padding-top: 10px; }
-                    </style>
-                </head>
-                <body>
-                    <h1>Order Summary - Active Media</h1>
-                    ${orderContent}
-                </body>
-                </html>
-            `);
-                printWindow.document.close();
-                printWindow.print();
-            };
+            removeBtn.addEventListener('click', function () {
+                resetFile();
+                clearError();
+                input.focus();
+            });
 
-            // Add print button dynamically
-            const printBtn = document.createElement('button');
-            printBtn.innerHTML = '<i class="fas fa-print"></i> Print Order Summary';
-            printBtn.style.cssText = `
-            padding: 10px 20px;
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            margin-top: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        `;
-            printBtn.addEventListener('click', printOrderSummary);
+            // Drag & drop onto the drop area
+            ['dragenter', 'dragover'].forEach(function (type) {
+                box.addEventListener(type, function (e) {
+                    e.preventDefault();
+                    box.classList.add('is-drag');
+                });
+            });
+            ['dragleave', 'drop'].forEach(function (type) {
+                box.addEventListener(type, function (e) {
+                    e.preventDefault();
+                    box.classList.remove('is-drag');
+                });
+            });
+            box.addEventListener('drop', function (e) {
+                if (!e.dataTransfer || !e.dataTransfer.files.length) return;
+                try {
+                    input.files = e.dataTransfer.files;
+                } catch (err) {
+                    return;
+                }
+                handleFile(input.files[0]);
+            });
 
-            const orderSummarySection = document.querySelector('.checkout-section:last-child .summary-totals');
-            if (orderSummarySection) {
-                orderSummarySection.appendChild(printBtn);
-            }
-        }
+            // Form submission handling
+            form.addEventListener('submit', function (e) {
+                if (!input.files.length) {
+                    e.preventDefault();
+                    showError('Please upload your payment proof before confirming the order.');
+                    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    input.focus();
+                    return;
+                }
+
+                // Show loading state; the form then submits normally
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                }
+            });
+
+            // Coming back with the Back button shouldn't leave the button stuck on "Processing..."
+            window.addEventListener('pageshow', function (e) {
+                if (e.persisted && submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = submitHtml;
+                }
+            });
+        })();
     </script>
     <script>
         // Chat functionality

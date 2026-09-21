@@ -1882,3 +1882,86 @@ Trying alternative: ../../assets/uploads/save_design/16/front_design_1764311843_
 Total design files deleted: 3
 === END DELETE DESIGN FILES DEBUG ===
 
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1778455704_6a011498e62fd.png\",\"back_mockup\":\"save_design/16/back_mockup_1778455704_6a011498e712e.png\",\"front_uploaded_file\":\"save_design/16/front_design_1778455704_6a011498e75e2.png\",\"back_uploaded_file\":\"save_design/16/back_design_1778455704_6a011498e77cd.png\",\"upload_type\":\"both_sides\",\"has_front_design\":\"1\",\"has_back_design\":\"1\",\"front_design_position\":{\"x\":384,\"y\":95,\"width\":50,\"height\":50},\"back_design_position\":{\"x\":295,\"y\":84,\"width\":141,\"height\":140}}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1778455704_6a011498e62fd.png
+    [back_mockup] => save_design/16/back_mockup_1778455704_6a011498e712e.png
+    [front_uploaded_file] => save_design/16/front_design_1778455704_6a011498e75e2.png
+    [back_uploaded_file] => save_design/16/back_design_1778455704_6a011498e77cd.png
+    [upload_type] => both_sides
+    [has_front_design] => 1
+    [has_back_design] => 1
+    [front_design_position] => Array
+        (
+            [x] => 384
+            [y] => 95
+            [width] => 50
+            [height] => 50
+        )
+
+    [back_design_position] => Array
+        (
+            [x] => 295
+            [y] => 84
+            [width] => 141
+            [height] => 140
+        )
+
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1778455704_6a011498e62fd.png
+    [1] => save_design/16/back_mockup_1778455704_6a011498e712e.png
+    [2] => save_design/16/front_design_1778455704_6a011498e75e2.png
+    [3] => save_design/16/back_design_1778455704_6a011498e77cd.png
+)
+
+Processing: save_design/16/front_mockup_1778455704_6a011498e62fd.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1778455704_6a011498e62fd.png
+⚠️ File not found: ../../assets/uploads/save_design/16/front_mockup_1778455704_6a011498e62fd.png
+Trying alternative: ../../assets/uploads/save_design/16/front_mockup_1778455704_6a011498e62fd.png
+Trying alternative: save_design/16/front_mockup_1778455704_6a011498e62fd.png
+Trying alternative: ../../assets/uploads/save_design/16/front_mockup_1778455704_6a011498e62fd.png
+Processing: save_design/16/back_mockup_1778455704_6a011498e712e.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1778455704_6a011498e712e.png
+⚠️ File not found: ../../assets/uploads/save_design/16/back_mockup_1778455704_6a011498e712e.png
+Trying alternative: ../../assets/uploads/save_design/16/back_mockup_1778455704_6a011498e712e.png
+Trying alternative: save_design/16/back_mockup_1778455704_6a011498e712e.png
+Trying alternative: ../../assets/uploads/save_design/16/back_mockup_1778455704_6a011498e712e.png
+Processing: save_design/16/front_design_1778455704_6a011498e75e2.png
+Actual path: ../../assets/uploads/save_design/16/front_design_1778455704_6a011498e75e2.png
+⚠️ File not found: ../../assets/uploads/save_design/16/front_design_1778455704_6a011498e75e2.png
+Trying alternative: ../../assets/uploads/save_design/16/front_design_1778455704_6a011498e75e2.png
+Trying alternative: save_design/16/front_design_1778455704_6a011498e75e2.png
+Trying alternative: ../../assets/uploads/save_design/16/front_design_1778455704_6a011498e75e2.png
+Processing: save_design/16/back_design_1778455704_6a011498e77cd.png
+Actual path: ../../assets/uploads/save_design/16/back_design_1778455704_6a011498e77cd.png
+⚠️ File not found: ../../assets/uploads/save_design/16/back_design_1778455704_6a011498e77cd.png
+Trying alternative: ../../assets/uploads/save_design/16/back_design_1778455704_6a011498e77cd.png
+Trying alternative: save_design/16/back_design_1778455704_6a011498e77cd.png
+Trying alternative: ../../assets/uploads/save_design/16/back_design_1778455704_6a011498e77cd.png
+Total design files deleted: 0
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE USER LAYOUT FILES DEBUG ===
+User ID: 16
+Raw layout data: ["..\/..\/assets\/uploads\/user_layouts\/16\/1789962433_1000074276.jpg"]
+✅ JSON parsed successfully
+Layout files: Array
+(
+    [0] => ../../assets/uploads/user_layouts/16/1789962433_1000074276.jpg
+)
+
+Processing: ../../assets/uploads/user_layouts/16/1789962433_1000074276.jpg
+Actual path: ../../assets/uploads/user_layouts/16/1789962433_1000074276.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/user_layouts/16/1789962433_1000074276.jpg
+Total layout files deleted: 1
+=== END DELETE USER LAYOUT FILES DEBUG ===
+

@@ -90,7 +90,8 @@ if (isset($_SESSION['user_id'])) {
                     </div>
                 </span>
                 <h1 class="section-title">AI Image Generator</h1>
-                <p class="section-subtitle">Describe it, style it, and put it straight onto a t-shirt, bag or mug — no design skills required.</p>
+                <p class="section-subtitle">Describe it, style it, and put it straight onto a t-shirt, bag or mug.</P>
+                <p style="opacity: 0.7; font-size: 0.9rem; font-style: italic;">No design skills required.</p>
             </div>
 
             <?php if (!isset($_SESSION['user_id'])): ?>
