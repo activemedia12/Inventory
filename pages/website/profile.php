@@ -208,7 +208,7 @@ $order_active = $order_total - $order_completed - $order_cancelled;
 
     <!-- Account Hero -->
     <section class="acct-hero hide">
-        <div class="container acct-container">
+        <div class="container">
             <div class="acct-hero__texture halftone"></div>
             <div class="acct-hero-inner">
                 <span class="section-eyebrow"><span class="reg-mark"></span> My account</span>
@@ -222,7 +222,7 @@ $order_active = $order_total - $order_completed - $order_cancelled;
 
     <!-- Account Main -->
     <section class="acct-main hide">
-        <div class="container acct-container">
+        <div class="container">
 
             <?php if (isset($_GET['order_success'])): ?>
                 <div class="acct-notice acct-notice--success" id="success-message" role="status">

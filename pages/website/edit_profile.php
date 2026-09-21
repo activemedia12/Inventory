@@ -443,7 +443,7 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
 
     <!-- Account Hero -->
     <section class="acct-hero hide">
-        <div class="container acct-container">
+        <div class="container">
             <div class="acct-hero__texture halftone"></div>
             <div class="acct-hero-inner">
                 <span class="section-eyebrow"><span class="reg-mark"></span> Account settings</span>
@@ -458,7 +458,7 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
 
     <!-- Account Main -->
     <section class="acct-main hide">
-        <div class="container acct-container">
+        <div class="container">
 
             <?php if (!empty($success)): ?>
                 <div class="acct-notice acct-notice--success" id="successMessage" role="status">

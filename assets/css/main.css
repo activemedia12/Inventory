@@ -135,6 +135,35 @@ body {
   padding: 0 24px;
 }
 
+/* ---------- Page gutter on pages with the side dock ----------
+   One wrapper geometry for every page that has the floating pill nav
+   (home, about, contact, cart, profile...), so hero, content and footer
+   all line up. A symmetric 120px gutter keeps content clear of the dock
+   and centred on the screen; on wide screens it resolves to the same
+   1312px content width as before. Pages without the dock (login,
+   sign-up...) keep the plain .container above. */
+body:has(.side-nav) .container {
+  width: min(1312px, calc(100% - 240px));
+  max-width: none;
+  margin: 0 auto;
+  padding: 0;
+}
+
+@media (max-width: 900px) {
+  /* the dock shrinks to 48px, 12px from the edge */
+  body:has(.side-nav) .container {
+    width: auto;
+    margin: 0;
+    padding: 0 20px 0 68px;
+  }
+}
+
+@media (max-width: 560px) {
+  body:has(.side-nav) .container {
+    padding: 0 18px 0 68px;
+  }
+}
+
 h1,
 h2,
 h3,
@@ -3613,10 +3642,6 @@ img {
   --ok-soft: #e7f3ec;
 }
 
-.acct-container {
-  max-width: 1120px;
-}
-
 /* ---------- Hero ---------- */
 .acct-hero {
   position: relative;
@@ -4923,13 +4948,6 @@ body.acct-modal-open {
   }
 }
 
-@media (max-width: 900px) {
-  /* keep content clear of the fixed side dock */
-  .acct-container {
-    padding-left: 76px;
-  }
-}
-
 @media (max-width: 720px) {
   .acct-page .form-grid {
     grid-template-columns: 1fr;
@@ -5000,10 +5018,6 @@ body.acct-modal-open {
 }
 
 @media (max-width: 560px) {
-  .acct-container {
-    padding-left: 68px;
-  }
-
   .acct-page .stat-strip {
     gap: 8px;
   }

@@ -400,17 +400,10 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             display: none !important;
         }
 
-        /* The floating pill nav sits at the left edge, so the page
-           content gets its own gutter instead of sliding underneath it */
-        .cart-wrap {
-            width: min(1240px, calc(100% - 240px));
-            margin: 0 auto;
-        }
-
         /* ---------- Hero ---------- */
         .cart-hero {
             position: relative;
-            padding: 132px 0 32px;
+            padding: 156px 0 32px;
             overflow: hidden;
         }
 
@@ -1423,15 +1416,9 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             }
         }
 
-        @media (max-width: 900px) {
-            .cart-wrap {
-                width: auto;
-                margin: 0;
-                padding: 0 16px 0 68px;
-            }
-
+        @media (max-width: 640px) {
             .cart-hero {
-                padding-top: 104px;
+                padding-top: 120px;
             }
         }
 
@@ -1568,7 +1555,7 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
     <!-- Hero -->
     <section class="cart-hero">
         <div class="cart-hero__texture" aria-hidden="true"></div>
-        <div class="cart-wrap">
+        <div class="container">
             <span class="section-eyebrow"><span class="reg-mark"></span> Order review</span>
             <h1 class="cart-hero-title">Your print <span class="registered" data-text="cart.">cart.</span></h1>
             <p class="cart-hero-sub"><?php echo !empty($cart_items)
@@ -1586,7 +1573,7 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
 
     <!-- Cart -->
     <main class="cart-page">
-        <div class="cart-wrap">
+        <div class="container">
             <?php if (!empty($cart_items)): ?>
 
                 <ol class="cart-steps" aria-label="Order progress">
