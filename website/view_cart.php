@@ -242,6 +242,132 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
         exit;
     }
 }
+
+/* ------------------------------
+   6. Presentation helpers (layout only — no data changes)
+--------------------------------*/
+$navOpen  = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
+$tax_rate = 0.03;
+
+function cart_h($v)
+{
+    return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+}
+
+function cart_str($v)
+{
+    return is_scalar($v) ? (string)$v : '';
+}
+
+// Maps a product group to one of the four brand inks (same mapping the catalog tabs use)
+function cart_ink_for_group($group)
+{
+    $g = strtolower((string)$group);
+    if (strpos($g, 'offset') !== false)  return 'black';
+    if (strpos($g, 'digital') !== false) return 'cyan';
+    if (strpos($g, 'riso') !== false)    return 'magenta';
+    return 'yellow';
+}
+
+// Same parsing rules as before: JSON, then "repaired" JSON, then a legacy single filename
+function cart_parse_design($raw)
+{
+    $out = [
+        'upload_type'         => 'single',
+        'front_mockup'        => '',
+        'back_mockup'         => '',
+        'uploaded_file'       => '',
+        'front_uploaded_file' => '',
+        'back_uploaded_file'  => '',
+    ];
+
+    $arr = json_decode($raw, true);
+    if (!(json_last_error() === JSON_ERROR_NONE && is_array($arr))) {
+        if (preg_match('/\{.*\}/', $raw)) {
+            $fixed = stripslashes(str_replace('\"', '"', $raw));
+            $arr = json_decode($fixed, true);
+            if (!(json_last_error() === JSON_ERROR_NONE && is_array($arr))) {
+                return $out;
+            }
+        } else {
+            $out['uploaded_file'] = $raw; // legacy: a bare filename
+            return $out;
+        }
+    }
+
+    $out['upload_type'] = cart_str($arr['upload_type'] ?? 'single') ?: 'single';
+    foreach (['front_mockup', 'back_mockup', 'uploaded_file', 'front_uploaded_file', 'back_uploaded_file'] as $k) {
+        $out[$k] = cart_str($arr[$k] ?? '');
+    }
+    return $out;
+}
+
+function cart_design_tile($label, $file, $icon = 'fa-file-image')
+{
+    $rel = "../assets/uploads/" . $file;
+    echo '<figure class="design-tile">';
+    if (file_exists($rel)) {
+        echo '<a href="' . cart_h($rel) . '" target="_blank" rel="noopener"><img src="' . cart_h($rel) . '" alt="' . cart_h($label) . '" loading="lazy"></a>';
+    } else {
+        echo '<div class="design-missing" title="Preview not available"><i class="fas ' . cart_h($icon) . '"></i></div>';
+    }
+    echo '<figcaption>' . cart_h($label) . '</figcaption></figure>';
+}
+
+function cart_step_class($n, $current)
+{
+    if ($n < $current) return 'is-done';
+    if ($n === $current) return 'is-current';
+    return '';
+}
+
+/* Selection / pricing state — computed once, used by the markup and the JS */
+$total_units             = 0;
+$confirmed_in_cart       = 0;
+$total_selected_items    = 0;
+$items_with_admin_prices = 0;
+$product_data            = [];
+
+foreach ($cart_items as $ci) {
+    $is_confirmed = !empty($ci['price_updated_by_admin']) && $ci['quoted_price'] > 0;
+    $price        = $is_confirmed ? $ci['quoted_price'] : $ci['unit_price'];
+
+    $total_units += (int)$ci['quantity'];
+    if ($is_confirmed) $confirmed_in_cart++;
+
+    if (in_array($ci['item_id'], $selected_items)) {
+        $total_selected_items++;
+        if ($is_confirmed) $items_with_admin_prices++;
+    }
+
+    $product_data[$ci['item_id']] = [
+        'price'         => (float)$price,
+        'quantity'      => (int)$ci['quantity'],
+        'subtotal'      => (float)$price * (int)$ci['quantity'],
+        'hasAdminPrice' => $is_confirmed,
+        'originalPrice' => (float)$ci['unit_price'],
+    ];
+}
+
+$all_prices_updated = ($total_selected_items > 0 && $items_with_admin_prices === $total_selected_items);
+$can_checkout       = $all_prices_updated;
+
+if ($total_selected_items === 0) {
+    $checkout_message = "Select the items you want to check out";
+} elseif ($can_checkout) {
+    $checkout_message = "All selected items have confirmed pricing";
+} elseif ($items_with_admin_prices > 0) {
+    $checkout_message = "$items_with_admin_prices of $total_selected_items selected items have confirmed pricing";
+} else {
+    $checkout_message = "No selected items have confirmed pricing yet";
+}
+
+$selected_tax   = $selected_total * $tax_rate;
+$selected_grand = $selected_total + $selected_tax;
+
+// Step tracker: 1 = choosing, 2 = waiting on the store, 3 = ready to check out
+$current_step = 1;
+if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
 ?>
 
 <!DOCTYPE html>
@@ -250,1421 +376,1569 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shopping Cart</title>
+    <title>Your Cart — Active Media Designs &amp; Printing</title>
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
     <link rel="stylesheet" href="../assets/css/main.css">
     <style>
-        .cart-container {
-            display: flex;
-            gap: 30px;
-            align-items: flex-start;
+        /* =========================================================
+           Cart page — layout only.
+           Built on the shared design tokens in main.css (paper/ink
+           palette, CMYK inks, registration marks). No tokens are
+           redefined here.
+        ========================================================= */
+
+        /* Scroll restore after a checkbox re-submit must be instant */
+        html {
+            scroll-behavior: auto !important;
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
+        /* The floating pill nav sits at the left edge, so the page
+           content gets its own gutter instead of sliding underneath it */
+        .cart-wrap {
+            width: min(1240px, calc(100% - 240px));
+            margin: 0 auto;
+        }
+
+        /* ---------- Hero ---------- */
+        .cart-hero {
             position: relative;
+            padding: 132px 0 32px;
+            overflow: hidden;
         }
 
-        .cart-content {
-            flex: 1;
-            max-width: calc(100% - 400px);
+        .cart-hero__texture {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 320px;
+            height: 320px;
+            color: var(--line);
+            opacity: 0.7;
+            pointer-events: none;
+            background-image: radial-gradient(currentColor 1px, transparent 1.6px);
+            background-size: 14px 14px;
+            -webkit-mask-image: radial-gradient(circle at 100% 0, #000, transparent 70%);
+            mask-image: radial-gradient(circle at 100% 0, #000, transparent 70%);
         }
 
-        .cart-summary-sidebar {
-            position: sticky;
-            top: 100px;
-            width: 350px;
-            flex-shrink: 0;
+        .cart-hero-title {
+            font-size: clamp(2.2rem, 4.6vw, 3.3rem);
+            margin-bottom: 14px;
         }
 
-        .cart-summary {
-            position: sticky;
-            top: 20px;
-        }
-
-        @media (max-width: 1200px) {
-            .cart-container {
-                flex-direction: column;
-            }
-
-            .cart-content {
-                max-width: 100%;
-            }
-
-            .cart-summary-sidebar {
-                width: 100%;
-                position: static;
-            }
-
-            .cart-summary {
-                position: static;
-                margin-top: 20px;
-            }
-        }
-
-        /* Your existing CSS styles remain the same */
-        * {
-            scroll-behavior: unset !important;
-        }
-
-        .cart-page {
-            padding: 40px 0;
-            background-color: var(--bg-light);
-            min-height: 70vh;
-        }
-
-        .cart-header {
-            text-align: center;
-            margin-bottom: 40px;
-            padding: 40px;
-            background: var(--bg-white);
-            box-shadow: var(--shadow);
-        }
-
-        .cart-header h1 {
-            font-size: 2.5em;
-            color: var(--text-dark);
-            margin-bottom: 10px;
-        }
-
-        .cart-header p {
-            font-size: 1.2em;
-            color: var(--text-light);
-        }
-
-        .cart-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: var(--bg-white);
-            box-shadow: var(--shadow);
-        }
-
-        .select-all {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .select-all input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-            accent-color: var(--primary-color);
-        }
-
-        .select-all label {
-            font-weight: 600;
-            cursor: pointer;
-            color: var(--text-dark);
-        }
-
-        .bulk-actions {
-            display: flex;
-            gap: 15px;
-        }
-
-        .bulk-btn {
-            padding: 12px 24px;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: var(--transition);
-        }
-
-        .remove-selected-btn {
-            border: 2px solid var(--accent-color);
-            color: var(--accent-color);
-            background-color: transparent;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        .remove-selected-btn:hover {
-            background: #c0392b;
-            color: white;
-        }
-
-        .cart-items {
-            margin-bottom: 40px;
-        }
-
-        .cart-item {
-            display: flex;
-            background: var(--bg-white);
-            padding: 25px;
-            margin-bottom: 20px;
-            box-shadow: var(--shadow);
-            transition: var(--transition);
-            align-items: flex-start;
+        .cart-hero-title .registered {
             position: relative;
-            border: 1px solid var(--border-color);
+            display: inline-block;
+            color: var(--ink);
         }
 
-        .item-checkbox {
-            margin-right: 20px;
-            margin-top: 10px;
-            z-index: 2;
-        }
-
-        .item-checkbox input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-            accent-color: var(--primary-color);
-        }
-
-        .cart-item-content {
-            display: flex;
-            flex-grow: 1;
-            gap: 25px;
-            position: relative;
-        }
-
-        .product-link-overlay {
+        .cart-hero-title .registered::before,
+        .cart-hero-title .registered::after {
+            content: attr(data-text);
             position: absolute;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
-            cursor: pointer;
-            z-index: 1;
+            width: 100%;
+            z-index: -1;
         }
 
-        .cart-item-image {
-            flex-shrink: 0;
-            z-index: 2;
-            position: relative;
+        .cart-hero-title .registered::before {
+            color: var(--cmyk-magenta);
+            transform: translate(3px, 2px);
+            opacity: 0.55;
         }
 
-        .cart-item-image img {
-            width: 140px;
-            height: 140px;
-            object-fit: cover;
-            border: 2px solid var(--border-color);
-            transition: var(--transition);
+        .cart-hero-title .registered::after {
+            color: var(--cmyk-cyan);
+            transform: translate(-3px, -2px);
+            opacity: 0.45;
         }
 
-        .cart-item-info {
-            flex-grow: 1;
-            z-index: 2;
-            position: relative;
+        .cart-hero-sub {
+            font-size: 1.08rem;
+            max-width: 58ch;
+            margin-bottom: 22px;
         }
 
-        .cart-item-info h3 {
-            color: var(--text-dark);
-            margin-bottom: 8px;
-            font-size: 1.3em;
-        }
-
-        .product-group {
-            background: var(--primary-color);
-            color: white;
-            padding: 6px 14px;
-            font-size: 0.9em;
-            display: inline-block;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        .price {
-            color: var(--accent-color);
-            font-weight: bold;
-            font-size: 1.2em;
-            margin-bottom: 10px;
-        }
-
-        .custom-design {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 2px dashed var(--primary-color);
-        }
-
-        .custom-design-title {
-            font-weight: bold;
-            margin-bottom: 15px;
-            color: var(--primary-color);
-            font-size: 1.1em;
+        .cart-meta {
             display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .cart-pill {
+            display: inline-flex;
             align-items: center;
             gap: 8px;
+            padding: 6px 14px;
+            background: var(--paper-white);
+            border: 1px solid var(--line);
+            border-radius: var(--r-pill);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--ink-soft);
         }
 
-        .design-previews {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            justify-content: flex-start;
+        .cart-pill i {
+            color: var(--riso-red);
+            font-size: 12px;
         }
 
-        .design-preview {
-            text-align: center;
-            flex: 0 0 auto;
+        /* ---------- Where you are in the order ---------- */
+        .cart-steps {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin: 0 0 32px;
+            padding: 0;
         }
 
-        .design-preview img {
-            width: 120px;
-            height: 120px;
-            object-fit: contain;
-            border: 2px solid var(--primary-color);
-            padding: 5px;
-            background: white;
-            transition: var(--transition);
-        }
-
-        .design-preview img:hover {
-            transform: scale(1.05);
-        }
-
-        .design-label {
-            font-size: 0.85em;
-            color: var(--text-light);
-            margin-top: 8px;
-            font-weight: 500;
-        }
-
-        .design-preview:has(img[alt*="Original"]) img {
-            border-color: #28a745;
-        }
-
-        .design-preview:has(img[alt*="Mockup"]) img {
-            border-color: var(--primary-color);
-        }
-
-        .subtotal {
-            color: #27ae60;
-            font-weight: bold;
-            font-size: 1.2em;
-            margin-top: 15px;
-        }
-
-        .cart-item-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            min-width: 180px;
-            justify-content: center;
-            z-index: 2;
-            position: relative;
-        }
-
-        .quantity-controls {
+        .cart-step {
             display: flex;
             align-items: center;
             gap: 12px;
-        }
-
-        .quantity-input {
-            width: 80px;
-            padding: 12px;
-            text-align: center;
-            border: 2px solid var(--border-color);
-            font-size: 1.1em;
-            font-weight: bold;
-            background: var(--bg-white);
-        }
-
-        .quantity-btn {
-            width: 40px;
-            height: 40px;
-            background: var(--bg-light);
-            border: 2px solid var(--border-color);
-            font-size: 1.2em;
-            cursor: pointer;
+            padding: 10px 20px 10px 10px;
+            background: var(--paper-white);
+            border: 1px solid var(--line);
+            border-radius: var(--r-pill);
             transition: var(--transition);
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
-        .quantity-btn:hover {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
-
-        .update-btn,
-        .remove-btn {
-            padding: 12px 20px;
-            border: none;
-            cursor: pointer;
+        .cart-step__num {
+            width: 34px;
+            height: 34px;
+            flex-shrink: 0;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            border: 1.5px solid var(--ink-faint);
+            color: var(--ink-faint);
+            font-family: var(--font-display);
             font-weight: 600;
+            font-size: 14px;
             transition: var(--transition);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-family: 'Poppins', sans-serif;
         }
 
-        .update-btn {
-            background: var(--primary-color);
-            color: white;
+        .cart-step strong {
+            display: block;
+            font-size: 14px;
+            line-height: 1.25;
+            color: var(--ink);
         }
 
-        .update-btn:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
+        .cart-step small {
+            display: block;
+            font-size: 12px;
+            color: var(--ink-faint);
         }
 
-        .remove-btn {
-            background-color: transparent;
-            border: 2px solid var(--accent-color);
-            color: var(--accent-color);
-        }
-
-        .remove-btn:hover {
-            background: #c0392b;
-            color: white;
-        }
-
-        .cart-summary {
-            background: var(--bg-white);
-            padding: 30px;
-            box-shadow: var(--shadow);
-            margin-bottom: 30px;
-            border: 1px solid var(--border-color);
-        }
-
-        .summary-title {
-            font-size: 1.8em;
-            color: var(--text-dark);
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 15px 0;
-            border-bottom: 1px solid var(--border-color);
-            font-size: 1.1em;
-        }
-
-        .summary-row.total {
-            font-size: 1.4em;
-            font-weight: bold;
-            color: #27ae60;
-            border-bottom: none;
-            padding-top: 20px;
-            border-top: 2px solid var(--border-color);
-        }
-
-        .empty-cart {
-            text-align: center;
-            padding: 80px 30px;
-            background: var(--bg-white);
+        .cart-step.is-current {
+            border-color: var(--ink);
             box-shadow: var(--shadow);
         }
 
-        .empty-cart i {
-            font-size: 5em;
-            color: var(--text-light);
-            margin-bottom: 25px;
-            opacity: 0.7;
+        .cart-step.is-current .cart-step__num {
+            background: var(--ink);
+            border-color: var(--ink);
+            color: var(--paper-white);
         }
 
-        .empty-cart h2 {
-            color: var(--text-dark);
-            margin-bottom: 20px;
-            font-size: 2em;
+        .cart-step.is-done .cart-step__num {
+            background: var(--riso-blue);
+            border-color: var(--riso-blue);
+            color: var(--paper-white);
+            font-size: 12px;
         }
 
-        .empty-cart p {
-            color: var(--text-light);
-            font-size: 1.2em;
-            margin-bottom: 30px;
+        /* ---------- Two-column layout ---------- */
+        .cart-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 360px;
+            gap: 32px;
+            align-items: start;
+            padding-bottom: 88px;
         }
 
-        .start-shopping {
-            background: var(--primary-color);
-            color: white;
-            text-decoration: none;
-            font-weight: 600;
+        .cart-side {
+            align-self: stretch;
+        }
+
+        /* ---------- How pricing works (same pattern as the FAQ) ---------- */
+        .pricing-info {
+            margin-bottom: 16px;
+            background: var(--paper-white);
+            border: 1px solid var(--line);
+            border-radius: var(--r-md);
+            overflow: hidden;
             transition: var(--transition);
+        }
+
+        .pricing-info[open] {
+            border-color: var(--riso-red);
+        }
+
+        .pricing-info summary {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px 20px;
+            cursor: pointer;
+            list-style: none;
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .pricing-info summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .pricing-info summary .chev {
+            margin-left: auto;
+            color: var(--riso-red);
+            transition: transform 0.3s var(--ease);
+        }
+
+        .pricing-info[open] summary .chev {
+            transform: rotate(180deg);
+        }
+
+        .pricing-info__body {
+            padding: 0 20px 18px;
+            font-size: 14.5px;
+        }
+
+        .pricing-info__body p {
+            font-size: 14.5px;
+            margin-bottom: 8px;
+        }
+
+        .pricing-list {
+            margin: 0 0 12px 18px;
+            color: var(--ink-soft);
+            font-size: 14.5px;
+        }
+
+        .pricing-list li {
+            margin-bottom: 2px;
+        }
+
+        /* ---------- Toolbar ---------- */
+        .cart-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+            padding: 12px 18px;
+            background: var(--paper-white);
+            border: 1px solid var(--line);
+            border-radius: var(--r-md);
+        }
+
+        .select-all {
             display: inline-flex;
-            padding: 25px 20px 0 20px;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            font-size: 14.5px;
+            cursor: pointer;
+        }
+
+        .toolbar-count {
+            margin-left: auto;
+            font-size: 13.5px;
+            color: var(--ink-faint);
+        }
+
+        .remove-selected-btn {
+            display: inline-flex;
+            align-items: center;
             gap: 8px;
+            padding: 9px 16px;
+            background: transparent;
+            border: 1.5px solid var(--riso-red);
+            border-radius: var(--r-sm);
+            color: var(--riso-red);
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 13.5px;
+            cursor: pointer;
+            transition: var(--transition);
         }
 
-        .start-shopping:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.3);
+        .remove-selected-btn:hover {
+            background: var(--riso-red);
+            color: var(--paper-white);
         }
 
-        .printing-details {
-            margin-top: 15px;
-            padding: 15px;
-            background: var(--bg-light);
-            font-size: 0.9em;
-            border-left: 4px solid var(--primary-color);
-            text-transform: uppercase;
+        /* Custom checkbox — ink square, matches the ink-filled active states elsewhere */
+        .cart-check {
+            -webkit-appearance: none;
+            appearance: none;
+            flex-shrink: 0;
+            display: inline-grid;
+            place-content: center;
+            width: 22px;
+            height: 22px;
+            margin: 0;
+            background: var(--paper-white);
+            border: 1.5px solid var(--ink);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: var(--transition);
         }
 
-        .details-row {
+        .cart-check:hover {
+            border-color: var(--riso-red);
+        }
+
+        .cart-check::after {
+            content: "";
+            width: 10px;
+            height: 6px;
+            border-left: 2px solid var(--paper-white);
+            border-bottom: 2px solid var(--paper-white);
+            transform: rotate(-45deg) translate(1px, -1px);
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .cart-check:checked,
+        .cart-check:indeterminate {
+            background: var(--ink);
+            border-color: var(--ink);
+        }
+
+        .cart-check:checked::after {
+            opacity: 1;
+        }
+
+        .cart-check:indeterminate::after {
+            opacity: 1;
+            width: 10px;
+            height: 0;
+            border-left: 0;
+            transform: none;
+        }
+
+        /* ---------- Cart items ---------- */
+        .cart-items {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 16px;
         }
 
-        .detail-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            border-bottom: 1px solid var(--border-color);
+        .cart-item {
+            --item-ink: var(--ink);
+            position: relative;
+            display: grid;
+            grid-template-columns: auto 128px minmax(0, 1fr) auto;
+            grid-template-areas: "check image info actions";
+            gap: 20px;
+            align-items: start;
+            padding: 22px;
+            background: var(--paper-white);
+            border: 1px solid var(--line);
+            border-left: 4px solid var(--item-ink);
+            border-radius: var(--r-md);
+            transition: var(--transition);
         }
 
-        .detail-item:last-child {
-            border-bottom: none;
+        .cart-item[data-ink="black"] {
+            --item-ink: var(--cmyk-black);
         }
 
-        .detail-label {
-            font-weight: 600;
-            color: var(--text-dark);
-            min-width: 140px;
+        .cart-item[data-ink="cyan"] {
+            --item-ink: var(--cmyk-cyan);
         }
 
-        .detail-value {
-            color: var(--text-light);
-            flex: 1;
-            text-align: right;
+        .cart-item[data-ink="magenta"] {
+            --item-ink: var(--cmyk-magenta);
         }
 
-        .design-info {
-            margin-top: 15px;
-            padding: 12px;
-            background: var(--bg-light);
-            font-size: 0.85em;
+        .cart-item[data-ink="yellow"] {
+            --item-ink: var(--cmyk-yellow);
         }
 
-        .design-info-row {
-            display: flex;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 5px;
+        .cart-item:hover {
+            box-shadow: var(--shadow);
         }
 
-        .design-info-row:last-child {
-            margin-bottom: 0;
+        .cart-item:has(.cart-check:checked) {
+            border-color: var(--ink);
+            border-left-color: var(--item-ink);
+            box-shadow: var(--shadow);
         }
 
-        @media (max-width: 768px) {
-            .cart-item {
-                flex-direction: column;
-                text-align: center;
-                gap: 20px;
-            }
-
-            .cart-item-content {
-                flex-direction: column;
-                text-align: center;
-            }
-
-            .item-checkbox {
-                margin-right: 0;
-                margin-bottom: 15px;
-                align-self: center;
-            }
-
-            .cart-item-image {
-                margin-right: 0;
-            }
-
-            .cart-item-actions {
-                flex-direction: row;
-                justify-content: center;
-                flex-wrap: wrap;
-            }
-
-            .cart-actions {
-                flex-direction: column;
-                gap: 15px;
-            }
-
-            .cart-buttons {
-                flex-direction: column;
-            }
-
-            .design-previews {
-                justify-content: center;
-            }
-
-            .detail-item {
-                flex-direction: column;
-                text-align: center;
-                gap: 5px;
-            }
-
-            .detail-label,
-            .detail-value {
-                min-width: auto;
-                text-align: center;
-            }
+        .item-checkbox {
+            grid-area: check;
+            padding-top: 4px;
         }
 
-        @media (max-width: 576px) {
-            .cart-header {
-                padding: 30px 20px;
-            }
-
-            .cart-header h1 {
-                font-size: 2em;
-            }
-
-            .cart-item {
-                padding: 20px;
-            }
-
-            .cart-item-image img {
-                width: 100px;
-                height: 100px;
-            }
-
-            .design-previews {
-                gap: 10px;
-            }
-
-            .design-preview img {
-                width: 80px;
-                height: 80px;
-            }
+        .cart-item-image {
+            grid-area: image;
+            width: 128px;
+            aspect-ratio: 1;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            background: var(--paper-dim);
+            border-radius: var(--r-md);
+            color: var(--ink-faint);
+            font-size: 26px;
         }
 
-        .pricing-info {
-            background: #e8f4fd;
-            border-left: 4px solid #2196F3;
-            padding: 40px 40px 20px 40px;
-            margin-bottom: 20px;
+        .cart-item-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
-        .pricing-info ul {
-            margin-left: 40px;
+        .cart-item-info {
+            grid-area: info;
+            min-width: 0;
         }
 
-        .pricing-info h3 {
-            color: #1976D2;
-            margin-bottom: 10px;
-            display: flex;
+        .item-group {
+            display: inline-flex;
             align-items: center;
-            gap: 10px;
-        }
-
-        .pricing-note {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 15px 0;
-            font-size: 0.95em;
-        }
-
-        .estimated-total {
-            font-size: 1.1em;
-            color: #1976D2;
+            gap: 8px;
+            font-size: 12.5px;
             font-weight: 600;
-            margin: 10px 0;
+            color: var(--ink-soft);
+        }
+
+        .item-group::before {
+            content: "";
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--item-ink);
+            box-shadow: 0 0 0 1px rgba(23, 20, 15, 0.18);
+        }
+
+        .cart-item-info h3 {
+            margin: 4px 0 10px;
+            font-size: 1.15rem;
+        }
+
+        .cart-item-info h3 a:hover {
+            color: var(--riso-red);
+        }
+
+        /* Price */
+        .price-display {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 6px 12px;
+        }
+
+        .price {
+            margin: 0;
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 1.3rem;
+            color: var(--riso-blue);
+        }
+
+        .price .was {
+            margin-right: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--ink-faint);
+            text-decoration: line-through;
+        }
+
+        .price-unit {
+            font-size: 12.5px;
+            color: var(--ink-faint);
+        }
+
+        .admin-price-notice,
+        .estimate-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 11px;
+            border-radius: var(--r-pill);
+            font-size: 11.5px;
+            font-weight: 600;
         }
 
         .admin-price-notice {
-            padding: 8px 0;
-            border-radius: 4px;
-            margin-bottom: 10px;
+            background: var(--riso-blue);
+            color: var(--paper-white);
         }
 
-        .pricing-status-alert {
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-size: 85%;
+        .estimate-tag {
+            background: var(--paper-dim);
+            color: var(--ink-soft);
         }
 
-        .pricing-status-alert p {
-            margin: 0 0 0 15px;
-        }
-
-        .pricing-status-alert.success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-
-        .pricing-status-alert.warning {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-        }
-
-        .price-display {
-            margin-bottom: 10px;
-        }
-
+        /* Notes from the store */
         .admin-notes-section {
-            background: #f8f9fa;
-            border-left: 4px solid #007bff;
-            padding: 12px;
-            margin: 10px 0;
-            border-radius: 4px;
+            margin-top: 14px;
+            padding: 12px 14px;
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-left: 3px solid var(--riso-blue);
+            border-radius: var(--r-sm);
         }
 
         .admin-notes-header {
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #007bff;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--ink);
+        }
+
+        .admin-notes-header i {
+            color: var(--riso-blue);
         }
 
         .admin-notes-content {
-            color: #495057;
-            font-size: 0.9em;
-            line-height: 1.4;
+            margin-top: 4px;
+            font-size: 13.5px;
+            color: var(--ink-soft);
         }
 
         .pricing-status.badge {
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.8em;
-            font-weight: bold;
+            margin-left: auto;
+            padding: 2px 10px;
+            border-radius: var(--r-pill);
+            font-size: 11.5px;
+            font-weight: 600;
+            background: var(--paper-dim);
+            color: var(--ink-soft);
         }
 
         .pricing-status.pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .pricing-status.completed {
-            background: #d1ecf1;
-            color: #0c5460;
+            background: var(--cmyk-yellow);
+            color: var(--ink);
         }
 
         .pricing-status.approved {
-            background: #d4edda;
-            color: #155724;
+            background: var(--riso-blue);
+            color: var(--paper-white);
         }
 
-        .pricing-status-alert.cancelled {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
+        .pricing-status.completed {
+            background: var(--ink);
+            color: var(--paper-white);
         }
 
         .pricing-status.cancelled {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.8em;
-            font-weight: bold;
+            background: var(--riso-red);
+            color: var(--paper-white);
         }
 
-/* Button Styles */
-.continue-btn,
-.checkout-btn,
-.waiting-btn,
-.request-btn {
-    padding: 15px 25px;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 90%;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    border: none;
-    cursor: pointer;
-    width: 100%;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-    background-color: transparent;
-    font-family: 'Poppins';
-}
+        /* Status callouts (per item and in the summary) */
+        .pricing-status-alert {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            column-gap: 10px;
+            margin-top: 14px;
+            padding: 12px 14px;
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: var(--r-sm);
+        }
 
-.continue-btn {
-    color: #5a6268;
-    border: 2px solid #5a6268;
-    margin-bottom: 12px;
-}
+        .pricing-status-alert>i {
+            grid-row: 1 / span 2;
+            margin-top: 3px;
+        }
 
-.continue-btn:hover {
-    background-color: #5a6268;
-    box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
-    color: white;
-}
+        .pricing-status-alert strong {
+            font-size: 13.5px;
+            line-height: 1.35;
+            color: var(--ink);
+        }
 
-.checkout-btn {
-    color: #28a745;
-    border: 2px solid #28a745;
-    margin-bottom: 12px;
-}
+        .pricing-status-alert p {
+            margin: 2px 0 0;
+            font-size: 12.5px;
+            line-height: 1.5;
+        }
 
-.checkout-btn:hover {
-    background-color: #28a745;
-    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
-    color: white;
-}
+        .pricing-status-alert.success {
+            background: rgba(36, 71, 143, 0.06);
+            border-color: rgba(36, 71, 143, 0.3);
+        }
 
-.waiting-btn {
-    color: #5a6268;
-    border: 2px solid #5a6268;
-    cursor: not-allowed;
-    opacity: 0.8;
-    margin-bottom: 12px;
-    opacity: 50%;
-}
+        .pricing-status-alert.success>i {
+            color: var(--riso-blue);
+        }
 
-.waiting-btn:hover {
-    transform: none !important;
-    box-shadow: none !important;
-}
+        .pricing-status-alert.warning {
+            background: rgba(252, 226, 1, 0.16);
+            border-color: rgba(23, 20, 15, 0.16);
+        }
 
-.request-btn {
-    background-color: transparent;
-    color: #1976D2;
-    border: 2px solid #1976D2;
-}
+        .pricing-status-alert.cancelled {
+            background: rgba(232, 67, 43, 0.06);
+            border-color: rgba(232, 67, 43, 0.35);
+        }
 
-.request-btn:hover {
-    background-color: #1976D2;
-    box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4);
-    color: white;
-}
+        .pricing-status-alert.cancelled>i {
+            color: var(--riso-red);
+        }
 
-/* Button Icons */
-.continue-btn i,
-.checkout-btn i,
-.waiting-btn i,
-.request-btn i {
-    font-size: 85%;
-    transition: transform 0.3s ease;
-}
+        /* Job specs */
+        .printing-details {
+            margin-top: 16px;
+        }
 
-.continue-btn:hover i {
-    transform: translateX(-10px);
-}
+        .details-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+            gap: 8px;
+        }
 
-/* Button Press Effect */
-.continue-btn:active,
-.checkout-btn:active,
-.request-btn:active {
-    transform: translateY(0);
-}
+        .detail-item {
+            padding: 8px 12px;
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: var(--r-sm);
+        }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .continue-btn,
-    .checkout-btn,
-    .waiting-btn,
-    .request-btn {
-        padding: 12px 20px;
-        font-size: 0.95em;
-    }
+        .detail-label {
+            display: block;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--ink-faint);
+        }
 
-    .cart-items {
-        margin-bottom: 0;
-    }
+        .detail-value {
+            display: block;
+            margin-top: 1px;
+            font-size: 13.5px;
+            font-weight: 500;
+            color: var(--ink);
+        }
 
-    .cart-item {
-        display: block;
-    }
+        .detail-value small {
+            display: block;
+            font-weight: 400;
+            color: var(--ink-faint);
+        }
 
-    .cart-page {
-        font-size: 80%;
-        padding: 20px;
-    }
-}
+        /* Artwork proofs */
+        .custom-design {
+            margin-top: 16px;
+            padding: 14px;
+            background: var(--paper);
+            border: 1.5px dashed var(--line);
+            border-radius: var(--r-md);
+        }
+
+        .custom-design-title {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 4px 10px;
+            margin-bottom: 12px;
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .custom-design-title i {
+            color: var(--riso-red);
+            align-self: center;
+        }
+
+        .custom-design-title small {
+            font-family: var(--font-body);
+            font-weight: 400;
+            font-size: 12.5px;
+            color: var(--ink-faint);
+        }
+
+        .design-previews {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .design-tile {
+            width: 92px;
+            margin: 0;
+        }
+
+        .design-tile img,
+        .design-missing {
+            width: 92px;
+            height: 92px;
+            border-radius: var(--r-sm);
+        }
+
+        .design-tile img {
+            object-fit: cover;
+            background: var(--paper-white);
+            border: 1px solid var(--line);
+            transition: var(--transition);
+        }
+
+        .design-tile a:hover img {
+            border-color: var(--ink);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .design-missing {
+            display: grid;
+            place-items: center;
+            border: 1.5px dashed var(--ink-faint);
+            color: var(--ink-faint);
+            font-size: 20px;
+        }
+
+        .design-tile figcaption {
+            margin-top: 6px;
+            text-align: center;
+            font-size: 11.5px;
+            font-weight: 500;
+            color: var(--ink-soft);
+        }
+
+        .design-files {
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--ink-faint);
+            overflow-wrap: anywhere;
+        }
+
+        .design-files strong {
+            color: var(--ink-soft);
+            font-weight: 600;
+        }
+
+        /* Quantity / subtotal / remove */
+        .cart-item-actions {
+            grid-area: actions;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 16px;
+            min-width: 150px;
+        }
+
+        .quantity-controls {
+            display: inline-flex;
+            align-items: center;
+            overflow: hidden;
+            background: var(--paper-white);
+            border: 1.5px solid var(--ink);
+            border-radius: var(--r-pill);
+        }
+
+        .quantity-btn {
+            width: 36px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            background: transparent;
+            border: 0;
+            color: var(--ink);
+            font-size: 11px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .quantity-btn:hover {
+            background: var(--ink);
+            color: var(--paper-white);
+        }
+
+        .quantity-input {
+            width: 52px;
+            height: 38px;
+            padding: 0;
+            background: transparent;
+            border: 0;
+            text-align: center;
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 14.5px;
+            color: var(--ink);
+            -moz-appearance: textfield;
+        }
+
+        .quantity-input::-webkit-outer-spin-button,
+        .quantity-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .item-subtotal {
+            text-align: right;
+        }
+
+        .item-subtotal__label {
+            display: block;
+            font-size: 12px;
+            color: var(--ink-faint);
+        }
+
+        .subtotal-amount {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 1.25rem;
+            color: var(--ink);
+        }
+
+        .remove-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 0;
+            background: none;
+            border: 0;
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--ink-faint);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .remove-btn:hover {
+            color: var(--riso-red);
+        }
+
+        .item-toast {
+            position: absolute;
+            top: 12px;
+            right: 14px;
+            z-index: 5;
+            padding: 5px 12px;
+            background: var(--ink);
+            color: var(--paper-white);
+            border-radius: var(--r-pill);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* ---------- Order summary ---------- */
+        .cart-summary {
+            position: sticky;
+            top: 32px;
+            max-height: calc(100vh - 64px);
+            overflow-y: auto;
+            background: var(--paper-white);
+            border: 1px solid var(--line);
+            border-radius: var(--r-lg);
+            box-shadow: var(--shadow);
+        }
+
+        /* A press colour bar — the four inks from the logo */
+        .summary-bar {
+            display: flex;
+            height: 6px;
+        }
+
+        .summary-bar i {
+            flex: 1;
+        }
+
+        .summary-bar i:nth-child(1) {
+            background: var(--cmyk-cyan);
+        }
+
+        .summary-bar i:nth-child(2) {
+            background: var(--cmyk-magenta);
+        }
+
+        .summary-bar i:nth-child(3) {
+            background: var(--cmyk-yellow);
+        }
+
+        .summary-bar i:nth-child(4) {
+            background: var(--cmyk-black);
+        }
+
+        .summary-body {
+            padding: 24px 26px 26px;
+        }
+
+        .summary-title {
+            margin-bottom: 4px;
+            font-size: 1.25rem;
+        }
+
+        .summary-empty {
+            margin: 10px 0 0;
+            font-size: 13.5px;
+        }
+
+        .summary-rows {
+            margin-top: 16px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 7px 0;
+            font-size: 14.5px;
+            color: var(--ink-soft);
+        }
+
+        .summary-row span:last-child {
+            font-weight: 600;
+            color: var(--ink);
+        }
+
+        .summary-row.total {
+            align-items: baseline;
+            margin-top: 8px;
+            padding-top: 16px;
+            border-top: 1px dashed var(--line);
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 1.05rem;
+            color: var(--ink);
+        }
+
+        .summary-row.total span:last-child {
+            font-size: 1.7rem;
+            letter-spacing: -0.02em;
+        }
+
+        .cart-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 22px;
+        }
+
+        .cart-buttons .btn {
+            width: 100%;
+            white-space: normal;
+            text-align: center;
+        }
+
+        .btn-ink {
+            background-color: var(--ink);
+            border-color: var(--ink);
+            color: var(--paper-white);
+        }
+
+        .btn-ink:hover {
+            background-color: var(--riso-red);
+            border-color: var(--riso-red);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .waiting-btn {
+            background: var(--paper-dim);
+            border: 1.5px dashed var(--ink-faint);
+            color: var(--ink-soft);
+            cursor: not-allowed;
+        }
+
+        .continue-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 4px;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--riso-blue);
+        }
+
+        .continue-btn:hover {
+            gap: 11px;
+            color: var(--riso-blue-dark);
+        }
+
+        .summary-fineprint {
+            margin: 18px 0 0;
+            font-size: 12.5px;
+            color: var(--ink-faint);
+        }
+
+        /* ---------- Empty state ---------- */
+        .empty-cart {
+            position: relative;
+            overflow: hidden;
+            max-width: 640px;
+            margin: 24px auto 96px;
+            padding: 56px 32px 52px;
+            text-align: center;
+            background: var(--paper-white);
+            border: 1.5px dashed var(--line);
+            border-radius: var(--r-lg);
+        }
+
+        .empty-cart__icon {
+            width: 76px;
+            height: 76px;
+            margin: 0 auto 22px;
+            display: grid;
+            place-items: center;
+            background: var(--paper-dim);
+            border-radius: 50%;
+            font-size: 28px;
+            color: var(--ink);
+        }
+
+        .empty-cart h2 {
+            margin-bottom: 10px;
+            font-size: 1.6rem;
+        }
+
+        .empty-cart p {
+            max-width: 42ch;
+            margin: 0 auto 26px;
+        }
+
+        .empty-cart .hero-actions {
+            justify-content: center;
+        }
+
+        /* ---------- Responsive ---------- */
+        @media (max-width: 1279px) {
+            .cart-layout {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .cart-summary {
+                position: static;
+                max-height: none;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .cart-wrap {
+                width: auto;
+                margin: 0;
+                padding: 0 16px 0 68px;
+            }
+
+            .cart-hero {
+                padding-top: 104px;
+            }
+        }
+
+        @media (max-width: 820px) {
+            .cart-steps {
+                grid-template-columns: minmax(0, 1fr);
+                gap: 8px;
+            }
+
+            .cart-item {
+                grid-template-columns: auto minmax(0, 1fr);
+                grid-template-areas:
+                    "check image"
+                    "info info"
+                    "actions actions";
+                gap: 14px 16px;
+                padding: 18px;
+            }
+
+            .cart-item-image {
+                width: 96px;
+            }
+
+            .cart-item-actions {
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-items: center;
+                justify-content: space-between;
+                min-width: 0;
+                padding-top: 14px;
+                border-top: 1px dashed var(--line);
+            }
+
+            .item-subtotal {
+                order: 2;
+            }
+
+            .remove-btn {
+                order: 3;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .toolbar-count {
+                display: none;
+            }
+
+            .remove-selected-btn {
+                margin-left: auto;
+                white-space: nowrap;
+            }
+
+            .select-all {
+                white-space: nowrap;
+            }
+
+            .cart-toolbar {
+                gap: 10px;
+                padding: 12px 14px;
+            }
+
+            .remove-selected-btn {
+                padding: 9px 12px;
+            }
+
+            .summary-body {
+                padding: 22px 20px 22px;
+            }
+
+            .empty-cart {
+                padding: 44px 20px 40px;
+            }
+        }
     </style>
 </head>
 
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <nav class="navbar">
-                <a href="#" class="logo">
-                    <img src="../assets/images/plainlogo.png" alt="Active Media" class="logo-image">
-                    <span>Active Media Designs & Printing</span>
-                </a>
+    <!-- Side Pill Navigation -->
+    <nav class="side-nav" id="sideNav" aria-label="Primary">
+        <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
+            <li><a href="main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li><a href="ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
+            <li><a href="about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
+            <li><a href="contact.php"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
 
-                <ul class="nav-links">
-                    <li><a href="main.php"><i class="fas fa-home"></i> Home</a></li>
-                    <li><a href="ai_image.php"><i class="fas fa-robot"></i> AI Services</a></li>
-                    <li><a href="about.php"><i class="fas fa-info-circle"></i> About</a></li>
-                    <li><a href="contact.php"><i class="fas fa-phone"></i> Contact</a></li>
-                </ul>
+            <li class="side-nav-divider"></li>
 
-                <div class="features">
-                    <a href="#" class="chat-icon" id="chatButton">
+            <li>
+                <a href="#" class="chat-icon" id="chatButton">
+                    <span class="side-nav-icon">
                         <i class="fas fa-comments"></i>
                         <span class="chat-count" id="chatCount">0</span>
-                    </a>
-                    <a href="view_cart.php" class="cart-icon">
+                    </span>
+                    <span class="side-nav-label">Chat</span>
+                </a>
+            </li>
+            <li>
+                <a href="view_cart.php" class="cart-icon active" aria-current="page">
+                    <span class="side-nav-icon">
                         <i class="fas fa-shopping-cart"></i>
-                        <span class="cart-count"><?php echo array_sum(array_column($cart_items, 'quantity')); ?></span>
-                    </a>
-                    </a>
-                </div>
+                        <span class="cart-count"><?php echo $total_units > 99 ? '99+' : $total_units; ?></span>
+                    </span>
+                    <span class="side-nav-label">Cart</span>
+                </a>
+            </li>
 
-                <div class="user-info">
-                    <a href="../pages/website/profile.php" class="user-profile">
-                        <i class="fas fa-user"></i>
-                        <span class="user-name">
-                            <?php
-                            if (!empty($user_data['first_name'])) {
-                                echo htmlspecialchars($user_data['first_name']);
-                            } elseif (!empty($user_data['company_name'])) {
-                                echo htmlspecialchars($user_data['company_name']);
-                            } else {
-                                echo 'User';
-                            }
-                            ?>
-                        </span>
-                    </a>
-                    <a href="../accounts/logout.php" class="logout-btn">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </a>
-                </div>
+            <li class="side-nav-divider"></li>
 
-                <div class="mobile-menu-toggle">
-                    <i class="fas fa-bars"></i>
-                </div>
-            </nav>
-        </div>
-    </header>
+            <li>
+                <a href="../pages/website/profile.php" class="user-profile">
+                    <i class="fas fa-user"></i>
+                    <span class="side-nav-label user-name">
+                        <?php
+                        if (!empty($user_data['first_name'])) {
+                            echo htmlspecialchars($user_data['first_name']);
+                        } elseif (!empty($user_data['company_name'])) {
+                            echo htmlspecialchars($user_data['company_name']);
+                        } else {
+                            echo 'User';
+                        }
+                        ?>
+                    </span>
+                </a>
+            </li>
+            <li>
+                <a href="../accounts/logout.php" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="side-nav-label">Log Out</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
 
-    <!-- Cart Section -->
-    <section class="cart-page">
-        <div class="container">
-            <div class="cart-header">
-                <h1><i class="fas fa-shopping-cart"></i> Your Shopping Cart</h1>
-                <p>Review your items and request pricing from our team</p>
-            </div>
+    <!-- Hero -->
+    <section class="cart-hero">
+        <div class="cart-hero__texture" aria-hidden="true"></div>
+        <div class="cart-wrap">
+            <span class="section-eyebrow"><span class="reg-mark"></span> Order review</span>
+            <h1 class="cart-hero-title">Your print <span class="registered" data-text="cart.">cart.</span></h1>
+            <p class="cart-hero-sub"><?php echo !empty($cart_items)
+                ? 'Pick the jobs you want to move forward, then send them to our team. We confirm the final price before anything goes to checkout.'
+                : 'Jobs you add from the service pages show up here for review before checkout.'; ?></p>
 
             <?php if (!empty($cart_items)): ?>
-                <div class="cart-container">
-                    <div class="cart-content">
-                        <form method="post" id="cartForm" action="view_cart.php">
-                            <div class="pricing-info">
-                                <h3><i class="fas fa-info-circle"></i> Pricing Information</h3>
-                                <p>This is an <strong>estimated price</strong> based on standard rates. Final pricing may vary based on:</p>
-                                <ul>
+                <div class="cart-meta">
+                    <span class="cart-pill"><i class="fas fa-layer-group"></i> <span class="js-lines"><?php echo count($cart_items); ?> <?php echo count($cart_items) === 1 ? 'job' : 'jobs'; ?></span></span>
+                    <span class="cart-pill"><i class="fas fa-circle-check"></i> <span class="js-confirmed"><?php echo $confirmed_in_cart; ?> confirmed</span></span>
+                </div>
+            <?php endif; ?>
+        </div>
+    </section>
+
+    <!-- Cart -->
+    <main class="cart-page">
+        <div class="cart-wrap">
+            <?php if (!empty($cart_items)): ?>
+
+                <ol class="cart-steps" aria-label="Order progress">
+                    <li class="cart-step <?php echo cart_step_class(1, $current_step); ?>">
+                        <span class="cart-step__num"><?php echo $current_step > 1 ? '<i class="fas fa-check"></i>' : '1'; ?></span>
+                        <span><strong>Select your orders</strong><small>Tick the items you want to quote</small></span>
+                    </li>
+                    <li class="cart-step <?php echo cart_step_class(2, $current_step); ?>">
+                        <span class="cart-step__num"><?php echo $current_step > 2 ? '<i class="fas fa-check"></i>' : '2'; ?></span>
+                        <span><strong>We confirm the price</strong><small>Our team reviews each job</small></span>
+                    </li>
+                    <li class="cart-step <?php echo cart_step_class(3, $current_step); ?>">
+                        <span class="cart-step__num">3</span>
+                        <span><strong>Check out</strong><small>Opens once prices are set</small></span>
+                    </li>
+                </ol>
+
+                <div class="cart-layout">
+                    <div class="cart-main">
+                        <details class="pricing-info">
+                            <summary><i class="fas fa-info-circle"></i> How pricing works <i class="fas fa-chevron-down chev"></i></summary>
+                            <div class="pricing-info__body">
+                                <p>Prices shown here are <strong>estimates</strong> based on standard rates. The final price can change with:</p>
+                                <ul class="pricing-list">
                                     <li>Complexity of your custom design</li>
                                     <li>Special material requirements</li>
                                     <li>Urgency of the order</li>
                                     <li>Quantity adjustments</li>
                                 </ul>
-                                <div class="pricing-note">
-                                    <strong><i class="fas fa-exclamation-triangle"></i> Note:</strong>
-                                    Click "Request Final Pricing" to send your selected items to our team. We will review your requirements and provide you with the exact pricing.
-                                </div>
+                                <p>Select your items and choose <strong>Request price confirmation</strong>. We'll review your requirements and send back the exact price.</p>
                             </div>
+                        </details>
 
-                            <div class="cart-actions">
-                                <div class="select-all">
-                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this); saveScrollPosition(); this.form.submit();">
-                                    <label for="selectAll">Select All Items</label>
-                                </div>
-
-                                <div class="bulk-actions">
-                                    <button type="button" class="bulk-btn remove-selected-btn" onclick="handleBulkRemove()">
-                                        <i class="fas fa-trash"></i> Remove Selected
-                                    </button>
-                                </div>
+                        <form method="post" id="cartForm" action="view_cart.php">
+                            <div class="cart-toolbar">
+                                <label class="select-all">
+                                    <input type="checkbox" class="cart-check" id="selectAll" onchange="toggleSelectAll(this); saveScrollPosition(); this.form.submit();">
+                                    <span>Select all</span>
+                                </label>
+                                <span class="toolbar-count js-lines"><?php echo count($cart_items); ?> <?php echo count($cart_items) === 1 ? 'job' : 'jobs'; ?></span>
+                                <button type="button" class="remove-selected-btn">
+                                    <i class="fas fa-trash"></i> Remove selected
+                                </button>
                             </div>
 
                             <div class="cart-items">
                                 <?php foreach ($cart_items as $row):
-                                    // Determine the actual price for this specific item
-                                    $has_admin_price = $row['price_updated_by_admin'];
-                                    $quoted_price = $row['quoted_price'];
-                                    $actual_price = $has_admin_price && $quoted_price > 0 ? $quoted_price : $row['unit_price'];
-                                    $item_total = $actual_price * $row['quantity'];
-                                    $is_selected = in_array($row['item_id'], $selected_items);
+                                    $has_admin_price = !empty($row['price_updated_by_admin']) && $row['quoted_price'] > 0;
+                                    $actual_price    = $has_admin_price ? $row['quoted_price'] : $row['unit_price'];
+                                    $item_total      = $actual_price * $row['quantity'];
+                                    $is_selected     = in_array($row['item_id'], $selected_items);
+                                    $ink             = cart_ink_for_group($row['product_group']);
+                                    $image_path      = "../assets/images/services/service-" . $row['id'] . ".jpg";
+                                    $has_image       = file_exists($image_path);
+                                    $status          = strtolower((string)($row['pricing_status'] ?? ''));
+                                    $status_class    = in_array($status, ['pending', 'approved', 'completed', 'cancelled'], true) ? $status : '';
                                 ?>
-                                    <div class="cart-item">
+                                    <article class="cart-item" data-ink="<?php echo $ink; ?>">
                                         <div class="item-checkbox">
-                                            <input type="checkbox" name="selected_items[]" value="<?php echo $row['item_id']; ?>"
+                                            <input type="checkbox" class="cart-check" name="selected_items[]" value="<?php echo cart_h($row['item_id']); ?>"
                                                 <?php echo $is_selected ? 'checked' : ''; ?>
+                                                aria-label="Select <?php echo cart_h($row['product_name']); ?>"
                                                 onchange="updateCartTotal(); saveScrollPosition(); this.form.submit();">
                                         </div>
 
-                                        <div class="cart-item-content">
-                                            <div class="cart-item-image">
-                                                <?php
-                                                $image_path = "../assets/images/services/service-" . $row['id'] . ".jpg";
-                                                $image_url = file_exists($image_path) ? $image_path : "https://via.placeholder.com/140x140/2c5aa0/ffffff?text=Product";
-                                                ?>
-                                                <img src="<?php echo $image_url; ?>"
-                                                    alt="<?php echo $row['product_name']; ?>">
+                                        <div class="cart-item-image">
+                                            <?php if ($has_image): ?>
+                                                <img src="<?php echo cart_h($image_path); ?>" alt="<?php echo cart_h($row['product_name']); ?>" loading="lazy">
+                                            <?php else: ?>
+                                                <i class="fas fa-image" aria-hidden="true"></i>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <div class="cart-item-info">
+                                            <span class="item-group"><?php echo cart_h($row['product_group']); ?></span>
+                                            <h3><a href="../pages/website/service_detail.php?id=<?php echo (int)$row['id']; ?>"><?php echo cart_h($row['product_name']); ?></a></h3>
+
+                                            <div class="price-display">
+                                                <?php if ($has_admin_price): ?>
+                                                    <p class="price">
+                                                        <span class="was">₱<?php echo number_format($row['unit_price'], 2); ?></span>₱<?php echo number_format($actual_price, 2); ?>
+                                                    </p>
+                                                    <span class="admin-price-notice"><i class="fas fa-check-circle"></i> Price confirmed by store</span>
+                                                <?php else: ?>
+                                                    <p class="price">₱<?php echo number_format($actual_price, 2); ?></p>
+                                                    <span class="estimate-tag">Estimate</span>
+                                                <?php endif; ?>
+                                                <span class="price-unit">each</span>
                                             </div>
 
-                                            <div class="cart-item-info">
-                                                <h3><?php echo $row['product_name']; ?></h3>
-                                                <span class="product-group"><?php echo $row['product_group']; ?></span>
-
-                                                <!-- Price Display with Admin Update Indicator -->
-                                                <div class="price-display">
-                                                    <?php if ($has_admin_price): ?>
-                                                        <div class="admin-price-notice">
-                                                            <i class="fas fa-check-circle" style="color: #27ae60;"></i>
-                                                            <span style="color: #27ae60; font-weight: bold;">PRICE UPDATED</span>
-                                                        </div>
-                                                        <p class="price">
-                                                            <span style="text-decoration: line-through; color: #999; margin-right: 10px;">
-                                                                ₱<?php echo number_format($row['unit_price'], 2); ?>
-                                                            </span>
-                                                            <span style="color: #e74c3c; font-size: 1.3em;">
-                                                                ₱<?php echo number_format($actual_price, 2); ?>
-                                                            </span>
-                                                        </p>
-                                                    <?php else: ?>
-                                                        <p class="price">₱<?php echo number_format($actual_price, 2); ?></p>
-                                                    <?php endif; ?>
-
-                                                    <!-- Individual Admin Notes for this cart item -->
-                                                    <?php if (!empty($row['admin_notes'])): ?>
-                                                        <div class='admin-notes-section'>
-                                                            <div class='admin-notes-header'>
-                                                                <i class='fas fa-sticky-note'></i>
-                                                                <strong>Admin Notes</strong>
-                                                                <?php if (!empty($row['pricing_status'])): ?>
-                                                                    <span class='pricing-status badge <?php echo $row['pricing_status']; ?>'>
-                                                                        <?php echo ucfirst($row['pricing_status']); ?>
-                                                                    </span>
-                                                                <?php endif; ?>
-                                                            </div>
-                                                            <div class='admin-notes-content'>
-                                                                <?php echo htmlspecialchars($row['admin_notes']); ?>
-                                                            </div>
-                                                        </div>
-                                                    <?php endif; ?>
-
-                                                    <?php if (!empty($row['pricing_status']) && $row['pricing_status'] === 'cancelled'): ?>
-                                                        <div class="pricing-status-alert cancelled">
-                                                            <i class="fas fa-ban"></i>
-                                                            <strong>Pricing Request Cancelled</strong>
-                                                            <p>Your pricing request for this item has been cancelled. Please contact support for more information or remove this item from your cart.</p>
-                                                        </div>
-                                                    <?php endif; ?>
-                                                </div>
-
-                                                <!-- Product Details for RISO, Offset, and Digital Printing -->
-                                                <?php
-                                                $productGroup = strtolower($row['product_group']);
-                                                $isPrintingProduct = in_array($productGroup, ['riso', 'offset', 'digital', 'riso printing', 'offset printing', 'digital printing']);
-
-                                                if ($isPrintingProduct && (!empty($row['layout_option']) || !empty($row['gsm_option']) || !empty($row['finish_option']) || !empty($row['paper_option']) || !empty($row['binding_option']) || !empty($row['size_option']))):
-                                                ?>
-                                                    <div class="printing-details">
-                                                        <div class="details-row">
-                                                            <?php if (!empty($row['size_option'])): ?>
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">Size:</span>
-                                                                    <span class="detail-value">
-                                                                        <?php echo htmlspecialchars($row['size_option']); ?>
-                                                                        <?php if (!empty($row['custom_size'])): ?>
-                                                                            <br><small>Custom: <?php echo htmlspecialchars($row['custom_size']); ?></small>
-                                                                        <?php endif; ?>
-                                                                    </span>
-                                                                </div>
-                                                            <?php endif; ?>
-
-                                                            <?php if (!empty($row['finish_option_name'])): ?>
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">Finish:</span>
-                                                                    <span class="detail-value"><?php echo htmlspecialchars($row['finish_option_name']); ?></span>
-                                                                </div>
-                                                            <?php endif; ?>
-
-                                                            <?php if (!empty($row['paper_option_name'])): ?>
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">Paper:</span>
-                                                                    <span class="detail-value"><?php echo htmlspecialchars($row['paper_option_name']); ?></span>
-                                                                </div>
-                                                            <?php endif; ?>
-
-                                                            <?php if (!empty($row['binding_option_name'])): ?>
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">Binding:</span>
-                                                                    <span class="detail-value"><?php echo htmlspecialchars($row['binding_option_name']); ?></span>
-                                                                </div>
-                                                            <?php endif; ?>
-
-                                                            <?php if (!empty($row['layout_option_name'])): ?>
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">Layout Type:</span>
-                                                                    <span class="detail-value">
-                                                                        <?php echo htmlspecialchars($row['layout_option_name']); ?>
-                                                                        <?php if (!empty($row['layout_details'])): ?>
-                                                                            <br><small>Details: <?php echo htmlspecialchars($row['layout_details']); ?></small>
-                                                                        <?php endif; ?>
-                                                                    </span>
-                                                                </div>
-                                                            <?php endif; ?>
-
-                                                            <?php if (!empty($row['gsm_option'])): ?>
-                                                                <div class="detail-item">
-                                                                    <span class="detail-label">GSM:</span>
-                                                                    <span class="detail-value"><?php echo htmlspecialchars($row['gsm_option']); ?></span>
-                                                                </div>
-                                                            <?php endif; ?>
-                                                        </div>
+                                            <?php if (!empty($row['admin_notes'])): ?>
+                                                <div class="admin-notes-section">
+                                                    <div class="admin-notes-header">
+                                                        <i class="fas fa-sticky-note"></i>
+                                                        <span>Note from our team</span>
+                                                        <?php if ($status_class !== ''): ?>
+                                                            <span class="pricing-status badge <?php echo $status_class; ?>"><?php echo ucfirst($status_class); ?></span>
+                                                        <?php endif; ?>
                                                     </div>
-                                                <?php endif; ?>
+                                                    <div class="admin-notes-content"><?php echo htmlspecialchars($row['admin_notes']); ?></div>
+                                                </div>
+                                            <?php endif; ?>
 
-                                                <!-- Custom Design Section -->
-                                                <?php
-                                                if (!empty($row['design_image'])) {
-                                                    $designData = $row['design_image'];
-                                                    $frontMockup = '';
-                                                    $backMockup = '';
-                                                    $uploadedFile = '';
-                                                    $frontUploadedFile = '';
-                                                    $backUploadedFile = '';
-                                                    $uploadType = '';
+                                            <?php if ($status === 'cancelled'): ?>
+                                                <div class="pricing-status-alert cancelled">
+                                                    <i class="fas fa-ban"></i>
+                                                    <strong>Pricing request cancelled</strong>
+                                                    <p>Your pricing request for this item has been cancelled. Contact us for details, or remove the item from your cart.</p>
+                                                </div>
+                                            <?php endif; ?>
 
-                                                    // Check if it's JSON format
-                                                    $isJson = false;
-                                                    $designArray = json_decode($designData, true);
+                                            <?php
+                                            $productGroup       = strtolower($row['product_group']);
+                                            $isPrintingProduct  = in_array($productGroup, ['riso', 'offset', 'digital', 'riso printing', 'offset printing', 'digital printing']);
+                                            $hasSpecs = !empty($row['layout_option']) || !empty($row['gsm_option']) || !empty($row['finish_option']) || !empty($row['paper_option']) || !empty($row['binding_option']) || !empty($row['size_option']);
 
-                                                    if (json_last_error() === JSON_ERROR_NONE && is_array($designArray)) {
-                                                        $isJson = true;
-                                                        $uploadType = $designArray['upload_type'] ?? 'single';
-
-                                                        // Get ALL images - FIXED: Extract all file types
-                                                        $frontMockup = $designArray['front_mockup'] ?? '';
-                                                        $backMockup = $designArray['back_mockup'] ?? '';
-                                                        $uploadedFile = $designArray['uploaded_file'] ?? '';
-                                                        $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
-                                                        $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
-                                                    } else {
-                                                        // Try to fix JSON if it's malformed
-                                                        if (preg_match('/\{.*\}/', $designData)) {
-                                                            $fixedJson = str_replace('\"', '"', $designData);
-                                                            $fixedJson = stripslashes($fixedJson);
-
-                                                            $designArray = json_decode($fixedJson, true);
-                                                            if (json_last_error() === JSON_ERROR_NONE && is_array($designArray)) {
-                                                                $isJson = true;
-                                                                $uploadType = $designArray['upload_type'] ?? 'single';
-                                                                $frontMockup = $designArray['front_mockup'] ?? '';
-                                                                $backMockup = $designArray['back_mockup'] ?? '';
-                                                                $uploadedFile = $designArray['uploaded_file'] ?? '';
-                                                                $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
-                                                                $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
-                                                            }
-                                                        } else {
-                                                            // Legacy format - single image
-                                                            $uploadedFile = $designData;
-                                                            $uploadType = 'single';
-                                                        }
-                                                    }
-
-                                                    // Display design previews if we have valid images
-                                                    $hasDesigns = !empty($frontMockup) || !empty($backMockup) || !empty($uploadedFile) || !empty($frontUploadedFile) || !empty($backUploadedFile);
-
-                                                    if ($hasDesigns): ?>
-                                                        <div class="custom-design">
-                                                            <div class="custom-design-title">
-                                                                <i class="fas fa-palette"></i> Your Custom Design
-                                                                <span style="font-size: 0.8em; color: var(--text-light); margin-left: 10px;">
-                                                                    (<?php echo $uploadType === 'single' ? 'Same design for both sides' : 'Different designs for front/back'; ?>)
+                                            if ($isPrintingProduct && $hasSpecs):
+                                            ?>
+                                                <div class="printing-details">
+                                                    <div class="details-row">
+                                                        <?php if (!empty($row['size_option'])): ?>
+                                                            <div class="detail-item">
+                                                                <span class="detail-label">Size</span>
+                                                                <span class="detail-value">
+                                                                    <?php echo htmlspecialchars($row['size_option']); ?>
+                                                                    <?php if (!empty($row['custom_size'])): ?>
+                                                                        <small>Custom: <?php echo htmlspecialchars($row['custom_size']); ?></small>
+                                                                    <?php endif; ?>
                                                                 </span>
                                                             </div>
-                                                            <div class="design-previews">
-                                                                <?php
-                                                                // Show uploaded original files
-                                                                if ($uploadType === 'single' && !empty($uploadedFile)):
-                                                                    $uploadedFilePath = "../assets/uploads/" . $uploadedFile;
-                                                                    $uploadedFileExists = file_exists($uploadedFilePath);
-                                                                ?>
-                                                                    <div class="design-preview">
-                                                                        <?php if ($uploadedFileExists): ?>
-                                                                            <img src="<?php echo $uploadedFilePath; ?>"
-                                                                                alt="Original Design File">
-                                                                        <?php else: ?>
-                                                                            <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 2px dashed #ccc;">
-                                                                                <i class="fas fa-file-image" style="font-size: 24px; color: #999;"></i>
-                                                                            </div>
-                                                                        <?php endif; ?>
-                                                                        <div class="design-label">Original File</div>
-                                                                    </div>
-                                                                <?php endif; ?>
+                                                        <?php endif; ?>
 
-                                                                <?php if (!empty($frontUploadedFile) || !empty($backUploadedFile)): ?>
-                                                                    <?php if (!empty($frontUploadedFile)):
-                                                                        $frontUploadedFilePath = "../assets/uploads/" . $frontUploadedFile;
-                                                                        $frontUploadedFileExists = file_exists($frontUploadedFilePath);
-                                                                    ?>
-                                                                        <div class="design-preview">
-                                                                            <?php if ($frontUploadedFileExists): ?>
-                                                                                <img src="<?php echo $frontUploadedFilePath; ?>"
-                                                                                    alt="Front Original Design">
-                                                                            <?php else: ?>
-                                                                                <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 2px dashed #ccc;">
-                                                                                    <i class="fas fa-file-image" style="font-size: 24px; color: #999;"></i>
-                                                                                </div>
-                                                                            <?php endif; ?>
-                                                                            <div class="design-label">Front Original</div>
-                                                                        </div>
-                                                                    <?php endif; ?>
-
-                                                                    <?php if (!empty($backUploadedFile)):
-                                                                        $backUploadedFilePath = "../assets/uploads/" . $backUploadedFile;
-                                                                        $backUploadedFileExists = file_exists($backUploadedFilePath);
-                                                                    ?>
-                                                                        <div class="design-preview">
-                                                                            <?php if ($backUploadedFileExists): ?>
-                                                                                <img src="<?php echo $backUploadedFilePath; ?>"
-                                                                                    alt="Back Original Design">
-                                                                            <?php else: ?>
-                                                                                <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 2px dashed #ccc;">
-                                                                                    <i class="fas fa-file-image" style="font-size: 24px; color: #999;"></i>
-                                                                                </div>
-                                                                            <?php endif; ?>
-                                                                            <div class="design-label">Back Original</div>
-                                                                        </div>
-                                                                    <?php endif; ?>
-                                                                <?php endif; ?>
-
-                                                                <!-- Mockup Previews -->
-                                                                <?php
-                                                                // Front mockup
-                                                                if (!empty($frontMockup)):
-                                                                    $frontMockupPath = "../assets/uploads/" . $frontMockup;
-                                                                    $frontMockupExists = file_exists($frontMockupPath);
-                                                                ?>
-                                                                    <div class="design-preview">
-                                                                        <?php if ($frontMockupExists): ?>
-                                                                            <img src="<?php echo $frontMockupPath; ?>"
-                                                                                alt="Front Mockup">
-                                                                        <?php else: ?>
-                                                                            <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--primary-color);">
-                                                                                <i class="fas fa-image" style="font-size: 24px; color: var(--primary-color);"></i>
-                                                                            </div>
-                                                                        <?php endif; ?>
-                                                                        <div class="design-label">Front Mockup</div>
-                                                                    </div>
-                                                                <?php endif; ?>
-
-                                                                <?php
-                                                                // Back mockup
-                                                                if (!empty($backMockup)):
-                                                                    $backMockupPath = "../assets/uploads/" . $backMockup;
-                                                                    $backMockupExists = file_exists($backMockupPath);
-                                                                ?>
-                                                                    <div class="design-preview">
-                                                                        <?php if ($backMockupExists): ?>
-                                                                            <img src="<?php echo $backMockupPath; ?>"
-                                                                                alt="Back Mockup">
-                                                                        <?php else: ?>
-                                                                            <div style="width: 120px; height: 120px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--primary-color);">
-                                                                                <i class="fas fa-image" style="font-size: 24px; color: var(--primary-color);"></i>
-                                                                            </div>
-                                                                        <?php endif; ?>
-                                                                        <div class="design-label">Back Mockup</div>
-                                                                    </div>
-                                                                <?php endif; ?>
+                                                        <?php if (!empty($row['finish_option_name'])): ?>
+                                                            <div class="detail-item">
+                                                                <span class="detail-label">Finish</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['finish_option_name']); ?></span>
                                                             </div>
+                                                        <?php endif; ?>
 
-                                                            <!-- Design Information -->
-                                                            <div class="design-info">
-                                                                <div class="design-info-row">
-                                                                    <span><strong>Upload Type:</strong> <?php echo ucfirst($uploadType); ?></span>
-                                                                    <?php if ($uploadType === 'single' && !empty($uploadedFile)): ?>
-                                                                        <span><strong>Original File:</strong> <?php echo basename($uploadedFile); ?></span>
-                                                                    <?php endif; ?>
-                                                                </div>
-                                                                <?php if ($uploadType === 'separate'): ?>
-                                                                    <div class="design-info-row">
-                                                                        <?php if (!empty($frontUploadedFile)): ?>
-                                                                            <span><strong>Front File:</strong> <?php echo basename($frontUploadedFile); ?></span>
-                                                                        <?php endif; ?>
-                                                                        <?php if (!empty($backUploadedFile)): ?>
-                                                                            <span><strong>Back File:</strong> <?php echo basename($backUploadedFile); ?></span>
-                                                                        <?php endif; ?>
-                                                                    </div>
-                                                                <?php endif; ?>
+                                                        <?php if (!empty($row['paper_option_name'])): ?>
+                                                            <div class="detail-item">
+                                                                <span class="detail-label">Paper</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['paper_option_name']); ?></span>
                                                             </div>
-                                                        </div>
-                                                <?php endif;
-                                                }
-                                                ?>
+                                                        <?php endif; ?>
 
-                                                <p class="subtotal">
-                                                    Subtotal: ₱<?php echo number_format($item_total, 2); ?>
-                                                    <?php if ($has_admin_price): ?>
-                                                        <br><small style="color: #999; font-weight: 300;">* final prices are reviewed and confirmed by the store (not automatically)</small>
-                                                    <?php endif; ?>
-                                                </p>
-                                            </div>
+                                                        <?php if (!empty($row['binding_option_name'])): ?>
+                                                            <div class="detail-item">
+                                                                <span class="detail-label">Binding</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['binding_option_name']); ?></span>
+                                                            </div>
+                                                        <?php endif; ?>
+
+                                                        <?php if (!empty($row['layout_option_name'])): ?>
+                                                            <div class="detail-item">
+                                                                <span class="detail-label">Layout type</span>
+                                                                <span class="detail-value">
+                                                                    <?php echo htmlspecialchars($row['layout_option_name']); ?>
+                                                                    <?php if (!empty($row['layout_details'])): ?>
+                                                                        <small>Details: <?php echo htmlspecialchars($row['layout_details']); ?></small>
+                                                                    <?php endif; ?>
+                                                                </span>
+                                                            </div>
+                                                        <?php endif; ?>
+
+                                                        <?php if (!empty($row['gsm_option'])): ?>
+                                                            <div class="detail-item">
+                                                                <span class="detail-label">GSM</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['gsm_option']); ?></span>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                            <?php endif; ?>
+
+                                            <?php
+                                            $design = !empty($row['design_image']) ? cart_parse_design($row['design_image']) : null;
+                                            $has_designs = $design && ($design['front_mockup'] !== '' || $design['back_mockup'] !== '' || $design['uploaded_file'] !== '' || $design['front_uploaded_file'] !== '' || $design['back_uploaded_file'] !== '');
+
+                                            if ($has_designs):
+                                                $upType = $design['upload_type'];
+                                            ?>
+                                                <div class="custom-design">
+                                                    <div class="custom-design-title">
+                                                        <i class="fas fa-palette"></i> Your custom design
+                                                        <small><?php echo $upType === 'single' ? 'Same design on both sides' : 'Different designs for front and back'; ?></small>
+                                                    </div>
+
+                                                    <div class="design-previews">
+                                                        <?php
+                                                        if ($upType === 'single' && $design['uploaded_file'] !== '') {
+                                                            cart_design_tile('Original file', $design['uploaded_file']);
+                                                        }
+                                                        if ($design['front_uploaded_file'] !== '') {
+                                                            cart_design_tile('Front original', $design['front_uploaded_file']);
+                                                        }
+                                                        if ($design['back_uploaded_file'] !== '') {
+                                                            cart_design_tile('Back original', $design['back_uploaded_file']);
+                                                        }
+                                                        if ($design['front_mockup'] !== '') {
+                                                            cart_design_tile('Front mockup', $design['front_mockup'], 'fa-image');
+                                                        }
+                                                        if ($design['back_mockup'] !== '') {
+                                                            cart_design_tile('Back mockup', $design['back_mockup'], 'fa-image');
+                                                        }
+                                                        ?>
+                                                    </div>
+
+                                                    <div class="design-files">
+                                                        <strong>Upload type:</strong> <?php echo cart_h(ucfirst($upType)); ?>
+                                                        <?php if ($upType === 'single' && $design['uploaded_file'] !== ''): ?>
+                                                            &nbsp;&middot;&nbsp; <strong>File:</strong> <?php echo cart_h(basename($design['uploaded_file'])); ?>
+                                                        <?php endif; ?>
+                                                        <?php if ($upType === 'separate'): ?>
+                                                            <?php if ($design['front_uploaded_file'] !== ''): ?>
+                                                                &nbsp;&middot;&nbsp; <strong>Front:</strong> <?php echo cart_h(basename($design['front_uploaded_file'])); ?>
+                                                            <?php endif; ?>
+                                                            <?php if ($design['back_uploaded_file'] !== ''): ?>
+                                                                &nbsp;&middot;&nbsp; <strong>Back:</strong> <?php echo cart_h(basename($design['back_uploaded_file'])); ?>
+                                                            <?php endif; ?>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
 
                                         <div class="cart-item-actions">
                                             <div class="quantity-controls">
-                                                <button type="button" class="quantity-btn decrease">-</button>
-                                                <input type="number"
-                                                    name="quantity"
-                                                    class="quantity-input"
-                                                    value="<?php echo $row['quantity']; ?>"
-                                                    min="1">
-                                                <button type="button" class="quantity-btn increase">+</button>
+                                                <button type="button" class="quantity-btn decrease" aria-label="Decrease quantity"><i class="fas fa-minus"></i></button>
+                                                <input type="number" name="quantity" class="quantity-input" value="<?php echo (int)$row['quantity']; ?>" min="1" aria-label="Quantity">
+                                                <button type="button" class="quantity-btn increase" aria-label="Increase quantity"><i class="fas fa-plus"></i></button>
+                                            </div>
+
+                                            <div class="item-subtotal">
+                                                <span class="item-subtotal__label">Subtotal</span>
+                                                <span class="subtotal-amount">₱<?php echo number_format($item_total, 2); ?></span>
                                             </div>
 
                                             <button type="button" class="remove-btn">
                                                 <i class="fas fa-trash"></i> Remove
                                             </button>
-                                            <input type="hidden" name="item_id" value="<?php echo $row['item_id']; ?>">
+                                            <input type="hidden" name="item_id" value="<?php echo cart_h($row['item_id']); ?>">
                                         </div>
-                                    </div>
+                                    </article>
                                 <?php endforeach; ?>
                             </div>
                         </form>
                     </div>
 
-                    <!-- Order Summary Sidebar -->
-                    <div class="cart-summary-sidebar">
+                    <!-- Order Summary -->
+                    <aside class="cart-side" aria-label="Order summary">
                         <div class="cart-summary">
-                            <h2 class="summary-title">Order Summary</h2>
+                            <div class="summary-bar" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+                            <div class="summary-body">
+                                <h2 class="summary-title">Order summary</h2>
 
-                            <?php
-                            $items_with_admin_prices = 0;
-                            $total_selected_items = count($selected_items);
-
-                            foreach ($cart_items as $item) {
-                                if (in_array($item['item_id'], $selected_items)) {
-                                    if ($item['price_updated_by_admin'] && $item['quoted_price'] > 0) {
-                                        $items_with_admin_prices++;
-                                    }
-                                }
-                            }
-
-                            $all_prices_updated = ($items_with_admin_prices === $total_selected_items && $total_selected_items > 0);
-                            ?>
-
-                            <div id="debug-info" style="background: #f8f9fa; padding: 10px; margin-bottom: 15px; border-radius: 5px; font-size: 0.9em; display: none;">
-                                <strong>Debug Info:</strong>
-                                Selected: <span id="debug-selected-count"><?php echo $total_selected_items; ?></span> items |
-                                With Admin Prices: <span id="debug-admin-prices"><?php echo $items_with_admin_prices; ?></span> |
-                                Can Checkout: <span id="debug-can-checkout"><?php echo $all_prices_updated ? 'Yes' : 'No'; ?></span>
-                            </div>
-
-                            <?php if ($items_with_admin_prices > 0): ?>
-                                <div class="pricing-status-alert success">
-                                    <i class="fas fa-check-circle"></i>
-                                    <strong><?php echo $items_with_admin_prices; ?> item(s) have confirmed pricing</strong>
-                                    <p>These items are ready for checkout with final store approved prices.</p>
-                                </div>
-                            <?php endif; ?>
-
-                            <?php if (!$all_prices_updated && $total_selected_items > 0): ?>
-                                <div class="pricing-status-alert warning">
-                                    <i class="fas fa-clock"></i>
-                                    <strong>Waiting for price confirmation</strong>
-                                    <p>
-                                        <?php if ($items_with_admin_prices > 0): ?>
-                                            <?php echo ($total_selected_items - $items_with_admin_prices); ?> of your <?php echo $total_selected_items; ?> selected items are still waiting for store pricing confirmation.
-                                        <?php else: ?>
-                                            All <?php echo $total_selected_items; ?> selected items are waiting for store pricing confirmation.
-                                        <?php endif; ?>
-                                        The checkout button will appear once all prices are confirmed.
-                                    </p>
-                                </div>
-                            <?php endif; ?>
-
-                            <div class="summary-row">
-                                <span>Subtotal (<span id="selected-count"><?php echo $total_selected_items; ?></span> items):</span>
-                                <span id="subtotal-amount">₱<?php echo number_format($selected_total, 2); ?></span>
-                            </div>
-                            <div class="summary-row">
-                                <span>Tax (3%):</span>
-                                <span id="tax-amount">₱<?php echo number_format($selected_total * 0.03, 2); ?></span>
-                            </div>
-                            <div class="summary-row total">
-                                <span>Total:</span>
-                                <span id="total-amount">₱<?php echo number_format($selected_total + ($selected_total * 0.1), 2); ?></span>
-                            </div>
-
-                            <div class="cart-buttons">
-                                <a href="main.php" class="continue-btn">
-                                    <i class="fas fa-arrow-left"></i> Continue Shopping
-                                </a>
-
-                                <?php
-                                // Improved checkout logic
-                                $can_checkout = false;
-                                $checkout_message = "";
-
-                                if (!empty($selected_items)) {
-                                    $items_with_admin_prices = 0;
-                                    $total_selected_items = count($selected_items);
-
-                                    foreach ($cart_items as $item) {
-                                        if (in_array($item['item_id'], $selected_items)) {
-                                            if ($item['price_updated_by_admin'] && $item['quoted_price'] > 0) {
-                                                $items_with_admin_prices++;
-                                            }
-                                        }
-                                    }
-
-                                    $all_prices_updated = ($items_with_admin_prices === $total_selected_items && $total_selected_items > 0);
-
-                                    // Allow checkout if ALL selected items have admin prices
-                                    if ($items_with_admin_prices === $total_selected_items) {
-                                        $can_checkout = true;
-                                        $checkout_message = "All selected items have confirmed pricing";
-                                    } else if ($items_with_admin_prices > 0) {
-                                        $checkout_message = "$items_with_admin_prices of $total_selected_items selected items have confirmed pricing";
-                                    } else {
-                                        $checkout_message = "No selected items have confirmed pricing yet";
-                                    }
-
-                                    error_log("DEBUG Checkout: can_checkout=$can_checkout, items_with_admin_prices=$items_with_admin_prices, total_selected_items=$total_selected_items");
-                                }
-                                ?>
-
-                                <?php if ($can_checkout): ?>
-                                    <button type="submit" name="proceed_to_checkout" class="checkout-btn" form="cartForm"
-                                        style="<?php echo empty($selected_items) ? 'display: none;' : ''; ?>">
-                                        <i class="fas fa-lock"></i> Proceed to Checkout
-                                    </button>
-                                <?php elseif (!empty($selected_items)): ?>
-                                    <button type="button" class="waiting-btn"
-                                        <?php echo empty($selected_items) ? 'display: none;' : ''; ?>"
-                                        title="<?php echo $checkout_message; ?>">
-                                        <i class="fas fa-clock"></i> Waiting for Price Confirmation
-                                    </button>
+                                <?php if ($total_selected_items === 0): ?>
+                                    <p class="summary-empty">Select the jobs you want to quote or check out to see your totals.</p>
                                 <?php endif; ?>
 
-                                <button type="submit" name="request_pricing" class="request-btn" form="cartForm">
-                                    <i class="fas fa-envelope"></i> Request Price Confirmation
-                                </button>
+                                <?php if ($items_with_admin_prices > 0): ?>
+                                    <div class="pricing-status-alert success">
+                                        <i class="fas fa-check-circle"></i>
+                                        <strong><?php echo $items_with_admin_prices; ?> selected item<?php echo $items_with_admin_prices === 1 ? ' has' : 's have'; ?> confirmed pricing</strong>
+                                        <p>Ready for checkout at the store-approved price.</p>
+                                    </div>
+                                <?php endif; ?>
+
+                                <?php if (!$all_prices_updated && $total_selected_items > 0): ?>
+                                    <div class="pricing-status-alert warning">
+                                        <i class="fas fa-clock"></i>
+                                        <strong>Waiting for price confirmation</strong>
+                                        <p>
+                                            <?php if ($items_with_admin_prices > 0): ?>
+                                                <?php echo $total_selected_items - $items_with_admin_prices; ?> of your <?php echo $total_selected_items; ?> selected items are still waiting for the store to confirm pricing.
+                                            <?php else: ?>
+                                                All <?php echo $total_selected_items; ?> selected items are waiting for the store to confirm pricing.
+                                            <?php endif; ?>
+                                            Checkout opens once every selected item is confirmed.
+                                        </p>
+                                    </div>
+                                <?php endif; ?>
+
+                                <div class="summary-rows">
+                                    <div class="summary-row">
+                                        <span>Subtotal (<span id="selected-count"><?php echo $total_selected_items; ?></span> items)</span>
+                                        <span id="subtotal-amount">₱<?php echo number_format($selected_total, 2); ?></span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span>Tax (3%)</span>
+                                        <span id="tax-amount">₱<?php echo number_format($selected_tax, 2); ?></span>
+                                    </div>
+                                    <div class="summary-row total">
+                                        <span>Total</span>
+                                        <span id="total-amount">₱<?php echo number_format($selected_grand, 2); ?></span>
+                                    </div>
+                                </div>
+
+                                <div class="cart-buttons">
+                                    <button type="submit" name="proceed_to_checkout" class="btn btn-primary checkout-btn" form="cartForm"
+                                        <?php echo $can_checkout ? '' : 'hidden'; ?>>
+                                        <i class="fas fa-lock"></i> Proceed to checkout
+                                    </button>
+
+                                    <button type="button" class="btn waiting-btn" aria-disabled="true"
+                                        title="<?php echo cart_h($checkout_message); ?>"
+                                        <?php echo ($total_selected_items > 0 && !$can_checkout) ? '' : 'hidden'; ?>>
+                                        <i class="fas fa-clock"></i> Waiting for price confirmation
+                                    </button>
+
+                                    <button type="submit" name="request_pricing" class="btn btn-ink request-btn" form="cartForm">
+                                        <i class="fas fa-envelope"></i> Request price confirmation
+                                    </button>
+
+                                    <a href="main.php#services" class="continue-btn">
+                                        <i class="fas fa-arrow-left"></i> Continue shopping
+                                    </a>
+                                </div>
+
+                                <p class="summary-fineprint">Estimates only until our team confirms each item. Checkout is available once every selected item has a confirmed price.</p>
                             </div>
                         </div>
+                    </aside>
+                </div>
+
+            <?php else: ?>
+
+                <div class="empty-cart">
+                    <div class="empty-cart__icon"><i class="fas fa-shopping-cart"></i></div>
+                    <h2>Your cart is empty</h2>
+                    <p>Pick a printing service to start a job. You can set the size, paper, finish and upload your artwork on each service page.</p>
+                    <div class="hero-actions">
+                        <a href="main.php#services" class="btn btn-primary"><i class="fas fa-store"></i> Browse services</a>
+                        <a href="contact.php" class="btn btn-secondary">Talk to our team</a>
                     </div>
                 </div>
-            <?php else: ?>
-                <div class="empty-cart">
-                    <i class="fas fa-shopping-cart"></i>
-                    <h2>Your cart is empty</h2>
-                    <p>Looks like you haven't added any items to your cart yet.</p>
-                    <a href="main.php" class="start-shopping">
-                        <i class="fas fa-store" style="color: white; font-size: 30px;"></i> Start Shopping
-                    </a>
-                </div>
+
             <?php endif; ?>
+        </div>
+    </main>
+
+    <!-- Help band -->
+    <section class="cta-section">
+        <div class="container">
+            <div class="cta-content">
+                <h2>Need a hand with your order?</h2>
+                <p>Ask about paper, finishes, artwork files or turnaround. Our team in Malolos will help you get the job right.</p>
+                <div class="hero-actions">
+                    <a href="#" class="btn btn-primary" onclick="toggleChat(); return false;">Chat with us</a>
+                    <a href="contact.php" class="btn btn-secondary">Contact us</a>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -1704,177 +1978,194 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
         </div>
     </div>
 
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>AMDP</h3>
+                    <p>Professional printing services with quality, speed, and precision for all your business needs.</p>
+                    <div class="social-icons">
+                        <a href="https://www.facebook.com/profile.php?id=100063881538670"><i class="fab fa-facebook-f"></i></a>
+                        <a href=""><i class="fab fa-twitter"></i></a>
+                        <a href=""><i class="fab fa-instagram"></i></a>
+                        <a href=""><i class="fab fa-linkedin-in"></i></a>
+                    </div>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Services</h3>
+                    <ul>
+                        <li><a href="main.php#offset">Offset Printing</a></li>
+                        <li><a href="main.php#digital">Digital Printing</a></li>
+                        <li><a href="main.php#riso">RISO Printing</a></li>
+                        <li><a href="main.php#other">Other Services</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Company</h3>
+                    <ul>
+                        <li><a href="about.php">About Us</a></li>
+                        <li><a href="about.php">Our Team</a></li>
+                        <li><a href="about.php">Careers</a></li>
+                        <li><a href="about.php">Testimonials</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Support</h3>
+                    <ul>
+                        <li><a href="contact.php">Contact Us</a></li>
+                        <li><a href="contact.php">FAQ</a></li>
+                        <li><a href="contact.php">Shipping Info</a></li>
+                        <li><a href="contact.php">Returns</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Contact Info</h3>
+                    <ul class="contact-info">
+                        <li><i class="fas fa-map-marker-alt"></i>Fausta Rd Lucero St Mabolo, Malolos, Philippines</li>
+                        <li><i class="fas fa-phone"></i> (044) 796-4101</li>
+                        <li><i class="fas fa-envelope"></i> activemediaprint@gmail.com</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <div class="copyright">
+                    <p>&copy; <?php echo date('Y'); ?> Active Media Designs & Printing. All rights reserved.</p>
+                </div>
+                <div class="footer-links">
+                    <a href="">Privacy Policy</a>
+                    <a href="">Terms of Service</a>
+                    <a href="">Cookie Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
     <script src="../assets/js/main.js"></script>
     <script>
+        /* =========================================================
+           Cart behaviour. Same endpoints and payloads as before
+           (update_cart.php: update / remove / remove_selected /
+           save_selected_items); only the markup hooks changed.
+        ========================================================= */
+        const CART_ENDPOINT = '../pages/website/update_cart.php';
+        const TAX_RATE = <?php echo json_encode($tax_rate); ?>;
+
+        // Price / quantity / confirmation state for every cart line
+        const productData = <?php echo json_encode($product_data, JSON_FORCE_OBJECT); ?>;
+
         function saveScrollPosition() {
             sessionStorage.setItem('scrollPosition', window.scrollY);
         }
 
-        // On page load, restore scroll position instantly
+        // Restore scroll position instantly after a checkbox re-submit
         document.addEventListener('DOMContentLoaded', function() {
             const scrollPosition = sessionStorage.getItem('scrollPosition');
             if (scrollPosition) {
-                window.scrollTo(0, parseInt(scrollPosition)); // Instant scroll
+                window.scrollTo(0, parseInt(scrollPosition, 10));
                 sessionStorage.removeItem('scrollPosition');
             }
         });
-        // Store product prices and quantities for JavaScript calculations
-        const productData = {
-            <?php foreach ($cart_items as $item): ?>
-                <?php
-                // Use admin price if available, otherwise use unit price
-                $actual_price = $item['price_updated_by_admin'] && $item['quoted_price'] > 0
-                    ? $item['quoted_price']
-                    : $item['unit_price'];
-                ?>
-                <?php echo $item['item_id']; ?>: {
-                    price: <?php echo $actual_price; ?>,
-                    quantity: <?php echo $item['quantity']; ?>,
-                    subtotal: <?php echo $actual_price * $item['quantity']; ?>,
-                    hasAdminPrice: <?php echo $item['price_updated_by_admin'] ? 'true' : 'false'; ?>,
-                    originalPrice: <?php echo $item['unit_price']; ?>
-                },
-            <?php endforeach; ?>
-        };
 
-        // Enhanced JavaScript for better UX with AJAX
+        /* ---------- helpers ---------- */
+        function peso(n) {
+            return '₱' + Number(n).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function cartRequest(action, fields, selectedIds) {
+            const formData = new FormData();
+            formData.append('action', action);
+            Object.entries(fields || {}).forEach(([key, value]) => formData.append(key, value));
+            (selectedIds || []).forEach(id => formData.append('selected_items[]', id));
+
+            return fetch(CART_ENDPOINT, {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json());
+        }
+
+        function findCartItem(itemId) {
+            const hidden = document.querySelector(`input[name="item_id"][value="${CSS.escape(String(itemId))}"]`);
+            return hidden ? hidden.closest('.cart-item') : null;
+        }
+
+        function itemIdOf(element) {
+            return element.closest('.cart-item').querySelector('input[name="item_id"]').value;
+        }
+
+        /* ---------- init ---------- */
         document.addEventListener('DOMContentLoaded', function() {
+            if (!document.getElementById('cartForm')) return; // empty cart: nothing to wire up
+
             setupQuantityControls();
             setupRemoveButtons();
             setupBulkRemove();
 
-            // Add event listeners for checkboxes to update debug info
-            document.querySelectorAll('input[name="selected_items[]"]').forEach(checkbox => {
-                checkbox.addEventListener('change', function() {
-                    updateCartTotal();
-                    updateDebugInfo();
-                });
-            });
-
-            // Real-time quantity validation
-            const quantityInputs = document.querySelectorAll('.quantity-input');
-            quantityInputs.forEach(input => {
-                input.addEventListener('change', function() {
-                    if (this.value < 1) {
-                        this.value = 1;
-                    }
-                });
-            });
-
             updateSelectAll();
-            updateCartTotal(); // Initialize the total display
-            updateDebugInfo(); // Initialize debug info
+            updateCartTotal();
         });
 
-        // Handle form submission with AJAX to avoid page reload
-        function handleFormSubmission(event) {
-            event.preventDefault();
+        function setupQuantityControls() {
+            document.querySelectorAll('.quantity-btn').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
 
-            const form = event.target;
-            const submitter = event.submitter;
+                    const input = this.closest('.quantity-controls').querySelector('.quantity-input');
+                    const itemId = itemIdOf(this);
 
-            if (submitter.name === 'request_pricing') {
-                handlePricingRequest(new FormData(form));
-            } else if (submitter.name === 'proceed_to_checkout') {
-                handleCheckout(new FormData(form));
-            }
-        }
-
-        // Handle pricing request via AJAX
-        function handlePricingRequest(formData) {
-            const selectedItems = document.querySelectorAll('input[name="selected_items[]"]:checked');
-            if (selectedItems.length === 0) {
-                alert('Please select at least one item to request pricing.');
-                return;
-            }
-
-            // Show loading state
-            showLoadingState(true);
-
-            fetch('view_cart.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.text())
-                .then(html => {
-                    // Check if the response contains a success message
-                    if (html.includes('pricing request') && html.includes('sent to our team')) {
-                        // Extract and show success message
-                        const tempDiv = document.createElement('div');
-                        tempDiv.innerHTML = html;
-                        const scripts = tempDiv.getElementsByTagName('script');
-
-                        // Execute any alert scripts from the response
-                        for (let script of scripts) {
-                            if (script.textContent.includes('alert')) {
-                                eval(script.textContent);
-                            }
-                        }
-
-                        // Reload the page to reflect changes
-                        setTimeout(() => {
-                            window.location.href = 'view_cart.php';
-                        }, 2000);
-
+                    if (this.classList.contains('increase')) {
+                        input.stepUp();
                     } else {
-                        alert('There was an error submitting your request. Please try again.');
+                        input.stepDown();
+                        if (input.value < 1) input.value = 1;
                     }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Network error submitting request');
-                })
-                .finally(() => {
-                    showLoadingState(false);
+
+                    if (parseInt(input.value, 10) !== productData[itemId].quantity) {
+                        updateCartItem(itemId, input.value);
+                    }
                 });
-        }
-
-        // Handle checkout process
-        function handleCheckout(formData) {
-            const selectedItems = document.querySelectorAll('input[name="selected_items[]"]:checked');
-
-            if (selectedItems.length === 0) {
-                alert('Please select at least one item to checkout.');
-                return;
-            }
-
-            // Show loading state
-            showLoadingState(true);
-
-            // Get selected item IDs
-            const selectedItemIds = Array.from(selectedItems).map(item => item.value);
-
-            // Save selected items to session first (optional, but good for persistence)
-            const saveFormData = new FormData();
-            saveFormData.append('action', 'save_selected_items');
-            selectedItemIds.forEach(id => {
-                saveFormData.append('selected_items[]', id);
             });
 
-            fetch('../pages/website/update_cart.php', {
-                    method: 'POST',
-                    body: saveFormData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Selected items saved:', data);
-
-                    // Redirect to checkout page with selected items as URL parameters
-                    const queryString = selectedItemIds.join(',');
-                    window.location.href = `checkout.php?selected_items=${queryString}`;
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    // Fallback: redirect without saving to session
-                    const queryString = selectedItemIds.join(',');
-                    window.location.href = `checkout.php?selected_items=${queryString}`;
-                })
-                .finally(() => {
-                    showLoadingState(false);
+            document.querySelectorAll('.quantity-input').forEach(input => {
+                input.addEventListener('change', function() {
+                    if (this.value < 1) this.value = 1;
+                    const itemId = itemIdOf(this);
+                    if (parseInt(this.value, 10) !== productData[itemId].quantity) {
+                        updateCartItem(itemId, this.value);
+                    }
                 });
+            });
         }
 
-        // Handle bulk remove
+        function setupRemoveButtons() {
+            document.querySelectorAll('.remove-btn').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (!confirm('Are you sure you want to remove this item from your cart?')) return;
+                    removeCartItem(itemIdOf(this));
+                });
+            });
+        }
+
+        function setupBulkRemove() {
+            const bulkRemoveBtn = document.querySelector('.remove-selected-btn');
+            if (bulkRemoveBtn) {
+                bulkRemoveBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    handleBulkRemove();
+                });
+            }
+        }
+
+        /* ---------- server actions ---------- */
         function handleBulkRemove() {
             const selectedItems = document.querySelectorAll('input[name="selected_items[]"]:checked');
             if (selectedItems.length === 0) {
@@ -1889,127 +2180,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             removeSelectedItems(selectedItems);
         }
 
-        // Show/hide loading state
-        function showLoadingState(show) {
-            const overlay = document.getElementById('loading-overlay') || createLoadingOverlay();
-            overlay.style.display = show ? 'flex' : 'none';
-
-            if (show) {
-                document.body.style.pointerEvents = 'none';
-                document.body.style.opacity = '0.7';
-            } else {
-                document.body.style.pointerEvents = 'auto';
-                document.body.style.opacity = '1';
-            }
-        }
-
-        // Create loading overlay
-        function createLoadingOverlay() {
-            const overlay = document.createElement('div');
-            overlay.id = 'loading-overlay';
-            overlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            color: white;
-            font-size: 1.5em;
-        `;
-            overlay.innerHTML = `
-            <div style="text-align: center;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 3em; margin-bottom: 20px;"></i>
-                <p>Processing your request...</p>
-            </div>
-        `;
-            document.body.appendChild(overlay);
-            return overlay;
-        }
-
-        // Setup quantity controls with AJAX
-        function setupQuantityControls() {
-            document.querySelectorAll('.quantity-btn').forEach(button => {
-                button.addEventListener('click', function(e) {
-                    e.preventDefault();
-
-                    const controls = this.closest('.quantity-controls');
-                    const input = controls.querySelector('.quantity-input');
-                    const itemId = this.closest('.cart-item').querySelector('input[name="item_id"]').value;
-
-                    if (this.textContent.includes('+') || this.classList.contains('increase')) {
-                        input.stepUp();
-                    } else {
-                        input.stepDown();
-                        if (input.value < 1) input.value = 1;
-                    }
-
-                    updateCartItem(itemId, input.value);
-                });
-            });
-
-            document.querySelectorAll('.quantity-input').forEach(input => {
-                input.addEventListener('change', function() {
-                    if (this.value < 1) {
-                        this.value = 1;
-                    }
-
-                    const itemId = this.closest('.cart-item').querySelector('input[name="item_id"]').value;
-                    updateCartItem(itemId, this.value);
-                });
-            });
-        }
-
-        function setupRemoveButtons() {
-            document.querySelectorAll('.remove-btn').forEach(button => {
-                button.addEventListener('click', function(e) {
-                    e.preventDefault();
-
-                    if (!confirm('Are you sure you want to remove this item from your cart?')) {
-                        return;
-                    }
-
-                    const itemId = this.closest('.cart-item').querySelector('input[name="item_id"]').value;
-                    removeCartItem(itemId);
-                });
-            });
-        }
-
-        // Handle bulk remove selected items
-        function setupBulkRemove() {
-            const bulkRemoveBtn = document.querySelector('.remove-selected-btn');
-            if (bulkRemoveBtn) {
-                bulkRemoveBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    handleBulkRemove();
-                });
-            }
-        }
-
-        // Remove selected items via AJAX
         function removeSelectedItems(selectedItems) {
             const itemIds = Array.from(selectedItems).map(item => item.value);
 
-            const formData = new FormData();
-            formData.append('action', 'remove_selected');
-            itemIds.forEach(id => {
-                formData.append('selected_items[]', id);
-            });
-
-            fetch('../pages/website/update_cart.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
+            cartRequest('remove_selected', {}, itemIds)
                 .then(data => {
-                    console.log('Bulk remove response:', data);
                     if (data.status === 'success' || data.status === 'partial') {
                         alert(data.message);
-                        location.reload(); // Reload to reflect changes
+                        location.reload();
                     } else {
                         alert('Error: ' + data.message);
                     }
@@ -2020,73 +2198,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
                 });
         }
 
-        // Update cart item via AJAX
         function updateCartItem(itemId, quantity) {
             showLoading(itemId);
 
-            const formData = new FormData();
-            formData.append('action', 'update');
-            formData.append('item_id', itemId);
-            formData.append('quantity', quantity);
-
-            fetch('../pages/website/update_cart.php', {
-                    method: 'POST',
-                    body: formData
+            cartRequest('update', {
+                    item_id: itemId,
+                    quantity: quantity
                 })
-                .then(response => response.json())
                 .then(data => {
-                    console.log('Update response:', data);
                     if (data.status === 'success') {
                         if (productData[itemId]) {
-                            productData[itemId].quantity = parseInt(quantity);
-                            productData[itemId].subtotal = productData[itemId].price * parseInt(quantity);
+                            productData[itemId].quantity = parseInt(quantity, 10);
+                            productData[itemId].subtotal = productData[itemId].price * parseInt(quantity, 10);
                         }
 
                         updateItemSubtotal(itemId);
                         updateCartTotal();
                         updateCartCount();
-
                         showSuccess(itemId, 'Quantity updated');
                     } else {
                         showError(itemId, 'Error: ' + data.message);
-                        const input = document.querySelector(`input[name="item_id"][value="${itemId}"]`)
-                            .closest('.cart-item')
-                            .querySelector('.quantity-input');
-                        input.value = productData[itemId].quantity;
+                        resetQuantityInput(itemId);
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     showError(itemId, 'Network error updating quantity');
-                    const input = document.querySelector(`input[name="item_id"][value="${itemId}"]`)
-                        .closest('.cart-item')
-                        .querySelector('.quantity-input');
-                    input.value = productData[itemId].quantity;
+                    resetQuantityInput(itemId);
                 });
         }
 
-        // Remove cart item via AJAX
+        function resetQuantityInput(itemId) {
+            const item = findCartItem(itemId);
+            if (item && productData[itemId]) {
+                item.querySelector('.quantity-input').value = productData[itemId].quantity;
+            }
+        }
+
         function removeCartItem(itemId) {
             showLoading(itemId);
 
-            const formData = new FormData();
-            formData.append('action', 'remove');
-            formData.append('item_id', itemId);
-
-            fetch('../pages/website/update_cart.php', {
-                    method: 'POST',
-                    body: formData
+            cartRequest('remove', {
+                    item_id: itemId
                 })
-                .then(response => response.json())
                 .then(data => {
-                    console.log('Remove response:', data);
                     if (data.status === 'success') {
-                        const itemElement = document.querySelector(`input[name="item_id"][value="${itemId}"]`).closest('.cart-item');
-                        itemElement.style.opacity = '0.5';
+                        const itemElement = findCartItem(itemId);
+                        if (itemElement) itemElement.style.opacity = '0.5';
 
                         setTimeout(() => {
-                            itemElement.remove();
-
+                            if (itemElement) itemElement.remove();
                             delete productData[itemId];
 
                             updateCartTotal();
@@ -2107,79 +2268,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
                 });
         }
 
-        // Show loading state
+        function saveSelectedItems() {
+            const selectedIds = Array.from(document.querySelectorAll('input[name="selected_items[]"]:checked')).map(item => item.value);
+
+            cartRequest('save_selected_items', {}, selectedIds)
+                .catch(error => console.error('Error saving selected items:', error));
+        }
+
+        /* ---------- per-item feedback ---------- */
         function showLoading(itemId) {
-            const itemElement = document.querySelector(`input[name="item_id"][value="${itemId}"]`).closest('.cart-item');
-            itemElement.style.opacity = '0.7';
-            itemElement.style.pointerEvents = 'none';
+            const item = findCartItem(itemId);
+            if (!item) return;
+            item.style.opacity = '0.7';
+            item.style.pointerEvents = 'none';
         }
 
-        // Show success message
         function showSuccess(itemId, message) {
-            const itemElement = document.querySelector(`input[name="item_id"][value="${itemId}"]`).closest('.cart-item');
-            itemElement.style.opacity = '1';
-            itemElement.style.pointerEvents = 'auto';
+            const item = findCartItem(itemId);
+            if (!item) return;
+            item.style.opacity = '1';
+            item.style.pointerEvents = 'auto';
 
-            const successMsg = document.createElement('div');
-            successMsg.textContent = message;
-            successMsg.style.cssText = 'position: absolute; top: 10px; right: 10px; background: #4CAF50; color: white; padding: 5px 10px; font-size: 12px; z-index: 10;';
-            itemElement.appendChild(successMsg);
-
-            setTimeout(() => {
-                successMsg.remove();
-            }, 2000);
+            const toast = document.createElement('div');
+            toast.className = 'item-toast';
+            toast.textContent = message;
+            item.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
         }
 
-        // Show error message
         function showError(itemId, message) {
-            const itemElement = document.querySelector(`input[name="item_id"][value="${itemId}"]`).closest('.cart-item');
-            itemElement.style.opacity = '1';
-            itemElement.style.pointerEvents = 'auto';
-
+            const item = findCartItem(itemId);
+            if (item) {
+                item.style.opacity = '1';
+                item.style.pointerEvents = 'auto';
+            }
             alert(message);
         }
 
-        // Update item subtotal
+        /* ---------- totals & selection ---------- */
         function updateItemSubtotal(itemId) {
-            const itemElement = document.querySelector(`input[name="item_id"][value="${itemId}"]`).closest('.cart-item');
-            const subtotalElement = itemElement.querySelector('.subtotal');
-
-            if (subtotalElement && productData[itemId]) {
-                subtotalElement.textContent = `Subtotal: ₱${productData[itemId].subtotal.toFixed(2)}`;
+            const item = findCartItem(itemId);
+            const amount = item ? item.querySelector('.subtotal-amount') : null;
+            if (amount && productData[itemId]) {
+                amount.textContent = peso(productData[itemId].subtotal);
             }
         }
 
-        // Update cart count in navigation
+        // Nav badge + the "N jobs / N confirmed" labels
         function updateCartCount() {
-            let totalItems = 0;
-            Object.values(productData).forEach(item => {
-                totalItems += item.quantity;
-            });
+            const ids = Object.keys(productData);
+            const totalUnits = ids.reduce((sum, id) => sum + productData[id].quantity, 0);
+            const confirmed = ids.filter(id => productData[id].hasAdminPrice).length;
 
             const cartCountElement = document.querySelector('.cart-count');
-            if (cartCountElement) {
-                cartCountElement.textContent = totalItems;
-            }
+            if (cartCountElement) cartCountElement.textContent = totalUnits > 99 ? '99+' : totalUnits;
+
+            document.querySelectorAll('.js-lines').forEach(el => {
+                el.textContent = ids.length + (ids.length === 1 ? ' job' : ' jobs');
+            });
+            document.querySelectorAll('.js-confirmed').forEach(el => {
+                el.textContent = confirmed + ' confirmed';
+            });
         }
 
-        // Toggle select all checkboxes
         function toggleSelectAll(checkbox) {
-            const itemCheckboxes = document.querySelectorAll('input[name="selected_items[]"]');
-            itemCheckboxes.forEach(item => {
+            document.querySelectorAll('input[name="selected_items[]"]').forEach(item => {
                 item.checked = checkbox.checked;
             });
             updateCartTotal();
         }
 
-        // Update select all checkbox based on individual selections
         function updateSelectAll() {
             const itemCheckboxes = document.querySelectorAll('input[name="selected_items[]"]');
             const selectAll = document.getElementById('selectAll');
+            if (!selectAll) return;
 
             if (itemCheckboxes.length > 0) {
                 const allChecked = Array.from(itemCheckboxes).every(checkbox => checkbox.checked);
                 const someChecked = Array.from(itemCheckboxes).some(checkbox => checkbox.checked);
-
                 selectAll.checked = allChecked;
                 selectAll.indeterminate = someChecked && !allChecked;
             } else {
@@ -2188,114 +2354,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             }
         }
 
-        // Update cart total based on selected items
         function updateCartTotal() {
             const selectedItems = document.querySelectorAll('input[name="selected_items[]"]:checked');
             let subtotal = 0;
 
             selectedItems.forEach(item => {
-                const itemId = item.value;
-                if (productData[itemId]) {
-                    subtotal += productData[itemId].subtotal;
-                }
+                if (productData[item.value]) subtotal += productData[item.value].subtotal;
             });
 
-            const tax = subtotal * 0.03;
-            const total = subtotal + tax;
+            const tax = subtotal * TAX_RATE;
 
-            // Update the display
             document.getElementById('selected-count').textContent = selectedItems.length;
-            document.getElementById('subtotal-amount').textContent = '₱' + subtotal.toFixed(2);
-            document.getElementById('tax-amount').textContent = '₱' + tax.toFixed(2);
-            document.getElementById('total-amount').textContent = '₱' + total.toFixed(2);
+            document.getElementById('subtotal-amount').textContent = peso(subtotal);
+            document.getElementById('tax-amount').textContent = peso(tax);
+            document.getElementById('total-amount').textContent = peso(subtotal + tax);
 
             updateSelectAll();
-            updateDebugInfo();
+            updateCheckoutState();
             saveSelectedItems();
         }
 
-        // Save selected items to session via AJAX
-        function saveSelectedItems() {
-            const selectedItems = Array.from(document.querySelectorAll('input[name="selected_items[]"]:checked')).map(item => item.value);
-
-            const formData = new FormData();
-            formData.append('action', 'save_selected_items');
-            selectedItems.forEach(id => {
-                formData.append('selected_items[]', id);
-            });
-
-            fetch('../pages/website/update_cart.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Selected items saved:', data);
-                })
-                .catch(error => {
-                    console.error('Error saving selected items:', error);
-                });
-        }
-
-        // Update debug information in real-time
-        function updateDebugInfo() {
-            const selectedItems = document.querySelectorAll('input[name="selected_items[]"]:checked');
+        // Show the checkout button only when every selected item has a confirmed price
+        function updateCheckoutState() {
+            const selectedItems = Array.from(document.querySelectorAll('input[name="selected_items[]"]:checked'));
             const selectedCount = selectedItems.length;
+            const confirmedCount = selectedItems.filter(item => productData[item.value] && productData[item.value].hasAdminPrice).length;
+            const canCheckout = selectedCount > 0 && confirmedCount === selectedCount;
 
-            let itemsWithAdminPrices = 0;
-            let canCheckout = false;
+            const checkoutBtn = document.querySelector('.checkout-btn');
+            const waitingBtn = document.querySelector('.waiting-btn');
 
-            selectedItems.forEach(item => {
-                const itemId = item.value;
-                const cartItem = document.querySelector(`input[name="item_id"][value="${itemId}"]`).closest('.cart-item');
-                const hasAdminPrice = cartItem.querySelector('.admin-price-notice') !== null;
+            if (checkoutBtn) checkoutBtn.hidden = !canCheckout;
+            if (waitingBtn) {
+                waitingBtn.hidden = selectedCount === 0 || canCheckout;
 
-                if (hasAdminPrice) {
-                    itemsWithAdminPrices++;
+                let message = 'No selected items have confirmed pricing yet';
+                if (confirmedCount > 0) {
+                    message = `${confirmedCount} of ${selectedCount} selected items have confirmed pricing`;
                 }
-            });
-
-            canCheckout = (selectedCount > 0 && itemsWithAdminPrices === selectedCount);
-
-            document.getElementById('debug-selected-count').textContent = selectedCount;
-            document.getElementById('debug-admin-prices').textContent = itemsWithAdminPrices;
-            document.getElementById('debug-can-checkout').textContent = canCheckout ? 'Yes' : 'No';
-
-            updateCheckoutButtonState(selectedCount, itemsWithAdminPrices, canCheckout);
-        }
-
-        // Update checkout button state dynamically
-        function updateCheckoutButtonState(selectedCount, itemsWithAdminPrices, canCheckout) {
-            const checkoutBtn = document.querySelector('button[name="proceed_to_checkout"]');
-            const waitingBtn = document.querySelector('.cart-btn[style*="cursor: not-allowed"]');
-
-            if (selectedCount === 0) {
-                if (checkoutBtn) checkoutBtn.style.display = 'none';
-                if (waitingBtn) waitingBtn.style.display = 'none';
-                return;
-            }
-
-            if (canCheckout) {
-                if (checkoutBtn) checkoutBtn.style.display = 'flex';
-                if (waitingBtn) waitingBtn.style.display = 'none';
-            } else {
-                if (checkoutBtn) checkoutBtn.style.display = 'none';
-                if (waitingBtn) waitingBtn.style.display = 'flex';
-
-                if (waitingBtn) {
-                    let message = "No selected items have confirmed pricing yet";
-                    if (itemsWithAdminPrices > 0) {
-                        message = `${itemsWithAdminPrices} of ${selectedCount} selected items have confirmed pricing`;
-                    }
-                    waitingBtn.title = message;
-                }
+                waitingBtn.title = message;
             }
         }
     </script>
     <script>
-        // Chat functionality
+        // Chat functionality with auto-scroll improvements
         let currentConversationId = null;
         let chatRefreshInterval = null;
+
+        // Auto-scroll variables
+        let isUserScrolling = false;
+        let shouldAutoScroll = true;
+        let scrollDebounceTimer = null;
+        let lastScrollPosition = 0;
+        let scrollDirection = 'down';
 
         // Initialize chat when page loads
         document.addEventListener('DOMContentLoaded', function() {
@@ -2348,6 +2459,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
 
             // Check for unread messages every minute
             setInterval(updateUnreadCount, 60000);
+
+            // Setup scroll detection when chat opens
+            setTimeout(() => {
+                const chatWidget = document.getElementById('chatWidget');
+                if (chatWidget && chatWidget.classList.contains('open')) {
+                    setupScrollDetection();
+                }
+            }, 1000);
         });
 
         // Toggle chat widget
@@ -2359,9 +2478,134 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
                 if (widget.classList.contains('open')) {
                     loadConversations();
                     startChatRefresh();
+                    // Setup scroll detection when chat opens
+                    setTimeout(setupScrollDetection, 500);
                 } else {
                     stopChatRefresh();
                 }
+            }
+        }
+
+        // ========== AUTO-SCROLL DETECTION ==========
+        function setupScrollDetection() {
+            const messagesList = document.getElementById('messagesList');
+            if (!messagesList) return;
+
+            // Detect user scroll intent
+            messagesList.addEventListener('scroll', function() {
+                clearTimeout(scrollDebounceTimer);
+
+                // Calculate scroll position and direction
+                const currentScrollTop = messagesList.scrollTop;
+                const maxScrollTop = messagesList.scrollHeight - messagesList.clientHeight;
+
+                // Determine scroll direction
+                if (currentScrollTop < lastScrollPosition) {
+                    scrollDirection = 'up';
+                } else if (currentScrollTop > lastScrollPosition) {
+                    scrollDirection = 'down';
+                }
+                lastScrollPosition = currentScrollTop;
+
+                // If user is scrolling up, they're likely reading old messages
+                const isNearBottom = maxScrollTop - currentScrollTop <= 100; // 100px from bottom
+                isUserScrolling = true;
+
+                // If scrolling up OR not near bottom, user is reading old messages
+                if (scrollDirection === 'up' || !isNearBottom) {
+                    shouldAutoScroll = false;
+                } else {
+                    // If scrolling down and near bottom, enable auto-scroll
+                    shouldAutoScroll = true;
+                }
+
+                // Reset after user stops scrolling
+                scrollDebounceTimer = setTimeout(() => {
+                    isUserScrolling = false;
+
+                    // If user stopped near bottom, re-enable auto-scroll
+                    const newScrollTop = messagesList.scrollTop;
+                    const newMaxScroll = messagesList.scrollHeight - messagesList.clientHeight;
+                    if (newMaxScroll - newScrollTop <= 50) {
+                        shouldAutoScroll = true;
+                    }
+                }, 1000); // 1 second delay
+            });
+
+            // Also detect mouse wheel and touch events
+            messagesList.addEventListener('wheel', function() {
+                isUserScrolling = true;
+            });
+
+            messagesList.addEventListener('touchstart', function() {
+                isUserScrolling = true;
+            });
+
+            // Keyboard shortcut to jump to bottom (Ctrl+End)
+            messagesList.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'End') {
+                    e.preventDefault();
+                    scrollToBottom(messagesList, true);
+                    shouldAutoScroll = true;
+                    isUserScrolling = false;
+                }
+            });
+        }
+
+        function isAtBottom(element, threshold = 100) {
+            if (!element) return false;
+            const maxScrollTop = element.scrollHeight - element.clientHeight;
+            return maxScrollTop - element.scrollTop <= threshold;
+        }
+
+        function scrollToBottom(element, smooth = false) {
+            if (!element) return;
+
+            const scrollOptions = {
+                top: element.scrollHeight,
+                behavior: smooth ? 'smooth' : 'auto'
+            };
+
+            element.scrollTo(scrollOptions);
+            shouldAutoScroll = true;
+        }
+
+        // ========== NEW MESSAGES INDICATOR ==========
+        function showNewMessagesIndicator() {
+            const messagesList = document.getElementById('messagesList');
+            if (!messagesList) return;
+
+            // Remove existing indicator
+            const existingIndicator = document.querySelector('.new-messages-indicator');
+            if (existingIndicator) existingIndicator.remove();
+
+            // Create indicator
+            const indicator = document.createElement('div');
+            indicator.className = 'new-messages-indicator';
+            indicator.innerHTML = `
+            <button onclick="scrollToNewMessages()">
+                <i class="fas fa-arrow-down"></i>
+                New messages
+            </button>
+        `;
+
+            // Add to messages area
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                chatMessages.appendChild(indicator);
+            }
+        }
+
+        function scrollToNewMessages() {
+            const messagesList = document.getElementById('messagesList');
+            if (messagesList) {
+                scrollToBottom(messagesList, true);
+                shouldAutoScroll = true;
+                isUserScrolling = false;
+
+                // Remove indicator
+                const indicator = document.querySelector('.new-messages-indicator');
+                if (indicator) indicator.remove();
             }
         }
 
@@ -2498,6 +2742,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
         function openConversation(conversationId, title) {
             currentConversationId = conversationId;
 
+            // Reset scroll state
+            shouldAutoScroll = true;
+            isUserScrolling = false;
+
             // Update UI
             document.getElementById('chatConversations').style.display = 'none';
             document.getElementById('chatMessages').classList.add('active');
@@ -2510,13 +2758,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
 
             // Mark as read
             markAsRead(conversationId);
+
+            // Setup scroll detection
+            setTimeout(setupScrollDetection, 100);
         }
 
         // Go back to conversations list
         function goBackToConversations() {
             currentConversationId = null;
 
-            document.getElementById('chatConversations').style.display = 'block';
+            // Reset scroll state
+            shouldAutoScroll = true;
+            isUserScrolling = false;
+
+            document.getElementById('chatConversations').style.display = 'flex';
             document.getElementById('chatMessages').classList.remove('active');
             document.getElementById('chatInputArea').classList.remove('active');
             document.getElementById('chatBackBtn').classList.remove('visible');
@@ -2525,7 +2780,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             loadConversations();
         }
 
-        // Load messages
+        // Load messages with auto-scroll improvements
         async function loadMessages(conversationId) {
             try {
                 const response = await fetch(`../api/chat_api.php?action=messages&conversation_id=${conversationId}`);
@@ -2540,35 +2795,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             }
         }
 
-        // Render messages
+        // Render messages with auto-scroll logic
         function renderMessages(messages) {
             const container = document.getElementById('messagesList');
             if (!container) return;
 
             const userId = <?php echo isset($_SESSION['user_id']) ? $_SESSION['user_id'] : '0'; ?>;
 
+            // Store current scroll position
+            const wasAtBottom = isAtBottom(container);
+
+            // Clear container and render messages
             container.innerHTML = messages.map(msg => {
                 const isSent = msg.sender_id == userId;
                 const isSystem = msg.message_type === 'system';
                 const isAdmin = msg.sender_role === 'admin';
 
                 return `
-                <div class="message-item ${isSent ? 'sent' : 'received'} ${isSystem ? 'system' : ''}">
-                    ${!isSent && !isSystem ? `
-                        <div class="message-sender">
-                            ${escapeHtml(msg.sender_display_name || msg.sender_username)}
-                        </div>
-                    ` : ''}
-                    <div class="message-bubble">
-                        <div class="message-text">${escapeHtml(msg.message)}</div>
-                        <div class="message-time">${formatMessageTime(msg.created_at)}</div>
+            <div class="message-item ${isSent ? 'sent' : 'received'} ${isSystem ? 'system' : ''}" data-message-id="${msg.id}">
+                ${!isSent && !isSystem ? `
+                    <div class="message-sender">
+                        ${escapeHtml(msg.sender_username)}
                     </div>
+                ` : ''}
+                <div class="message-bubble">
+                    <div class="message-text">${escapeHtml(msg.message)}</div>
+                    <div class="message-time">${formatMessageTime(msg.created_at)}</div>
                 </div>
+            </div>
             `;
             }).join('');
+
+            // Only auto-scroll if:
+            // 1. User is not actively scrolling
+            // 2. Should auto-scroll is true (user is at bottom or new message came in)
+            // 3. User was already at bottom before rendering new messages
+            if (!isUserScrolling && shouldAutoScroll && wasAtBottom) {
+                setTimeout(() => {
+                    scrollToBottom(container, true);
+                }, 100);
+            } else if (!wasAtBottom) {
+                // Show "new messages" indicator
+                showNewMessagesIndicator();
+            }
         }
 
-        // Send message
+        // Send message with auto-scroll for user's own messages
         async function sendMessage() {
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
@@ -2597,6 +2869,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
                 if (data.success) {
                     input.value = '';
                     autoResize(input);
+
+                    // Force auto-scroll for user's own messages
+                    shouldAutoScroll = true;
+                    isUserScrolling = false;
+
+                    // Load messages will handle scrolling
                     loadMessages(currentConversationId);
                     updateUnreadCount();
                 } else {
@@ -2721,7 +2999,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             </div>
         `;
             messagesList.appendChild(systemMessage);
-            messagesList.scrollTop = messagesList.scrollHeight;
+
+            // Only scroll if user is at bottom
+            if (!isUserScrolling && shouldAutoScroll && isAtBottom(messagesList)) {
+                setTimeout(() => {
+                    scrollToBottom(messagesList, true);
+                }, 100);
+            }
         }
 
         // Add loading indicator
@@ -2789,11 +3073,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             }
         }
 
-        // Start auto-refresh
+        // Start auto-refresh with auto-scroll consideration
         function startChatRefresh() {
             chatRefreshInterval = setInterval(() => {
                 if (currentConversationId) {
-                    loadMessages(currentConversationId);
+                    const messagesList = document.getElementById('messagesList');
+                    if (messagesList) {
+                        const wasAtBottom = isAtBottom(messagesList);
+
+                        // Load messages
+                        loadMessages(currentConversationId);
+
+                        // Only show notification if user is not at bottom
+                        if (!wasAtBottom && !isUserScrolling && !shouldAutoScroll) {
+                            showNewMessagesIndicator();
+                        }
+                    }
                 }
                 updateUnreadCount();
             }, 5000); // Refresh every 5 seconds
@@ -2860,6 +3155,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
             alert(message); // Simple alert for now
         }
 
+        // Add CSS for new messages indicator
+        const newMessagesIndicatorCSS = `
+        .new-messages-indicator {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            animation: fadeInUp 0.3s ease;
+        }
+        
+        .new-messages-indicator button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+        
+        .new-messages-indicator button:hover {
+            transform: translateY(-2px);
+            background: var(--primary-dark);
+        }
+        
+        .new-messages-indicator button i {
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-3px);
+            }
+            60% {
+                transform: translateY(-2px);
+            }
+        }
+    `;
+
+        // Inject CSS
+        const style = document.createElement('style');
+        style.textContent = newMessagesIndicatorCSS;
+        document.head.appendChild(style);
+
         // Make functions available globally
         window.toggleChat = toggleChat;
         window.openConversation = openConversation;
@@ -2867,12 +3226,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['proceed_to_checkout']
         window.sendMessage = sendMessage;
         window.startNewConversation = startNewConversation;
         window.deleteConversation = deleteConversation;
+        window.scrollToNewMessages = scrollToNewMessages;
     </script>
 </body>
 
 </html>
-
 <?php
 // Close connection
 $inventory->close();
-?>

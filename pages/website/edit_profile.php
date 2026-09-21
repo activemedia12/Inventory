@@ -284,16 +284,108 @@ if (isset($_SESSION['user_id'])) {
     $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 }
 
+// ---------------------------------------------------------------
+// Presentation helpers (display only — no data is changed here)
+// ---------------------------------------------------------------
 $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
+
+$slice = function ($text, $start, $length) {
+    $text = (string) $text;
+    return function_exists('mb_substr')
+        ? mb_strtoupper(mb_substr($text, $start, $length, 'UTF-8'), 'UTF-8')
+        : strtoupper(substr($text, $start, $length));
+};
+
+if ($is_personal) {
+    $display_name = trim($user_data['first_name']);
+    $full_name    = trim($user_data['first_name'] . ' ' . ($user_data['last_name'] ?? ''));
+    $initials     = $slice(trim($user_data['first_name']), 0, 1) . $slice(trim($user_data['last_name'] ?? ''), 0, 1);
+} elseif ($is_company) {
+    $display_name = trim($user_data['company_name']);
+    $full_name    = $display_name;
+    $words        = preg_split('/\s+/', $display_name);
+    $initials     = count($words) > 1
+        ? $slice($words[0], 0, 1) . $slice($words[1], 0, 1)
+        : $slice($words[0], 0, 2);
+} else {
+    $display_name = 'friend';
+    $full_name    = 'Your account';
+    $initials     = '?';
+}
+$username = $user_data['username'] ?? ($_SESSION['username'] ?? '');
+
+/**
+ * Renders one text-style form field.
+ * $opts: required, span (col-2 | col-3 | full-width), placeholder, help,
+ *        type, id, autocomplete, password (adds the show/hide toggle)
+ */
+function acct_field($name, $label, $value, array $field_errors = [], array $opts = [])
+{
+    $o = array_merge([
+        'required'     => false,
+        'span'         => '',
+        'placeholder'  => '',
+        'help'         => '',
+        'type'         => 'text',
+        'id'           => 'f-' . $name,
+        'autocomplete' => '',
+        'password'     => false,
+    ], $opts);
+
+    $error  = $field_errors[$name] ?? null;
+    $err_id = $o['id'] . '-error';
+    $input  = '<input type="' . htmlspecialchars($o['type']) . '"'
+            . ' id="' . htmlspecialchars($o['id']) . '"'
+            . ' name="' . htmlspecialchars($name) . '"'
+            . ' class="form-input' . ($error ? ' error' : '') . '"';
+
+    if (!$o['password']) {
+        $input .= ' value="' . htmlspecialchars((string) $value) . '"';
+    }
+    if ($o['placeholder'] !== '') {
+        $input .= ' placeholder="' . htmlspecialchars($o['placeholder']) . '"';
+    }
+    if ($o['autocomplete'] !== '') {
+        $input .= ' autocomplete="' . htmlspecialchars($o['autocomplete']) . '"';
+    }
+    if ($o['required']) {
+        $input .= ' required';
+    }
+    if ($error) {
+        $input .= ' aria-invalid="true" aria-describedby="' . htmlspecialchars($err_id) . '"';
+    }
+    $input .= '>';
+
+    echo '<div class="form-group' . ($o['span'] ? ' ' . htmlspecialchars($o['span']) : '') . '">';
+    echo '<label class="form-label" for="' . htmlspecialchars($o['id']) . '">' . htmlspecialchars($label)
+       . ($o['required'] ? ' <span class="required">*</span>' : '') . '</label>';
+
+    if ($o['password']) {
+        echo '<div class="password-input-container">' . $input
+           . '<button type="button" class="password-toggle" aria-label="Show or hide password"'
+           . ' onclick="togglePassword(\'' . htmlspecialchars($o['id']) . '\', this)">'
+           . '<i class="fas fa-eye"></i></button></div>';
+    } else {
+        echo $input;
+    }
+
+    if ($error) {
+        echo '<div class="error-message" id="' . htmlspecialchars($err_id) . '">'
+           . '<i class="fas fa-exclamation-circle"></i> ' . htmlspecialchars($error) . '</div>';
+    }
+    if ($o['help'] !== '') {
+        echo '<div class="form-help">' . htmlspecialchars($o['help']) . '</div>';
+    }
+    echo '</div>';
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Profile</title>
+    <title>Edit Profile - Active Media Designs & Printing</title>
     <link rel="icon" type="image/png" href="../../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -302,7 +394,7 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
     <link rel="stylesheet" href="../../assets/css/main.css">
 </head>
 
-<body>
+<body class="acct-page">
     <!-- Side Pill Navigation -->
     <nav class="side-nav" id="sideNav" aria-label="Primary">
         <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
@@ -335,19 +427,9 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
             <li class="side-nav-divider"></li>
 
             <li>
-                <a href="../website/profile.php" class="user-profile active">
+                <a href="profile.php" class="user-profile active">
                     <i class="fas fa-user"></i>
-                    <span class="side-nav-label user-name">
-                        <?php
-                        if (!empty($user_data['first_name'])) {
-                            echo htmlspecialchars($user_data['first_name']);
-                        } elseif (!empty($user_data['company_name'])) {
-                            echo htmlspecialchars($user_data['company_name']);
-                        } else {
-                            echo 'User';
-                        }
-                        ?>
-                    </span>
+                    <span class="side-nav-label user-name"><?php echo htmlspecialchars($display_name === 'friend' ? 'User' : $display_name); ?></span>
                 </a>
             </li>
             <li>
@@ -359,402 +441,255 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
         </ul>
     </nav>
 
-    <!-- Edit Profile Hero -->
-    <section class="edit-profile-header hide">
-        <div class="container">
-            <span class="section-eyebrow"><span class="reg-mark"></span> Your account</span>
-            <h1><i class="fas fa-user-edit"></i> Edit Profile</h1>
-            <p>Update your personal information and account settings</p>
-            <div class="email-verification">
-                <?php if ($user_data['email_verified']): ?>
-                    <span class="email-verified">
-                        <i class="fas fa-check-circle"></i> Email Verified
-                    </span>
-                <?php else: ?>
-                    <span class="email-not-verified">
-                        <i class="fas fa-exclamation-circle"></i> Email Not Verified
-                    </span>
-                    <a href="../../accounts/email-verification.php" class="verification-btn">
-                        <i class="fas fa-envelope"></i> Verify Now
-                    </a>
-                <?php endif; ?>
-                <span class="account-type-badge <?php echo $is_personal ? 'account-type-personal' : 'account-type-company'; ?>">
-                    <?php echo $is_personal ? 'Personal Account' : 'Company Account'; ?>
-                </span>
+    <!-- Account Hero -->
+    <section class="acct-hero hide">
+        <div class="container acct-container">
+            <div class="acct-hero__texture halftone"></div>
+            <div class="acct-hero-inner">
+                <span class="section-eyebrow"><span class="reg-mark"></span> Account settings</span>
+                <h1 class="acct-hero-title">Edit your <span class="registered" data-text="details.">details.</span></h1>
+                <p class="acct-hero-sub">
+                    Update your information and password. Fields marked <span class="required-mark">*</span> are required.
+                </p>
+                <a href="profile.php" class="view-all acct-backlink"><i class="fas fa-arrow-left"></i> Back to profile</a>
             </div>
         </div>
     </section>
 
-    <!-- Edit Profile Content -->
-    <section class="edit-profile-page hide">
-        <div class="container">
+    <!-- Account Main -->
+    <section class="acct-main hide">
+        <div class="container acct-container">
+
             <?php if (!empty($success)): ?>
-                <div class="success-message" id="successMessage">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
+                <div class="acct-notice acct-notice--success" id="successMessage" role="status">
+                    <span class="acct-notice__icon"><i class="fas fa-check"></i></span>
+                    <div class="acct-notice__body">
                         <strong>Success!</strong> <?php echo htmlspecialchars($success); ?>
+                        <a href="profile.php">Back to profile</a>
                     </div>
                 </div>
             <?php endif; ?>
 
             <?php if (!empty($error)): ?>
-                <div class="error-message-global">
-                    <i class="fas fa-exclamation-circle"></i>
-                    <div>
+                <div class="acct-notice acct-notice--error" role="alert">
+                    <span class="acct-notice__icon"><i class="fas fa-exclamation"></i></span>
+                    <div class="acct-notice__body">
                         <strong>Error:</strong> <?php echo htmlspecialchars($error); ?>
+                    </div>
+                </div>
+            <?php elseif (!empty($field_errors)): ?>
+                <div class="acct-notice acct-notice--error" role="alert">
+                    <span class="acct-notice__icon"><i class="fas fa-exclamation"></i></span>
+                    <div class="acct-notice__body">
+                        <strong>Some fields need your attention.</strong> Check the highlighted fields below.
                     </div>
                 </div>
             <?php endif; ?>
 
-            <form method="post" class="edit-profile-form-container" id="editProfileForm">
-                <?php if ($is_personal): ?>
-                    <!-- Personal Customer Form -->
-                    <div class="form-section">
-                        <h2 class="profile-card-title">
-                            <i class="fas fa-user-circle"></i> Personal Information
-                        </h2>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">First Name <span class="required">*</span></label>
-                                <input type="text" 
-                                       name="first_name" 
-                                       class="form-input <?php echo isset($field_errors['first_name']) ? 'input-error' : ''; ?>"
-                                       value="<?php echo htmlspecialchars($user_data['first_name'] ?? ''); ?>"
-                                       required>
-                                <?php if (isset($field_errors['first_name'])): ?>
-                                    <div class="error-message">
-                                        <i class="fas fa-exclamation-circle"></i>
-                                        <?php echo htmlspecialchars($field_errors['first_name']); ?>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Middle Name</label>
-                                <input type="text" 
-                                       name="middle_name" 
-                                       class="form-input"
-                                       value="<?php echo htmlspecialchars($user_data['middle_name'] ?? ''); ?>">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Last Name <span class="required">*</span></label>
-                                <input type="text" 
-                                       name="last_name" 
-                                       class="form-input <?php echo isset($field_errors['last_name']) ? 'input-error' : ''; ?>"
-                                       value="<?php echo htmlspecialchars($user_data['last_name'] ?? ''); ?>"
-                                       required>
-                                <?php if (isset($field_errors['last_name'])): ?>
-                                    <div class="error-message">
-                                        <i class="fas fa-exclamation-circle"></i>
-                                        <?php echo htmlspecialchars($field_errors['last_name']); ?>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Gender</label>
-                                <select name="gender" class="form-select">
-                                    <option value="">Select Gender</option>
-                                    <option value="Male" <?php echo ($user_data['gender'] ?? '') === 'Male' ? 'selected' : ''; ?>>Male</option>
-                                    <option value="Female" <?php echo ($user_data['gender'] ?? '') === 'Female' ? 'selected' : ''; ?>>Female</option>
-                                    <option value="Other" <?php echo ($user_data['gender'] ?? '') === 'Other' ? 'selected' : ''; ?>>Other</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Birthdate</label>
-                                <input type="date" 
-                                       name="birthdate" 
-                                       id="birthdate"
-                                       class="form-input"
-                                       value="<?php echo htmlspecialchars($user_data['birthdate'] ?? ''); ?>"
-                                       onchange="calculateAgeFromDate()">
-                                <div id="ageDisplay" class="age-display">
-                                    <?php if (!empty($user_data['age'])): ?>
-                                        Age: <?php echo htmlspecialchars($user_data['age']); ?> years old
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Contact Number <span class="required">*</span></label>
-                                <input type="text" 
-                                       name="personal_contact" 
-                                       class="form-input <?php echo isset($field_errors['personal_contact']) ? 'input-error' : ''; ?>"
-                                       value="<?php echo htmlspecialchars($user_data['personal_contact'] ?? ''); ?>"
-                                       placeholder="e.g., 09123456789"
-                                       required>
-                                <?php if (isset($field_errors['personal_contact'])): ?>
-                                    <div class="error-message">
-                                        <i class="fas fa-exclamation-circle"></i>
-                                        <?php echo htmlspecialchars($field_errors['personal_contact']); ?>
-                                    </div>
-                                <?php endif; ?>
-                                <div class="form-help">Format: 09XXXXXXXXX or +639XXXXXXXXX</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-section">
-                        <h2 class="profile-card-title">
-                            <i class="fas fa-home"></i> Address Information
-                        </h2>
-                        <div class="form-grid">
-                            <div class="form-group full-width">
-                                <label class="form-label">Address Line</label>
-                                <input type="text" 
-                                       name="address_line1" 
-                                       class="form-input"
-                                       value="<?php echo htmlspecialchars($user_data['address_line1'] ?? ''); ?>"
-                                       placeholder="Lot No., Block No., Phase No. Street, Subd.">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">City</label>
-                                <input type="text" 
-                                       name="p_city" 
-                                       class="form-input"
-                                       value="<?php echo htmlspecialchars($user_data['personal_city'] ?? ''); ?>"
-                                       placeholder="City">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Province</label>
-                                <input type="text" 
-                                       name="p_province" 
-                                       class="form-input"
-                                       value="<?php echo htmlspecialchars($user_data['personal_province'] ?? ''); ?>"
-                                       placeholder="Province">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">ZIP Code</label>
-                                <input type="text" 
-                                       name="p_zip" 
-                                       class="form-input"
-                                       value="<?php echo htmlspecialchars($user_data['personal_zip'] ?? ''); ?>"
-                                       placeholder="ZIP Code">
-                            </div>
-                        </div>
-                    </div>
-                    
-                <?php elseif ($is_company): ?>
-                    <!-- Company Customer Form -->
-                    <div class="form-section">
-                        <h2 class="profile-card-title">
-                            <i class="fas fa-building"></i> Company Information
-                        </h2>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">Company Name <span class="required">*</span></label>
-                                <input type="text" 
-                                       name="company_name" 
-                                       class="form-input <?php echo isset($field_errors['company_name']) ? 'input-error' : ''; ?>"
-                                       value="<?php echo htmlspecialchars($user_data['company_name'] ?? ''); ?>"
-                                       required>
-                                <?php if (isset($field_errors['company_name'])): ?>
-                                    <div class="error-message">
-                                        <i class="fas fa-exclamation-circle"></i>
-                                        <?php echo htmlspecialchars($field_errors['company_name']); ?>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Taxpayer Name</label>
-                                <input type="text" 
-                                       name="taxpayer_name" 
-                                       class="form-input"
-                                       value="<?php echo htmlspecialchars($user_data['taxpayer_name'] ?? ''); ?>"
-                                       placeholder="Taxpayer Name (if different from company)">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Contact Person <span class="required">*</span></label>
-                                <input type="text" 
-                                       name="contact_person" 
-                                       class="form-input <?php echo isset($field_errors['contact_person']) ? 'input-error' : ''; ?>"
-                                       value="<?php echo htmlspecialchars($user_data['contact_person'] ?? ''); ?>"
-                                       required>
-                                <?php if (isset($field_errors['contact_person'])): ?>
-                                    <div class="error-message">
-                                        <i class="fas fa-exclamation-circle"></i>
-                                        <?php echo htmlspecialchars($field_errors['contact_person']); ?>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Contact Number <span class="required">*</span></label>
-                                <input type="text" 
-                                       name="company_contact" 
-                                       class="form-input <?php echo isset($field_errors['company_contact']) ? 'input-error' : ''; ?>"
-                                       value="<?php echo htmlspecialchars($user_data['company_contact'] ?? ''); ?>"
-                                       placeholder="e.g., 09123456789"
-                                       required>
-                                <?php if (isset($field_errors['company_contact'])): ?>
-                                    <div class="error-message">
-                                        <i class="fas fa-exclamation-circle"></i>
-                                        <?php echo htmlspecialchars($field_errors['company_contact']); ?>
-                                    </div>
-                                <?php endif; ?>
-                                <div class="form-help">Format: 09XXXXXXXXX or +639XXXXXXXXX</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-section">
-                        <h2 class="profile-card-title">
-                            <i class="fas fa-map-marked-alt"></i> Company Address
-                        </h2>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">Province</label>
-                                <input type="text" 
-                                       name="c_province" 
-                                       class="form-input"
-                                       value="<?php echo htmlspecialchars($user_data['company_province'] ?? ''); ?>"
-                                       placeholder="Province">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">City</label>
-                                <input type="text" 
-                                       name="c_city" 
-                                       class="form-input"
-                                       value="<?php echo htmlspecialchars($user_data['company_city'] ?? ''); ?>"
-                                       placeholder="City">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Barangay</label>
-                                <input type="text" 
-                                       name="c_barangay" 
-                                       class="form-input"
-                                       value="<?php echo htmlspecialchars($user_data['barangay'] ?? ''); ?>"
-                                       placeholder="Barangay">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Subdivision/Street</label>
-                                <input type="text" 
-                                       name="c_street" 
-                                       class="form-input"
-                                       value="<?php echo htmlspecialchars($user_data['subd_or_street'] ?? ''); ?>"
-                                       placeholder="Subdivision or Street">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Building/Block</label>
-                                <input type="text" 
-                                       name="c_building" 
-                                       class="form-input"
-                                       value="<?php echo htmlspecialchars($user_data['building_or_block'] ?? ''); ?>"
-                                       placeholder="Building or Block">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Lot/Room No.</label>
-                                <input type="text" 
-                                       name="c_lotroom" 
-                                       class="form-input"
-                                       value="<?php echo htmlspecialchars($user_data['lot_or_room_no'] ?? ''); ?>"
-                                       placeholder="Lot or Room Number">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">ZIP Code</label>
-                                <input type="text" 
-                                       name="c_zip" 
-                                       class="form-input"
-                                       value="<?php echo htmlspecialchars($user_data['company_zip'] ?? ''); ?>"
-                                       placeholder="ZIP Code">
-                            </div>
-                        </div>
-                    </div>
-                <?php endif; ?>
-                
-                <!-- Password Change Section -->
-                <div class="form-section">
-                    <h2 class="profile-card-title">
-                        <i class="fas fa-lock"></i> Change Password
-                    </h2>
-                    <div class="form-note">
-                        <i class="fas fa-info-circle"></i> 
-                        Leave password fields blank if you don't want to change your password.
-                    </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label class="form-label">Current Password</label>
-                            <div class="password-input-container">
-                                <input type="password" 
-                                       name="current_password" 
-                                       id="currentPassword"
-                                       class="form-input <?php echo isset($field_errors['current_password']) ? 'input-error' : ''; ?>"
-                                       autocomplete="current-password">
-                                <button type="button" class="password-toggle" onclick="togglePassword('currentPassword', this)">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                            <?php if (isset($field_errors['current_password'])): ?>
-                                <div class="error-message">
-                                    <i class="fas fa-exclamation-circle"></i>
-                                    <?php echo htmlspecialchars($field_errors['current_password']); ?>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">New Password</label>
-                            <div class="password-input-container">
-                                <input type="password" 
-                                       name="new_password" 
-                                       id="newPassword"
-                                       class="form-input <?php echo isset($field_errors['new_password']) ? 'input-error' : ''; ?>"
-                                       autocomplete="new-password">
-                                <button type="button" class="password-toggle" onclick="togglePassword('newPassword', this)">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                            <?php if (isset($field_errors['new_password'])): ?>
-                                <div class="error-message">
-                                    <i class="fas fa-exclamation-circle"></i>
-                                    <?php echo htmlspecialchars($field_errors['new_password']); ?>
-                                </div>
-                            <?php endif; ?>
-                            <div class="form-help">Must be at least 8 characters long</div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Confirm New Password</label>
-                            <div class="password-input-container">
-                                <input type="password" 
-                                       name="confirm_password" 
-                                       id="confirmPassword"
-                                       class="form-input <?php echo isset($field_errors['confirm_password']) ? 'input-error' : ''; ?>"
-                                       autocomplete="new-password">
-                                <button type="button" class="password-toggle" onclick="togglePassword('confirmPassword', this)">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                            <?php if (isset($field_errors['confirm_password'])): ?>
-                                <div class="error-message">
-                                    <i class="fas fa-exclamation-circle"></i>
-                                    <?php echo htmlspecialchars($field_errors['confirm_password']); ?>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-buttons">
-                    <button type="submit" class="action-btn">
-                        <i class="fas fa-save"></i> Save Changes
-                    </button>
-                </div>
-            </form>
+            <div class="acct-layout acct-layout--edit">
 
+                <!-- Side rail -->
+                <aside class="acct-rail">
+                    <div class="acct-card rail-card">
+                        <div class="rail-id">
+                            <div class="acct-avatar" aria-hidden="true"><?php echo htmlspecialchars($initials); ?></div>
+                            <div>
+                                <h2><?php echo htmlspecialchars($full_name); ?></h2>
+                                <?php if ($username !== ''): ?>
+                                    <span>@<?php echo htmlspecialchars($username); ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <div class="acct-badges">
+                            <span class="acct-badge <?php echo $is_personal ? 'acct-badge--personal' : 'acct-badge--company'; ?>">
+                                <i class="fas <?php echo $is_personal ? 'fa-user' : 'fa-building'; ?>"></i>
+                                <?php echo $is_personal ? 'Personal account' : 'Company account'; ?>
+                            </span>
+                            <?php if (!empty($user_data['email_verified'])): ?>
+                                <span class="acct-badge acct-badge--ok"><i class="fas fa-check-circle"></i> Email verified</span>
+                            <?php else: ?>
+                                <span class="acct-badge acct-badge--alert"><i class="fas fa-exclamation-circle"></i> Email not verified</span>
+                            <?php endif; ?>
+                        </div>
+
+                        <?php if (empty($user_data['email_verified'])): ?>
+                            <a href="../../accounts/email-verification.php" class="btn btn-secondary acct-btn-sm rail-verify">
+                                <i class="fas fa-envelope"></i> Verify now
+                            </a>
+                        <?php endif; ?>
+
+                        <nav class="rail-nav" aria-label="Form sections">
+                            <a href="#sec-details" class="is-active"><span class="rail-nav__num">1</span> <?php echo $is_company ? 'Company information' : 'Personal information'; ?></a>
+                            <a href="#sec-address"><span class="rail-nav__num">2</span> <?php echo $is_company ? 'Company address' : 'Address'; ?></a>
+                            <a href="#sec-password"><span class="rail-nav__num">3</span> Change password</a>
+                        </nav>
+                    </div>
+                </aside>
+
+                <!-- Form -->
+                <form method="post" class="acct-form-col" id="editProfileForm">
+
+                    <?php if ($is_personal): ?>
+                        <!-- Personal customer -->
+                        <section class="acct-card form-card" id="sec-details" data-ink="cyan">
+                            <div class="form-card__head">
+                                <span class="form-card__icon"><i class="fas fa-user-circle"></i></span>
+                                <div>
+                                    <h2>Personal information</h2>
+                                    <p>Your name, birthdate and how we can reach you.</p>
+                                </div>
+                            </div>
+                            <div class="form-grid">
+                                <?php
+                                acct_field('first_name', 'First Name', $user_data['first_name'] ?? '', $field_errors, ['required' => true, 'span' => 'col-2']);
+                                acct_field('middle_name', 'Middle Name', $user_data['middle_name'] ?? '', $field_errors, ['span' => 'col-2']);
+                                acct_field('last_name', 'Last Name', $user_data['last_name'] ?? '', $field_errors, ['required' => true, 'span' => 'col-2']);
+                                ?>
+
+                                <div class="form-group col-2">
+                                    <label class="form-label" for="f-gender">Gender</label>
+                                    <select name="gender" id="f-gender" class="form-select">
+                                        <option value="">Select Gender</option>
+                                        <option value="Male" <?php echo ($user_data['gender'] ?? '') === 'Male' ? 'selected' : ''; ?>>Male</option>
+                                        <option value="Female" <?php echo ($user_data['gender'] ?? '') === 'Female' ? 'selected' : ''; ?>>Female</option>
+                                        <option value="Other" <?php echo ($user_data['gender'] ?? '') === 'Other' ? 'selected' : ''; ?>>Other</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group col-2">
+                                    <label class="form-label" for="birthdate">Birthdate</label>
+                                    <input type="date"
+                                           name="birthdate"
+                                           id="birthdate"
+                                           class="form-input"
+                                           value="<?php echo htmlspecialchars($user_data['birthdate'] ?? ''); ?>"
+                                           onchange="calculateAgeFromDate()">
+                                    <div id="ageDisplay" class="age-display" aria-live="polite"><?php if (!empty($user_data['age'])): ?>Age: <?php echo htmlspecialchars($user_data['age']); ?> years old<?php endif; ?></div>
+                                </div>
+
+                                <?php
+                                acct_field('personal_contact', 'Contact Number', $user_data['personal_contact'] ?? '', $field_errors, [
+                                    'required'    => true,
+                                    'span'        => 'col-2',
+                                    'placeholder' => 'e.g., 09123456789',
+                                    'help'        => 'Format: 09XXXXXXXXX or +639XXXXXXXXX',
+                                ]);
+                                ?>
+                            </div>
+                        </section>
+
+                        <section class="acct-card form-card" id="sec-address" data-ink="magenta">
+                            <div class="form-card__head">
+                                <span class="form-card__icon"><i class="fas fa-home"></i></span>
+                                <div>
+                                    <h2>Address information</h2>
+                                    <p>Your saved address details.</p>
+                                </div>
+                            </div>
+                            <div class="form-grid">
+                                <?php
+                                acct_field('address_line1', 'Address Line', $user_data['address_line1'] ?? '', $field_errors, [
+                                    'span'        => 'full-width',
+                                    'placeholder' => 'Lot No., Block No., Phase No. Street, Subd.',
+                                ]);
+                                acct_field('p_city', 'City', $user_data['personal_city'] ?? '', $field_errors, ['span' => 'col-2', 'placeholder' => 'City']);
+                                acct_field('p_province', 'Province', $user_data['personal_province'] ?? '', $field_errors, ['span' => 'col-2', 'placeholder' => 'Province']);
+                                acct_field('p_zip', 'ZIP Code', $user_data['personal_zip'] ?? '', $field_errors, ['span' => 'col-2', 'placeholder' => 'ZIP Code']);
+                                ?>
+                            </div>
+                        </section>
+
+                    <?php elseif ($is_company): ?>
+                        <!-- Company customer -->
+                        <section class="acct-card form-card" id="sec-details" data-ink="cyan">
+                            <div class="form-card__head">
+                                <span class="form-card__icon"><i class="fas fa-building"></i></span>
+                                <div>
+                                    <h2>Company information</h2>
+                                    <p>Your business details and the person we deal with.</p>
+                                </div>
+                            </div>
+                            <div class="form-grid">
+                                <?php
+                                acct_field('company_name', 'Company Name', $user_data['company_name'] ?? '', $field_errors, ['required' => true]);
+                                acct_field('taxpayer_name', 'Taxpayer Name', $user_data['taxpayer_name'] ?? '', $field_errors, ['placeholder' => 'Taxpayer Name (if different from company)']);
+                                acct_field('contact_person', 'Contact Person', $user_data['contact_person'] ?? '', $field_errors, ['required' => true]);
+                                acct_field('company_contact', 'Contact Number', $user_data['company_contact'] ?? '', $field_errors, [
+                                    'required'    => true,
+                                    'placeholder' => 'e.g., 09123456789',
+                                    'help'        => 'Format: 09XXXXXXXXX or +639XXXXXXXXX',
+                                ]);
+                                ?>
+                            </div>
+                        </section>
+
+                        <section class="acct-card form-card" id="sec-address" data-ink="magenta">
+                            <div class="form-card__head">
+                                <span class="form-card__icon"><i class="fas fa-map-marked-alt"></i></span>
+                                <div>
+                                    <h2>Company address</h2>
+                                    <p>Your company's saved address details.</p>
+                                </div>
+                            </div>
+                            <div class="form-grid">
+                                <?php
+                                acct_field('c_province', 'Province', $user_data['company_province'] ?? '', $field_errors, ['span' => 'col-2', 'placeholder' => 'Province']);
+                                acct_field('c_city', 'City', $user_data['company_city'] ?? '', $field_errors, ['span' => 'col-2', 'placeholder' => 'City']);
+                                acct_field('c_barangay', 'Barangay', $user_data['barangay'] ?? '', $field_errors, ['span' => 'col-2', 'placeholder' => 'Barangay']);
+                                acct_field('c_street', 'Subdivision/Street', $user_data['subd_or_street'] ?? '', $field_errors, ['placeholder' => 'Subdivision or Street']);
+                                acct_field('c_building', 'Building/Block', $user_data['building_or_block'] ?? '', $field_errors, ['placeholder' => 'Building or Block']);
+                                acct_field('c_lotroom', 'Lot/Room No.', $user_data['lot_or_room_no'] ?? '', $field_errors, ['placeholder' => 'Lot or Room Number']);
+                                acct_field('c_zip', 'ZIP Code', $user_data['company_zip'] ?? '', $field_errors, ['placeholder' => 'ZIP Code']);
+                                ?>
+                            </div>
+                        </section>
+                    <?php endif; ?>
+
+                    <!-- Password -->
+                    <section class="acct-card form-card" id="sec-password" data-ink="yellow">
+                        <div class="form-card__head">
+                            <span class="form-card__icon"><i class="fas fa-lock"></i></span>
+                            <div>
+                                <h2>Change password</h2>
+                                <p>Leave these fields blank if you don't want to change your password.</p>
+                            </div>
+                        </div>
+                        <div class="form-grid">
+                            <?php
+                            acct_field('current_password', 'Current Password', '', $field_errors, [
+                                'type' => 'password', 'password' => true, 'id' => 'currentPassword',
+                                'span' => 'col-2', 'autocomplete' => 'current-password',
+                            ]);
+                            acct_field('new_password', 'New Password', '', $field_errors, [
+                                'type' => 'password', 'password' => true, 'id' => 'newPassword',
+                                'span' => 'col-2', 'autocomplete' => 'new-password',
+                                'help' => 'Must be at least 8 characters long',
+                            ]);
+                            acct_field('confirm_password', 'Confirm New Password', '', $field_errors, [
+                                'type' => 'password', 'password' => true, 'id' => 'confirmPassword',
+                                'span' => 'col-2', 'autocomplete' => 'new-password',
+                            ]);
+                            ?>
+                        </div>
+                    </section>
+
+                    <!-- Save bar -->
+                    <div class="acct-savebar" id="saveBar">
+                        <p class="acct-savebar__status" aria-live="polite">
+                            <span class="acct-savebar__dot"></span>
+                            <span id="saveBarText">No changes yet</span>
+                        </p>
+                        <div class="acct-savebar__actions">
+                            <a href="profile.php" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save changes
+                            </button>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
         </div>
     </section>
 
@@ -862,53 +797,55 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
         </div>
     </div>
 
-
     <script src="../../assets/js/main.js"></script>
     <script>
-        // Profile-specific JavaScript
+        // Edit profile: validation, age display, password toggle, save bar
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize form functionality
             setupFormValidation();
-            
-            // Auto-hide success message
+            setupSectionNav();
+
+            // Success banner fades away on its own
             const successMessage = document.getElementById('successMessage');
             if (successMessage) {
                 setTimeout(() => {
-                    successMessage.style.opacity = '0';
-                    successMessage.style.transition = 'opacity 0.5s';
-                    
-                    setTimeout(() => {
-                        successMessage.style.display = 'none';
-                    }, 500);
-                }, 5000);
+                    successMessage.classList.add('is-leaving');
+                    setTimeout(() => successMessage.remove(), 600);
+                }, 8000);
             }
-            
+
             // Calculate age if birthdate exists
             const birthdateInput = document.getElementById('birthdate');
             if (birthdateInput && birthdateInput.value) {
                 calculateAgeFromDate();
             }
+
+            // If the server sent the form back with errors, bring the first one into view
+            const firstServerError = document.querySelector('.form-input.error, .form-select.error');
+            if (firstServerError) {
+                firstServerError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                firstServerError.focus({ preventScroll: true });
+            }
         });
-        
+
         function setupFormValidation() {
             const form = document.getElementById('editProfileForm');
             if (!form) return;
-            
+
             form.addEventListener('submit', function(event) {
                 let isValid = true;
-                
+
                 // Clear previous error highlights
-                document.querySelectorAll('.form-input.input-error, .form-select.input-error').forEach(el => {
-                    el.classList.remove('input-error');
+                document.querySelectorAll('.form-input.error, .form-select.error').forEach(el => {
+                    el.classList.remove('error');
                 });
-                
+
                 // Validate required fields
                 const requiredFields = form.querySelectorAll('[required]');
                 requiredFields.forEach(field => {
                     if (!field.value.trim()) {
                         isValid = false;
-                        field.classList.add('input-error');
-                        
+                        field.classList.add('error');
+
                         // Create error message if it doesn't exist
                         let errorDiv = field.nextElementSibling;
                         if (!errorDiv || !errorDiv.classList.contains('error-message')) {
@@ -919,39 +856,39 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
                         }
                     }
                 });
-                
+
                 // Validate password fields if any are filled
                 const currentPassword = document.getElementById('currentPassword');
                 const newPassword = document.getElementById('newPassword');
                 const confirmPassword = document.getElementById('confirmPassword');
-                
+
                 const passwordFieldsFilled = currentPassword.value || newPassword.value || confirmPassword.value;
-                
+
                 if (passwordFieldsFilled) {
                     if (!currentPassword.value.trim()) {
                         isValid = false;
-                        currentPassword.classList.add('input-error');
+                        currentPassword.classList.add('error');
                     }
-                    
+
                     if (!newPassword.value.trim()) {
                         isValid = false;
-                        newPassword.classList.add('input-error');
+                        newPassword.classList.add('error');
                     } else if (newPassword.value.length < 8) {
                         isValid = false;
-                        newPassword.classList.add('input-error');
+                        newPassword.classList.add('error');
                     }
-                    
+
                     if (newPassword.value !== confirmPassword.value) {
                         isValid = false;
-                        confirmPassword.classList.add('input-error');
+                        confirmPassword.classList.add('error');
                     }
                 }
-                
+
                 if (!isValid) {
                     event.preventDefault();
-                    
+
                     // Scroll to first error
-                    const firstError = form.querySelector('.input-error');
+                    const firstError = form.querySelector('.error');
                     if (firstError) {
                         firstError.scrollIntoView({
                             behavior: 'smooth',
@@ -962,40 +899,63 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
                 }
             });
         }
-        
+
+        // Highlight the rail link for the section currently in view
+        function setupSectionNav() {
+            const links = document.querySelectorAll('.rail-nav a');
+            if (!links.length || !('IntersectionObserver' in window)) return;
+
+            const byId = {};
+            links.forEach(link => {
+                const target = document.querySelector(link.getAttribute('href'));
+                if (target) byId[target.id] = link;
+            });
+
+            const spy = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if (!entry.isIntersecting) return;
+                    links.forEach(l => l.classList.remove('is-active'));
+                    if (byId[entry.target.id]) byId[entry.target.id].classList.add('is-active');
+                });
+            }, { rootMargin: '-20% 0px -60% 0px' });
+
+            Object.keys(byId).forEach(id => spy.observe(document.getElementById(id)));
+        }
+
         function calculateAgeFromDate() {
             const birthdateInput = document.getElementById('birthdate');
             const ageDisplay = document.getElementById('ageDisplay');
-            
+
             if (!birthdateInput || !birthdateInput.value || !ageDisplay) return;
-            
+
             const birthdate = new Date(birthdateInput.value);
             const today = new Date();
-            
+
             let age = today.getFullYear() - birthdate.getFullYear();
             const monthDiff = today.getMonth() - birthdate.getMonth();
-            
+
             // Adjust age if birthday hasn't occurred this year
             if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthdate.getDate())) {
                 age--;
             }
-            
+
+            ageDisplay.classList.remove('is-error', 'is-warn');
+
             if (age < 0) {
                 ageDisplay.textContent = 'Invalid birth date (future date)';
-                ageDisplay.style.color = 'var(--riso-red)';
+                ageDisplay.classList.add('is-error');
             } else if (age > 120) {
                 ageDisplay.textContent = 'Age: ' + age + ' (please verify birth date)';
-                ageDisplay.style.color = '#ff9800';
+                ageDisplay.classList.add('is-warn');
             } else {
                 ageDisplay.textContent = 'Age: ' + age + ' years old';
-                ageDisplay.style.color = 'var(--ink)';
             }
         }
-        
+
         function togglePassword(inputId, button) {
             const input = document.getElementById(inputId);
             const icon = button.querySelector('i');
-            
+
             if (input.type === 'password') {
                 input.type = 'text';
                 icon.classList.remove('fa-eye');
@@ -1006,42 +966,47 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
                 icon.classList.add('fa-eye');
             }
         }
-        
+
         // Format phone number as user types
         document.addEventListener('input', function(e) {
             if (e.target.name === 'personal_contact' || e.target.name === 'company_contact') {
                 let value = e.target.value.replace(/\D/g, '');
-                
+
                 // Add +63 prefix if starts with 09
                 if (value.startsWith('09') && value.length >= 10) {
                     value = '63' + value.substring(1);
                 }
-                
+
                 // Format the number
                 if (value.length > 0) {
                     if (value.startsWith('63')) {
                         value = '+63' + value.substring(2);
                     }
-                    
+
                     // Add space after every 4 digits for readability
                     value = value.replace(/(\d{4})(?=\d)/g, '$1 ');
                 }
-                
+
                 e.target.value = value;
             }
         });
-        
-        // Show confirmation before leaving page if form has changes
+
+        // Unsaved-changes tracking: save bar state + confirmation before leaving
         let formChanged = false;
         const form = document.getElementById('editProfileForm');
         if (form) {
             const initialValues = new FormData(form);
-            
+            const saveBar = document.getElementById('saveBar');
+            const saveBarText = document.getElementById('saveBarText');
+
             form.addEventListener('input', function() {
                 const currentValues = new FormData(form);
                 formChanged = !arraysEqual([...initialValues], [...currentValues]);
+
+                saveBar.classList.toggle('is-dirty', formChanged);
+                saveBarText.textContent = formChanged ? 'You have unsaved changes' : 'No changes yet';
             });
-            
+
             window.addEventListener('beforeunload', function(e) {
                 if (formChanged) {
                     e.preventDefault();
@@ -1049,25 +1014,25 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
                     return e.returnValue;
                 }
             });
-            
+
             // Reset formChanged on submit
             form.addEventListener('submit', function() {
                 formChanged = false;
             });
         }
-        
+
         function arraysEqual(a, b) {
             if (a.length !== b.length) return false;
-            
+
             a.sort();
             b.sort();
-            
+
             for (let i = 0; i < a.length; i++) {
                 if (a[i][0] !== b[i][0] || a[i][1] !== b[i][1]) {
                     return false;
                 }
             }
-            
+
             return true;
         }
     </script>
@@ -1295,7 +1260,7 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
         function goBackToConversations() {
             currentConversationId = null;
 
-            document.getElementById('chatConversations').style.display = 'flex';
+            document.getElementById('chatConversations').style.display = 'block';
             document.getElementById('chatMessages').classList.remove('active');
             document.getElementById('chatInputArea').classList.remove('active');
             document.getElementById('chatBackBtn').classList.remove('visible');
@@ -1647,9 +1612,7 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
         window.startNewConversation = startNewConversation;
         window.deleteConversation = deleteConversation;
     </script>
-
 </body>
-
 </html>
 
 <?php

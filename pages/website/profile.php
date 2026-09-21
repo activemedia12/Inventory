@@ -63,16 +63,94 @@ if (isset($_SESSION['user_id'])) {
     $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 }
 
+// ---------------------------------------------------------------
+// Presentation helpers (display only — no data is changed here)
+// ---------------------------------------------------------------
 $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
+
+$slice = function ($text, $start, $length) {
+    $text = (string) $text;
+    return function_exists('mb_substr')
+        ? mb_strtoupper(mb_substr($text, $start, $length, 'UTF-8'), 'UTF-8')
+        : strtoupper(substr($text, $start, $length));
+};
+
+if ($is_personal) {
+    $display_name = trim($user_data['first_name']);
+    $full_name    = trim($user_data['first_name'] . ' ' . ($user_data['last_name'] ?? ''));
+    $initials     = $slice(trim($user_data['first_name']), 0, 1) . $slice(trim($user_data['last_name'] ?? ''), 0, 1);
+} elseif ($is_company) {
+    $display_name = trim($user_data['company_name']);
+    $full_name    = $display_name;
+    $words        = preg_split('/\s+/', $display_name);
+    $initials     = count($words) > 1
+        ? $slice($words[0], 0, 1) . $slice($words[1], 0, 1)
+        : $slice($words[0], 0, 2);
+} else {
+    $display_name = 'friend';
+    $full_name    = 'Your account';
+    $initials     = '?';
+}
+$username = $user_data['username'] ?? ($_SESSION['username'] ?? '');
+
+// <dd> with a soft "Not provided" fallback
+$dd = function ($value) {
+    $value = trim((string) $value);
+    return $value !== ''
+        ? '<dd>' . htmlspecialchars($value) . '</dd>'
+        : '<dd class="is-empty">Not provided</dd>';
+};
+
+// One readable address line
+if ($is_personal) {
+    $address_parts = [
+        $user_data['address_line1'] ?? '',
+        $user_data['personal_city'] ?? '',
+        trim(($user_data['personal_province'] ?? '') . ' ' . ($user_data['personal_zip'] ?? '')),
+    ];
+} else {
+    $address_parts = [
+        $user_data['barangay'] ?? '',
+        $user_data['subd_or_street'] ?? '',
+        $user_data['building_or_block'] ?? '',
+        $user_data['lot_or_room_no'] ?? '',
+        $user_data['company_city'] ?? '',
+        trim(($user_data['company_province'] ?? '') . ' ' . ($user_data['company_zip'] ?? '')),
+    ];
+}
+$address_text = implode(', ', array_filter(array_map('trim', $address_parts), 'strlen'));
+
+// Birthdate + live age (the stored age goes stale)
+$birthdate_text = '';
+if (!empty($user_data['birthdate']) && $user_data['birthdate'] !== '0000-00-00') {
+    try {
+        $birth          = new DateTime($user_data['birthdate']);
+        $birthdate_text = $birth->format('F j, Y') . ' (' . $birth->diff(new DateTime())->y . ' years old)';
+    } catch (Exception $e) {
+        $birthdate_text = $user_data['birthdate'];
+    }
+}
+
+// Order summary tiles
+$order_total     = count($orders);
+$order_completed = 0;
+$order_cancelled = 0;
+foreach ($orders as $o) {
+    if ($o['status'] === 'completed') {
+        $order_completed++;
+    } elseif ($o['status'] === 'cancelled') {
+        $order_cancelled++;
+    }
+}
+$order_active = $order_total - $order_completed - $order_cancelled;
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Profile</title>
+    <title>My Profile - Active Media Designs & Printing</title>
     <link rel="icon" type="image/png" href="../../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -81,7 +159,7 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
     <link rel="stylesheet" href="../../assets/css/main.css">
 </head>
 
-<body>
+<body class="acct-page">
     <!-- Side Pill Navigation -->
     <nav class="side-nav" id="sideNav" aria-label="Primary">
         <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
@@ -114,19 +192,9 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
             <li class="side-nav-divider"></li>
 
             <li>
-                <a href="../website/profile.php" class="user-profile active">
+                <a href="profile.php" class="user-profile active">
                     <i class="fas fa-user"></i>
-                    <span class="side-nav-label user-name">
-                        <?php
-                        if (!empty($user_data['first_name'])) {
-                            echo htmlspecialchars($user_data['first_name']);
-                        } elseif (!empty($user_data['company_name'])) {
-                            echo htmlspecialchars($user_data['company_name']);
-                        } else {
-                            echo 'User';
-                        }
-                        ?>
-                    </span>
+                    <span class="side-nav-label user-name"><?php echo htmlspecialchars($display_name === 'friend' ? 'User' : $display_name); ?></span>
                 </a>
             </li>
             <li>
@@ -138,224 +206,217 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
         </ul>
     </nav>
 
-    <!-- Profile Hero -->
-    <section class="profile-header hide">
-        <div class="container">
-            <span class="section-eyebrow"><span class="reg-mark"></span> Your account</span>
-            <h1><i class="fas fa-user-circle"></i> My Profile</h1>
-            <p>Manage your account and view order history</p>
-            <div class="email-verification">
-                <?php if ($user_data['email_verified']): ?>
-                    <span class="email-verified">
-                        <i class="fas fa-check-circle"></i> Email Verified
-                    </span>
-                <?php else: ?>
-                    <span class="email-not-verified">
-                        <i class="fas fa-exclamation-circle"></i> Email Not Verified
-                    </span>
-                    <a href="../../accounts/email-verification.php" class="verification-btn">
-                        <i class="fas fa-envelope"></i> Verify Now
-                    </a>
-                <?php endif; ?>
-                <span class="account-type-badge <?php echo $is_personal ? 'account-type-personal' : 'account-type-company'; ?>">
-                    <?php echo $is_personal ? 'Personal Account' : 'Company Account'; ?>
-                </span>
+    <!-- Account Hero -->
+    <section class="acct-hero hide">
+        <div class="container acct-container">
+            <div class="acct-hero__texture halftone"></div>
+            <div class="acct-hero-inner">
+                <span class="section-eyebrow"><span class="reg-mark"></span> My account</span>
+                <h1 class="acct-hero-title">Welcome back, <span class="registered" data-text="<?php echo htmlspecialchars($display_name); ?>."><?php echo htmlspecialchars($display_name); ?>.</span></h1>
+                <p class="acct-hero-sub">
+                    Keep your details up to date and follow every order from proof to pickup.
+                </p>
             </div>
         </div>
     </section>
 
-    <!-- Profile Content -->
-    <section class="profile-page hide">
-        <div class="container">
+    <!-- Account Main -->
+    <section class="acct-main hide">
+        <div class="container acct-container">
+
             <?php if (isset($_GET['order_success'])): ?>
-                <div class="success-message" id="success-message">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
+                <div class="acct-notice acct-notice--success" id="success-message" role="status">
+                    <span class="acct-notice__icon"><i class="fas fa-check"></i></span>
+                    <div class="acct-notice__body">
                         <strong>Success!</strong> Your order has been placed and is pending payment verification.
                     </div>
                 </div>
-                <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        const message = document.getElementById('success-message');
-                        if (message) {
-                            setTimeout(() => {
-                                message.style.opacity = '0';
-                                message.style.transition = 'opacity 0.5s';
-
-                                setTimeout(() => {
-                                    message.style.display = 'none';
-                                }, 500);
-                            }, 3000);
-                        }
-                    });
-                </script>
             <?php endif; ?>
 
-            <div class="profile-sections">
-                <!-- Personal Information -->
-                <div class="profile-section">
-                    <h2 class="profile-card-title">
-                        <i class="fas fa-user"></i> Account Information
-                    </h2>
-                    <div class="user-details">
-                        <?php if (!empty($user_data['first_name'])): ?>
-                            <!-- PERSONAL CUSTOMER -->
-                            <p>
-                                <strong>Name:</strong>
-                                <span><?php echo htmlspecialchars($user_data['first_name'] . ' ' . $user_data['last_name']); ?></span>
-                            </p>
-                            <p>
-                                <strong>Username:</strong>
-                                <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
-                            </p>
-                            <p>
-                                <strong>Contact:</strong>
-                                <span><?php echo htmlspecialchars($user_data['personal_contact'] ?? 'N/A'); ?></span>
-                            </p>
-                            <p>
-                                <strong>Address:</strong>
-                                <span>
-                                    <?php
-                                    if (!empty($user_data['address_line1'])) {
-                                        echo htmlspecialchars($user_data['address_line1'] . ', ' . $user_data['personal_city'] . ', ' . $user_data['personal_province'] . ' ' . $user_data['personal_zip']);
-                                    } else {
-                                        echo 'N/A';
-                                    }
-                                    ?>
-                                </span>
-                            </p>
-                            <p>
-                                <strong>Birthdate:</strong>
-                                <span><?php echo !empty($user_data['birthdate']) ? htmlspecialchars($user_data['birthdate']) : 'N/A'; ?></span>
-                            </p>
-                            <p>
-                                <strong>Age:</strong>
-                                <span><?php echo !empty($user_data['age']) ? htmlspecialchars($user_data['age']) : 'N/A'; ?></span>
-                            </p>
-                            <p>
-                                <strong>Gender:</strong>
-                                <span><?php echo !empty($user_data['gender']) ? htmlspecialchars($user_data['gender']) : 'N/A'; ?></span>
-                            </p>
-
-                        <?php elseif (!empty($user_data['company_name'])): ?>
-                            <!-- COMPANY CUSTOMER -->
-                            <p>
-                                <strong>Company Name:</strong>
-                                <span><?php echo htmlspecialchars($user_data['company_name']); ?></span>
-                            </p>
-                            <p>
-                                <strong>Username:</strong>
-                                <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
-                            </p>
-                            <p>
-                                <strong>Taxpayer Name:</strong>
-                                <span><?php echo htmlspecialchars($user_data['taxpayer_name'] ?? 'N/A'); ?></span>
-                            </p>
-                            <p>
-                                <strong>Contact Person:</strong>
-                                <span><?php echo htmlspecialchars($user_data['contact_person'] ?? 'N/A'); ?></span>
-                            </p>
-                            <p>
-                                <strong>Contact:</strong>
-                                <span><?php echo htmlspecialchars($user_data['company_contact'] ?? 'N/A'); ?></span>
-                            </p>
-                            <p>
-                                <strong>Address:</strong>
-                                <span>
-                                    <?php
-                                    $address_parts = [];
-                                    if (!empty($user_data['barangay'])) $address_parts[] = $user_data['barangay'];
-                                    if (!empty($user_data['subd_or_street'])) $address_parts[] = $user_data['subd_or_street'];
-                                    if (!empty($user_data['building_or_block'])) $address_parts[] = $user_data['building_or_block'];
-                                    if (!empty($user_data['lot_or_room_no'])) $address_parts[] = $user_data['lot_or_room_no'];
-                                    if (!empty($user_data['company_city'])) $address_parts[] = $user_data['company_city'];
-                                    if (!empty($user_data['company_province'])) $address_parts[] = $user_data['company_province'];
-                                    if (!empty($user_data['company_zip'])) $address_parts[] = $user_data['company_zip'];
-
-                                    echo !empty($address_parts) ? htmlspecialchars(implode(', ', $address_parts)) : 'N/A';
-                                    ?>
-                                </span>
-                            </p>
-                        <?php else: ?>
-                            <p>No customer information available.</p>
-                        <?php endif; ?>
+            <?php if (empty($user_data['email_verified'])): ?>
+                <div class="acct-notice acct-notice--warn" role="alert">
+                    <span class="acct-notice__icon"><i class="fas fa-exclamation"></i></span>
+                    <div class="acct-notice__body">
+                        <strong>Your email isn't verified yet.</strong> Verify it to keep your account secure.
                     </div>
+                    <a href="../../accounts/email-verification.php" class="btn btn-secondary acct-notice__action">
+                        <i class="fas fa-envelope"></i> Verify now
+                    </a>
+                </div>
+            <?php endif; ?>
 
-                    <div class="profile-actions">
-                        <a href="edit_profile.php" class="action-btn">
-                            <i class="fas fa-edit"></i> Edit Profile
+            <div class="acct-layout">
+
+                <!-- Identity card -->
+                <aside class="acct-aside">
+                    <div class="acct-card profile-card">
+                        <div class="profile-card__top">
+                            <div class="acct-avatar" aria-hidden="true"><?php echo htmlspecialchars($initials); ?></div>
+                            <div class="profile-card__id">
+                                <h2><?php echo htmlspecialchars($full_name); ?></h2>
+                                <?php if ($username !== ''): ?>
+                                    <span class="profile-card__handle">@<?php echo htmlspecialchars($username); ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <div class="acct-badges">
+                            <span class="acct-badge <?php echo $is_personal ? 'acct-badge--personal' : 'acct-badge--company'; ?>">
+                                <i class="fas <?php echo $is_personal ? 'fa-user' : 'fa-building'; ?>"></i>
+                                <?php echo $is_personal ? 'Personal account' : 'Company account'; ?>
+                            </span>
+                            <?php if (!empty($user_data['email_verified'])): ?>
+                                <span class="acct-badge acct-badge--ok"><i class="fas fa-check-circle"></i> Email verified</span>
+                            <?php else: ?>
+                                <span class="acct-badge acct-badge--alert"><i class="fas fa-exclamation-circle"></i> Email not verified</span>
+                            <?php endif; ?>
+                        </div>
+
+                        <dl class="detail-list">
+                            <?php if ($is_personal): ?>
+                                <div class="detail-row">
+                                    <dt><i class="fas fa-phone"></i> Contact</dt>
+                                    <?php echo $dd($user_data['personal_contact'] ?? ''); ?>
+                                </div>
+                                <div class="detail-row">
+                                    <dt><i class="fas fa-map-marker-alt"></i> Address</dt>
+                                    <?php echo $dd($address_text); ?>
+                                </div>
+                                <div class="detail-row">
+                                    <dt><i class="fas fa-birthday-cake"></i> Birthdate</dt>
+                                    <?php echo $dd($birthdate_text); ?>
+                                </div>
+                                <div class="detail-row">
+                                    <dt><i class="fas fa-venus-mars"></i> Gender</dt>
+                                    <?php echo $dd($user_data['gender'] ?? ''); ?>
+                                </div>
+                            <?php elseif ($is_company): ?>
+                                <div class="detail-row">
+                                    <dt><i class="fas fa-file-invoice"></i> Taxpayer name</dt>
+                                    <?php echo $dd($user_data['taxpayer_name'] ?? ''); ?>
+                                </div>
+                                <div class="detail-row">
+                                    <dt><i class="fas fa-user-tie"></i> Contact person</dt>
+                                    <?php echo $dd($user_data['contact_person'] ?? ''); ?>
+                                </div>
+                                <div class="detail-row">
+                                    <dt><i class="fas fa-phone"></i> Contact</dt>
+                                    <?php echo $dd($user_data['company_contact'] ?? ''); ?>
+                                </div>
+                                <div class="detail-row">
+                                    <dt><i class="fas fa-map-marker-alt"></i> Address</dt>
+                                    <?php echo $dd($address_text); ?>
+                                </div>
+                            <?php else: ?>
+                                <div class="detail-row">
+                                    <dt><i class="fas fa-info-circle"></i> Details</dt>
+                                    <dd class="is-empty">No customer information available.</dd>
+                                </div>
+                            <?php endif; ?>
+                        </dl>
+
+                        <div class="profile-card__actions">
+                            <a href="edit_profile.php" class="btn btn-primary">
+                                <i class="fas fa-pen"></i> Edit profile
+                            </a>
+                            <a href="edit_profile.php#sec-password" class="btn btn-secondary">
+                                <i class="fas fa-lock"></i> Change password
+                            </a>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Orders -->
+                <div class="acct-content">
+                    <div class="acct-section-head">
+                        <div>
+                            <span class="section-eyebrow"><span class="reg-mark"></span> Order history</span>
+                            <h2 class="section-title">Your orders</h2>
+                            <p class="section-subtitle">Select an order to see its items, quantities and pricing.</p>
+                        </div>
+                        <a href="../../website/main.php#services" class="view-all">
+                            Browse services <i class="fas fa-arrow-right"></i>
                         </a>
                     </div>
-                </div>
 
-                <!-- Order History Section -->
-                <div class="profile-section">
-                    <h2 class="profile-card-title">
-                        <i class="fas fa-history"></i> Order History
-                    </h2>
                     <?php if (!empty($orders)): ?>
-                        <?php foreach ($orders as $order): ?>
-                            <div class="order-item clickable-order" onclick="viewOrderDetails(<?php echo $order['order_id']; ?>)">
-                                <div class="order-header">
-                                    <span class="order-id">Order #<?php echo $order['order_id']; ?></span>
-                                    <span class="order-status status-<?php echo $order['status']; ?>">
-                                        <?php echo ucfirst(str_replace('_', ' ', $order['status'])); ?>
-                                    </span>
-                                </div>
-                                <div class="order-details">
-                                    <div class="order-detail-item">
-                                        <span class="order-detail-label">Amount:</span>
-                                        <span class="order-detail-value">₱<?php echo number_format($order['total_amount'], 2); ?></span>
+                        <div class="stat-strip">
+                            <div class="stat-tile">
+                                <span class="stat-tile__value"><?php echo $order_total; ?></span>
+                                <span class="stat-tile__label">Total orders</span>
+                            </div>
+                            <div class="stat-tile" data-ink="cyan">
+                                <span class="stat-tile__value"><?php echo $order_active; ?></span>
+                                <span class="stat-tile__label">In progress</span>
+                            </div>
+                            <div class="stat-tile" data-ink="ok">
+                                <span class="stat-tile__value"><?php echo $order_completed; ?></span>
+                                <span class="stat-tile__label">Completed</span>
+                            </div>
+                        </div>
+
+                        <div class="order-list">
+                            <?php foreach ($orders as $order):
+                                $status_class = preg_replace('/[^a-z0-9_-]/i', '', (string) $order['status']);
+                                $status_label = ucfirst(str_replace('_', ' ', $order['status']));
+                            ?>
+                                <article class="order-card status-<?php echo $status_class; ?>" data-order-id="<?php echo (int) $order['order_id']; ?>">
+                                    <div class="order-card__top">
+                                        <div class="order-card__id">
+                                            <h3>Order #<?php echo (int) $order['order_id']; ?></h3>
+                                            <span class="order-status status-<?php echo $status_class; ?>"><?php echo htmlspecialchars($status_label); ?></span>
+                                        </div>
+                                        <div class="order-card__amount">₱<?php echo number_format($order['total_amount'], 2); ?></div>
                                     </div>
-                                    <div class="order-detail-item">
-                                        <span class="order-detail-label">Date:</span>
-                                        <span class="order-detail-value"><?php echo date('M j, Y g:i A', strtotime($order['created_at'])); ?></span>
-                                    </div>
-                                    <div class="order-detail-item">
-                                        <span class="order-detail-label">Payment Proof:</span>
-                                        <span class="order-detail-value">
+                                    <div class="order-card__foot">
+                                        <span><i class="far fa-calendar"></i> <?php echo date('M j, Y · g:i A', strtotime($order['created_at'])); ?></span>
+                                        <span>
+                                            <i class="fas fa-receipt"></i>
                                             <?php if (!empty($order['payment_proof'])): ?>
-                                                <a href="../../assets/uploads/payments/user_<?php echo $user_id; ?>/<?php echo $order['payment_proof']; ?>"
-                                                    target="_blank"
-                                                    class="payment-proof-link"
-                                                    onclick="event.stopPropagation()">
-                                                    <i class="fas fa-external-link-alt"></i> View
+                                                <a href="../../assets/uploads/payments/user_<?php echo (int) $user_id; ?>/<?php echo htmlspecialchars(rawurlencode($order['payment_proof'])); ?>"
+                                                   target="_blank" rel="noopener" class="payment-proof-link">
+                                                    Payment proof <i class="fas fa-external-link-alt"></i>
                                                 </a>
                                             <?php else: ?>
-                                                Not uploaded
+                                                Proof not uploaded
                                             <?php endif; ?>
                                         </span>
+                                        <button type="button" class="order-card__open" onclick="viewOrderDetails(<?php echo (int) $order['order_id']; ?>)">
+                                            View details <i class="fas fa-arrow-right"></i>
+                                        </button>
                                     </div>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
                     <?php else: ?>
-                        <div class="empty-orders">
-                            <i class="fas fa-shopping-bag"></i>
+                        <div class="acct-empty">
+                            <div class="acct-empty__icon"><i class="fas fa-shopping-bag"></i></div>
                             <h3>No orders yet</h3>
-                            <p>You haven't placed any orders yet.</p>
-                            <a href="../website/main.php" class="action-btn">
-                                <i class="fas fa-store"></i> Start Shopping
+                            <p>You haven't placed any orders yet. Browse our services and your first order will show up here.</p>
+                            <a href="../../website/main.php#services" class="btn btn-primary">
+                                <i class="fas fa-store"></i> Start shopping
                             </a>
                         </div>
                     <?php endif; ?>
                 </div>
+
             </div>
         </div>
     </section>
 
-    <!-- Order Details Modal -->
-    <div id="orderModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2 id="modalOrderTitle">
-                <i class="fas fa-receipt"></i> Order Details
-            </h2>
-            <p id="modalOrderSubtitle">
-                Detailed information about your order
-            </p>
-            <div id="orderModalContent">
-                <!-- Order items will be loaded here via AJAX -->
+    <!-- Order Details Dialog -->
+    <div class="acct-modal" id="orderModal" role="dialog" aria-modal="true" aria-labelledby="modalOrderTitle" aria-hidden="true">
+        <div class="acct-modal__panel">
+            <div class="acct-modal__head">
+                <span class="acct-modal__eyebrow"><span class="reg-mark"></span> Order details</span>
+                <h2 id="modalOrderTitle">Order</h2>
+                <p id="modalOrderSubtitle">Detailed information about your order</p>
+                <button type="button" class="acct-modal__close" data-close aria-label="Close order details">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="acct-modal__body" id="orderModalContent">
+                <!-- Order items are loaded here via AJAX -->
             </div>
         </div>
     </div>
@@ -466,109 +527,128 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
 
     <script src="../../assets/js/main.js"></script>
     <script>
-    // Profile-specific JavaScript that extends the main script.js
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize profile functionality
-        setupProfileInteractions();
-    });
+    // Profile page: order details dialog + order-success banner
+    (function () {
+        'use strict';
 
-    function setupProfileInteractions() {
-        // Modal functionality
-        const modal = document.getElementById('orderModal');
-        const closeBtn = document.querySelector('.close');
+        var modal     = document.getElementById('orderModal');
+        var panel     = modal.querySelector('.acct-modal__panel');
+        var titleEl   = document.getElementById('modalOrderTitle');
+        var contentEl = document.getElementById('orderModalContent');
+        var closeBtn  = modal.querySelector('[data-close]');
+        var lastFocus = null;
+        var requestId = 0;
 
-        if (closeBtn) {
-            closeBtn.onclick = function() {
-                modal.style.display = 'none';
+        function openModal() {
+            lastFocus = document.activeElement;
+            modal.classList.add('is-open');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('acct-modal-open');
+            closeBtn.focus();
+            if (document.activeElement !== closeBtn) {
+                requestAnimationFrame(function () { closeBtn.focus(); });
             }
         }
 
-        window.onclick = function(event) {
-            if (event.target == modal) {
-                modal.style.display = 'none';
-            }
+        function closeModal() {
+            modal.classList.remove('is-open');
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('acct-modal-open');
+            requestId++; // ignore any response still in flight
+            if (lastFocus && lastFocus.focus) lastFocus.focus();
         }
 
-        // Add keyboard support for modal
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape' && modal.style.display === 'block') {
-                modal.style.display = 'none';
-            }
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal || e.target.closest('[data-close]')) closeModal();
         });
-    }
 
-    // Function to view order details
-    function viewOrderDetails(orderId) {
-        // Show loading
-        document.getElementById('orderModalContent').innerHTML = `
-            <div style="text-align: center; padding: 40px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 2em; color: var(--primary-color); margin-bottom: 15px;"></i>
-                <p style="color: var(--text-light);">Loading order details...</p>
-            </div>
-        `;
-        
-        const modal = document.getElementById('orderModal');
-        modal.style.display = 'block';
+        document.addEventListener('keydown', function (e) {
+            if (!modal.classList.contains('is-open')) return;
 
-        // Update modal title
-        document.getElementById('modalOrderTitle').textContent = 'Order #' + orderId + ' Details';
-        document.getElementById('modalOrderSubtitle').textContent = 'Detailed information about your order';
+            if (e.key === 'Escape') {
+                closeModal();
+                return;
+            }
 
-        // Fetch order items via AJAX
-        fetch('get_order_items.php?order_id=' + orderId)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
+            // Keep Tab inside the dialog while it is open
+            if (e.key === 'Tab') {
+                var focusable = panel.querySelectorAll('a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                if (!focusable.length) return;
+                var first = focusable[0];
+                var last  = focusable[focusable.length - 1];
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
                 }
-                return response.text();
-            })
-            .then(data => {
-                document.getElementById('orderModalContent').innerHTML = data;
-            })
-            .catch(error => {
-                console.error('Error fetching order details:', error);
-                document.getElementById('orderModalContent').innerHTML = `
-                    <div style="text-align: center; padding: 40px; color: var(--accent-color);">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 2em; margin-bottom: 15px;"></i>
-                        <p>Error loading order details. Please try again.</p>
-                        <button class="action-btn secondary" onclick="viewOrderDetails(${orderId})" style="margin-top: 15px;">
-                            <i class="fas fa-redo"></i> Try Again
-                        </button>
-                    </div>
-                `;
-            });
-    }
-
-    // Function to format currency
-    function formatCurrency(amount) {
-        return '₱' + parseFloat(amount).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
-    }
-
-    // Function to format date
-    function formatDate(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    }
-
-    // Add smooth scrolling for anchor links
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
-            if (target) {
-                target.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
             }
         });
-    });
+
+        function showLoading() {
+            contentEl.innerHTML =
+                '<div class="acct-modal__state">' +
+                    '<i class="fas fa-spinner fa-spin"></i>' +
+                    '<p>Loading order details...</p>' +
+                '</div>';
+        }
+
+        function showError(orderId) {
+            contentEl.innerHTML =
+                '<div class="acct-modal__state acct-modal__state--error">' +
+                    '<i class="fas fa-exclamation-triangle"></i>' +
+                    '<p>Error loading order details. Please try again.</p>' +
+                    '<button type="button" class="btn btn-secondary" data-retry>' +
+                        '<i class="fas fa-redo"></i> Try again' +
+                    '</button>' +
+                '</div>';
+            contentEl.querySelector('[data-retry]').addEventListener('click', function () {
+                window.viewOrderDetails(orderId);
+            });
+        }
+
+        // Called from each order card
+        window.viewOrderDetails = function (orderId) {
+            var thisRequest = ++requestId;
+
+            titleEl.textContent = 'Order #' + orderId;
+            showLoading();
+            if (!modal.classList.contains('is-open')) openModal();
+
+            fetch('get_order_items.php?order_id=' + encodeURIComponent(orderId))
+                .then(function (response) {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.text();
+                })
+                .then(function (html) {
+                    if (thisRequest !== requestId) return;
+                    contentEl.innerHTML = html;
+                })
+                .catch(function (error) {
+                    console.error('Error fetching order details:', error);
+                    if (thisRequest !== requestId) return;
+                    showError(orderId);
+                });
+        };
+
+        // Clicking anywhere on a card (except its links/buttons) opens it too
+        document.querySelectorAll('.order-card').forEach(function (card) {
+            card.addEventListener('click', function (e) {
+                if (e.target.closest('a, button')) return;
+                window.viewOrderDetails(card.dataset.orderId);
+            });
+        });
+
+        // Order-success banner fades away on its own
+        var banner = document.getElementById('success-message');
+        if (banner) {
+            setTimeout(function () {
+                banner.classList.add('is-leaving');
+                setTimeout(function () { banner.remove(); }, 600);
+            }, 5000);
+        }
+    })();
     </script>
     <script>
         // Chat functionality
@@ -794,7 +874,7 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
         function goBackToConversations() {
             currentConversationId = null;
 
-            document.getElementById('chatConversations').style.display = 'flex';
+            document.getElementById('chatConversations').style.display = 'block';
             document.getElementById('chatMessages').classList.remove('active');
             document.getElementById('chatInputArea').classList.remove('active');
             document.getElementById('chatBackBtn').classList.remove('visible');
