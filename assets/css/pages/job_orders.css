@@ -1950,6 +1950,26 @@ input[type="date"].export-form-input {
   color: var(--secondary);
 }
 
+/* Billing Statement # / Service Invoice # shortcut, shown under the Total
+   Cost amount so it doesn't need its own table column. */
+.billing-info-wrap {
+  margin-top: 6px;
+  font-weight: 400;
+}
+
+.billing-info-line {
+  color: var(--gray);
+  font-weight: 500;
+}
+
+.billing-info-btn {
+  margin-left: 0;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px dashed var(--light-gray);
+  padding: 6px 6px;
+}
+
 /* "Close All Folders" — a floating action button, fixed to the viewport
    so it stays visible no matter how far you've scrolled through the four
    status columns (that's exactly when you have folders open and want to

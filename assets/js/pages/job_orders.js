@@ -319,6 +319,7 @@ function setTotalCost(btn) {
   const jobId = btn.dataset.id;
   const clientName = btn.dataset.client;
   const projectName = btn.dataset.project;
+  const quantity = parseFloat(btn.dataset.quantity) || 0;
   fetch(`get_job_expenses.php?id=${jobId}`)
     .then((response) => response.json())
     .then((data) => {
@@ -326,6 +327,14 @@ function setTotalCost(btn) {
         document.getElementById("modalJobId").value = jobId;
         document.getElementById("modalClient").textContent = clientName;
         document.getElementById("modalProject").textContent = projectName;
+
+        // Order quantity — used to auto-calculate Total Cost from the
+        // "Price per Booklet" shortcut input below.
+        document.getElementById("modalQuantity").value = quantity;
+        document.getElementById("modalQtyLabel").textContent =
+          quantity > 0 ? `(Order Qty: ${quantity})` : "";
+        document.getElementById("modalPricePerBooklet").value =
+          parseFloat(data.price_per_booklet) || 0 || "";
 
         const expenses = parseFloat(data.expenses) || 0;
         document.getElementById("modalExpenses").textContent =
@@ -362,6 +371,19 @@ function setTotalCost(btn) {
       console.error("Error:", error);
       alert("Error fetching job data");
     });
+}
+
+// Recalculates Total Cost from Price per Booklet × Order Quantity whenever
+// either the price-per-booklet shortcut input changes. The Total Cost field
+// stays a normal, independently-editable input — this only pre-fills it.
+function updatePricePerBookletCalc() {
+  const qty = parseFloat(document.getElementById("modalQuantity").value) || 0;
+  const price =
+    parseFloat(document.getElementById("modalPricePerBooklet").value) || 0;
+  if (qty > 0 && price > 0) {
+    document.getElementById("totalCost").value = (price * qty).toFixed(2);
+  }
+  updateProfitPreview();
 }
 
 // Close the cost modal
@@ -594,6 +616,8 @@ function saveTotalCost() {
   const discountType = document.getElementById("modalDiscountType").value;
   const discountVal =
     parseFloat(document.getElementById("modalDiscountValue").value) || 0;
+  const pricePerBooklet =
+    parseFloat(document.getElementById("modalPricePerBooklet").value) || 0;
 
   if (!totalCost || parseFloat(totalCost) < 0) {
     alert("Please enter a valid total cost");
@@ -606,6 +630,7 @@ function saveTotalCost() {
     layout_fee: layoutFee.toFixed(2),
     discount_type: discountType,
     discount_value: discountVal.toFixed(2),
+    price_per_booklet: pricePerBooklet.toFixed(2),
   });
 
   fetch("save_total_cost.php", {
@@ -633,7 +658,9 @@ function saveTotalCost() {
         const profit = finalAmount - expenses;
         const profitMargin = finalAmount > 0 ? (profit / finalAmount) * 100 : 0;
 
-        document.getElementById(`total-cost-${jobId}`).innerHTML =
+        // Only the amount sub-span is replaced, so the Billing/Invoice
+        // shortcut button living in the same cell survives the refresh.
+        document.getElementById(`cost-amount-${jobId}`).innerHTML =
           `₱ ${finalAmount.toFixed(2)}`;
         let profitHtml = `₱ ${profit.toFixed(2)}<br><small class="${profit >= 0 ? "profit-positive" : "profit-negative"}">(${profitMargin.toFixed(1)}%)</small>`;
         document.getElementById(`profit-${jobId}`).innerHTML = profitHtml;
@@ -668,7 +695,110 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
+
+  // Close billing/invoice modal on outside click
+  const billingModal = document.getElementById("billingInfoModal");
+  if (billingModal) {
+    billingModal.addEventListener("click", function (e) {
+      if (e.target === this) {
+        closeBillingInfoModal();
+      }
+    });
+  }
 });
+
+// ── Billing Statement # / Service Invoice # shortcut modal ─────────────
+function openBillingInfoModal(btn) {
+  const jobId = btn.dataset.id;
+  const clientName = btn.dataset.client || "";
+  const projectName = btn.dataset.project || "";
+
+  document.getElementById("billingModalJobId").value = jobId;
+  document.getElementById("billingModalClient").textContent = clientName;
+  document.getElementById("billingModalProject").textContent = projectName;
+  document.getElementById("modalBillingNumber").value =
+    btn.dataset.billing || "";
+  document.getElementById("modalInvoiceNumber").value =
+    btn.dataset.invoice || "";
+
+  document.getElementById("billingInfoModal").style.display = "flex";
+}
+
+function closeBillingInfoModal() {
+  const modal = document.getElementById("billingInfoModal");
+  const win = modal ? modal.querySelector(".floating-window") : null;
+  if (!modal || modal.style.display === "none" || modal.style.display === "")
+    return;
+
+  modal.classList.add("closing");
+  if (win) win.classList.add("closing");
+
+  setTimeout(() => {
+    modal.style.display = "none";
+    modal.classList.remove("closing");
+    if (win) win.classList.remove("closing");
+  }, 160);
+}
+
+function saveBillingInfo() {
+  const jobId = document.getElementById("billingModalJobId").value;
+  const billingNumber = document
+    .getElementById("modalBillingNumber")
+    .value.trim();
+  const invoiceNumber = document
+    .getElementById("modalInvoiceNumber")
+    .value.trim();
+
+  const body = new URLSearchParams({
+    job_id: jobId,
+    billing_number: billingNumber,
+    invoice_number: invoiceNumber,
+  });
+
+  fetch("save_billing_info.php", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.success) {
+        const wrap = document.getElementById(`billing-info-${jobId}`);
+        if (wrap) {
+          const btn = wrap.querySelector(".billing-info-btn");
+          if (btn) {
+            btn.dataset.billing = billingNumber;
+            btn.dataset.invoice = invoiceNumber;
+          }
+          let line = wrap.querySelector(".billing-info-line");
+          const parts = [];
+          if (billingNumber) parts.push(`Billing No. ${billingNumber}`);
+          if (invoiceNumber) parts.push(`Invoice No. ${invoiceNumber}`);
+          if (parts.length) {
+            if (!line) {
+              line = document.createElement("small");
+              line.className = "billing-info-line text-muted";
+              line.style.display = "block";
+              line.style.marginTop = "4px";
+              wrap.insertBefore(line, wrap.firstChild);
+            }
+            line.innerHTML = parts.join(" <br> ");
+          } else if (line) {
+            line.remove();
+          }
+        }
+        closeBillingInfoModal();
+      } else {
+        alert("Error saving billing/invoice numbers: " + data.message);
+      }
+    })
+    .catch((error) => {
+      console.error("Error:", error);
+      alert("Error saving billing/invoice numbers");
+    });
+}
 
 document
   .getElementById("jobOrderForm")

@@ -183,6 +183,11 @@ $search_print_type = trim($_GET['search_print_type'] ?? '');
 $search_date_from = trim($_GET['search_date_from'] ?? '');
 $search_date_to   = trim($_GET['search_date_to']   ?? '');
 
+// Billing Statement # / Service Invoice # — searchable both via the quick
+// "search everything" box and via their own dedicated Advanced Filters field.
+$search_billing_number = strtolower(trim($_GET['search_billing_number'] ?? ''));
+$search_invoice_number = strtolower(trim($_GET['search_invoice_number'] ?? ''));
+
 // Amount range filters — Total Cost is the amount charged to the client
 // (total_cost); Expenses is the production/manufacturing cost (grand_total).
 $search_cost_min = trim($_GET['search_cost_min'] ?? '');
@@ -227,6 +232,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $ocn_number = trim($_POST['ocn_number'] ?? '');
   $date_issued = $_POST['date_issued'] ?? null;
   if (empty($date_issued)) $date_issued = null;
+  $billing_number = trim($_POST['billing_number'] ?? '');
+  $invoice_number = trim($_POST['invoice_number'] ?? '');
   $province = $_POST['province'] ?? '';
   $city = $_POST['city'] ?? '';
   $barangay = $_POST['barangay'] ?? '';
@@ -481,17 +488,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $update_client->close();
   }
 
+  // Ensure job_orders has columns for the Billing Statement # / Service
+  // Invoice # (added on demand, same pattern used elsewhere for job_orders).
+  $billingColCheck = $inventory->query("
+      SELECT COLUMN_NAME FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'job_orders'
+        AND COLUMN_NAME IN ('billing_number', 'invoice_number')
+  ");
+  $existing_billing_cols = [];
+  while ($c = $billingColCheck->fetch_assoc()) {
+    $existing_billing_cols[] = $c['COLUMN_NAME'];
+  }
+  if (!in_array('billing_number', $existing_billing_cols)) {
+    $inventory->query("ALTER TABLE job_orders ADD COLUMN billing_number VARCHAR(100) DEFAULT NULL");
+  }
+  if (!in_array('invoice_number', $existing_billing_cols)) {
+    $inventory->query("ALTER TABLE job_orders ADD COLUMN invoice_number VARCHAR(100) DEFAULT NULL");
+  }
+
   $stmt = $inventory->prepare("INSERT INTO job_orders (
     log_date, client_name, client_address, contact_person, contact_number, taxpayer_name, tax_type, rdo_code, tin, client_by,
-    project_name, ocn_number, date_issued, quantity, number_of_sets, product_size, serial_range,
+    project_name, ocn_number, date_issued, billing_number, invoice_number, quantity, number_of_sets, product_size, serial_range,
     paper_size, custom_paper_size, paper_type, copies_per_set, binding_type,
     custom_binding, paper_sequence, special_instructions, created_by, province, city, barangay, street, building_no, floor_no, zip_code, product_type_id,
     status
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
 
   if ($stmt) {
     $stmt->bind_param(
-      "sssssssssssssiisssssissssisssssssi",
+      "sssssssssssssssiisssssissssisssssssi",
       $log_date,
       $client_name,
       $client_address,
@@ -505,6 +530,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $project_name,
       $ocn_number,
       $date_issued,
+      $billing_number,
+      $invoice_number,
       $quantity,
       $number_of_sets,
       $product_size,
@@ -658,13 +685,17 @@ if (!empty($search_q)) {
         OR LOWER(j.project_name) LIKE ?
         OR LOWER(j.paper_type) LIKE ?
         OR LOWER(j.paper_size) LIKE ?
+        OR LOWER(j.billing_number) LIKE ?
+        OR LOWER(j.invoice_number) LIKE ?
     )";
   $like = '%' . $search_q . '%';
   $params[] = $like;
   $params[] = $like;
   $params[] = $like;
   $params[] = $like;
-  $types .= "ssss";
+  $params[] = $like;
+  $params[] = $like;
+  $types .= "ssssss";
 }
 
 if (!empty($search_client)) {
@@ -688,6 +719,18 @@ if (!empty($search_paper)) {
 if (!empty($search_paper_size)) {
   $where .= " AND LOWER(j.paper_size) LIKE ?";
   $params[] = '%' . $search_paper_size . '%';
+  $types .= "s";
+}
+
+if (!empty($search_billing_number)) {
+  $where .= " AND LOWER(j.billing_number) LIKE ?";
+  $params[] = '%' . $search_billing_number . '%';
+  $types .= "s";
+}
+
+if (!empty($search_invoice_number)) {
+  $where .= " AND LOWER(j.invoice_number) LIKE ?";
+  $params[] = '%' . $search_invoice_number . '%';
   $types .= "s";
 }
 
@@ -906,6 +949,12 @@ if (!empty($_GET['search_paper'])) {
 }
 if (!empty($_GET['search_paper_size'])) {
   $active_filter_chips[] = ['label' => 'Paper Size: ' . htmlspecialchars(trim($_GET['search_paper_size'])), 'url' => remove_filter_url(['search_paper_size'])];
+}
+if (!empty($_GET['search_billing_number'])) {
+  $active_filter_chips[] = ['label' => 'Billing No.: ' . htmlspecialchars(trim($_GET['search_billing_number'])), 'url' => remove_filter_url(['search_billing_number'])];
+}
+if (!empty($_GET['search_invoice_number'])) {
+  $active_filter_chips[] = ['label' => 'Invoice No.: ' . htmlspecialchars(trim($_GET['search_invoice_number'])), 'url' => remove_filter_url(['search_invoice_number'])];
 }
 if ($search_date_from !== '' || $search_date_to !== '') {
   if ($search_date_from !== '' && $search_date_to !== '') {
@@ -1366,6 +1415,14 @@ if (!empty($displayed_job_ids)) {
                 <label for="date_issued">Date Issued</label>
                 <input type="date" name="date_issued" id="date_issued" class="form-control" value="<?= htmlspecialchars($prefill['date_issued'] ?? '') ?>">
               </div>
+              <div class="form-group">
+                <label for="billing_number">Billing Statement Number</label>
+                <input type="text" name="billing_number" id="billing_number" class="form-control" placeholder="e.g. 451" value="<?= htmlspecialchars($prefill['billing_number'] ?? '') ?>">
+              </div>
+              <div class="form-group">
+                <label for="invoice_number">Service Invoice Number</label>
+                <input type="text" name="invoice_number" id="invoice_number" class="form-control" placeholder="e.g. 451" value="<?= htmlspecialchars($prefill['invoice_number'] ?? '') ?>">
+              </div>
             </div>
           </fieldset>
 
@@ -1531,7 +1588,7 @@ if (!empty($displayed_job_ids)) {
         <div class="quick-search-row">
           <div class="quick-search-box">
             <i class="fas fa-search"></i>
-            <input type="text" id="search_q" name="search_q" placeholder="Search by client, project, paper type or size…" value="<?= htmlspecialchars($_GET['search_q'] ?? '') ?>" autocomplete="off">
+            <input type="text" id="search_q" name="search_q" placeholder="Search by client, project, paper type, size, billing No. or invoice No.…" value="<?= htmlspecialchars($_GET['search_q'] ?? '') ?>" autocomplete="off">
             <?php if (!empty($_GET['search_q'])): ?>
               <a href="<?= remove_filter_url(['search_q']) ?>" class="quick-search-clear" title="Clear search"><i class="fas fa-times"></i></a>
             <?php endif; ?>
@@ -1575,6 +1632,14 @@ if (!empty($displayed_job_ids)) {
               <div class="form-group search-field">
                 <label for="search_paper_size"><i class="fas fa-ruler-combined"></i> Paper Size</label>
                 <input type="text" id="search_paper_size" name="search_paper_size" placeholder="e.g. Long, Short, 11x17..." value="<?= htmlspecialchars($_GET['search_paper_size'] ?? '') ?>" autocomplete="off">
+              </div>
+              <div class="form-group search-field">
+                <label for="search_billing_number"><i class="fas fa-file-invoice-dollar"></i> Billing Statement #</label>
+                <input type="text" id="search_billing_number" name="search_billing_number" placeholder="e.g. 451" value="<?= htmlspecialchars($_GET['search_billing_number'] ?? '') ?>" autocomplete="off">
+              </div>
+              <div class="form-group search-field">
+                <label for="search_invoice_number"><i class="fas fa-file-invoice"></i> Service Invoice #</label>
+                <input type="text" id="search_invoice_number" name="search_invoice_number" placeholder="e.g. 451" value="<?= htmlspecialchars($_GET['search_invoice_number'] ?? '') ?>" autocomplete="off">
               </div>
               <div class="form-group search-field search-field-grow">
                 <label><i class="fas fa-calendar"></i> Date Range</label>
@@ -1851,6 +1916,15 @@ if (!empty($displayed_job_ids)) {
             </div>
 
             <!-- Pricing inputs -->
+            <input type="hidden" id="modalQuantity" value="0">
+
+            <div class="form-group">
+              <label style="font-weight:600">Price per Booklet (₱) <small id="modalQtyLabel" style="font-weight:500;color:var(--gray)"></small></label>
+              <input type="number" step="0.01" min="0" class="form-control" id="modalPricePerBooklet"
+                placeholder="0.00" oninput="updatePricePerBookletCalc()">
+              <small style="color:var(--gray)">Optional - auto-fills Total Cost below (price × order quantity)</small>
+            </div>
+
             <div class="form-group">
               <label style="font-weight:600">Total Cost to Client (₱) <span style="color:var(--danger)">*</span></label>
               <input type="number" step="0.01" min="0" class="form-control" id="totalCost"
@@ -1914,6 +1988,47 @@ if (!empty($displayed_job_ids)) {
           <div class="action-buttons" style="padding:14px 20px;border-top:1px solid var(--light-gray);margin:0">
             <button type="button" class="btn-edit" onclick="closeCostModal()">Cancel</button>
             <button type="button" class="btn-status" onclick="saveTotalCost()">Save Cost</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Billing / Invoice Number shortcut modal ── -->
+  <div id="billingInfoModal" class="modal" style="display: none;">
+    <div class="floating-window" style="max-width:420px;width:95%">
+      <div class="window-header">
+        <div class="window-title">
+          <i class="fas fa-file-invoice"></i>
+          Billing & Invoice Numbers
+        </div>
+        <button class="close-btn" onclick="closeBillingInfoModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="window-content" style="padding:0">
+        <form id="billingInfoForm">
+          <input type="hidden" id="billingModalJobId" name="job_id">
+
+          <div style="background:var(--light);padding:12px 20px;border-bottom:1px solid var(--light-gray);font-size:13px">
+            <div style="font-weight:600;color:var(--primary)" id="billingModalClient"></div>
+            <div style="color:var(--gray)" id="billingModalProject"></div>
+          </div>
+
+          <div style="padding:20px">
+            <div class="form-group">
+              <label style="font-weight:600">Billing Statement Number</label>
+              <input type="text" class="form-control" id="modalBillingNumber" placeholder="e.g. 451">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label style="font-weight:600">Service Invoice Number</label>
+              <input type="text" class="form-control" id="modalInvoiceNumber" placeholder="e.g. 451">
+            </div>
+          </div>
+
+          <div class="action-buttons" style="padding:14px 20px;border-top:1px solid var(--light-gray);margin:0">
+            <button type="button" class="btn-edit" onclick="closeBillingInfoModal()">Cancel</button>
+            <button type="button" class="btn-status" onclick="saveBillingInfo()">Save</button>
           </div>
         </form>
       </div>

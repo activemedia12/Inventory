@@ -241,6 +241,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tax_type             = trim($_POST['tax_type']        ?? '');
     $ocn_number           = trim($_POST['ocn_number']      ?? '');
     $date_issued          = !empty($_POST['date_issued'])  ? $_POST['date_issued'] : null;
+    $billing_number       = trim($_POST['billing_number']  ?? '');
+    $invoice_number       = trim($_POST['invoice_number']  ?? '');
     $taxpayer_name        = trim($_POST['taxpayer_name']   ?? '');
     $rdo_code             = trim($_POST['rdo_code']        ?? '');
     $province             = trim($_POST['province']        ?? '');
@@ -347,19 +349,105 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Update job order
-    $stmt = $inventory->prepare("UPDATE job_orders SET
+    // billing_number / invoice_number / price_per_booklet are created on
+    // demand (same pattern used elsewhere in this app for job_orders
+    // columns added after launch).
+    $billingColCheck = $inventory->query("
+        SELECT COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'job_orders'
+          AND COLUMN_NAME IN ('billing_number', 'invoice_number', 'price_per_booklet')
+    ");
+    $existing_billing_cols = [];
+    while ($c = $billingColCheck->fetch_assoc()) {
+        $existing_billing_cols[] = $c['COLUMN_NAME'];
+    }
+    if (!in_array('billing_number', $existing_billing_cols)) {
+        $inventory->query("ALTER TABLE job_orders ADD COLUMN billing_number VARCHAR(100) DEFAULT NULL");
+    }
+    if (!in_array('invoice_number', $existing_billing_cols)) {
+        $inventory->query("ALTER TABLE job_orders ADD COLUMN invoice_number VARCHAR(100) DEFAULT NULL");
+    }
+    if (!in_array('price_per_booklet', $existing_billing_cols)) {
+        $inventory->query("ALTER TABLE job_orders ADD COLUMN price_per_booklet DECIMAL(10,2) DEFAULT 0.00");
+    }
+
+    // Keep Total Cost in sync with quantity ONLY when it's known to have
+    // been derived from a Price per Booklet (set via the "Set Total Cost"
+    // modal on job_orders.php). Jobs with no price_per_booklet on file are
+    // flat/manually-typed totals and are left completely untouched here —
+    // layout fee and discount aren't quantity-driven either way, so they're
+    // never touched by this recalculation.
+    $existing_price_per_booklet = floatval($job['price_per_booklet'] ?? 0);
+    $recalculated_total_cost = $existing_price_per_booklet > 0
+        ? round($existing_price_per_booklet * $quantity, 2)
+        : null;
+
+    if ($recalculated_total_cost !== null) {
+        $stmt = $inventory->prepare("UPDATE job_orders SET
+            log_date = ?, client_name = ?, client_address = ?, contact_person = ?, contact_number = ?,
+            project_name = ?, quantity = ?, number_of_sets = ?, product_size = ?, serial_range = ?,
+            paper_size = ?, custom_paper_size = ?, paper_type = ?, copies_per_set = ?, binding_type = ?,
+            custom_binding = ?, special_instructions = ?, paper_sequence = ?,
+            tin = ?, client_by = ?, tax_type = ?, ocn_number = ?, date_issued = ?, billing_number = ?, invoice_number = ?,
+            taxpayer_name = ?, rdo_code = ?,
+            province = ?, city = ?, barangay = ?, street = ?, building_no = ?, floor_no = ?, zip_code = ?,
+            product_type_id = ?, total_cost = ?
+            WHERE id = ?");
+
+        $stmt->bind_param(
+            "ssssssiisssssisssssssssssssssssssiidi",
+            $log_date,
+            $client_name,
+            $client_address,
+            $contact_person,
+            $contact_number,
+            $project_name,
+            $quantity,
+            $number_of_sets,
+            $product_size,
+            $serial_range,
+            $paper_size,
+            $custom_paper_size,
+            $paper_type,
+            $copies_per_set,
+            $binding_type,
+            $custom_binding,
+            $special_instructions,
+            $paper_sequence_str,
+            $tin,
+            $client_by,
+            $tax_type,
+            $ocn_number,
+            $date_issued,
+            $billing_number,
+            $invoice_number,
+            $taxpayer_name,
+            $rdo_code,
+            $province,
+            $city,
+            $barangay,
+            $street,
+            $building_no,
+            $floor_no,
+            $zip_code,
+            $product_type_id,
+            $recalculated_total_cost,
+            $job_id
+        );
+    } else {
+        $stmt = $inventory->prepare("UPDATE job_orders SET
         log_date = ?, client_name = ?, client_address = ?, contact_person = ?, contact_number = ?,
         project_name = ?, quantity = ?, number_of_sets = ?, product_size = ?, serial_range = ?,
         paper_size = ?, custom_paper_size = ?, paper_type = ?, copies_per_set = ?, binding_type = ?,
         custom_binding = ?, special_instructions = ?, paper_sequence = ?,
-        tin = ?, client_by = ?, tax_type = ?, ocn_number = ?, date_issued = ?,
+        tin = ?, client_by = ?, tax_type = ?, ocn_number = ?, date_issued = ?, billing_number = ?, invoice_number = ?,
         taxpayer_name = ?, rdo_code = ?,
         province = ?, city = ?, barangay = ?, street = ?, building_no = ?, floor_no = ?, zip_code = ?,
         product_type_id = ?
         WHERE id = ?");
 
     $stmt->bind_param(
-        "ssssssiisssssissssssssssssssssssii",
+        "ssssssiisssssissssssssssssssssssssii",
         $log_date,
         $client_name,
         $client_address,
@@ -383,6 +471,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tax_type,
         $ocn_number,
         $date_issued,
+        $billing_number,
+        $invoice_number,
         $taxpayer_name,
         $rdo_code,
         $province,
@@ -395,6 +485,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $product_type_id,
         $job_id
     );
+    }
 
     if (!$stmt->execute()) {
         $_SESSION['message'] = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error updating job order: " . $stmt->error . "</div>";
@@ -926,6 +1017,14 @@ unset($_SESSION['message']);
                                     <label>Date Issued</label>
                                     <input type="date" name="date_issued" class="form-control" value="<?= htmlspecialchars($job['date_issued'] ?? '') ?>">
                                 </div>
+                                <div class="form-group">
+                                    <label>Billing Statement Number</label>
+                                    <input type="text" name="billing_number" class="form-control" placeholder="e.g. 451" value="<?= htmlspecialchars($job['billing_number'] ?? '') ?>">
+                                </div>
+                                <div class="form-group">
+                                    <label>Service Invoice Number</label>
+                                    <input type="text" name="invoice_number" class="form-control" placeholder="e.g. 451" value="<?= htmlspecialchars($job['invoice_number'] ?? '') ?>">
+                                </div>
                             </div>
                         </div>
                         <div class="form-section">
@@ -934,6 +1033,12 @@ unset($_SESSION['message']);
                                 <div class="form-group">
                                     <label>Order Quantity *</label>
                                     <input type="number" id="quantity" name="quantity" min="1" class="form-control" value="<?= $job['quantity'] ?>" required>
+                                    <?php $ppb_note = floatval($job['price_per_booklet'] ?? 0); ?>
+                                    <?php if ($ppb_note > 0): ?>
+                                        <small style="color:var(--gray);display:block;margin-top:4px;">
+                                            <i class="fas fa-link"></i> Total Cost is linked to Price per Booklet (₱<?= number_format($ppb_note, 2) ?>) — it will auto-update to match the quantity above on save.
+                                        </small>
+                                    <?php endif; ?>
                                 </div>
                                 <div class="form-group" id="number-of-sets-group">
                                     <label>Sets per Bind *</label>

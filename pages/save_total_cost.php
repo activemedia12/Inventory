@@ -13,12 +13,15 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     exit;
 }
 
-$job_id         = intval($_POST['job_id']        ?? 0);
-$total_cost     = floatval($_POST['total_cost']   ?? -1);
-$layout_fee     = isset($_POST['layout_fee'])     ? floatval($_POST['layout_fee'])     : null;
-$discount_type  = isset($_POST['discount_type'])  && in_array($_POST['discount_type'], ['amount','percent'])
-                    ? $_POST['discount_type'] : null;
-$discount_value = isset($_POST['discount_value']) ? floatval($_POST['discount_value']) : null;
+$job_id             = intval($_POST['job_id']        ?? 0);
+$total_cost         = floatval($_POST['total_cost']   ?? -1);
+$layout_fee         = isset($_POST['layout_fee'])     ? floatval($_POST['layout_fee'])     : null;
+$discount_type      = isset($_POST['discount_type'])  && in_array($_POST['discount_type'], ['amount','percent'])
+                        ? $_POST['discount_type'] : null;
+$discount_value     = isset($_POST['discount_value']) ? floatval($_POST['discount_value']) : null;
+// Optional convenience field: Price per Booklet, kept for reference /
+// re-editing later (Total Cost itself is still the authoritative amount).
+$price_per_booklet  = isset($_POST['price_per_booklet']) ? floatval($_POST['price_per_booklet']) : 0;
 
 if ($job_id <= 0) {
     echo json_encode(['success' => false, 'message' => 'Invalid job ID']);
@@ -30,17 +33,26 @@ if ($total_cost < 0) {
     exit;
 }
 
+// Ensure job_orders has a column to hold the Price per Booklet shortcut value
+$ppbColCheck = $inventory->query("
+    SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'job_orders' AND COLUMN_NAME = 'price_per_booklet'
+")->fetch_assoc();
+if ($ppbColCheck && $ppbColCheck['c'] == 0) {
+    $inventory->query("ALTER TABLE job_orders ADD COLUMN price_per_booklet DECIMAL(10,2) DEFAULT 0.00");
+}
+
 // If layout fee / discount were included, save them too
 if ($layout_fee !== null) {
     $stmt = $inventory->prepare(
         "UPDATE job_orders
-         SET total_cost = ?, layout_fee = ?, discount_type = ?, discount_value = ?
+         SET total_cost = ?, layout_fee = ?, discount_type = ?, discount_value = ?, price_per_booklet = ?
          WHERE id = ?"
     );
-    $stmt->bind_param("ddsdi", $total_cost, $layout_fee, $discount_type, $discount_value, $job_id);
+    $stmt->bind_param("ddsddi", $total_cost, $layout_fee, $discount_type, $discount_value, $price_per_booklet, $job_id);
 } else {
-    $stmt = $inventory->prepare("UPDATE job_orders SET total_cost = ? WHERE id = ?");
-    $stmt->bind_param("di", $total_cost, $job_id);
+    $stmt = $inventory->prepare("UPDATE job_orders SET total_cost = ?, price_per_booklet = ? WHERE id = ?");
+    $stmt->bind_param("ddi", $total_cost, $price_per_booklet, $job_id);
 }
 
 if ($stmt->execute()) {

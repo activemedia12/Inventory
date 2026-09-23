@@ -334,6 +334,7 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                                 ?>
                               </td>
                               <td class="total-cost-cell" id="total-cost-<?= $order['id'] ?>">
+                                <span class="cost-amount-wrap" id="cost-amount-<?= $order['id'] ?>">
                                 <?php if ($total_cost > 0): ?>
                                   ₱ <?= number_format($final_amount, 2) ?>
                                   <?php if ($_SESSION['role'] === 'admin'): ?>
@@ -342,6 +343,7 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                                       data-id="<?= $order['id'] ?>"
                                       data-client="<?= htmlspecialchars($order['client_name'], ENT_QUOTES) ?>"
                                       data-project="<?= htmlspecialchars($order['project_name'], ENT_QUOTES) ?>"
+                                      data-quantity="<?= (int) $order['quantity'] ?>"
                                       title="Edit total cost">
                                       <i class="fas fa-pencil-alt"></i>
                                     </button>
@@ -360,10 +362,36 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                                     data-id="<?= $order['id'] ?>"
                                     data-client="<?= htmlspecialchars($order['client_name'], ENT_QUOTES) ?>"
                                     data-project="<?= htmlspecialchars($order['project_name'], ENT_QUOTES) ?>"
+                                    data-quantity="<?= (int) $order['quantity'] ?>"
                                     title="Set Total Cost">
                                     Set Total Cost
                                   </button>
                                 <?php endif; ?>
+                                </span>
+                                <?php
+                                  $billing_number = trim($order['billing_number'] ?? '');
+                                  $invoice_number = trim($order['invoice_number'] ?? '');
+                                ?>
+                                <div class="billing-info-wrap" id="billing-info-<?= $order['id'] ?>">
+                                  <?php if ($billing_number !== '' || $invoice_number !== ''): ?>
+                                    <small class="billing-info-line text-muted" style="display:block;margin-top:4px;">
+                                      <?php $bi_parts = []; ?>
+                                      <?php if ($billing_number !== ''): $bi_parts[] = 'Billing No. ' . htmlspecialchars($billing_number); endif; ?>
+                                      <?php if ($invoice_number !== ''): $bi_parts[] = 'Invoice No. ' . htmlspecialchars($invoice_number); endif; ?>
+                                      <?= implode('<br>', $bi_parts) ?>
+                                    </small>
+                                  <?php endif; ?>
+                                  <button type="button" class="edit-icon-btn billing-info-btn"
+                                    onclick="openBillingInfoModal(this)"
+                                    data-id="<?= $order['id'] ?>"
+                                    data-client="<?= htmlspecialchars($order['client_name'], ENT_QUOTES) ?>"
+                                    data-project="<?= htmlspecialchars($order['project_name'], ENT_QUOTES) ?>"
+                                    data-billing="<?= htmlspecialchars($billing_number, ENT_QUOTES) ?>"
+                                    data-invoice="<?= htmlspecialchars($invoice_number, ENT_QUOTES) ?>"
+                                    title="Set Billing Statement # / Service Invoice #">
+                                    <i class="fas fa-file-invoice"></i>
+                                  </button>
+                                </div>
                               </td>
                               <td class="profit-cell <?= $profit_class ?>" id="profit-<?= $order['id'] ?>">
                                 <?php
