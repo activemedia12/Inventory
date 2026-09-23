@@ -27,7 +27,7 @@
 }
 
 ::selection {
-  background: var(--riso-red);
+  background: var(--riso-blue);
   color: var(--paper-white);
 }
 
@@ -1293,11 +1293,6 @@ img {
   z-index: 900;
   opacity: 0;
   visibility: hidden;
-  transform: translateY(24px) scale(0.97);
-  transition:
-    opacity 0.3s var(--ease),
-    transform 0.3s var(--ease),
-    visibility 0.3s;
 }
 
 .chat-widget.open {
@@ -2298,7 +2293,7 @@ img {
   bottom: 14%;
   width: 56px;
   height: 2px;
-  background: var(--riso-red);
+  background: var(--riso-blue);
   transform: translateX(-50%);
 }
 

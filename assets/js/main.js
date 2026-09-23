@@ -620,3 +620,493 @@ function autoResize(textarea) {
     boot();
   }
 })();
+
+// ============================================================================
+// Chat widget: (1) stays open across page loads, (2) staff picker.
+// Every page still carries its own inline chat script; this block hooks into
+// the globals that script defines (toggleChat, openConversation,
+// currentConversationId, updateConversationCount, ...).
+// ============================================================================
+(function () {
+  // main.js lives at <root>/assets/js/ and the chat API at <root>/api/, so
+  // resolving from this script's own URL works from any page depth.
+  var scriptSrc = document.currentScript && document.currentScript.src;
+  var CHAT_API = scriptSrc
+    ? new URL("../../api/chat_api.php", scriptSrc).href
+    : "../api/chat_api.php";
+
+  var STATE_KEY = "chatState";
+  var pickerBusy = false;
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      }[c];
+    });
+  }
+
+  // Titles end up inside inline onclick="...('title')" in the page scripts,
+  // so keep quotes/backslashes/angle brackets out of them.
+  function safeTitle(name) {
+    return (
+      "Chat with " +
+      String(name)
+        .replace(/['"\\<>&]/g, "")
+        .trim()
+    );
+  }
+
+  // ---------- Staff picker ----------
+  var stylesAdded = false;
+  function injectStyles() {
+    if (stylesAdded) return;
+    stylesAdded = true;
+    var css =
+      ".staff-picker{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;background:var(--paper-white)}" +
+      ".staff-picker__head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);font-weight:600;font-size:14.5px;color:var(--ink)}" +
+      ".staff-picker__close{border:0;background:none;font-size:22px;line-height:1;cursor:pointer;color:var(--ink-soft)}" +
+      ".staff-picker__msg{margin:10px 12px 0;padding:9px 12px;border-radius:var(--r-md);background:#fdecea;color:var(--riso-red-dark);font-size:13px}" +
+      ".staff-picker__list{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}" +
+      ".staff-picker__note{margin:auto;padding:18px;text-align:center;font-size:13.5px;color:var(--ink-faint)}" +
+      ".staff-picker__item{display:flex;align-items:center;gap:12px;width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--paper-white);color:var(--ink);font:inherit;text-align:left;cursor:pointer;transition:var(--transition)}" +
+      "button.staff-picker__item:hover{border-color:var(--riso-blue);background:var(--paper)}" +
+      ".staff-picker__item.is-disabled{cursor:default;background:var(--paper);opacity:.85}" +
+      ".staff-picker__who{flex:1;min-width:0;display:flex;flex-direction:column}" +
+      ".staff-picker__who strong{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+      ".staff-picker__who small{font-size:12px;color:var(--ink-faint)}" +
+      ".staff-picker__dot{width:9px;height:9px;border-radius:50%;background:var(--line);flex-shrink:0}" +
+      ".staff-picker__dot.is-online{background:var(--ok,#23784a)}" +
+      ".staff-picker__tag{font-size:11.5px;font-weight:600;color:var(--ink-soft);white-space:nowrap}" +
+      ".staff-picker__open{border:1px solid var(--line);background:var(--paper-white);border-radius:var(--r-md);padding:5px 10px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;color:var(--riso-blue)}" +
+      ".typing-row .message-bubble{display:inline-flex;align-items:center;gap:4px;padding:12px 14px}" +
+      ".typing-dot{width:6px;height:6px;border-radius:50%;background:var(--ink-faint);animation:chatTypingBounce 1.1s infinite ease-in-out}" +
+      ".typing-dot:nth-child(2){animation-delay:.15s}" +
+      ".typing-dot:nth-child(3){animation-delay:.3s}" +
+      "@keyframes chatTypingBounce{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-4px);opacity:1}}";
+    var style = document.createElement("style");
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
+
+  function closePicker() {
+    var p = document.getElementById("staffPicker");
+    if (p) p.remove();
+  }
+
+  function setPickerMsg(text) {
+    var el = document.getElementById("staffPickerMsg");
+    if (!el) return;
+    el.textContent = text || "";
+    el.hidden = !text;
+  }
+
+  function openChat(convId, title) {
+    if (typeof openConversation === "function") openConversation(convId, title);
+  }
+
+  function renderStaff(list, staff) {
+    if (!staff.length) {
+      list.innerHTML =
+        '<p class="staff-picker__note">Nobody is set up to chat right now. Please contact us by email instead.</p>';
+      return;
+    }
+
+    list.innerHTML = staff
+      .map(function (s) {
+        var online = s.status === "online";
+        var dot =
+          '<span class="staff-picker__dot' +
+          (online ? " is-online" : "") +
+          '"></span>';
+        var who =
+          '<span class="staff-picker__who"><strong>' +
+          esc(s.name) +
+          "</strong><small>" +
+          esc(s.role_label) +
+          " · " +
+          (online ? "Online" : "Offline") +
+          "</small></span>";
+
+        if (s.has_conversation) {
+          return (
+            '<div class="staff-picker__item is-disabled">' +
+            dot +
+            who +
+            '<span class="staff-picker__tag">Already chatting</span>' +
+            '<button type="button" class="staff-picker__open" data-open="' +
+            s.conversation_id +
+            '" data-name="' +
+            esc(s.name) +
+            '">Open</button></div>'
+          );
+        }
+        if (s.busy) {
+          return (
+            '<div class="staff-picker__item is-disabled">' +
+            dot +
+            who +
+            '<span class="staff-picker__tag">Busy</span></div>'
+          );
+        }
+        return (
+          '<button type="button" class="staff-picker__item" data-staff="' +
+          s.id +
+          '" data-name="' +
+          esc(s.name) +
+          '">' +
+          dot +
+          who +
+          "</button>"
+        );
+      })
+      .join("");
+  }
+
+  async function loadStaff() {
+    var list = document.getElementById("staffPickerList");
+    if (!list) return;
+    try {
+      var res = await fetch(CHAT_API + "?action=available_staff");
+      var data = await res.json();
+      if (!data.success)
+        throw new Error(data.message || data.error || "Failed to load");
+      renderStaff(list, data.data || []);
+    } catch (err) {
+      console.error("Staff list error:", err);
+      list.innerHTML =
+        '<p class="staff-picker__note">Couldn\'t load the list. Please try again.</p>';
+    }
+  }
+
+  async function startWith(staffId, name) {
+    if (pickerBusy) return;
+    pickerBusy = true;
+    setPickerMsg("");
+    var title = safeTitle(name);
+    try {
+      var res = await fetch(CHAT_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "start_conversation",
+          staff_id: Number(staffId),
+          title: title,
+        }),
+      });
+      var data = await res.json();
+      if (data.success) {
+        closePicker();
+        openChat(data.conversation_id, title);
+        sendWelcomeAfterDelay(data.conversation_id);
+      } else {
+        setPickerMsg(
+          data.message || data.error || "Couldn't start the conversation.",
+        );
+        await loadStaff(); // state may have changed (another tab, capacity, ...)
+      }
+    } catch (err) {
+      console.error("Start conversation error:", err);
+      setPickerMsg("Couldn't start the conversation. Please try again.");
+    } finally {
+      pickerBusy = false;
+    }
+  }
+
+  async function showStaffPicker() {
+    var body = document.querySelector(".chat-body");
+    if (!body) return;
+    closePicker();
+    injectStyles();
+
+    var panel = document.createElement("div");
+    panel.id = "staffPicker";
+    panel.className = "staff-picker";
+    panel.innerHTML =
+      '<div class="staff-picker__head"><span>Who would you like to chat with?</span>' +
+      '<button type="button" class="staff-picker__close" aria-label="Close">&times;</button></div>' +
+      '<div class="staff-picker__msg" id="staffPickerMsg" hidden></div>' +
+      '<div class="staff-picker__list" id="staffPickerList"><p class="staff-picker__note">Loading…</p></div>';
+    body.appendChild(panel);
+
+    panel
+      .querySelector(".staff-picker__close")
+      .addEventListener("click", closePicker);
+    panel.addEventListener("click", function (e) {
+      var pick = e.target.closest("[data-staff]");
+      var open = e.target.closest("[data-open]");
+      if (pick) {
+        startWith(pick.dataset.staff, pick.dataset.name);
+      } else if (open) {
+        closePicker();
+        openChat(Number(open.dataset.open), safeTitle(open.dataset.name));
+      }
+    });
+
+    await loadStaff();
+  }
+
+  // ---------- Typing indicator + delayed welcome message ----------
+  // The server no longer inserts the "Hello, this is <admin>..." message as
+  // part of start_conversation (see ChatController::sendWelcomeMessage). Once
+  // the conversation view opens empty, we show a typing bubble for a short
+  // random delay, then ask the server to actually create the message and
+  // reload -- so the message appears right as the animation ends.
+  function typingBubbleEl() {
+    var wrap = document.createElement("div");
+    wrap.className = "message-item received typing-row";
+    wrap.id = "chatTypingIndicator";
+    wrap.innerHTML =
+      '<div class="message-bubble">' +
+      '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>' +
+      "</div>";
+    return wrap;
+  }
+
+  function showTyping() {
+    var list = document.getElementById("messagesList");
+    if (!list || document.getElementById("chatTypingIndicator")) return;
+    list.appendChild(typingBubbleEl());
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function hideTyping() {
+    var el = document.getElementById("chatTypingIndicator");
+    if (el) el.remove();
+  }
+
+  function wait(ms) {
+    return new Promise(function (resolve) {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  async function sendWelcomeAfterDelay(conversationId) {
+    // Let the conversation view's own (empty) initial loadMessages() finish
+    // first -- otherwise its re-render would wipe the bubble we're about to add.
+    await wait(250);
+    if (
+      typeof currentConversationId !== "undefined" &&
+      currentConversationId !== conversationId
+    )
+      return;
+
+    showTyping();
+    await wait(1100 + Math.floor(Math.random() * 700)); // ~1.1-1.8s
+    hideTyping();
+
+    if (
+      typeof currentConversationId !== "undefined" &&
+      currentConversationId !== conversationId
+    )
+      return;
+
+    try {
+      await fetch(CHAT_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "send_welcome",
+          conversation_id: conversationId,
+        }),
+      });
+    } catch (err) {
+      console.error("send_welcome error:", err);
+    }
+
+    if (typeof loadMessages === "function") loadMessages(conversationId);
+  }
+
+  // ---------- Wiring ----------
+  document.addEventListener("DOMContentLoaded", function () {
+    var widget = document.getElementById("chatWidget");
+    if (!widget) return;
+
+    // The picker replaces the old "max 3 conversations" flow.
+    window.startNewConversation = showStaffPicker;
+    window.updateConversationCount = function () {
+      var btn = document.getElementById("newChatBtn");
+      if (btn) {
+        btn.innerHTML = '<i class="fas fa-plus"></i> New Conversation';
+        btn.disabled = false;
+        btn.title = "Choose who to chat with";
+        btn.classList.remove("limit-reached");
+      }
+      var warn = document.getElementById("conversationLimitWarning");
+      if (warn) warn.remove();
+    };
+
+    // ----- "Delete" -> "Leave": the server-side action only ever removes
+    // the requesting customer from the conversation (see
+    // ChatController::deleteConversation) -- it never erases the message
+    // history. The old wording/confirm text implied otherwise.
+    window.deleteConversation = async function (
+      conversationId,
+      conversationTitle,
+    ) {
+      var ok = confirm(
+        'Leave "' +
+          conversationTitle +
+          '"? ' +
+          "You can start a new conversation with this person again later, " +
+          "but this one will disappear from your list.",
+      );
+      if (!ok) return;
+
+      try {
+        if (typeof showChatLoading === "function") showChatLoading(true);
+
+        var res = await fetch(CHAT_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "delete_conversation",
+            conversation_id: conversationId,
+          }),
+        });
+        var data = await res.json();
+
+        if (data.success) {
+          if (
+            typeof currentConversationId !== "undefined" &&
+            currentConversationId === conversationId
+          ) {
+            if (typeof goBackToConversations === "function")
+              goBackToConversations();
+          }
+          var item = document.querySelector(
+            '.chat-conversation-item[onclick*="' + conversationId + '"]',
+          );
+          if (item) item.remove();
+          if (typeof loadConversations === "function")
+            await loadConversations();
+          if (typeof showChatSuccess === "function")
+            showChatSuccess("You left the conversation.");
+        } else if (typeof showChatError === "function") {
+          showChatError(data.message || "Couldn't leave the conversation.");
+        }
+      } catch (err) {
+        console.error("Leave conversation error:", err);
+        if (typeof showChatError === "function")
+          showChatError("Couldn't leave the conversation. Please try again.");
+      } finally {
+        if (typeof showChatLoading === "function") showChatLoading(false);
+      }
+    };
+
+    // ----- Detect a conversation the server says is no longer accessible -----
+    // (closed by staff, or the customer left it from another tab) and show
+    // that plainly instead of the widget just quietly going stale. Delegates
+    // actual rendering to the page's own renderMessages() so scroll/read-state
+    // behaviour stays exactly as it was for the normal case.
+    var closedNoticeShown = {}; // conversationId -> true, so a 5s poll doesn't repeat the notice
+
+    window.loadMessages = async function (conversationId) {
+      try {
+        var res = await fetch(
+          CHAT_API + "?action=messages&conversation_id=" + conversationId,
+        );
+        var data = await res.json();
+
+        var input = document.getElementById("chatInput");
+        var sendBtn = document.getElementById("chatSendBtn");
+
+        if (data.closed) {
+          if (input) input.disabled = true;
+          if (sendBtn) sendBtn.disabled = true;
+          // Only announce it once per conversation -- this runs on every 5s
+          // poll while it's open, and we don't want to repeat the notice.
+          if (!closedNoticeShown[conversationId]) {
+            closedNoticeShown[conversationId] = true;
+            if (typeof showSystemMessage === "function") {
+              showSystemMessage(
+                data.message || "This conversation is no longer available.",
+              );
+            }
+          }
+          return; // leave refresh/unread polling running as normal
+        }
+
+        // Accessible (or accessible again, if this is a different conversation
+        // from one that was previously closed) -- make sure input isn't left
+        // disabled from an earlier closed conversation.
+        if (input) input.disabled = false;
+        if (sendBtn) sendBtn.disabled = false;
+
+        if (data.success && typeof renderMessages === "function") {
+          renderMessages(data.data);
+        }
+      } catch (err) {
+        console.error("Error loading messages:", err);
+        if (typeof showChatError === "function")
+          showChatError("Failed to load messages. Please try again.");
+      }
+    };
+
+    // Capture phase, so it wins even if the page bound the old handler first.
+    var newBtn = document.getElementById("newChatBtn");
+    if (newBtn) {
+      newBtn.addEventListener(
+        "click",
+        function (e) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          showStaffPicker();
+        },
+        true,
+      );
+    }
+
+    // ----- Keep the widget open across page loads (per tab) -----
+    var restoring = false;
+
+    function save() {
+      if (restoring) return;
+      try {
+        sessionStorage.setItem(
+          STATE_KEY,
+          JSON.stringify({
+            open: widget.classList.contains("open"),
+            convId:
+              typeof currentConversationId !== "undefined"
+                ? currentConversationId
+                : null,
+            title:
+              (document.getElementById("chatTitle") || {}).textContent || "",
+          }),
+        );
+      } catch (e) {}
+    }
+
+    var saved = null;
+    try {
+      saved = JSON.parse(sessionStorage.getItem(STATE_KEY));
+    } catch (e) {}
+
+    if (saved && saved.open && typeof toggleChat === "function") {
+      restoring = true;
+      toggleChat(); // opens the widget, starts loadConversations()/auto-refresh in the background
+      if (saved.convId) {
+        // Switch to the saved conversation in the same tick as opening the
+        // widget, so the browser paints it already showing that conversation
+        // instead of flashing the list first. If the conversation is gone,
+        // loadMessages() just renders empty -- no separate existence check needed.
+        openChat(saved.convId, saved.title);
+      }
+      restoring = false;
+      save();
+    }
+
+    var opts = { attributes: true, attributeFilter: ["class"] };
+    new MutationObserver(function () {
+      if (!widget.classList.contains("open")) closePicker();
+      save();
+    }).observe(widget, opts);
+    var msgs = document.getElementById("chatMessages");
+    if (msgs) new MutationObserver(save).observe(msgs, opts);
+  });
+})();

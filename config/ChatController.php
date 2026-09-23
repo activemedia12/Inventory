@@ -8,14 +8,33 @@ class ChatController
         $this->inventory = $inventoryection;
     }
 
-    // Start a new conversation with smart admin assignment
+    // Start a new conversation.
+    // $adminId is the staff member (admin OR employee) the customer picked.
+    // If it is null the old auto-assign behaviour is used (admins only).
     public function startConversation($customerId, $adminId = null, $title = null)
     {
         $this->inventory->begin_transaction();
 
         try {
-            // If no admin specified, find the best available admin
-            if (!$adminId) {
+            // Serialize per customer so a double-click or a second tab can't
+            // slip past the "one conversation per staff member" check below.
+            $lock = $this->inventory->prepare("SELECT id FROM users WHERE id = ? FOR UPDATE");
+            $lock->bind_param("i", $customerId);
+            $lock->execute();
+            $lock->get_result();
+            $lock->close();
+
+            if ($adminId && (int)$adminId === (int)$customerId) {
+                throw new Exception("You can't start a conversation with yourself.");
+            }
+
+            if ($adminId) {
+                // Explicit choice: never silently swap it for somebody else
+                if (!$this->isStaffAvailable($adminId)) {
+                    throw new Exception("That staff member can't take a new conversation right now. Please choose someone else.");
+                }
+            } else {
+                // Legacy path: pick the best available admin
                 $adminId = $this->getBestAvailableAdmin();
 
                 // If still no admin, try any admin regardless of online status
@@ -23,19 +42,20 @@ class ChatController
                     $adminId = $this->getAnyAvailableAdmin();
                 }
 
-                // If still no admin available
                 if (!$adminId) {
                     throw new Exception("No administrators are currently available. Please try again later or contact support via email.");
                 }
             }
 
-            // Verify admin is still available (concurrency check)
-            if (!$this->isAdminAvailable($adminId)) {
-                // Find another admin
-                $adminId = $this->getBestAvailableAdmin();
-                if (!$adminId) {
-                    throw new Exception("The selected administrator is no longer available. Please try again.");
-                }
+            // One active conversation per customer <-> staff pair
+            $existingId = $this->findExistingConversation($customerId, $adminId);
+            if ($existingId) {
+                $this->inventory->rollback();
+                return [
+                    'success' => false,
+                    'message' => 'An active conversation with this person already exists.',
+                    'existing_conversation_id' => $existingId
+                ];
             }
 
             // Create conversation
@@ -44,7 +64,9 @@ class ChatController
             $stmt->execute();
             $conversationId = $stmt->insert_id;
 
-            // Add participants
+            // Add participants.
+            // The staff member's row keeps role 'admin' even for employees: the
+            // close/delete/stats code elsewhere looks for cp.role = 'admin'.
             $participants = [
                 ['user_id' => $customerId, 'role' => 'customer'],
                 ['user_id' => $adminId, 'role' => 'admin']
@@ -60,34 +82,177 @@ class ChatController
                 $stmt->execute();
             }
 
-            // Update admin conversation stats
+            // Update staff conversation stats
             $this->updateAdminConversationStats($adminId, 'increment');
 
-            // Create welcome message using admin ID
-            $stmt = $this->inventory->prepare("
-                INSERT INTO messages (conversation_id, sender_id, message, message_type) 
-                VALUES (?, ?, ?, 'text')
-            ");
+            // The welcome message itself is NOT inserted here. The client shows a
+            // short typing delay first, then calls sendWelcomeMessage() below to
+            // actually create it -- keeps the DB and the on-screen animation in sync.
             $adminName = $this->getAdminName($adminId);
-            $welcomeMessage = "Hello! This is " . $adminName . ". How can I assist you?";
-            $stmt->bind_param("iis", $conversationId, $adminId, $welcomeMessage);
-            $stmt->execute();
 
             $this->inventory->commit();
 
-            // Return more information about the assigned admin
             return [
                 'success' => true,
                 'conversation_id' => $conversationId,
                 'admin_id' => $adminId,
                 'admin_name' => $adminName,
-                'admin_status' => 'online',
-                'message' => 'connected with available administrator'
+                'message' => 'Conversation started'
             ];
         } catch (Exception $e) {
             $this->inventory->rollback();
             return ['success' => false, 'message' => $e->getMessage()];
         }
+    }
+
+    // Inserts the staff member's opening "Hello, how can I help?" message.
+    // Called by the client after its typing-indicator delay, not from
+    // startConversation(), so the message appears exactly when the animation ends.
+    public function sendWelcomeMessage($conversationId, $customerId)
+    {
+        if (!$this->canAccessConversation($conversationId, $customerId)) {
+            return ['success' => false, 'message' => 'Conversation not found.'];
+        }
+
+        // Already sent (e.g. the client retried, or two tabs raced) -- don't duplicate.
+        $stmt = $this->inventory->prepare("
+            SELECT id FROM messages
+            WHERE conversation_id = ? AND message_type = 'text'
+            LIMIT 1
+        ");
+        $stmt->bind_param("i", $conversationId);
+        $stmt->execute();
+        if ($stmt->get_result()->num_rows > 0) {
+            $stmt->close();
+            return ['success' => true, 'message' => 'already sent'];
+        }
+        $stmt->close();
+
+        $stmt = $this->inventory->prepare("
+            SELECT user_id FROM conversation_participants
+            WHERE conversation_id = ? AND role = 'admin' AND is_active = 1
+            LIMIT 1
+        ");
+        $stmt->bind_param("i", $conversationId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$row) {
+            return ['success' => false, 'message' => 'No staff member on this conversation.'];
+        }
+        $adminId = $row['user_id'];
+        $adminName = $this->getAdminName($adminId);
+        $welcomeMessage = "Hello! This is " . $adminName . ". How can I assist you?";
+
+        $stmt = $this->inventory->prepare("
+            INSERT INTO messages (conversation_id, sender_id, message, message_type) 
+            VALUES (?, ?, ?, 'text')
+        ");
+        $stmt->bind_param("iis", $conversationId, $adminId, $welcomeMessage);
+        $stmt->execute();
+        $stmt->close();
+
+        return ['success' => true, 'message' => 'sent'];
+    }
+
+    // Existing active conversation (as the customer sees it) between a customer
+    // and a staff member, or null. Deleted/left conversations don't count.
+    private function findExistingConversation($customerId, $staffId)
+    {
+        $stmt = $this->inventory->prepare("
+            SELECT c.id
+            FROM conversations c
+            INNER JOIN conversation_participants cc
+                ON cc.conversation_id = c.id
+                AND cc.user_id = ? AND cc.role = 'customer' AND cc.is_active = 1
+            INNER JOIN conversation_participants sp
+                ON sp.conversation_id = c.id
+                AND sp.user_id = ? AND sp.role = 'admin'
+            ORDER BY c.updated_at DESC
+            LIMIT 1
+        ");
+        $stmt->bind_param("ii", $customerId, $staffId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        return $row ? (int)$row['id'] : null;
+    }
+
+    // Can this admin/employee take another conversation? (role + capacity only;
+    // online status is deliberately NOT required so customers can leave messages)
+    private function isStaffAvailable($staffId)
+    {
+        $stmt = $this->inventory->prepare("
+            SELECT u.id
+            FROM users u
+            LEFT JOIN admin_conversation_stats acs ON u.id = acs.admin_id
+            WHERE u.id = ?
+            AND u.role IN ('admin', 'employee')
+            AND (acs.active_conversations IS NULL
+                 OR acs.active_conversations < COALESCE(u.max_conversations, 5))
+        ");
+        $stmt->bind_param("i", $staffId);
+        $stmt->execute();
+        $found = $stmt->get_result()->num_rows > 0;
+        $stmt->close();
+
+        return $found;
+    }
+
+    // Admins + employees a customer can pick from, with per-customer flags.
+    // "online" = flagged online AND seen in the last 2 minutes (is_online alone
+    // never resets, so it can't be trusted by itself).
+    public function getSelectableStaff($customerId)
+    {
+        $stmt = $this->inventory->prepare("
+            SELECT
+                u.id,
+                u.username,
+                u.role,
+                COALESCE(acs.active_conversations, 0) AS active_conversations,
+                COALESCE(u.max_conversations, 5) AS max_conversations,
+                (SELECT c.id
+                 FROM conversations c
+                 INNER JOIN conversation_participants cc
+                    ON cc.conversation_id = c.id
+                    AND cc.user_id = ? AND cc.role = 'customer' AND cc.is_active = 1
+                 INNER JOIN conversation_participants sp
+                    ON sp.conversation_id = c.id
+                    AND sp.user_id = u.id AND sp.role = 'admin'
+                 ORDER BY c.updated_at DESC
+                 LIMIT 1) AS existing_conversation_id,
+                (u.is_online = 1
+                 AND u.last_seen IS NOT NULL
+                 AND u.last_seen > (NOW() - INTERVAL 2 MINUTE)) AS is_live
+            FROM users u
+            LEFT JOIN admin_conversation_stats acs ON u.id = acs.admin_id
+            WHERE u.role IN ('admin', 'employee')
+            AND u.id != 0
+            AND u.id != ?
+            ORDER BY is_live DESC, u.role ASC, u.username ASC
+        ");
+        $stmt->bind_param("ii", $customerId, $customerId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $staff = [];
+        while ($row = $result->fetch_assoc()) {
+            $existing = $row['existing_conversation_id'] !== null ? (int)$row['existing_conversation_id'] : null;
+            $staff[] = [
+                'id' => (int)$row['id'],
+                'name' => $row['username'],
+                'role_label' => $row['role'] === 'admin' ? 'Admin' : 'Staff',
+                'status' => $row['is_live'] ? 'online' : 'offline',
+                'busy' => (int)$row['active_conversations'] >= (int)$row['max_conversations'],
+                'has_conversation' => $existing !== null,
+                'conversation_id' => $existing
+            ];
+        }
+        $stmt->close();
+
+        return $staff;
     }
 
     // Add this new method to check conversation limit
@@ -353,6 +518,16 @@ class ChatController
     // Get messages in a conversation
     public function getConversationMessages($conversationId, $userId, $limit = 50, $offset = 0)
     {
+        // Access control: only an active participant may read a conversation's
+        // messages. Without this, anyone who knew (or guessed) a conversation_id
+        // -- including someone who has since left or been removed -- could read
+        // its messages indefinitely. Both chat_api.php and admin_chat.php call
+        // this method directly, so the check belongs here rather than in just
+        // one of them.
+        if (!$this->canAccessConversation($conversationId, $userId)) {
+            return [];
+        }
+
         // Mark messages as read for this user
         $this->markMessagesAsRead($conversationId, $userId);
 
@@ -733,40 +908,13 @@ class ChatController
         return $conversations;
     }
 
-    // Add method to close conversation
-    public function closeConversation($conversationId, $userId)
-    {
-        try {
-            $stmt = $this->inventory->prepare("
-                UPDATE conversation_participants 
-                SET is_active = 0 
-                WHERE conversation_id = ? AND user_id = ?
-            ");
-            $stmt->bind_param("ii", $conversationId, $userId);
-            $stmt->execute();
-
-            // If user is a customer, decrement admin's active conversation count
-            $stmt = $this->inventory->prepare("
-                SELECT cp.user_id, cp.role 
-                FROM conversation_participants cp
-                WHERE cp.conversation_id = ? AND cp.role = 'admin' AND cp.is_active = 1
-                LIMIT 1
-            ");
-            $stmt->bind_param("i", $conversationId);
-            $stmt->execute();
-            $result = $stmt->get_result();
-
-            if ($row = $result->fetch_assoc()) {
-                $this->updateAdminConversationStats($row['user_id'], 'decrement');
-            }
-
-            return ['success' => true, 'message' => 'Conversation closed successfully'];
-        } catch (Exception $e) {
-            return ['success' => false, 'message' => $e->getMessage()];
-        }
-    }
-
     // Add this method to ChatController class
+    //
+    // Handles BOTH "customer leaves" and "admin/employee closes" in one place.
+    // (A previously separate closeConversation() method did the same
+    // is_active=0 + stats-decrement work as the admin branch below, but was
+    // never actually called from anywhere -- removed rather than kept as a
+    // second, drifting copy of this logic.)
     public function deleteConversation($conversationId, $userId)
     {
         $this->inventory->begin_transaction();

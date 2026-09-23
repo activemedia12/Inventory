@@ -30,9 +30,23 @@ try {
 
                     case 'messages':
                         if (isset($_GET['conversation_id'])) {
-                            $limit = $_GET['limit'] ?? 50;
-                            $offset = $_GET['offset'] ?? 0;
-                            $messages = $chatController->getConversationMessages($_GET['conversation_id'], $user_id, $limit, $offset);
+                            $convId = (int)$_GET['conversation_id'];
+                            $limit = (int)($_GET['limit'] ?? 50);
+                            $offset = (int)($_GET['offset'] ?? 0);
+
+                            // Distinguish "you can't see this anymore" from a normal
+                            // empty conversation, so the widget can show a clear
+                            // notice instead of just quietly stopping updates.
+                            if (!$chatController->canAccessConversation($convId, $user_id)) {
+                                echo json_encode([
+                                    'success' => false,
+                                    'closed' => true,
+                                    'message' => 'This conversation is no longer available.'
+                                ]);
+                                break;
+                            }
+
+                            $messages = $chatController->getConversationMessages($convId, $user_id, $limit, $offset);
                             echo json_encode(['success' => true, 'data' => $messages]);
                         } else {
                             echo json_encode(['error' => 'Missing conversation_id']);
@@ -56,6 +70,12 @@ try {
                         ]);
                         break;
 
+                    case 'available_staff':
+                        // Admins + employees the customer can pick from
+                        $staff = $chatController->getSelectableStaff($user_id);
+                        echo json_encode(['success' => true, 'data' => $staff]);
+                        break;
+
                     default:
                         echo json_encode(['error' => 'Invalid action']);
                 }
@@ -69,7 +89,14 @@ try {
                 switch ($input['action']) {
                     case 'start_conversation':
                         $title = $input['title'] ?? 'New Conversation';
-                        $result = $chatController->startConversation($user_id, null, $title);
+                        $staffId = isset($input['staff_id']) ? (int)$input['staff_id'] : 0;
+
+                        if ($staffId <= 0) {
+                            echo json_encode(['success' => false, 'message' => 'Please choose who you want to chat with.']);
+                            break;
+                        }
+
+                        $result = $chatController->startConversation($user_id, $staffId, $title);
                         echo json_encode($result);
                         break;
 
@@ -80,6 +107,15 @@ try {
                             echo json_encode($result);
                         } else {
                             echo json_encode(['error' => 'Missing parameters']);
+                        }
+                        break;
+
+                    case 'send_welcome':
+                        if (isset($input['conversation_id'])) {
+                            $result = $chatController->sendWelcomeMessage((int)$input['conversation_id'], $user_id);
+                            echo json_encode($result);
+                        } else {
+                            echo json_encode(['error' => 'Missing conversation_id']);
                         }
                         break;
 

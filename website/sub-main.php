@@ -386,7 +386,7 @@ if ($result === false) {
                 <div class="process-step">
                     <span class="step-num">3</span>
                     <h3>We print & finish</h3>
-                    <p>Offset, digital or RISO — plus any cutting, binding or lamination the job calls for.</p>
+                    <p>Offset, digital or RISO - plus any cutting, binding or lamination the job calls for.</p>
                 </div>
                 <div class="process-step">
                     <span class="step-num">4</span>
