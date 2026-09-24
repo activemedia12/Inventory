@@ -1135,7 +1135,7 @@ $chatController->updateAdminOnlineStatus($user_id, true);
                                 <div class="conversation-item <?php echo isset($current_conversation) && $current_conversation['id'] == $conv['id'] ? 'active' : ''; ?>"
                                     onclick="window.location.href='admin_chat.php?conversation=<?php echo $conv['id']; ?>'">
                                     <div class="conversation-title">
-                                        <span><?php echo $conv['title'] ? htmlspecialchars($conv['title']) : 'Conversation #' . $conv['id']; ?></span>
+                                        <span><?php echo !empty($conv['other_participants']) ? htmlspecialchars($conv['other_participants']) : 'Conversation #' . $conv['id']; ?></span>
                                         <?php if ($conv['unread_count'] > 0): ?>
                                             <span class="conversation-unread"><?php echo $conv['unread_count']; ?></span>
                                         <?php endif; ?>
@@ -1147,7 +1147,6 @@ $chatController->updateAdminOnlineStatus($user_id, true);
                                         </div>
                                     <?php endif; ?>
                                     <div class="conversation-meta">
-                                        <span><?php echo $conv['other_participants'] ?? 'Customer'; ?></span>
                                         <span><?php echo date('M j, g:i A', strtotime($conv['last_message_time'] ?? $conv['updated_at'])); ?></span>
                                     </div>
                                 </div>
@@ -1162,7 +1161,7 @@ $chatController->updateAdminOnlineStatus($user_id, true);
                         <div class="chat-header">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <div>
-                                    <h3><?php echo htmlspecialchars($current_conversation['title'] ?? 'Conversation #' . $current_conversation['id']); ?></h3>
+                                    <h3><?php echo !empty($current_conversation['other_participants']) ? htmlspecialchars($current_conversation['other_participants']) : 'Conversation #' . $current_conversation['id']; ?></h3>
                                     <p>Started <?php echo date('F j, Y \a\t g:i A', strtotime($current_conversation['created_at'] ?? 'now')); ?></p>
                                 </div>
                                 <div style="display: flex; gap: 10px;">

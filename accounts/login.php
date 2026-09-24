@@ -63,281 +63,101 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Login</title>
+  <title>Log In - Active Media Designs &amp; Printing</title>
   <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  <style>
-    ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: rgb(140, 140, 140);
-      border-radius: 10px;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    body {
-      background-color: rgb(245, 245, 245);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      padding: 20px;
-    }
-
-    .login-container {
-      display: flex;
-      flex-direction: column;
-      max-width: 900px;
-      width: 100%;
-      background-color: #fff;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.1);
-      overflow: hidden;
-    }
-
-    .header {
-      text-align: center;
-      padding: 20px;
-      background: linear-gradient(90deg, rgba(176, 0, 176, 1) 0%, rgba(0, 0, 0, 1) 30%, rgba(0, 0, 0, 1) 40%, rgba(0, 145, 255, 1) 70%, rgba(255, 255, 0, 1) 100%);
-      ;
-      color: white;
-    }
-
-    .header h1 {
-      font-size: 24px;
-      font-weight: 600;
-    }
-
-    .content {
-      display: flex;
-      padding: 20px;
-    }
-
-    .logo-container {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 50px 0px;
-    }
-
-    .logo-container img {
-      max-width: 300px;
-      height: auto;
-      transform: rotate(45deg);
-    }
-
-    .login-box {
-      flex: 1;
-      padding: 20px;
-    }
-
-    .login-form input {
-      width: 100%;
-      padding: 14px 16px;
-      border: 1px solid rgb(220, 220, 220);
-      font-size: 17px;
-      margin-bottom: 12px;
-      transition: 0.3s;
-    }
-
-    .login-form input:focus {
-      outline: none;
-      border-color: #1c1c1c;
-      box-shadow: 0px 0px 5px 1px #1c1c1c;
-    }
-
-    .login-btn {
-      background-color: black;
-      border: none;
-      font-size: 20px;
-      line-height: 48px;
-      padding: 0 16px;
-      width: 100%;
-      color: #fff;
-      font-weight: 600;
-      cursor: pointer;
-      margin-bottom: 15px;
-      transition: 0.3s;
-    }
-
-    .login-btn:hover {
-      background-color: rgb(80, 80, 80);
-    }
-
-    .error-message {
-      color: #ff4d4f;
-      background-color: #fff2f0;
-      border: 1px solid #ffccc7;
-      padding: 10px;
-      border-radius: 6px;
-      margin-bottom: 15px;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .error-message i {
-      font-size: 16px;
-    }
-
-    .error-message a {
-      color: #1c1c1c;
-      font-weight: 600;
-      text-decoration: none;
-    }
-
-    .error-message a:hover {
-      text-decoration: underline;
-    }
-
-    .password-container {
-      position: relative;
-    }
-
-    .password-toggle {
-      position: absolute;
-      right: 10px;
-      top: 40%;
-      transform: translateY(-50%);
-      color: black;
-      cursor: pointer;
-    }
-
-    .footer-text {
-      text-align: center;
-      margin-top: 20px;
-      color: #1c1c1c;
-    }
-
-    .footer-text a {
-      text-decoration: none;
-      font-weight: 800;
-      color: #1c1c1c;
-    }
-
-    .footer-text a:hover {
-      text-decoration: underline;
-    }
-
-    @media (max-width: 768px) {
-      .login-container {
-        scale: 0.8;
-      }
-      .content {
-        flex-direction: column;
-      }
-
-      .login-box {
-        border-left: none;
-        border-top: 1px solid #dddfe2;
-      }
-
-      .logo-container img {
-        max-width: 200px;
-      }
-    }
-
-    @media (max-width: 578px) {
-      .header h1 {
-        font-size: 20px;
-      }
-
-      .logo-container img {
-        max-width: 150px;
-      }
-
-      .login-container {
-        scale: 0.7;
-      }
-
-      .login-box {
-        padding: 12px;
-        border-top: none;
-      }
-    }
-
-    .fp-btn a {
-      text-decoration: none;
-      color: #1c1c1c;
-    }
-
-    .fp-btn a:hover {
-      text-decoration: underline;
-    }
-  </style>
+  <link rel="stylesheet" href="../assets/css/main.css">
 </head>
 
-<body>
-  <div class="login-container">
-    <div class="header">
-      <h1>Welcome to Active Media Designs & Printing</h1>
-    </div>
+<body class="auth-page">
+  <div class="auth-shell">
+    <div class="auth-main">
+      <div class="auth-grid">
+        <a href="../website/sub-main.php" class="auth-brand auth-brand--link" aria-label="Back to Active Media Designs website">
+          <div class="auth-brand__blobs" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div class="auth-topbar">
+            <span class="auth-brandmark">
+              <img src="../assets/images/plainlogo.png" alt="Active Media Designs Logo">
+              AMDP Website
+            </span>
+            <span class="auth-backlink"><i class="fas fa-arrow-left"></i> Back to site</span>
+          </div>
+          <div class="auth-brand__content">
+          <div class="auth-brand__mark">
+            <img src="../assets/images/plainlogo.png" alt="">
+          </div>
+          <h1>Welcome back.</h1>
+          <p>Log in to track job orders, manage deliveries and pick up right where you left off.</p>
+          <div class="auth-brand__tags">
+            <span>Offset</span>
+            <span>Digital</span>
+            <span>Riso</span>
+          </div>
+          </div>
+        </a>
 
-    <div class="content">
-      <div class="logo-container">
-        <img src="../assets/images/plainlogo.png" alt="Active Media Designs Logo">
-      </div>
+        <div class="auth-form-panel">
+          <h1>Log In</h1>
+          <p class="auth-subtitle">Enter your credentials to continue to your account.</p>
 
-      <div class="login-box">
-        <?php if ($error): ?>
-          <div class="error-message">
-            <i class="fas fa-exclamation-circle"></i>
-            <div>
-              <?php 
-              // Extract the HTML link from error message if it exists
-              if (strpos($error, '<a href') !== false) {
-                echo $error;
-              } else {
-                echo htmlspecialchars($error);
-              }
-              ?>
+          <?php if ($error): ?>
+            <div class="auth-notice auth-notice--error">
+              <div class="auth-notice__icon"><i class="fas fa-exclamation-circle"></i></div>
+              <div class="auth-notice__body">
+                <?php
+                if (strpos($error, '<a href') !== false) {
+                  echo $error;
+                } else {
+                  echo htmlspecialchars($error);
+                }
+                ?>
+              </div>
             </div>
-          </div>
-        <?php endif; ?>
+          <?php endif; ?>
 
-        <form method="post" class="login-form">
-          <input type="text" name="username" placeholder="Username" required>
+          <form method="post" id="loginForm">
+            <div class="form-group">
+              <label class="form-label" for="username">Username</label>
+              <input type="text" id="username" name="username" placeholder="Enter your username" required autocomplete="username">
+            </div>
 
-          <div class="password-container">
-            <input type="password" name="password" placeholder="Password" required>
-            <i class="fas fa-eye password-toggle" onclick="togglePassword(this)"></i>
-          </div>
+            <div class="form-group">
+              <label class="form-label" for="password">Password</label>
+              <div class="password-container">
+                <input type="password" id="password" name="password" placeholder="Enter your password" required autocomplete="current-password">
+                <i class="fas fa-eye password-toggle" onclick="togglePassword('password', this)"></i>
+              </div>
+            </div>
 
-          <button type="submit" class="login-btn">Log In</button>
-          <div class="fp-btn" style="text-align: center;">
-              <a href="forgot-password.php">Forgot Password?</a>
-          </div>
+            <a href="forgot-password.php" class="auth-fp-link">Forgot password?</a>
 
-          <p class="footer-text">Don't have an account yet? <a href="customer.php">Sign Up</a></p>
-        </form>
+            <button type="submit" class="btn btn-primary auth-btn" id="submitBtn">
+              <span class="btn-label"><i class="fas fa-arrow-right-to-bracket"></i> Log In</span>
+              <span class="btn-spinner"><i class="fas fa-circle-notch fa-spin"></i> Logging in...</span>
+            </button>
+          </form>
+
+          <p class="auth-footer-note">Don't have an account? <a href="customer.php">Sign up</a></p>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    function togglePassword(icon) {
-      const passwordInput = icon.previousElementSibling;
-      if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        icon.classList.replace('fa-eye', 'fa-eye-slash');
-      } else {
-        passwordInput.type = 'password';
-        icon.classList.replace('fa-eye-slash', 'fa-eye');
-      }
+    function togglePassword(inputId, iconEl) {
+      const input = document.getElementById(inputId);
+      const isPw = input.type === 'password';
+      input.type = isPw ? 'text' : 'password';
+      iconEl.classList.toggle('fa-eye');
+      iconEl.classList.toggle('fa-eye-slash');
     }
+
+    document.getElementById('loginForm').addEventListener('submit', function() {
+      document.getElementById('submitBtn').classList.add('is-loading');
+    });
   </script>
 </body>
 

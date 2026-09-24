@@ -652,13 +652,24 @@ function autoResize(textarea) {
 
   // Titles end up inside inline onclick="...('title')" in the page scripts,
   // so keep quotes/backslashes/angle brackets out of them.
-  function safeTitle(name) {
-    return (
-      "Chat with " +
-      String(name)
-        .replace(/['"\\<>&]/g, "")
-        .trim()
-    );
+  function safeName(name) {
+    return String(name)
+      .replace(/['"\\<>&]/g, "")
+      .trim();
+  }
+
+  // First letter uppercase -- usernames often come out of the DB lowercase
+  // (e.g. "wizermina"), but we want "Wizermina" wherever a name is shown.
+  function capitalize(name) {
+    var s = String(name);
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  // "Wizermina - admin" instead of "Chat with wizermina".
+  function safeTitle(name, roleLabel) {
+    var title = capitalize(safeName(name));
+    if (roleLabel) title += " - " + String(roleLabel).toLowerCase();
+    return title;
   }
 
   // ---------- Staff picker ----------
@@ -718,6 +729,7 @@ function autoResize(textarea) {
 
     list.innerHTML = staff
       .map(function (s) {
+        var displayName = capitalize(s.name);
         var online = s.status === "online";
         var dot =
           '<span class="staff-picker__dot' +
@@ -725,7 +737,7 @@ function autoResize(textarea) {
           '"></span>';
         var who =
           '<span class="staff-picker__who"><strong>' +
-          esc(s.name) +
+          esc(displayName) +
           "</strong><small>" +
           esc(s.role_label) +
           " · " +
@@ -741,7 +753,9 @@ function autoResize(textarea) {
             '<button type="button" class="staff-picker__open" data-open="' +
             s.conversation_id +
             '" data-name="' +
-            esc(s.name) +
+            esc(displayName) +
+            '" data-role="' +
+            esc(s.role_label) +
             '">Open</button></div>'
           );
         }
@@ -757,7 +771,9 @@ function autoResize(textarea) {
           '<button type="button" class="staff-picker__item" data-staff="' +
           s.id +
           '" data-name="' +
-          esc(s.name) +
+          esc(displayName) +
+          '" data-role="' +
+          esc(s.role_label) +
           '">' +
           dot +
           who +
@@ -783,11 +799,11 @@ function autoResize(textarea) {
     }
   }
 
-  async function startWith(staffId, name) {
+  async function startWith(staffId, name, roleLabel) {
     if (pickerBusy) return;
     pickerBusy = true;
     setPickerMsg("");
-    var title = safeTitle(name);
+    var title = safeTitle(name, roleLabel);
     try {
       var res = await fetch(CHAT_API, {
         method: "POST",
@@ -840,10 +856,13 @@ function autoResize(textarea) {
       var pick = e.target.closest("[data-staff]");
       var open = e.target.closest("[data-open]");
       if (pick) {
-        startWith(pick.dataset.staff, pick.dataset.name);
+        startWith(pick.dataset.staff, pick.dataset.name, pick.dataset.role);
       } else if (open) {
         closePicker();
-        openChat(Number(open.dataset.open), safeTitle(open.dataset.name));
+        openChat(
+          Number(open.dataset.open),
+          safeTitle(open.dataset.name, open.dataset.role),
+        );
       }
     });
 
@@ -927,6 +946,40 @@ function autoResize(textarea) {
     if (!widget) return;
 
     // The picker replaces the old "max 3 conversations" flow.
+    // formatMessageTime() (identical on every page) only ever rendered the
+    // hour/minute -- a message from yesterday and one from five minutes ago
+    // looked the same. Show the date too, but only when it isn't today, so
+    // the common case (today's messages) stays uncluttered.
+    if (typeof window.formatMessageTime === "function") {
+      window.formatMessageTime = function (timestamp) {
+        var date = new Date(timestamp);
+        var now = new Date();
+        var isToday =
+          date.getFullYear() === now.getFullYear() &&
+          date.getMonth() === now.getMonth() &&
+          date.getDate() === now.getDate();
+
+        var time = date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        if (isToday) return time;
+
+        var yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        var isYesterday =
+          date.getFullYear() === yesterday.getFullYear() &&
+          date.getMonth() === yesterday.getMonth() &&
+          date.getDate() === yesterday.getDate();
+
+        var day = isYesterday
+          ? "Yesterday"
+          : date.toLocaleDateString([], { month: "short", day: "numeric" });
+
+        return day + ", " + time;
+      };
+    }
+
     window.startNewConversation = showStaffPicker;
     window.updateConversationCount = function () {
       var btn = document.getElementById("newChatBtn");
@@ -1006,6 +1059,11 @@ function autoResize(textarea) {
     var closedNoticeShown = {}; // conversationId -> true, so a 5s poll doesn't repeat the notice
 
     window.loadMessages = async function (conversationId) {
+      // Consumed here so only the call made by openConversation() itself --
+      // never a later 5s poll for the same conversation -- counts as "initial".
+      var isInitialOpen = pendingInitialOpenId === conversationId;
+      pendingInitialOpenId = null;
+
       try {
         var res = await fetch(
           CHAT_API + "?action=messages&conversation_id=" + conversationId,
@@ -1039,6 +1097,12 @@ function autoResize(textarea) {
 
         if (data.success && typeof renderMessages === "function") {
           renderMessages(data.data);
+          if (isInitialOpen) {
+            // Plain scrollTop assignment: instant, no animation, and works
+            // even on pages whose own renderMessages() never scrolls at all.
+            var list = document.getElementById("messagesList");
+            if (list) list.scrollTop = list.scrollHeight;
+          }
         }
       } catch (err) {
         console.error("Error loading messages:", err);
@@ -1046,6 +1110,69 @@ function autoResize(textarea) {
           showChatError("Failed to load messages. Please try again.");
       }
     };
+
+    // ----- #1: land at the bottom of a just-opened conversation, instantly -----
+    // Some pages' own renderMessages() never scrolls at all (so opening a long
+    // conversation shows the TOP, oldest messages); others use an animated
+    // scrollToBottom(el, true). Neither is what we want for the initial open.
+    // We wrap openConversation() (called exactly once per open, before its
+    // internal loadMessages() call) to flag the very next loadMessages() call
+    // as "initial" -- our loadMessages() override (below) then jumps to the
+    // bottom with a plain scrollTop assignment (no animation) right after
+    // rendering, regardless of whether the page's own script scrolls at all.
+    var pendingInitialOpenId = null;
+    if (typeof window.openConversation === "function") {
+      var _originalOpenConversation = window.openConversation;
+      window.openConversation = function (conversationId, title) {
+        pendingInitialOpenId = conversationId;
+        return _originalOpenConversation.apply(this, arguments);
+      };
+    }
+
+    // ----- #2: the conversation LIST goes stale while the widget is open -----
+    // The page's own startChatRefresh() only ever polls loadMessages() when a
+    // specific conversation is open (currentConversationId truthy); when the
+    // widget is open on the list view, only updateUnreadCount() ran, so a new
+    // incoming message's preview/unread badge -- or a brand-new conversation
+    // started by staff -- never appeared until the page was reloaded. We
+    // replace the whole interval (rather than wrap it, since the interval body
+    // itself is the thing missing a branch) but keep every existing behavior:
+    // per-page "wasAtBottom" new-message-indicator logic runs only on pages
+    // that actually define it, so nothing breaks on pages that don't.
+    if (typeof window.startChatRefresh === "function") {
+      window.startChatRefresh = function () {
+        chatRefreshInterval = setInterval(function () {
+          if (currentConversationId) {
+            var hasScrollTracking =
+              typeof isAtBottom === "function" &&
+              typeof isUserScrolling !== "undefined" &&
+              typeof shouldAutoScroll !== "undefined" &&
+              typeof showNewMessagesIndicator === "function";
+            var messagesList = document.getElementById("messagesList");
+            var wasAtBottom =
+              hasScrollTracking && messagesList
+                ? isAtBottom(messagesList)
+                : true;
+
+            loadMessages(currentConversationId);
+
+            if (
+              hasScrollTracking &&
+              !wasAtBottom &&
+              !isUserScrolling &&
+              !shouldAutoScroll
+            ) {
+              showNewMessagesIndicator();
+            }
+          } else if (typeof loadConversations === "function") {
+            // List view: refresh it so new messages/conversations show up
+            // without the customer having to reload the page.
+            loadConversations();
+          }
+          if (typeof updateUnreadCount === "function") updateUnreadCount();
+        }, 5000);
+      };
+    }
 
     // Capture phase, so it wins even if the page bound the old handler first.
     var newBtn = document.getElementById("newChatBtn");

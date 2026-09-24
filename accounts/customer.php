@@ -455,7 +455,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $inventory->commit();
 
         $success = true;
-        $message = "Account created successfully! Please check your <strong>profile page<strong> to verify your account.";
+        $message = "We've sent a verification link to <strong>" . htmlspecialchars($username) . "</strong>. Click it to activate your account, then log in.";
 
         // Clear form data from session on success
         unset($_SESSION['form_data']);
@@ -486,795 +486,486 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>Register Customer</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - Active Media Designs &amp; Printing</title>
   <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  <style>
-    ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: rgb(140, 140, 140);
-      border-radius: 10px;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    body {
-      background-color: rgb(245, 245, 245);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      padding: 20px;
-    }
-
-    .signup-container {
-      display: flex;
-      flex-direction: column;
-      max-width: 900px;
-      width: 100%;
-      background: #fff;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, .1), 0 8px 16px rgba(0, 0, 0, .1);
-      overflow: hidden;
-    }
-
-    .header {
-      text-align: center;
-      padding: 20px;
-      background: linear-gradient(90deg, rgba(176, 0, 176, 1) 0%, rgba(0, 0, 0, 1) 30%, rgba(0, 0, 0, 1) 40%, rgba(0, 145, 255, 1) 70%, rgba(255, 255, 0, 1) 100%);
-      color: white;
-    }
-
-    .header h1 {
-      font-size: 24px;
-      font-weight: 600;
-    }
-
-    .content {
-      display: flex;
-      padding: 20px;
-    }
-
-    .logo-container {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 50px 0;
-    }
-
-    .logo-container img {
-      max-width: 300px;
-      height: auto;
-      transform: rotate(45deg);
-    }
-
-    .signup-box {
-      flex: 1;
-      padding: 20px;
-    }
-
-    .signup-form input,
-    .signup-form select {
-      width: 100%;
-      padding: 14px 16px;
-      border: 1px solid rgb(220, 220, 220);
-      font-size: 17px;
-      margin-bottom: 12px;
-      transition: .3s;
-    }
-
-    .signup-form input:focus,
-    .signup-form select:focus {
-      outline: none;
-      border-color: #1c1c1c;
-      box-shadow: 0 0 5px 1px #1c1c1c;
-    }
-
-    .signup-btn {
-      background-color: black;
-      border: none;
-      font-size: 20px;
-      line-height: 48px;
-      padding: 0 16px;
-      width: 100%;
-      color: #fff;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 5px;
-      transition: .3s;
-    }
-
-    .signup-btn:disabled {
-      background-color: #666;
-      cursor: not-allowed;
-    }
-
-    .signup-btn:hover:not(:disabled) {
-      background-color: rgb(80, 80, 80);
-    }
-
-    .error-message {
-      color: #ff4d4f;
-      background: #fff2f0;
-      border: 1px solid #ffccc7;
-      padding: 10px;
-      margin-bottom: 15px;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .success-message {
-      color: #52c41a;
-      background: #f6ffed;
-      border: 1px solid #b7eb8f;
-      padding: 10px;
-      margin-bottom: 15px;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .footer-text {
-      text-align: center;
-      margin-top: 20px;
-      color: #1c1c1c;
-    }
-
-    .footer-text a {
-      text-decoration: none;
-      font-weight: 800;
-      color: #1c1c1c;
-    }
-
-    .footer-text a:hover {
-      text-decoration: underline;
-    }
-
-    .step {
-      display: none;
-    }
-
-    .step.active {
-      display: block;
-    }
-
-    .step-title {
-      font-weight: 600;
-      margin-bottom: 12px;
-    }
-
-    .step-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
-    .btn-secondary {
-      background: #eaeaea;
-      border: none;
-      line-height: 44px;
-      padding: 0 16px;
-      cursor: pointer;
-    }
-
-    .btn-secondary:hover {
-      background: #dadada;
-    }
-
-    .stepcon {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .btn {
-      border: 2px solid black;
-      padding: 20px 50px;
-      background-color: transparent;
-      font-size: 20px;
-      transition: 0.3s;
-    }
-
-    .btn:hover {
-      background-color: #1c1c1c;
-      color: white;
-      cursor: pointer;
-    }
-
-    .error-field {
-      border-color: #ff4d4f !important;
-    }
-
-    .error-text {
-      color: #ff4d4f;
-      font-size: 13px;
-      margin-top: -10px;
-      margin-bottom: 10px;
-    }
-
-    .success-text {
-      color: #52c41a;
-      font-size: 13px;
-      margin-top: -10px;
-      margin-bottom: 10px;
-    }
-
-    .required::after {
-      content: " *";
-      color: #ff4d4f;
-    }
-
-    .optional {
-      color: #666;
-      font-size: 12px;
-    }
-
-    .optional::after {
-      content: " (optional)";
-    }
-
-    @media (max-width: 768px) {
-      .content {
-        flex-direction: column;
-      }
-
-      .signup-box {
-        border-left: none;
-        border-top: 1px solid #dddfe2;
-      }
-
-      .logo-container img {
-        max-width: 200px;
-      }
-
-      .signup-container {
-        scale: 0.8;
-      }
-    }
-
-    .account-type-badge {
-      display: inline-block;
-      background: #1c1c1c;
-      color: white;
-      padding: 8px 16px;
-      margin-bottom: 15px;
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .account-type-badge.company {
-      background: black;
-    }
-
-    .switch-account-type {
-      display: block;
-      margin-top: 15px;
-      text-align: center;
-      color: #1890ff;
-      cursor: pointer;
-      font-weight: 500;
-      font-size: 14px;
-      text-decoration: underline;
-    }
-
-    .switch-account-type:hover {
-      color: #096dd9;
-    }
-
-    .welcome-message {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    .welcome-message h2 {
-      margin-bottom: 10px;
-      color: #1c1c1c;
-    }
-
-    .welcome-message p {
-      color: #666;
-      line-height: 1.6;
-    }
-
-    .start-button {
-      border: 2px solid black;
-      background-color: black;
-      font-size: 18px;
-      line-height: 48px;
-      padding: 0 30px;
-      color: #fff;
-      cursor: pointer;
-      margin: auto;
-      display: block;
-      transition: 0.3s;
-    }
-
-    .start-button:hover {
-      background-color: transparent;
-      color: black;
-    }
-
-    .alternative-option {
-      text-align: center;
-      margin-top: 20px;
-      color: #666;
-      font-size: 14px;
-    }
-
-    .alternative-option a {
-      color: #1890ff;
-      text-decoration: none;
-      font-weight: 500;
-    }
-
-    .alternative-option a:hover {
-      text-decoration: underline;
-    }
-
-    .terms-checkbox {
-      margin: 15px 0;
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-    }
-
-    .terms-checkbox input[type="checkbox"] {
-      width: auto;
-      margin-top: 5px;
-    }
-
-    .terms-checkbox label {
-      font-size: 14px;
-      line-height: 1.4;
-    }
-
-    .terms-checkbox a {
-      color: #1890ff;
-      text-decoration: none;
-    }
-
-    .terms-checkbox a:hover {
-      text-decoration: underline;
-    }
-
-    .loading-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 1000;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .spinner {
-      border: 5px solid #f3f3f3;
-      border-top: 5px solid #3498db;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% {
-        transform: rotate(0deg);
-      }
-
-      100% {
-        transform: rotate(360deg);
-      }
-    }
-
-    .password-strength {
-      height: 5px;
-      margin-top: -10px;
-      margin-bottom: 15px;
-      border-radius: 2px;
-      transition: all 0.3s;
-    }
-
-    .strength-0 {
-      width: 0%;
-      background: #ff4d4f;
-    }
-
-    .strength-1 {
-      width: 25%;
-      background: #ff4d4f;
-    }
-
-    .strength-2 {
-      width: 50%;
-      background: #faad14;
-    }
-
-    .strength-3 {
-      width: 75%;
-      background: #52c41a;
-    }
-
-    .strength-4 {
-      width: 100%;
-      background: #52c41a;
-    }
-
-    .password-requirements {
-      font-size: 12px;
-      color: #666;
-      margin-top: -10px;
-      margin-bottom: 10px;
-    }
-
-    .requirement {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      margin-bottom: 3px;
-    }
-
-    .requirement.valid {
-      color: #52c41a;
-    }
-
-    .requirement.invalid {
-      color: #ff4d4f;
-    }
-
-    .field-hint {
-      font-size: 12px;
-      color: #666;
-      margin-top: -10px;
-      margin-bottom: 10px;
-      font-style: italic;
-    }
-  </style>
+  <link rel="stylesheet" href="../assets/css/main.css">
 </head>
 
-<body>
+<body class="auth-page">
   <div class="loading-overlay" id="loadingOverlay">
     <div class="spinner"></div>
   </div>
 
-  <div class="signup-container">
-    <div class="header">
-      <h1>CUSTOMER REGISTRATION</h1>
-    </div>
-
-    <div class="content">
-      <div class="logo-container">
-        <img src="../assets/images/plainlogo.png" alt="Active Media Designs Logo">
-      </div>
-
-      <div class="signup-box">
-        <?php
-        if (isset($_SESSION['display_message'])) {
-          $message = $_SESSION['display_message'];
-          $success = $_SESSION['is_success'];
-          unset($_SESSION['display_message']);
-          unset($_SESSION['is_success']);
-        }
-        ?>
-
-        <?php if (!empty($message)): ?>
-          <div class="<?php echo $success ? 'success-message' : 'error-message'; ?>">
-            <i class="fas <?php echo $success ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
-            <?php echo $message; ?>
+  <div class="auth-shell">
+    <div class="auth-main">
+      <div class="auth-grid auth-grid--wide">
+        <a href="login.php" class="auth-brand auth-brand--link" aria-label="Back to login">
+          <div class="auth-brand__blobs" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div class="auth-topbar">
+            <span class="auth-brandmark">
+              <img src="../assets/images/plainlogo.png" alt="Active Media Designs Logo">
+              AMDP Website
+            </span>
+            <span class="auth-backlink"><i class="fas fa-arrow-left"></i> Back to login</span>
           </div>
+          <div class="auth-brand__content">
+          <div class="auth-brand__mark">
+            <img src="../assets/images/plainlogo.png" alt="">
+          </div>
+          <h1>Create your account.</h1>
+          <p>Register as a personal customer or a company to start placing job orders, track deliveries and manage everything in one place.</p>
+          <div class="auth-brand__tags">
+            <span>Fast setup</span>
+            <span>Secure</span>
+            <span>Free</span>
+          </div>
+          </div>
+        </a>
+
+        <div class="auth-form-panel signup-box">
+          <?php
+          if (isset($_SESSION['display_message'])) {
+            $message = $_SESSION['display_message'];
+            $success = $_SESSION['is_success'];
+            unset($_SESSION['display_message']);
+            unset($_SESSION['is_success']);
+          }
+          ?>
 
           <?php if ($success): ?>
+
+            <!-- SUCCESS SCREEN -->
+            <div class="success-screen">
+              <div class="success-screen__icon"><i class="fas fa-check-circle"></i></div>
+              <h2 class="success-screen__title">Account created!</h2>
+              <p class="success-screen__body"><?php echo $message; ?></p>
+
+              <a href="login.php" class="start-button">
+                <i class="fas fa-arrow-right"></i> Go to Login
+              </a>
+
+              <p class="success-screen__redirect">
+                Redirecting to login in <span id="redirectCountdown">7</span>s&hellip;
+              </p>
+
+              <div class="alternative-option">
+                <p>Didn't get the email? <a href="resend-verification.php">Resend verification link</a></p>
+              </div>
+            </div>
+
             <script>
-              setTimeout(function() {
-                window.location.href = "login.php";
-              }, 7000);
+              (function() {
+                var seconds = 7;
+                var el = document.getElementById('redirectCountdown');
+                var timer = setInterval(function() {
+                  seconds--;
+                  if (el) el.textContent = seconds;
+                  if (seconds <= 0) {
+                    clearInterval(timer);
+                    window.location.href = "login.php";
+                  }
+                }, 1000);
+              })();
             </script>
-          <?php endif; ?>
-        <?php endif; ?>
 
-        <form method="post" class="signup-form" id="wizardForm" onsubmit="return validateFinalForm()">
-          <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+          <?php else: ?>
 
-          <!-- STEP 1: Welcome Screen -->
-          <div class="step active" id="step1">
-            <div class="welcome-message">
-              <h2>Create Your Account</h2>
-              <p>Welcome to Active Media Designs and Printing! Let's get you started with your customer account.</p>
+            <?php if (!empty($message)): ?>
+              <div class="auth-notice auth-notice--error">
+                <div class="auth-notice__icon"><i class="fas fa-exclamation-circle"></i></div>
+                <div class="auth-notice__body"><?php echo $message; ?></div>
+              </div>
+            <?php endif; ?>
+
+          <form method="post" id="wizardForm" onsubmit="return validateFinalForm()">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+
+            <!-- STEP 1: Welcome Screen -->
+            <div class="step active" id="step1">
+              <div class="welcome-message">
+                <h2>Create Your Account</h2>
+                <p>Welcome to Active Media Designs and Printing! Let's get you started with your customer account.</p>
+              </div>
+
+              <button type="button" class="start-button" onclick="startRegistration()">
+                <i class="fas fa-arrow-right"></i> Get Started
+              </button>
+
+              <div class="alternative-option">
+                <p>Registering for a business? <a href="javascript:void(0)" onclick="startAsCompany()">Click here to register as a company</a></p>
+              </div>
+
+              <input type="hidden" name="customer_type" id="customer_type" required value="personal">
             </div>
 
-            <button type="button" class="start-button" onclick="startRegistration()">
-              Get Started
-            </button>
+            <!-- STEP 2: Customer Info -->
+            <div class="step" id="step2">
+              <div class="wizard-progress">
+                <div class="dot done">1</div>
+                <div class="bar done"></div>
+                <div class="dot">2</div>
+                <div class="bar"></div>
+                <div class="dot">3</div>
+                <div class="bar"></div>
+                <div class="dot">4</div>
+              </div>
 
-            <div class="alternative-option">
-              <p>Registering for a business? <a href="javascript:void(0)" onclick="startAsCompany()">Click here to register as a company</a></p>
-            </div>
+              <div class="step-title">FILL UP YOUR INFORMATION</div>
 
-            <input type="hidden" name="customer_type" id="customer_type" required value="personal">
-          </div>
-
-          <!-- STEP 2: Customer Info -->
-          <div class="step" id="step2">
-            <div class="step-title">FILL UP YOUR INFORMATION</div>
-
-            <!-- Account Type Badge and Switcher -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-              <div>
+              <!-- Account Type Badge and Switcher -->
+              <div class="wizard-toprow">
                 <span class="account-type-badge <?php echo ($customer_type ?: 'personal') === 'personal' ? '' : 'company'; ?>" id="accountTypeBadge">
                   <?php echo ($customer_type ?: 'personal') === 'personal' ? 'Personal Account' : 'Company Account'; ?>
                 </span>
+                <a href="javascript:void(0)" class="switch-account-type" onclick="switchAccountType()" id="switchAccountLink">
+                  <?php echo ($customer_type ?: 'personal') === 'personal' ? 'Signing up as a company?' : 'Switch to Personal Account'; ?>
+                </a>
               </div>
-              <a href="javascript:void(0)" class="switch-account-type" onclick="switchAccountType()" id="switchAccountLink">
-                <?php echo ($customer_type ?: 'personal') === 'personal' ? 'Signing up as a company?' : 'Switch to Personal Account'; ?>
-              </a>
+
+              <div id="personal_fields" style="<?php echo ($customer_type ?: 'personal') === 'personal' ? 'display:block;' : 'display:none;'; ?>">
+                <div class="form-row">
+                <div class="form-group">
+                  <label class="required">First Name</label>
+                  <input type="text" name="first_name" placeholder="Enter your first name"
+                    value="<?php echo htmlspecialchars($first_name); ?>"
+                    class="<?php echo empty($first_name) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
+                    autocomplete="given-name"
+                    oninput="validateField(this, 'first_name')">
+                  <div class="error-text" id="error_first_name" style="display:none;"></div>
+                </div>
+
+                <div class="form-group">
+                  <label class="optional">Middle Name</label>
+                  <input type="text" name="middle_name" placeholder="Enter your middle name (optional)"
+                    value="<?php echo htmlspecialchars($middle_name); ?>"
+                    autocomplete="additional-name"
+                    oninput="validateField(this, 'middle_name')">
+                </div>
+                </div>
+
+                <div class="form-row">
+                <div class="form-group">
+                  <label class="required">Last Name</label>
+                  <input type="text" name="last_name" placeholder="Enter your last name"
+                    value="<?php echo htmlspecialchars($last_name); ?>"
+                    class="<?php echo empty($last_name) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
+                    autocomplete="family-name"
+                    oninput="validateField(this, 'last_name')">
+                  <div class="error-text" id="error_last_name" style="display:none;"></div>
+                </div>
+
+                <div class="form-group">
+                  <label>Gender (Optional)</label>
+                  <select name="gender" autocomplete="sex">
+                    <option value="">Select Gender</option>
+                    <option value="Male" <?php echo $gender === 'Male' ? 'selected' : ''; ?>>Male</option>
+                    <option value="Female" <?php echo $gender === 'Female' ? 'selected' : ''; ?>>Female</option>
+                    <option value="Other" <?php echo $gender === 'Other' ? 'selected' : ''; ?>>Other</option>
+                    <option value="Prefer not to say" <?php echo $gender === 'Prefer not to say' ? 'selected' : ''; ?>>Prefer not to say</option>
+                  </select>
+                </div>
+                </div>
+
+                <div class="form-row">
+                <div class="form-group">
+                  <label>Birth Date (Optional)</label>
+                  <input type="date" name="birthdate" id="birthdate"
+                    value="<?php echo htmlspecialchars($birthdate); ?>"
+                    onchange="calculateAgeFromDate(); validateField(this, 'birthdate')"
+                    max="<?php echo date('Y-m-d'); ?>">
+                  <div id="ageDisplay" class="age-display"></div>
+                </div>
+
+                <div class="form-group">
+                  <label class="required">Contact Number</label>
+                  <input type="tel" name="personal_contact" placeholder="09XXXXXXXXX or landline"
+                    value="<?php echo htmlspecialchars($personal_contact); ?>"
+                    class="<?php echo empty($personal_contact) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
+                    autocomplete="tel"
+                    oninput="formatPhoneNumber(this); validateField(this, 'personal_contact')">
+                  <div class="field-hint">Format: 09XXXXXXXXX or 02XXXXXXXX</div>
+                  <div class="error-text" id="error_personal_contact" style="display:none;"></div>
+                </div>
+                </div>
+              </div>
+
+              <div id="company_fields" style="<?php echo ($customer_type ?: 'personal') === 'company' ? 'display:block;' : 'display:none;'; ?>">
+                <div class="form-row">
+                <div class="form-group">
+                  <label class="required">Company Name</label>
+                  <input type="text" name="company_name" placeholder="Enter company name"
+                    value="<?php echo htmlspecialchars($company_name); ?>"
+                    class="<?php echo empty($company_name) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
+                    autocomplete="organization"
+                    oninput="validateField(this, 'company_name')">
+                  <div class="error-text" id="error_company_name" style="display:none;"></div>
+                </div>
+
+                <div class="form-group">
+                  <label class="optional">Taxpayer Name / TIN</label>
+                  <input type="text" name="taxpayer_name" placeholder="Tax ID (optional)"
+                    value="<?php echo htmlspecialchars($taxpayer_name); ?>"
+                    oninput="validateField(this, 'taxpayer_name')">
+                  <div class="field-hint">9-12 digits, if available</div>
+                  <div class="error-text" id="error_taxpayer_name" style="display:none;"></div>
+                </div>
+                </div>
+
+                <div class="form-row">
+                <div class="form-group">
+                  <label class="required">Contact Person</label>
+                  <input type="text" name="contact_person" placeholder="Full name of contact person"
+                    value="<?php echo htmlspecialchars($contact_person); ?>"
+                    class="<?php echo empty($contact_person) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
+                    autocomplete="name"
+                    oninput="validateField(this, 'contact_person')">
+                  <div class="error-text" id="error_contact_person" style="display:none;"></div>
+                </div>
+
+                <div class="form-group">
+                  <label class="required">Contact Number</label>
+                  <input type="tel" name="company_contact" placeholder="09XXXXXXXXX or landline"
+                    value="<?php echo htmlspecialchars($company_contact); ?>"
+                    class="<?php echo empty($company_contact) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
+                    autocomplete="tel"
+                    oninput="formatPhoneNumber(this); validateField(this, 'company_contact')">
+                  <div class="field-hint">Format: 09XXXXXXXXX or 02XXXXXXXX</div>
+                  <div class="error-text" id="error_company_contact" style="display:none;"></div>
+                </div>
+                </div>
+              </div>
+
+              <div class="step-actions">
+                <button type="button" class="btn btn-secondary" onclick="goBackToWelcome()">Back</button>
+                <button type="button" class="btn btn-primary" onclick="validateStep2()">Next</button>
+              </div>
             </div>
 
-            <div id="personal_fields" style="<?php echo ($customer_type ?: 'personal') === 'personal' ? 'display:block;' : 'display:none;'; ?>">
-              <label class="required">First Name</label>
-              <input type="text" name="first_name" placeholder="Enter your first name"
-                value="<?php echo htmlspecialchars($first_name); ?>"
-                class="<?php echo empty($first_name) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
-                autocomplete="given-name"
-                oninput="validateField(this, 'first_name')">
-              <div class="error-text" id="error_first_name" style="display:none;"></div>
+            <!-- STEP 3: Address -->
+            <div class="step" id="step3">
+              <div class="wizard-progress">
+                <div class="dot done">1</div>
+                <div class="bar done"></div>
+                <div class="dot done">2</div>
+                <div class="bar done"></div>
+                <div class="dot">3</div>
+                <div class="bar"></div>
+                <div class="dot">4</div>
+              </div>
 
-              <label class="optional">Middle Name</label>
-              <input type="text" name="middle_name" placeholder="Enter your middle name (optional)"
-                value="<?php echo htmlspecialchars($middle_name); ?>"
-                autocomplete="additional-name"
-                oninput="validateField(this, 'middle_name')">
+              <div class="step-title">FILL UP ADDRESS</div>
 
-              <label class="required">Last Name</label>
-              <input type="text" name="last_name" placeholder="Enter your last name"
-                value="<?php echo htmlspecialchars($last_name); ?>"
-                class="<?php echo empty($last_name) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
-                autocomplete="family-name"
-                oninput="validateField(this, 'last_name')">
-              <div class="error-text" id="error_last_name" style="display:none;"></div>
+              <div class="wizard-toprow">
+                <span class="account-type-badge <?php echo ($customer_type ?: 'personal') === 'personal' ? '' : 'company'; ?>" id="accountTypeBadgeStep3">
+                  <?php echo ($customer_type ?: 'personal') === 'personal' ? 'Personal Account' : 'Company Account'; ?>
+                </span>
+              </div>
 
-              <label>Gender (Optional)</label>
-              <select name="gender" autocomplete="sex">
-                <option value="">Select Gender</option>
-                <option value="Male" <?php echo $gender === 'Male' ? 'selected' : ''; ?>>Male</option>
-                <option value="Female" <?php echo $gender === 'Female' ? 'selected' : ''; ?>>Female</option>
-                <option value="Other" <?php echo $gender === 'Other' ? 'selected' : ''; ?>>Other</option>
-                <option value="Prefer not to say" <?php echo $gender === 'Prefer not to say' ? 'selected' : ''; ?>>Prefer not to say</option>
-              </select>
+              <div id="personal_address" style="<?php echo ($customer_type ?: 'personal') === 'personal' ? 'display:block;' : 'display:none;'; ?>">
+                <div class="form-group">
+                  <label class="optional">Address Line 1</label>
+                  <input type="text" name="address_line1" placeholder="House no., Street, Subdivision"
+                    value="<?php echo htmlspecialchars($address_line1); ?>"
+                    autocomplete="address-line1"
+                    oninput="validateField(this, 'address_line1')">
+                </div>
 
-              <label>Birth Date (Optional)</label>
-              <input type="date" name="birthdate" id="birthdate"
-                value="<?php echo htmlspecialchars($birthdate); ?>"
-                onchange="calculateAgeFromDate(); validateField(this, 'birthdate')"
-                max="<?php echo date('Y-m-d'); ?>">
-              <div id="ageDisplay" class="age-display"></div>
+                <div class="form-row">
+                <div class="form-group">
+                  <label class="optional">City</label>
+                  <input type="text" name="p_city" placeholder="City"
+                    value="<?php echo htmlspecialchars($p_city); ?>"
+                    autocomplete="address-level2"
+                    oninput="validateField(this, 'p_city')">
+                </div>
 
-              <label class="required">Contact Number</label>
-              <input type="tel" name="personal_contact" placeholder="09XXXXXXXXX or landline"
-                value="<?php echo htmlspecialchars($personal_contact); ?>"
-                class="<?php echo empty($personal_contact) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
-                autocomplete="tel"
-                oninput="formatPhoneNumber(this); validateField(this, 'personal_contact')">
-              <div class="field-hint">Format: 09XXXXXXXXX for mobile or 02XXXXXXXX for landline</div>
-              <div class="error-text" id="error_personal_contact" style="display:none;"></div>
+                <div class="form-group">
+                  <label class="optional">Province</label>
+                  <input type="text" name="p_province" placeholder="Province"
+                    value="<?php echo htmlspecialchars($p_province); ?>"
+                    autocomplete="address-level1"
+                    oninput="validateField(this, 'p_province')">
+                </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="optional">ZIP Code</label>
+                  <input type="text" name="p_zip" placeholder="0000"
+                    value="<?php echo htmlspecialchars($p_zip); ?>"
+                    autocomplete="postal-code"
+                    oninput="formatZipCode(this); validateField(this, 'p_zip')">
+                  <div class="field-hint">4-digit Philippine ZIP code</div>
+                  <div class="error-text" id="error_p_zip" style="display:none;"></div>
+                </div>
+              </div>
+
+              <div id="company_address" style="<?php echo ($customer_type ?: 'personal') === 'company' ? 'display:block;' : 'display:none;'; ?>">
+                <div class="form-row">
+                <div class="form-group">
+                  <label class="optional">Province</label>
+                  <input type="text" name="c_province" placeholder="Province"
+                    value="<?php echo htmlspecialchars($c_province); ?>"
+                    autocomplete="address-level1"
+                    oninput="validateField(this, 'c_province')">
+                </div>
+
+                <div class="form-group">
+                  <label class="optional">City</label>
+                  <input type="text" name="c_city" placeholder="City"
+                    value="<?php echo htmlspecialchars($c_city); ?>"
+                    autocomplete="address-level2"
+                    oninput="validateField(this, 'c_city')">
+                </div>
+                </div>
+
+                <div class="form-row">
+                <div class="form-group">
+                  <label class="optional">Barangay</label>
+                  <input type="text" name="c_barangay" placeholder="Barangay"
+                    value="<?php echo htmlspecialchars($c_barangay); ?>"
+                    oninput="validateField(this, 'c_barangay')">
+                </div>
+
+                <div class="form-group">
+                  <label class="optional">Subdivision or Street</label>
+                  <input type="text" name="c_street" placeholder="Subdivision or Street"
+                    value="<?php echo htmlspecialchars($c_street); ?>"
+                    autocomplete="address-line1"
+                    oninput="validateField(this, 'c_street')">
+                </div>
+                </div>
+
+                <div class="form-row">
+                <div class="form-group">
+                  <label class="optional">Building or Block</label>
+                  <input type="text" name="c_building" placeholder="Building or Block no."
+                    value="<?php echo htmlspecialchars($c_building); ?>"
+                    oninput="validateField(this, 'c_building')">
+                </div>
+
+                <div class="form-group">
+                  <label class="optional">Lot / Room No.</label>
+                  <input type="text" name="c_lotroom" placeholder="Lot or Room no."
+                    value="<?php echo htmlspecialchars($c_lotroom); ?>"
+                    oninput="validateField(this, 'c_lotroom')">
+                </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="optional">ZIP Code</label>
+                  <input type="text" name="c_zip" placeholder="0000"
+                    value="<?php echo htmlspecialchars($c_zip); ?>"
+                    autocomplete="postal-code"
+                    oninput="formatZipCode(this); validateField(this, 'c_zip')">
+                  <div class="field-hint">4-digit Philippine ZIP code</div>
+                  <div class="error-text" id="error_c_zip" style="display:none;"></div>
+                </div>
+              </div>
+
+              <div class="step-actions">
+                <button type="button" class="btn btn-secondary" onclick="prevStep(3)">Back</button>
+                <button type="button" class="btn btn-primary" onclick="validateStep3()">Next</button>
+              </div>
             </div>
 
-            <div id="company_fields" style="<?php echo ($customer_type ?: 'personal') === 'company' ? 'display:block;' : 'display:none;'; ?>">
-              <label class="required">Company Name</label>
-              <input type="text" name="company_name" placeholder="Enter company name"
-                value="<?php echo htmlspecialchars($company_name); ?>"
-                class="<?php echo empty($company_name) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
-                autocomplete="organization"
-                oninput="validateField(this, 'company_name')">
-              <div class="error-text" id="error_company_name" style="display:none;"></div>
+            <!-- STEP 4: Account Login -->
+            <div class="step" id="step4">
+              <div class="wizard-progress">
+                <div class="dot done">1</div>
+                <div class="bar done"></div>
+                <div class="dot done">2</div>
+                <div class="bar done"></div>
+                <div class="dot done">3</div>
+                <div class="bar done"></div>
+                <div class="dot done">4</div>
+              </div>
 
-              <label class="optional">Taxpayer Name / TIN</label>
-              <input type="text" name="taxpayer_name" placeholder="Tax Identification Number (optional)"
-                value="<?php echo htmlspecialchars($taxpayer_name); ?>"
-                oninput="validateField(this, 'taxpayer_name')">
-              <div class="field-hint">9-12 digits. Leave blank if not available.</div>
-              <div class="error-text" id="error_taxpayer_name" style="display:none;"></div>
+              <div class="step-title">LOGIN CREDENTIALS</div>
 
-              <label class="required">Contact Person</label>
-              <input type="text" name="contact_person" placeholder="Full name of contact person"
-                value="<?php echo htmlspecialchars($contact_person); ?>"
-                class="<?php echo empty($contact_person) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
-                autocomplete="name"
-                oninput="validateField(this, 'contact_person')">
-              <div class="error-text" id="error_contact_person" style="display:none;"></div>
+              <div class="wizard-toprow">
+                <span class="account-type-badge <?php echo ($customer_type ?: 'personal') === 'personal' ? '' : 'company'; ?>">
+                  <?php echo ($customer_type ?: 'personal') === 'personal' ? 'Personal Account' : 'Company Account'; ?>
+                </span>
+              </div>
 
-              <label class="required">Contact Number</label>
-              <input type="tel" name="company_contact" placeholder="09XXXXXXXXX or landline"
-                value="<?php echo htmlspecialchars($company_contact); ?>"
-                class="<?php echo empty($company_contact) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
-                autocomplete="tel"
-                oninput="formatPhoneNumber(this); validateField(this, 'company_contact')">
-              <div class="field-hint">Format: 09XXXXXXXXX for mobile or 02XXXXXXXX for landline</div>
-              <div class="error-text" id="error_company_contact" style="display:none;"></div>
+              <div class="form-group">
+                <label class="required">Email Address</label>
+                <input type="email" name="username" placeholder="your.email@example.com"
+                  value="<?php echo htmlspecialchars($username); ?>"
+                  class="<?php echo empty($username) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
+                  required
+                  autocomplete="email"
+                  oninput="validateEmail(this)">
+                <div class="error-text" id="error_username" style="display:none;"></div>
+              </div>
+
+              <div class="form-group">
+                <label class="required">Password</label>
+                <div class="password-container">
+                  <input type="password" name="password" placeholder="Create a strong password"
+                    id="pwd1"
+                    class="<?php echo (empty($password) || (isset($_POST['password']) && strlen($password) < 8)) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
+                    required
+                    autocomplete="new-password"
+                    oninput="checkPasswordStrength(this.value); validatePassword(this)">
+                  <i class="fas fa-eye password-toggle" onclick="togglePassword('pwd1', this)"></i>
+                </div>
+                <div class="password-strength" id="passwordStrength"></div>
+                <div class="password-requirements" id="passwordRequirements">
+                  <div class="requirement invalid" id="req_length"><i class="fas fa-times"></i> At least 8 characters</div>
+                  <div class="requirement invalid" id="req_upper"><i class="fas fa-times"></i> At least one uppercase letter</div>
+                  <div class="requirement invalid" id="req_lower"><i class="fas fa-times"></i> At least one lowercase letter</div>
+                  <div class="requirement invalid" id="req_number"><i class="fas fa-times"></i> At least one number</div>
+                </div>
+                <div class="error-text" id="error_password" style="display:none;"></div>
+              </div>
+
+              <div class="form-group">
+                <label class="required">Confirm Password</label>
+                <div class="password-container">
+                  <input type="password" name="confirm_password" placeholder="Re-enter your password"
+                    id="pwd2"
+                    class="<?php echo (empty($confirm_password) || (isset($_POST['confirm_password']) && $password !== $confirm_password)) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
+                    required
+                    autocomplete="new-password"
+                    oninput="checkPasswordMatch()">
+                  <i class="fas fa-eye password-toggle" onclick="togglePassword('pwd2', this)"></i>
+                </div>
+                <div class="error-text" id="error_confirm_password" style="display:none;"></div>
+                <div class="success-text" id="success_password_match" style="display:none;"><i class="fas fa-check"></i> Passwords match</div>
+              </div>
+
+              <div class="terms-checkbox">
+                <input type="checkbox" name="agree_terms" id="agree_terms" value="1"
+                  <?php echo ($agree_terms == 1) ? 'checked' : ''; ?>
+                  onchange="validateTerms()">
+                <label for="agree_terms">
+                  I agree to the <a href="terms.php" target="_blank">Terms &amp; Conditions</a> and
+                  <a href="privacy.php" target="_blank">Privacy Policy</a>
+                </label>
+              </div>
+              <div class="error-text" id="error_agree_terms" style="display:none;"></div>
+
+              <button type="submit" class="btn btn-primary auth-btn" id="submitBtn">
+                <span class="btn-label"><i class="fas fa-user-plus"></i> Create Account</span>
+                <span class="btn-spinner"><i class="fas fa-circle-notch fa-spin"></i> Creating account...</span>
+              </button>
+              <div class="step-actions">
+                <button type="button" class="btn btn-secondary" onclick="prevStep(4)">Back</button>
+              </div>
             </div>
+          </form>
 
-            <div class="step-actions">
-              <button type="button" class="btn-secondary" onclick="goBackToWelcome()">Back</button>
-              <button type="button" class="btn-secondary" onclick="validateStep2()">Next</button>
-            </div>
-          </div>
+          <p class="auth-footer-note">Already have an account? <a href="login.php">Log in</a></p>
 
-          <!-- STEP 3: Address -->
-          <div class="step" id="step3">
-            <div class="step-title">FILL UP ADDRESS</div>
-
-            <!-- Account Type Badge -->
-            <div style="margin-bottom: 15px;">
-              <span class="account-type-badge <?php echo ($customer_type ?: 'personal') === 'personal' ? '' : 'company'; ?>" id="accountTypeBadgeStep3">
-                <?php echo ($customer_type ?: 'personal') === 'personal' ? 'Personal Account' : 'Company Account'; ?>
-              </span>
-            </div>
-
-            <div id="personal_address" style="<?php echo ($customer_type ?: 'personal') === 'personal' ? 'display:block;' : 'display:none;'; ?>">
-              <label class="optional">Address Line 1</label>
-              <input type="text" name="address_line1" placeholder="House no., Street, Subdivision"
-                value="<?php echo htmlspecialchars($address_line1); ?>"
-                autocomplete="address-line1"
-                oninput="validateField(this, 'address_line1')">
-
-              <label class="optional">City</label>
-              <input type="text" name="p_city" placeholder="City"
-                value="<?php echo htmlspecialchars($p_city); ?>"
-                autocomplete="address-level2"
-                oninput="validateField(this, 'p_city')">
-
-              <label class="optional">Province</label>
-              <input type="text" name="p_province" placeholder="Province"
-                value="<?php echo htmlspecialchars($p_province); ?>"
-                autocomplete="address-level1"
-                oninput="validateField(this, 'p_province')">
-
-              <label class="optional">ZIP Code</label>
-              <input type="text" name="p_zip" placeholder="0000"
-                value="<?php echo htmlspecialchars($p_zip); ?>"
-                autocomplete="postal-code"
-                oninput="formatZipCode(this); validateField(this, 'p_zip')">
-              <div class="field-hint">4-digit Philippine ZIP code</div>
-              <div class="error-text" id="error_p_zip" style="display:none;"></div>
-            </div>
-
-            <div id="company_address" style="<?php echo ($customer_type ?: 'personal') === 'company' ? 'display:block;' : 'display:none;'; ?>">
-              <label class="optional">Province</label>
-              <input type="text" name="c_province" placeholder="Province"
-                value="<?php echo htmlspecialchars($c_province); ?>"
-                autocomplete="address-level1"
-                oninput="validateField(this, 'c_province')">
-
-              <label class="optional">City</label>
-              <input type="text" name="c_city" placeholder="City"
-                value="<?php echo htmlspecialchars($c_city); ?>"
-                autocomplete="address-level2"
-                oninput="validateField(this, 'c_city')">
-
-              <label class="optional">Barangay</label>
-              <input type="text" name="c_barangay" placeholder="Barangay"
-                value="<?php echo htmlspecialchars($c_barangay); ?>"
-                oninput="validateField(this, 'c_barangay')">
-
-              <label class="optional">Subdivision or Street</label>
-              <input type="text" name="c_street" placeholder="Subdivision or Street name"
-                value="<?php echo htmlspecialchars($c_street); ?>"
-                autocomplete="address-line1"
-                oninput="validateField(this, 'c_street')">
-
-              <label class="optional">Building or Block</label>
-              <input type="text" name="c_building" placeholder="Building name or Block no."
-                value="<?php echo htmlspecialchars($c_building); ?>"
-                oninput="validateField(this, 'c_building')">
-
-              <label class="optional">Lot / Room No.</label>
-              <input type="text" name="c_lotroom" placeholder="Lot number or Room no."
-                value="<?php echo htmlspecialchars($c_lotroom); ?>"
-                oninput="validateField(this, 'c_lotroom')">
-
-              <label class="optional">ZIP Code</label>
-              <input type="text" name="c_zip" placeholder="0000"
-                value="<?php echo htmlspecialchars($c_zip); ?>"
-                autocomplete="postal-code"
-                oninput="formatZipCode(this); validateField(this, 'c_zip')">
-              <div class="field-hint">4-digit Philippine ZIP code</div>
-              <div class="error-text" id="error_c_zip" style="display:none;"></div>
-            </div>
-
-            <div class="step-actions">
-              <button type="button" class="btn-secondary" onclick="prevStep(3)">Back</button>
-              <button type="button" class="btn-secondary" onclick="validateStep3()">Next</button>
-            </div>
-          </div>
-
-          <!-- STEP 4: Account Login -->
-          <div class="step" id="step4">
-            <div class="step-title">LOGIN CREDENTIALS</div>
-
-            <!-- Account Type Badge -->
-            <div style="margin-bottom: 15px;">
-              <span class="account-type-badge <?php echo ($customer_type ?: 'personal') === 'personal' ? '' : 'company'; ?>">
-                <?php echo ($customer_type ?: 'personal') === 'personal' ? 'Personal Account' : 'Company Account'; ?>
-              </span>
-            </div>
-
-            <label class="required">Email Address</label>
-            <input type="email" name="username" placeholder="your.email@example.com"
-              value="<?php echo htmlspecialchars($username); ?>"
-              class="<?php echo empty($username) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
-              required
-              autocomplete="email"
-              oninput="validateEmail(this)">
-            <div class="error-text" id="error_username" style="display:none;"></div>
-
-            <label class="required">Password</label>
-            <div class="password-container" style="position:relative;">
-              <input type="password" name="password" placeholder="Create a strong password"
-                id="pwd1"
-                class="<?php echo (empty($password) || (isset($_POST['password']) && strlen($password) < 8)) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
-                required
-                autocomplete="new-password"
-                oninput="checkPasswordStrength(this.value); validatePassword(this)">
-              <i class="fas fa-eye password-toggle" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;" onclick="togglePassword('pwd1', this)"></i>
-            </div>
-            <div class="password-strength" id="passwordStrength"></div>
-            <div class="password-requirements" id="passwordRequirements">
-              <div class="requirement invalid" id="req_length"><i class="fas fa-times"></i> At least 8 characters</div>
-              <div class="requirement invalid" id="req_upper"><i class="fas fa-times"></i> At least one uppercase letter</div>
-              <div class="requirement invalid" id="req_lower"><i class="fas fa-times"></i> At least one lowercase letter</div>
-              <div class="requirement invalid" id="req_number"><i class="fas fa-times"></i> At least one number</div>
-            </div>
-            <div class="error-text" id="error_password" style="display:none;"></div>
-
-            <label class="required">Confirm Password</label>
-            <div class="password-container" style="position:relative;">
-              <input type="password" name="confirm_password" placeholder="Re-enter your password"
-                id="pwd2"
-                class="<?php echo (empty($confirm_password) || (isset($_POST['confirm_password']) && $password !== $confirm_password)) && isset($_POST['customer_type']) ? 'error-field' : ''; ?>"
-                required
-                autocomplete="new-password"
-                oninput="checkPasswordMatch()">
-              <i class="fas fa-eye password-toggle" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;" onclick="togglePassword('pwd2', this)"></i>
-            </div>
-            <div class="error-text" id="error_confirm_password" style="display:none;"></div>
-            <div class="success-text" id="success_password_match" style="display:none;"><i class="fas fa-check"></i> Passwords match</div>
-
-            <div class="terms-checkbox">
-              <input type="checkbox" name="agree_terms" id="agree_terms" value="1"
-                <?php echo ($agree_terms == 1) ? 'checked' : ''; ?>
-                onchange="validateTerms()">
-              <label for="agree_terms">
-                I agree to the <a href="terms.php" target="_blank">Terms & Conditions</a> and
-                <a href="privacy.php" target="_blank">Privacy Policy</a>
-              </label>
-            </div>
-            <div class="error-text" id="error_agree_terms" style="display:none;"></div>
-
-            <button type="submit" class="signup-btn" id="submitBtn">Create Account</button>
-            <div class="step-actions">
-              <button type="button" class="btn-secondary" onclick="prevStep(4)">Back</button>
-            </div>
-          </div>
-        </form>
-
-        <p class="footer-text">Already have an account? <a href="login.php">Log in</a></p>
+          <?php endif; ?>
+        </div>
       </div>
     </div>
   </div>
@@ -1641,10 +1332,19 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
       strengthBar.className = 'password-strength strength-' + strength;
 
       // Update requirement indicators
-      document.getElementById('req_length').className = password.length >= 8 ? 'requirement valid' : 'requirement invalid';
-      document.getElementById('req_upper').className = /[A-Z]/.test(password) ? 'requirement valid' : 'requirement invalid';
-      document.getElementById('req_lower').className = /[a-z]/.test(password) ? 'requirement valid' : 'requirement invalid';
-      document.getElementById('req_number').className = /[0-9]/.test(password) ? 'requirement valid' : 'requirement invalid';
+      updateRequirement('req_length', password.length >= 8);
+      updateRequirement('req_upper', /[A-Z]/.test(password));
+      updateRequirement('req_lower', /[a-z]/.test(password));
+      updateRequirement('req_number', /[0-9]/.test(password));
+    }
+
+    function updateRequirement(id, isValid) {
+      const el = document.getElementById(id);
+      el.className = isValid ? 'requirement valid' : 'requirement invalid';
+      const icon = el.querySelector('i');
+      if (icon) {
+        icon.className = isValid ? 'fas fa-check' : 'fas fa-times';
+      }
     }
 
     function checkPasswordMatch() {
@@ -1834,6 +1534,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
       // Show loading and submit
       showLoading(true);
       document.getElementById('submitBtn').disabled = true;
+      document.getElementById('submitBtn').classList.add('is-loading');
       return true;
     }
 

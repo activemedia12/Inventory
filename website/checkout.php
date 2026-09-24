@@ -253,7 +253,7 @@ $has_items = !empty($checkout_items);
             <div class="co-hero-inner">
                 <span class="section-eyebrow"><span class="reg-mark"></span> Checkout</span>
                 <h1 class="co-hero-title">Review &amp; <span class="registered" data-text="pay.">pay.</span></h1>
-                <p class="co-hero-sub">Review your order and complete your purchase. Pay with GCash, then upload your proof of payment.</p>
+                <p class="co-hero-sub">Review your order and complete your purchase. Pay with InstaPay, then upload your proof of payment.</p>
             </div>
         </div>
     </section>
@@ -273,7 +273,7 @@ $has_items = !empty($checkout_items);
                 </li>
                 <li class="co-step is-current" aria-current="step">
                     <span class="co-step__num">3</span>
-                    <span><strong>Check out</strong><small>Pay with GCash and upload proof</small></span>
+                    <span><strong>Check out</strong><small>Pay with InstaPay and upload proof</small></span>
                 </li>
             </ol>
 
@@ -589,8 +589,10 @@ $has_items = !empty($checkout_items);
                     <div class="co-pay__bar" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
                     <div class="co-pay__body">
                         <span class="section-eyebrow"><span class="reg-mark"></span> Payment method</span>
-                        <h2>Pay with InstaPay</h2>
-
+                        <div style="display: flex;">
+                            <h2>Pay with </h2>
+                            <img src="../assets/images/InstaPay-Logo.webp" alt="" style="height: 30px; margin: -3px 0 0 2px;">
+                        </div>
                         <div class="co-amount">
                             <span>Amount to pay</span>
                             <strong>₱<?php echo number_format($total, 2); ?></strong>
@@ -598,8 +600,8 @@ $has_items = !empty($checkout_items);
 
                         <div class="co-payto">
                             <a href="../assets/images/gcash-qr.jpg" target="_blank" rel="noopener" class="co-qr" title="Open the QR code full size">
-                                <img src="../assets/images/gcash-qr.jpg" alt="GCash QR Code">
-                                <p style="font-size: 0.6rem; color: #666; text-align: center; margin-top: 0.5rem;">
+                                <img src="../assets/images/gcash-qr.jpg" alt="InstaPay QR Code">
+                                <p style="font-size: 0.6rem; color: #666; text-align: center; margin-bottom: 0;">
                                     Transfer fees may apply.
                                 </p>
                             </a>
@@ -625,7 +627,7 @@ $has_items = !empty($checkout_items);
                                     <span class="co-upload__icon"><i class="fas fa-upload"></i></span>
                                     <span class="co-upload__text">
                                         <strong>Upload payment proof</strong>
-                                        <small>Screenshot of your GCash payment confirmation (JPG, PNG or PDF, up to 5MB)</small>
+                                        <small>Screenshot of your receipt confirmation (JPG, PNG or PDF, up to 5MB)</small>
                                     </span>
                                 </label>
                                 <div class="co-upload__file" id="uploadFile">
@@ -645,7 +647,6 @@ $has_items = !empty($checkout_items);
                                 <h3>Payment instructions</h3>
                                 <ol>
                                     <li>Scan the QR code or send payment to our GCash number</li>
-                                    <li>Take a screenshot of your payment confirmation</li>
                                     <li>Upload the screenshot as proof of payment</li>
                                     <li>Your order will be processed within 24 hours</li>
                                     <li>You will receive order updates via email/SMS</li>

@@ -69,242 +69,99 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign Up</title>
+  <title>Create Staff Account - Active Media Designs &amp; Printing</title>
   <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  <style>
-    ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: rgb(140, 140, 140);
-      border-radius: 10px;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    body {
-      background-color: rgb(245, 245, 245);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      padding: 20px;
-    }
-
-    .signup-container {
-      display: flex;
-      flex-direction: column;
-      max-width: 900px;
-      width: 100%;
-      background-color: #fff;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.1);
-      overflow: hidden;
-    }
-
-    .header {
-      text-align: center;
-      padding: 20px;
-      background: linear-gradient(90deg, rgba(176, 0, 176, 1) 0%, rgba(0, 0, 0, 1) 30%, rgba(0, 0, 0, 1) 40%, rgba(0, 145, 255, 1) 70%, rgba(255, 255, 0, 1) 100%);
-      ;
-      color: white;
-    }
-
-    .header h1 {
-      font-size: 24px;
-      font-weight: 600;
-    }
-
-    .content {
-      display: flex;
-      padding: 20px;
-    }
-
-    .logo-container {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 50px 0px;
-    }
-
-    .logo-container img {
-      max-width: 300px;
-      height: auto;
-      transform: rotate(45deg);
-    }
-
-    .signup-box {
-      flex: 1;
-      padding: 20px;
-    }
-
-    .signup-form input,
-    .signup-form select {
-      width: 100%;
-      padding: 14px 16px;
-      border: 1px solid rgb(220, 220, 220);
-      font-size: 17px;
-      margin-bottom: 12px;
-      transition: 0.3s;
-    }
-
-    .signup-form input:focus,
-    .signup-form select:focus {
-      outline: none;
-      border-color: #1c1c1c;
-      box-shadow: 0px 0px 5px 1px #1c1c1c;
-    }
-
-    .signup-btn {
-      background-color: black;
-      border: none;
-      font-size: 20px;
-      line-height: 48px;
-      padding: 0 16px;
-      width: 100%;
-      color: #fff;
-      font-weight: 600;
-      cursor: pointer;
-      margin-bottom: 15px;
-      transition: 0.3s;
-    }
-
-    .signup-btn:hover {
-      background-color: rgb(80, 80, 80);
-    }
-
-    .error-message {
-      color: #ff4d4f;
-      background-color: #fff2f0;
-      border: 1px solid #ffccc7;
-      padding: 10px;
-      margin-bottom: 15px;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .success-message {
-      color: #52c41a;
-      background-color: #f6ffed;
-      border: 1px solid #b7eb8f;
-      padding: 10px;
-      margin-bottom: 15px;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .password-container {
-      position: relative;
-    }
-
-    .password-toggle {
-      position: absolute;
-      right: 10px;
-      top: 40%;
-      transform: translateY(-50%);
-      color: black;
-      cursor: pointer;
-    }
-
-    .footer-text {
-      text-align: center;
-      margin-top: 20px;
-      color: #1c1e21;
-      font-size: 14px;
-    }
-
-    @media (max-width: 768px) {
-      .content {
-        flex-direction: column;
-      }
-
-      .signup-box {
-        border-left: none;
-        border-top: 1px solid #dddfe2;
-      }
-
-      .logo-container img {
-        max-width: 200px;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="../assets/css/main.css">
   <?php if ($success): ?>
     <meta http-equiv="refresh" content="3;url=login.php">
   <?php endif; ?>
 </head>
 
-<body>
-  <div class="signup-container">
-    <div class="header">
-      <h1>Active Media Designs & Printing Inventory System</h1>
-    </div>
-
-    <div class="content">
-      <div class="logo-container">
-        <img src="../assets/images/plainlogo.png" alt="Active Media Designs Logo">
-      </div>
-
-      <div class="signup-box">
-        <?php if (!empty($message)): ?>
-          <div class="<?php echo $success ? 'success-message' : 'error-message'; ?>">
-            <i class="fas <?php echo $success ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
-            <?php echo htmlspecialchars($message); ?>
+<body class="auth-page">
+  <div class="auth-shell">
+    <div class="auth-main">
+      <div class="auth-grid auth-grid--simple">
+        <div class="auth-bg-blobs" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="auth-topbar auth-simple-topbar">
+          <a href="../pages/dashboard.php" class="auth-brandmark">
+            <img src="../assets/images/plainlogo.png" alt="Active Media Designs Logo">
+            AMDP Website
+          </a>
+          <a href="../pages/dashboard.php" class="auth-backlink"><i class="fas fa-arrow-left"></i> Back to dashboard</a>
+        </div>
+        <div class="auth-form-panel">
+          <div class="auth-icon-badge">
+            <i class="fas fa-user-shield"></i>
           </div>
-        <?php endif; ?>
+          <h1>Create Staff Account</h1>
+          <p class="auth-subtitle">Admin-only tool. Set up login credentials for a new employee or admin.</p>
 
-        <form method="post" class="signup-form">
-          <input type="text" name="username" placeholder="Username" required>
+          <?php if (!empty($message)): ?>
+            <div class="auth-notice <?php echo $success ? 'auth-notice--success' : 'auth-notice--error'; ?>">
+              <div class="auth-notice__icon"><i class="fas <?php echo $success ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i></div>
+              <div class="auth-notice__body"><?php echo htmlspecialchars($message); ?></div>
+            </div>
+          <?php endif; ?>
 
-          <div class="password-container">
-            <input type="password" name="password" placeholder="Password" required>
-            <i class="fas fa-eye password-toggle" onclick="togglePassword(this)"></i>
-          </div>
+          <form method="post" id="signupForm">
+            <div class="form-group">
+              <label class="form-label" for="username">Username</label>
+              <input type="text" id="username" name="username" placeholder="Enter a username" required autocomplete="off">
+            </div>
 
-          <div class="password-container">
-            <input type="password" name="confirm_password" placeholder="Re-enter Password" required>
-            <i class="fas fa-eye password-toggle" onclick="togglePassword(this)"></i>
-          </div>
+            <div class="form-group">
+              <label class="form-label" for="password">Password</label>
+              <div class="password-container">
+                <input type="password" id="password" name="password" placeholder="Create a password" required autocomplete="new-password">
+                <i class="fas fa-eye password-toggle" onclick="togglePassword('password', this)"></i>
+              </div>
+            </div>
 
-          <select name="role" required>
-            <option value="" disabled selected>Select account type</option>
-            <option value="employee">Employee</option>
-            <option value="admin">Admin</option>
-          </select>
+            <div class="form-group">
+              <label class="form-label" for="confirm_password">Confirm password</label>
+              <div class="password-container">
+                <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter password" required autocomplete="new-password">
+                <i class="fas fa-eye password-toggle" onclick="togglePassword('confirm_password', this)"></i>
+              </div>
+            </div>
 
-          <button type="submit" class="signup-btn">Sign Up</button>
+            <div class="form-group">
+              <label class="form-label" for="role">Account type</label>
+              <select id="role" name="role" required>
+                <option value="" disabled selected>Select account type</option>
+                <option value="employee">Employee</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
 
-          <p class="footer-text">Already have an account? <a href="login.php">Log in</a></p>
-        </form>
+            <button type="submit" class="btn btn-primary auth-btn" id="submitBtn">
+              <span class="btn-label"><i class="fas fa-user-plus"></i> Create Account</span>
+              <span class="btn-spinner"><i class="fas fa-circle-notch fa-spin"></i> Creating...</span>
+            </button>
+          </form>
+
+          <p class="auth-footer-note">Already have an account? <a href="login.php">Log in</a></p>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    function togglePassword(icon) {
-      const passwordInput = icon.previousElementSibling;
-      if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        icon.classList.replace('fa-eye', 'fa-eye-slash');
-      } else {
-        passwordInput.type = 'password';
-        icon.classList.replace('fa-eye-slash', 'fa-eye');
-      }
+    function togglePassword(inputId, iconEl) {
+      const input = document.getElementById(inputId);
+      const isPw = input.type === 'password';
+      input.type = isPw ? 'text' : 'password';
+      iconEl.classList.toggle('fa-eye');
+      iconEl.classList.toggle('fa-eye-slash');
     }
+
+    document.getElementById('signupForm').addEventListener('submit', function() {
+      document.getElementById('submitBtn').classList.add('is-loading');
+    });
   </script>
 </body>
 

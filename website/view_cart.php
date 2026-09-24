@@ -970,7 +970,7 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
 
         .pricing-status-alert p {
             margin: 2px 0 0;
-            font-size: 12.5px;
+            font-size: 11px;
             line-height: 1.5;
         }
 
