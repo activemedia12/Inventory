@@ -46,6 +46,11 @@ body {
   min-height: 100vh;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  /* Without this, a wide descendant (like the job-order details table when
+     a folder is expanded) can force the whole flex row wider than the
+     viewport instead of scrolling inside its own container — see the
+     matching min-width:0 note on .main-content below. */
+  overflow-x: hidden;
 }
 
 /* Sidebar */
@@ -121,6 +126,16 @@ body {
   flex: 1;
   margin-left: 240px;
   padding: 28px 32px;
+  /* THE FIX for "opening a folder breaks the whole page's responsiveness":
+     a flex item's default minimum width is its content's min-content size,
+     not 0. The order-details-table inside a job order card can be very
+     wide (9 nowrap columns), so once a folder/table becomes visible this
+     item refused to shrink below that width and dragged the entire page
+     into horizontal overflow — even though the table has its own
+     overflow-x:auto wrapper. min-width: 0 lets this flex item shrink to
+     the viewport and hands scrolling back to the inner containers where
+     it belongs. */
+  min-width: 0;
 }
 
 /* Header */
@@ -965,6 +980,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   cursor: pointer;
   padding: 8px 10px;
   border-radius: 6px;
@@ -980,6 +996,12 @@ body {
   font-weight: 600;
   color: var(--dark);
   font-size: 13px;
+  /* Long client names truncate instead of pushing the count badge off
+     the edge of the screen on narrow viewports. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .compact-client-count {
@@ -989,6 +1011,8 @@ body {
   border-radius: 20px;
   font-size: 11px;
   font-weight: 600;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .compact-date-group {
@@ -1000,6 +1024,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   cursor: pointer;
   padding: 6px 8px;
   margin-top: 5px;
@@ -1014,6 +1039,10 @@ body {
 .compact-date-text {
   font-size: 13px;
   color: var(--dark);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .compact-project-group {
@@ -1025,6 +1054,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   cursor: pointer;
   padding: 6px 8px;
   margin-top: 5px;
@@ -1034,6 +1064,13 @@ body {
 
 .compact-project-header:hover {
   text-decoration: underline;
+}
+
+.compact-project-header > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .compact-order-item {
@@ -1087,13 +1124,19 @@ body {
 /* Order Details Table */
 .order-details-table-container {
   overflow-x: auto;
+  max-width: 100%;
   margin-bottom: 20px;
   border: 2px solid var(--light-gray);
   border-radius: 8px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .order-details-table {
   width: 100%;
+  /* Keeps the ~9 columns readable instead of being squeezed to unusable
+     widths by width:100% on narrow screens; the container above scrolls
+     horizontally once the viewport is narrower than this. */
+  min-width: 900px;
   border-collapse: collapse;
   font-size: 13px;
 }
@@ -2355,11 +2398,37 @@ a.letter-btn:hover {
 
   .order-details-table {
     font-size: 11px;
+    min-width: 720px;
   }
 
   .sequence-item {
     font-size: 10px;
     text-align: center;
+  }
+
+  /* Tighten the accordion so nested levels (client → project → date →
+     table) don't eat up horizontal space that's scarce on a phone. */
+  .compact-orders {
+    padding: 6px;
+    max-height: 70vh;
+  }
+
+  .compact-date-group,
+  .compact-project-group,
+  .compact-order-item {
+    margin-left: 8px;
+  }
+
+  .quick-fill-btn {
+    width: 100px;
+    font-size: 11px;
+  }
+
+  /* Bigger, thumb-friendly A–Z filter buttons. */
+  .letter-btn {
+    min-width: 30px;
+    height: 30px;
+    font-size: 13px;
   }
 }
 

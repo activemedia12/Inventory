@@ -201,65 +201,66 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'empl
             margin-left: 240px;
         }
 
+        /* This admin panel embeds a full desktop dashboard (iframe) with a
+           lot of dense tables/controls that were never designed to reflow
+           for small screens, so instead of trying to make it responsive we
+           block it outright below the breakpoint and show a clear note
+           telling the person to switch to a desktop/laptop. Everything in
+           this hidden-by-default block only appears on small screens. */
+        .desktop-only-notice {
+            display: none;
+        }
+
         @media (max-width: 768px) {
-            .sidebar-con {
-                width: 100%;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                position: fixed;
-            }
 
-            .sidebar {
-                position: fixed;
-                overflow: hidden;
-                height: auto;
-                width: auto;
-                bottom: 12px;
-                left: 50%;
-                transform: translateX(-50%);
-                padding: 6px;
-                background-color: rgba(255, 255, 255, 0.85);
-                backdrop-filter: blur(6px);
-                box-shadow: 0 4px 16px rgba(20, 23, 31, 0.12);
-                border-radius: 100px;
-                touch-action: manipulation;
-                z-index: 9999;
-                flex-direction: row;
-                border: 1px solid var(--light-gray);
-                justify-content: center;
-            }
-
-            .sidebar .nav-menu {
-                display: flex;
-                flex-direction: row;
-                padding: 0;
-            }
-
-            .sidebar img,
-            .sidebar .brand,
-            .sidebar .nav-menu li a span {
-                display: none;
-            }
-
-            .sidebar .nav-menu li a {
-                justify-content: center;
-                padding: 12px;
-            }
-
-            .sidebar .nav-menu li a i {
-                margin-right: 0;
-            }
-
-            .content-frame {
-                width: 100%;
-                margin-left: 0;
-                height: calc(100vh - 90px);
-            }
-
+            .sidebar-con,
+            .content-frame,
             .floating-nav {
-                left: 50%;
-                bottom: 80px;
+                display: none !important;
+            }
+
+            .desktop-only-notice {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 14px;
+                width: 100%;
+                min-height: 100vh;
+                padding: 32px;
+                text-align: center;
+            }
+
+            .desktop-only-notice i {
+                font-size: 40px;
+                color: var(--primary);
+            }
+
+            .desktop-only-notice h1 {
+                font-size: 18px;
+                font-weight: 700;
+                color: var(--dark);
+            }
+
+            .desktop-only-notice p {
+                font-size: 14px;
+                color: var(--gray);
+                max-width: 340px;
+                line-height: 1.5;
+            }
+
+            .desktop-only-notice a {
+                margin-top: 6px;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 10px 18px;
+                border-radius: 8px;
+                background: var(--primary);
+                color: #fff;
+                text-decoration: none;
+                font-size: 13px;
+                font-weight: 600;
             }
         }
     </style>
@@ -283,8 +284,19 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'empl
         </div>
     </div>
 
-    <!-- Content Frame -->
-    <iframe id="contentFrame" class="content-frame" src="website/admin_dashboard.php"></iframe>
+    <!-- Shown only on small screens (see @media max-width:768px) in place of
+         the sidebar/iframe/floating-nav, which are desktop-only. -->
+    <div class="desktop-only-notice">
+        <i class="fas fa-desktop" aria-hidden="true"></i>
+        <h1>Desktop Only</h1>
+        <p>The Website Administrator panel isn't available on mobile. Please switch to a desktop or laptop computer to manage the website.</p>
+        <a href="dashboard.php"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to Dashboard</a>
+    </div>
+
+    <!-- Content Frame: src is set from JS (not here) so mobile visitors,
+         who only ever see the notice above, never pay the cost of loading
+         this desktop dashboard in the background. -->
+    <iframe id="contentFrame" class="content-frame"></iframe>
 
     <div class="floating-nav" aria-label="Website admin sections">
         <button class="active" data-page="website/admin_dashboard.php" onclick="loadPage(this, 'website/admin_dashboard.php')" title="Dashboard" aria-label="Dashboard">
@@ -325,6 +337,12 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'empl
 
     <script>
         const WEBSITE_ADMIN_PAGE_KEY = 'lastWebsiteAdminPage';
+        const DESKTOP_BREAKPOINT = 768; // keep in sync with the CSS media query above
+        const DEFAULT_PAGE = 'website/admin_dashboard.php';
+
+        function isDesktop() {
+            return window.innerWidth > DESKTOP_BREAKPOINT;
+        }
 
         function loadPage(btn, page) {
             document.getElementById('contentFrame').src = page;
@@ -340,17 +358,25 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'empl
 
         function restoreLastWebsiteAdminPage() {
             const savedPage = localStorage.getItem(WEBSITE_ADMIN_PAGE_KEY);
-            if (!savedPage) return;
+            if (!savedPage) return DEFAULT_PAGE;
 
             const matchingBtn = document.querySelector(`.floating-nav button[data-page="${savedPage}"]`);
-            if (!matchingBtn) return; // unknown/stale value, keep the default page
+            if (!matchingBtn) return DEFAULT_PAGE; // unknown/stale value, keep the default page
 
-            document.getElementById('contentFrame').src = savedPage;
             document.querySelectorAll('.floating-nav button').forEach(b => b.classList.remove('active'));
             matchingBtn.classList.add('active');
+            return savedPage;
         }
 
-        document.addEventListener('DOMContentLoaded', restoreLastWebsiteAdminPage);
+        function initWebsiteAdmin() {
+            // Small screens only ever see the "Desktop Only" notice, so
+            // don't bother loading the (heavy, desktop-only) dashboard
+            // iframe in the background at all.
+            if (!isDesktop()) return;
+            document.getElementById('contentFrame').src = restoreLastWebsiteAdminPage();
+        }
+
+        document.addEventListener('DOMContentLoaded', initWebsiteAdmin);
     </script>
 
 </body>
