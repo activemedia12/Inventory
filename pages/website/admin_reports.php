@@ -35,6 +35,13 @@ $date_condition = "o.created_at BETWEEN ? AND ?";
 $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];
 $types = 'ss';
 
+// Single definition of "which order statuses count as revenue", used by every
+// query below so Sales / Customers / Products reports (and the dashboard,
+// and the CSV export) all agree on the same number. 'pending' orders are not
+// yet paid for, so they are excluded here.
+$REVENUE_STATUSES = ['paid', 'processing', 'ready_for_pickup', 'completed'];
+$revenue_status_sql = "'" . implode("','", array_map([$inventory, 'real_escape_string'], $REVENUE_STATUSES)) . "'";
+
 // Get sales report data
 // Get sales report data
 if ($report_type === 'sales') {
@@ -49,7 +56,7 @@ if ($report_type === 'sales') {
         COUNT(DISTINCT user_id) as unique_customers
         FROM orders o
         WHERE o.created_at BETWEEN ? AND ? 
-        AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed', 'pending')";
+        AND o.status IN ($revenue_status_sql)";
 
     $sales_stmt = $inventory->prepare($sales_query);
 
@@ -92,7 +99,7 @@ if ($report_type === 'sales') {
         COALESCE(SUM(o.total_amount), 0) as daily_revenue
         FROM orders o
         WHERE o.created_at BETWEEN ? AND ? 
-        AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed', 'pending')
+        AND o.status IN ($revenue_status_sql)
         GROUP BY DATE(o.created_at)
         ORDER BY date";
 
@@ -110,7 +117,7 @@ if ($report_type === 'sales') {
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.order_id
         WHERE o.created_at BETWEEN ? AND ? 
-        AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed', 'pending')
+        AND o.status IN ($revenue_status_sql)
         GROUP BY oi.product_name
         ORDER BY total_sold DESC
         LIMIT 10";
@@ -133,7 +140,7 @@ if ($report_type === 'customers') {
             SELECT user_id, COUNT(*) as order_count, COALESCE(SUM(total_amount), 0) as total_spent
             FROM orders o
             WHERE o.created_at BETWEEN ? AND ? 
-            AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed', 'pending')
+            AND o.status IN ($revenue_status_sql)
             GROUP BY user_id
         ) as co";
 
@@ -160,7 +167,7 @@ if ($report_type === 'customers') {
         FROM orders o
         JOIN users u ON o.user_id = u.id
         LEFT JOIN personal_customers pc ON u.id = pc.user_id
-        WHERE $date_condition AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+        WHERE $date_condition AND o.status IN ($revenue_status_sql)
         GROUP BY o.user_id
         ORDER BY total_spent DESC
         LIMIT 10";
@@ -179,11 +186,15 @@ if ($report_type === 'products') {
         p.category,
         p.price,
         COUNT(oi.order_item_id) as times_ordered,
-        SUM(oi.quantity) as total_quantity,
-        SUM(oi.quantity * oi.unit_price) as total_revenue
+        COALESCE(SUM(oi.quantity), 0) as total_quantity,
+        COALESCE(SUM(oi.quantity * oi.unit_price), 0) as total_revenue
         FROM products_offered p
-        LEFT JOIN order_items oi ON p.id = oi.product_id
-        LEFT JOIN orders o ON oi.order_id = o.order_id AND $date_condition AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+        LEFT JOIN (
+            SELECT oi.*
+            FROM order_items oi
+            JOIN orders o ON oi.order_id = o.order_id
+            WHERE $date_condition AND o.status IN ($revenue_status_sql)
+        ) oi ON p.id = oi.product_id
         GROUP BY p.id, p.product_name, p.category, p.price
         ORDER BY total_revenue DESC";
 
@@ -196,11 +207,15 @@ if ($report_type === 'products') {
     $category_performance_query = "SELECT 
         p.category,
         COUNT(oi.order_item_id) as total_orders,
-        SUM(oi.quantity) as total_quantity,
-        SUM(oi.quantity * oi.unit_price) as total_revenue
+        COALESCE(SUM(oi.quantity), 0) as total_quantity,
+        COALESCE(SUM(oi.quantity * oi.unit_price), 0) as total_revenue
         FROM products_offered p
-        LEFT JOIN order_items oi ON p.id = oi.product_id
-        LEFT JOIN orders o ON oi.order_id = o.order_id AND $date_condition AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+        LEFT JOIN (
+            SELECT oi.*
+            FROM order_items oi
+            JOIN orders o ON oi.order_id = o.order_id
+            WHERE $date_condition AND o.status IN ($revenue_status_sql)
+        ) oi ON p.id = oi.product_id
         GROUP BY p.category
         ORDER BY total_revenue DESC";
 

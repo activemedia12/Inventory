@@ -27,12 +27,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
     if ($upload_type === 'single') {
         $design_image = isset($_POST['design_image']) ? $_POST['design_image'] : null;
     } else {
-        // For separate uploads, use front_design_image as the main design_image
-        $design_image = isset($_POST['front_design_image']) ? $_POST['front_design_image'] : null;
-        
-        // Debug: Check if we're getting the separate design data
-        error_log("Separate upload detected - Front design: " . ($_POST['front_design_image'] ?? 'NOT SET'));
-        error_log("Separate upload detected - Back design: " . ($_POST['back_design_image'] ?? 'NOT SET'));
+        // For separate uploads, combine front + back into one JSON payload so
+        // the back design is actually persisted instead of being dropped.
+        $front_design_image = isset($_POST['front_design_image']) ? $_POST['front_design_image'] : null;
+        $back_design_image  = isset($_POST['back_design_image'])  ? $_POST['back_design_image']  : null;
+
+        error_log("Separate upload detected - Front design: " . ($front_design_image ?? 'NOT SET'));
+        error_log("Separate upload detected - Back design: " . ($back_design_image ?? 'NOT SET'));
+
+        if ($front_design_image || $back_design_image) {
+            $design_image = json_encode([
+                'front' => $front_design_image ? basename($front_design_image) : null,
+                'back'  => $back_design_image ? basename($back_design_image) : null,
+            ]);
+        } else {
+            $design_image = null;
+        }
     }
     
     $size_option   = $_POST['size_option']   ?? null;
@@ -74,14 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
             // It's a single filename or invalid JSON, sanitize it
             $design_image = $inventory->real_escape_string(basename($design_image));
         }
-    } else {
-        // If no design image but we have separate designs, try to use front design
-        $front_design_image = isset($_POST['front_design_image']) ? $_POST['front_design_image'] : null;
-        if ($front_design_image) {
-            $design_image = $inventory->real_escape_string($front_design_image);
-            error_log("Using front_design_image as fallback: " . $design_image);
-        }
     }
+    // else: no design image supplied at all (front/back were both empty above) - leave as null.
     
     // Check if user has an active cart
     $cart_query = "SELECT cart_id FROM carts WHERE user_id = ?";

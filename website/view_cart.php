@@ -249,6 +249,34 @@ function sendPricingRequestNotification($user_id, $selected_items, $total_estima
             error_log("SUCCESS: New pricing request created with ID: $request_id");
         }
 
+        // Make sure every selected item has a pricing_requests_items row as
+        // soon as the request is submitted, rather than only getting one the
+        // first time an admin opens the pricing screen for this request.
+        foreach ($selected_items as $item_id) {
+            $item_id = (int) $item_id;
+            if ($item_id < 1) {
+                continue;
+            }
+
+            $check_item_query = "SELECT id FROM pricing_requests_items WHERE pricing_request_id = ? AND cart_item_id = ?";
+            $check_item_stmt = $inventory->prepare($check_item_query);
+            $check_item_stmt->bind_param("ii", $request_id, $item_id);
+            $check_item_stmt->execute();
+            $check_item_result = $check_item_stmt->get_result();
+
+            if ($check_item_result->num_rows === 0) {
+                $insert_item_query = "INSERT INTO pricing_requests_items (pricing_request_id, cart_item_id, admin_notes, quoted_price, status) VALUES (?, ?, NULL, NULL, 'pending')";
+                $insert_item_stmt = $inventory->prepare($insert_item_query);
+                $insert_item_stmt->bind_param("ii", $request_id, $item_id);
+                if (!$insert_item_stmt->execute()) {
+                    error_log("ERROR: Failed to create pending pricing_requests_items row for item $item_id: " . $insert_item_stmt->error);
+                }
+            }
+            // If a row already exists (e.g. the admin already started pricing
+            // this item, or the cart was re-submitted), leave it as-is -
+            // don't reset an in-progress quote back to 'pending'.
+        }
+
         return $request_id;
     } catch (Exception $e) {
         error_log("EXCEPTION: " . $e->getMessage());

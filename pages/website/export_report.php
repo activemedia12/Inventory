@@ -10,6 +10,9 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 
 // Get parameters
 $report_type = $_GET['report_type'] ?? 'sales';
+if (!in_array($report_type, ['sales', 'customers', 'products'], true)) {
+    $report_type = 'sales';
+}
 $start_date = $_GET['start_date'] ?? date('Y-m-01');
 $end_date = $_GET['end_date'] ?? date('Y-m-t');
 
@@ -25,6 +28,11 @@ $date_condition = "o.created_at BETWEEN ? AND ?";
 $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];
 $types = 'ss';
 
+// Same "counts as revenue" statuses as the dashboard and the on-screen
+// reports page, so the exported CSV always agrees with what the admin sees.
+$REVENUE_STATUSES = ['paid', 'processing', 'ready_for_pickup', 'completed'];
+$revenue_status_sql = "'" . implode("','", array_map([$inventory, 'real_escape_string'], $REVENUE_STATUSES)) . "'";
+
 // Set headers for CSV download
 header('Content-Type: text/csv; charset=utf-8');
 header('Content-Disposition: attachment; filename="' . $report_type . '_report_' . $start_date . '_to_' . $end_date . '.csv"');
@@ -37,13 +45,13 @@ fputs($output, $bom = (chr(0xEF) . chr(0xBB) . chr(0xBF)));
 
 switch ($report_type) {
     case 'sales':
-        exportSalesReport($output, $inventory, $date_condition, $params, $types);
+        exportSalesReport($output, $inventory, $date_condition, $params, $types, $start_date, $end_date, $revenue_status_sql);
         break;
     case 'customers':
-        exportCustomersReport($output, $inventory, $date_condition, $params, $types);
+        exportCustomersReport($output, $inventory, $date_condition, $params, $types, $start_date, $end_date, $revenue_status_sql);
         break;
     case 'products':
-        exportProductsReport($output, $inventory, $date_condition, $params, $types);
+        exportProductsReport($output, $inventory, $date_condition, $params, $types, $start_date, $end_date, $revenue_status_sql);
         break;
     default:
         fputcsv($output, ['Error', 'Invalid report type']);
@@ -54,19 +62,19 @@ fclose($output);
 exit;
 
 // Sales Report Export
-function exportSalesReport($output, $tshirtprint, $date_condition, $params, $types) {
+function exportSalesReport($output, $tshirtprint, $date_condition, $params, $types, $start_date, $end_date, $revenue_status_sql) {
     // Write header
-    fputcsv($output, ['Sales Report - ' . $_GET['start_date'] . ' to ' . $_GET['end_date']]);
+    fputcsv($output, ['Sales Report - ' . $start_date . ' to ' . $end_date]);
     fputcsv($output, []); // Empty row
     
     // Total sales summary
     $sales_query = "SELECT 
         COUNT(*) as total_orders,
-        SUM(total_amount) as total_revenue,
-        AVG(total_amount) as avg_order_value,
+        COALESCE(SUM(total_amount), 0) as total_revenue,
+        COALESCE(AVG(total_amount), 0) as avg_order_value,
         COUNT(DISTINCT user_id) as unique_customers
         FROM orders o
-        WHERE $date_condition AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')";
+        WHERE $date_condition AND o.status IN ($revenue_status_sql)";
     
     $sales_stmt = $tshirtprint->prepare($sales_query);
     $sales_stmt->bind_param($types, ...$params);
@@ -90,7 +98,7 @@ function exportSalesReport($output, $tshirtprint, $date_condition, $params, $typ
         COUNT(*) as order_count,
         SUM(o.total_amount) as daily_revenue
         FROM orders o
-        WHERE $date_condition AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+        WHERE $date_condition AND o.status IN ($revenue_status_sql)
         GROUP BY DATE(o.created_at)
         ORDER BY date";
     
@@ -119,7 +127,7 @@ function exportSalesReport($output, $tshirtprint, $date_condition, $params, $typ
         SUM(oi.quantity * oi.unit_price) as total_revenue
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.order_id
-        WHERE $date_condition AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+        WHERE $date_condition AND o.status IN ($revenue_status_sql)
         GROUP BY oi.product_name
         ORDER BY total_sold DESC
         LIMIT 20";
@@ -167,9 +175,9 @@ function exportSalesReport($output, $tshirtprint, $date_condition, $params, $typ
 }
 
 // Customers Report Export
-function exportCustomersReport($output, $tshirtprint, $date_condition, $params, $types) {
+function exportCustomersReport($output, $tshirtprint, $date_condition, $params, $types, $start_date, $end_date, $revenue_status_sql) {
     // Write header
-    fputcsv($output, ['Customers Report - ' . $_GET['start_date'] . ' to ' . $_GET['end_date']]);
+    fputcsv($output, ['Customers Report - ' . $start_date . ' to ' . $end_date]);
     fputcsv($output, []); // Empty row
     
     // Customer statistics
@@ -180,7 +188,7 @@ function exportCustomersReport($output, $tshirtprint, $date_condition, $params, 
         FROM (
             SELECT user_id, COUNT(*) as order_count, SUM(total_amount) as total_spent
             FROM orders o
-            WHERE $date_condition AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+            WHERE $date_condition AND o.status IN ($revenue_status_sql)
             GROUP BY user_id
         ) as co";
     
@@ -201,7 +209,7 @@ function exportCustomersReport($output, $tshirtprint, $date_condition, $params, 
     fputcsv($output, ['Customer Name', 'Email', 'Orders', 'Total Spent']);
     
     $top_customers_query = "SELECT 
-        u.username,
+        u.email,
         pc.first_name,
         pc.last_name,
         COUNT(o.order_id) as order_count,
@@ -209,8 +217,8 @@ function exportCustomersReport($output, $tshirtprint, $date_condition, $params, 
         FROM orders o
         JOIN users u ON o.user_id = u.id
         LEFT JOIN personal_customers pc ON u.id = pc.user_id
-        WHERE $date_condition AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
-        GROUP BY o.user_id
+        WHERE $date_condition AND o.status IN ($revenue_status_sql)
+        GROUP BY o.user_id, u.email, pc.first_name, pc.last_name
         ORDER BY total_spent DESC
         LIMIT 50";
     
@@ -221,8 +229,8 @@ function exportCustomersReport($output, $tshirtprint, $date_condition, $params, 
     
     while ($row = $top_customers->fetch_assoc()) {
         fputcsv($output, [
-            $row['first_name'] . ' ' . $row['last_name'],
-            $row['username'],
+            trim($row['first_name'] . ' ' . $row['last_name']),
+            $row['email'],
             $row['order_count'],
             '₱' . number_format($row['total_spent'], 2)
         ]);
@@ -230,9 +238,9 @@ function exportCustomersReport($output, $tshirtprint, $date_condition, $params, 
 }
 
 // Products Report Export
-function exportProductsReport($output, $tshirtprint, $date_condition, $params, $types) {
+function exportProductsReport($output, $tshirtprint, $date_condition, $params, $types, $start_date, $end_date, $revenue_status_sql) {
     // Write header
-    fputcsv($output, ['Products Report - ' . $_GET['start_date'] . ' to ' . $_GET['end_date']]);
+    fputcsv($output, ['Products Report - ' . $start_date . ' to ' . $end_date]);
     fputcsv($output, []); // Empty row
     
     // Product performance
@@ -244,11 +252,15 @@ function exportProductsReport($output, $tshirtprint, $date_condition, $params, $
         p.category,
         p.price,
         COUNT(oi.order_item_id) as times_ordered,
-        SUM(oi.quantity) as total_quantity,
-        SUM(oi.quantity * oi.unit_price) as total_revenue
+        COALESCE(SUM(oi.quantity), 0) as total_quantity,
+        COALESCE(SUM(oi.quantity * oi.unit_price), 0) as total_revenue
         FROM products_offered p
-        LEFT JOIN order_items oi ON p.id = oi.product_id
-        LEFT JOIN orders o ON oi.order_id = o.order_id AND $date_condition AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+        LEFT JOIN (
+            SELECT oi.*
+            FROM order_items oi
+            JOIN orders o ON oi.order_id = o.order_id
+            WHERE $date_condition AND o.status IN ($revenue_status_sql)
+        ) oi ON p.id = oi.product_id
         GROUP BY p.id, p.product_name, p.category, p.price
         ORDER BY total_revenue DESC";
     
@@ -277,11 +289,15 @@ function exportProductsReport($output, $tshirtprint, $date_condition, $params, $
     $category_performance_query = "SELECT 
         p.category,
         COUNT(oi.order_item_id) as total_orders,
-        SUM(oi.quantity) as total_quantity,
-        SUM(oi.quantity * oi.unit_price) as total_revenue
+        COALESCE(SUM(oi.quantity), 0) as total_quantity,
+        COALESCE(SUM(oi.quantity * oi.unit_price), 0) as total_revenue
         FROM products_offered p
-        LEFT JOIN order_items oi ON p.id = oi.product_id
-        LEFT JOIN orders o ON oi.order_id = o.order_id AND $date_condition AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+        LEFT JOIN (
+            SELECT oi.*
+            FROM order_items oi
+            JOIN orders o ON oi.order_id = o.order_id
+            WHERE $date_condition AND o.status IN ($revenue_status_sql)
+        ) oi ON p.id = oi.product_id
         GROUP BY p.category
         ORDER BY total_revenue DESC";
     

@@ -6,7 +6,10 @@ require_once '../config/config.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 
 // Generate CSRF token if not exists
 if (!isset($_SESSION['csrf_token'])) {
@@ -518,7 +521,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
           <div class="auth-brand__mark">
             <img src="../assets/images/plainlogo.png" alt="">
           </div>
-          <h1>Create your account.</h1>
+          <h1>Create your <br> account.</h1>
           <p>Register as a personal customer or a company to start placing job orders, track deliveries and manage everything in one place.</p>
           <div class="auth-brand__tags">
             <span>Fast setup</span>
@@ -561,7 +564,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
             <script>
               (function() {
-                var seconds = 7;
+                var seconds = 30;
                 var el = document.getElementById('redirectCountdown');
                 var timer = setInterval(function() {
                   seconds--;

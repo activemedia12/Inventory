@@ -158,6 +158,13 @@ while ($row = $customers_result->fetch_assoc()) {
 
 // Handle admin status toggle
 if (isset($_POST['toggle_status']) && isset($_POST['status_action'])) {
+    // Get admin status - now only shows admins
+    // NOTE: this must run BEFORE it's read below. It previously ran after
+    // the foreach that used it, so $adminStatus was always undefined,
+    // $currentStatus was always null, and the toggle could only ever turn
+    // status ON (never OFF).
+    $adminStatus = $chatController->getAdminStatus();
+
     // Get current status
     $currentStatus = null;
     foreach ($adminStatus as $admin) {
@@ -167,20 +174,24 @@ if (isset($_POST['toggle_status']) && isset($_POST['status_action'])) {
         }
     }
 
-    // Get admin status - now only shows admins
-    $adminStatus = $chatController->getAdminStatus();
-
     // Toggle status
     $newStatus = $currentStatus ? 0 : 1;
     $chatController->updateAdminOnlineStatus($user_id, $newStatus);
+
+    // Remember an explicit "offline" choice for this session so the auto
+    // heartbeat below doesn't immediately flip it back to online.
+    $_SESSION['chat_manual_offline'] = ($newStatus == 0);
 
     $_SESSION['chat_message'] = "Status updated to " . ($newStatus ? "Online" : "Offline") . "!";
     header("Location: admin_chat.php" . (isset($_GET['conversation']) ? "?conversation=" . $_GET['conversation'] : ""));
     exit;
 }
 
-// Auto-update last_seen timestamp when admin accesses the chat
-$chatController->updateAdminOnlineStatus($user_id, true);
+// Auto-update last_seen timestamp when admin accesses the chat, but don't
+// silently override an explicit "offline" choice the admin just made.
+if (empty($_SESSION['chat_manual_offline'])) {
+    $chatController->updateAdminOnlineStatus($user_id, true);
+}
 ?>
 
 <!DOCTYPE html>
@@ -1770,7 +1781,15 @@ $chatController->updateAdminOnlineStatus($user_id, true);
         document.head.appendChild(style);
 
         // ========== ADMIN HEARTBEAT ==========
+        // Don't poll the heartbeat endpoint while the admin has explicitly
+        // set themselves offline - otherwise the next automatic ping just
+        // flips is_online back to true and the manual toggle never sticks.
+        const chatManualOffline = <?php echo (!empty($_SESSION['chat_manual_offline'])) ? 'true' : 'false'; ?>;
+
         function updateAdminHeartbeat() {
+            if (chatManualOffline) {
+                return;
+            }
             fetch('../../api/admin_status.php?action=heartbeat', {
                 method: 'POST',
                 credentials: 'include'

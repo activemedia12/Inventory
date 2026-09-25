@@ -39,31 +39,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $item_count = max(count($selected_items), 1);
 
             foreach ($selected_items as $item_id) {
-                // Check if record already exists in pricing_requests_items
-                $check_query = "SELECT id FROM pricing_requests_items WHERE pricing_request_id = ? AND cart_item_id = ?";
+                // Check if record already exists in pricing_requests_items, and
+                // remember whatever price was already quoted for it (if any).
+                $check_query = "SELECT id, quoted_price FROM pricing_requests_items WHERE pricing_request_id = ? AND cart_item_id = ?";
                 $check_stmt = $inventory->prepare($check_query);
                 $check_stmt->bind_param("ii", $request_id, $item_id);
                 $check_stmt->execute();
                 $check_result = $check_stmt->get_result();
+                $existing_item = $check_result->fetch_assoc(); // null if this item has no row yet
 
-                // Use the price the admin entered for THIS item. If it was
-                // left blank, fall back to an even split of the estimated
-                // total, so a partially-filled form doesn't zero out an
-                // item the admin didn't get to.
+                // Decide the price for THIS item, in order of priority:
+                // 1) a price the admin explicitly typed on this save
+                // 2) whatever price was already quoted for it previously
+                // 3) if it's being quoted for the very first time with no
+                //    price at all, fall back to an even split of the
+                //    estimated total so it doesn't show as free
+                // 4) otherwise (e.g. being cancelled/left pending and never
+                //    priced), leave it unpriced rather than inventing a number
                 if (isset($item_prices[$item_id]) && $item_prices[$item_id] !== '') {
                     $price_per_item = (float) $item_prices[$item_id];
-                } else {
+                } elseif ($existing_item && $existing_item['quoted_price'] !== null) {
+                    $price_per_item = (float) $existing_item['quoted_price'];
+                } elseif ($new_status === 'quoted') {
                     $price_per_item = $request_data['estimated_total'] / $item_count;
+                } else {
+                    $price_per_item = null;
                 }
-                $final_price += $price_per_item;
+                $final_price += $price_per_item ?? 0;
 
-                if ($check_result->num_rows > 0) {
+                if ($existing_item) {
                     // Update existing record - ALWAYS update status and admin_notes
                     $update_item_query = "UPDATE pricing_requests_items SET status = ?, admin_notes = ?, quoted_price = ?, updated_at = NOW() WHERE pricing_request_id = ? AND cart_item_id = ?";
                     $update_item_stmt = $inventory->prepare($update_item_query);
                     $update_item_stmt->bind_param("ssdii", $new_status, $admin_notes, $price_per_item, $request_id, $item_id);
                     $update_item_stmt->execute();
-                    error_log("DEBUG: Updated pricing_requests_items record for item $item_id with status $new_status and price $price_per_item");
+                    error_log("DEBUG: Updated pricing_requests_items record for item $item_id with status $new_status and price " . var_export($price_per_item, true));
                 } else {
                     // Insert new record
                     $insert_pricing_item = "INSERT INTO pricing_requests_items (pricing_request_id, cart_item_id, admin_notes, quoted_price, status) 
@@ -71,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt2 = $inventory->prepare($insert_pricing_item);
                     $stmt2->bind_param("iisds", $request_id, $item_id, $admin_notes, $price_per_item, $new_status);
                     $stmt2->execute();
-                    error_log("DEBUG: Inserted new pricing_requests_items record for item $item_id with status $new_status and price $price_per_item");
+                    error_log("DEBUG: Inserted new pricing_requests_items record for item $item_id with status $new_status and price " . var_export($price_per_item, true));
                 }
 
                 // Update cart_items table for quoted status (use estimated price if no final price entered)
@@ -82,7 +92,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $update_stmt->execute();
                     error_log("DEBUG: Updated cart item $item_id with price $price_per_item (status: $new_status)");
                 } else if ($new_status === 'cancelled') {
-                    // For cancelled status, clear the admin price flag
+                    // For cancelled status, clear the admin price flag but
+                    // leave any previously-quoted price untouched - the
+                    // cancellation shouldn't rewrite pricing history.
                     $update_cart_query = "UPDATE cart_items SET price_updated_by_admin = 0 WHERE item_id = ?";
                     $update_stmt = $inventory->prepare($update_cart_query);
                     $update_stmt->bind_param("i", $item_id);

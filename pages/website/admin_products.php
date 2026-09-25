@@ -34,16 +34,32 @@ function handleProductImageUpload($product_id, $file_input_name, $directory, $pr
         }
 
         if ($file['error'] === 0) {
-            // Validate file type
-            $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
-            if (!in_array($file['type'], $allowed_types)) {
+            // Validate file size (max 5MB)
+            if ($file['size'] > 5 * 1024 * 1024) {
+                $_SESSION['error'] = "File size too large. Maximum size is 5MB.";
+                return false;
+            }
+
+            // Validate the ACTUAL file content rather than trusting the
+            // browser-supplied $_FILES[...]['type'] header, which is just
+            // whatever Content-Type the client chose to send and is
+            // trivially spoofable (e.g. a renamed .php file claiming to be
+            // "image/jpeg"). getimagesize() reads the real image headers,
+            // so it also rejects non-image files outright.
+            $image_info = @getimagesize($file['tmp_name']);
+            if ($image_info === false) {
                 $_SESSION['error'] = "Invalid file type. Only JPG, PNG, and GIF are allowed.";
                 return false;
             }
 
-            // Validate file size (max 5MB)
-            if ($file['size'] > 5 * 1024 * 1024) {
-                $_SESSION['error'] = "File size too large. Maximum size is 5MB.";
+            $real_mime = $image_info['mime'];
+            $allowed_types = [
+                'image/jpeg' => 'imagecreatefromjpeg',
+                'image/png' => 'imagecreatefrompng',
+                'image/gif' => 'imagecreatefromgif',
+            ];
+            if (!isset($allowed_types[$real_mime])) {
+                $_SESSION['error'] = "Invalid file type. Only JPG, PNG, and GIF are allowed.";
                 return false;
             }
 
@@ -57,12 +73,39 @@ function handleProductImageUpload($product_id, $file_input_name, $directory, $pr
             $filename = $prefix . '-' . $product_id . $suffix . '.jpg';
             $file_path = $upload_dir . $filename;
 
-            // Convert and save image as JPG
-            if (move_uploaded_file($file['tmp_name'], $file_path)) {
+            // Actually convert the image to a real JPEG (rather than just
+            // renaming whatever bytes were uploaded to ".jpg"). This makes
+            // the file's real format match its extension, and re-encoding
+            // through GD strips out anything appended to the file that
+            // isn't valid image data.
+            $create_fn = $allowed_types[$real_mime];
+            $source_image = @$create_fn($file['tmp_name']);
+            if ($source_image === false) {
+                $_SESSION['error'] = "Uploaded file could not be processed as an image.";
+                return false;
+            }
+
+            // Flatten transparency (PNG/GIF) onto a white background before
+            // saving as JPEG, since JPEG has no alpha channel.
+            $width = imagesx($source_image);
+            $height = imagesy($source_image);
+            $jpeg_image = imagecreatetruecolor($width, $height);
+            $white = imagecolorallocate($jpeg_image, 255, 255, 255);
+            imagefill($jpeg_image, 0, 0, $white);
+            imagealphablending($jpeg_image, true);
+            imagecopy($jpeg_image, $source_image, 0, 0, 0, 0, $width, $height);
+            imagedestroy($source_image);
+
+            $saved = imagejpeg($jpeg_image, $file_path, 90);
+            imagedestroy($jpeg_image);
+
+            if ($saved) {
                 // Clear file cache
                 clearstatcache(true, $file_path);
                 return true;
             }
+
+            $_SESSION['error'] = "Failed to save uploaded image.";
         }
     }
     return false;
@@ -250,45 +293,76 @@ if (isset($_POST['action'])) {
             if ($result['order_count'] > 0) {
                 $_SESSION['error'] = "Cannot delete product - it has existing orders!";
             } else {
-                // Delete product images first
-                deleteProductImages($product_id, 'all_images');
+                // Everything below either all succeeds or all rolls back,
+                // so a mid-way failure can't leave the product half-deleted
+                // with dangling references elsewhere.
+                $inventory->begin_transaction();
 
-                // Delete from all option tables first
-                $option_tables = [
-                    'product_paper_options',
-                    'product_finish_options',
-                    'product_binding_options',
-                    'product_layout_options',
-                    'product_tshirt_sizes',
-                    'product_tshirt_colors',
-                    'product_totesizes',
-                    'product_totecolors',
-                    'product_paperbag_sizes',
-                    'product_mug_sizes',
-                    'product_mug_colors'
-                ];
+                try {
+                    // Products that were never ordered can still be sitting
+                    // in someone's cart or have open pricing requests
+                    // against them - clear those out first so they don't
+                    // end up pointing at a product_id that no longer exists.
+                    $delete_cart_items_query = "DELETE FROM cart_items WHERE product_id = ?";
+                    $delete_cart_items_stmt = $inventory->prepare($delete_cart_items_query);
+                    $delete_cart_items_stmt->bind_param("i", $product_id);
+                    $delete_cart_items_stmt->execute();
 
-                foreach ($option_tables as $table) {
-                    $delete_query = "DELETE FROM $table WHERE product_id = ?";
+                    $delete_pricing_query = "DELETE FROM pricing_requests WHERE product_id = ?";
+                    $delete_pricing_stmt = $inventory->prepare($delete_pricing_query);
+                    $delete_pricing_stmt->bind_param("i", $product_id);
+                    $delete_pricing_stmt->execute();
+
+                    // Delete from all option tables first
+                    $option_tables = [
+                        'product_paper_options',
+                        'product_finish_options',
+                        'product_binding_options',
+                        'product_layout_options',
+                        'product_tshirt_sizes',
+                        'product_tshirt_colors',
+                        'product_totesizes',
+                        'product_totecolors',
+                        'product_paperbag_sizes',
+                        'product_mug_sizes',
+                        'product_mug_colors'
+                    ];
+
+                    foreach ($option_tables as $table) {
+                        $delete_query = "DELETE FROM $table WHERE product_id = ?";
+                        $delete_stmt = $inventory->prepare($delete_query);
+                        $delete_stmt->bind_param("i", $product_id);
+                        $delete_stmt->execute();
+                    }
+
+                    // Delete from product_customization
+                    $delete_custom_query = "DELETE FROM product_customization WHERE product_id = ?";
+                    $delete_custom_stmt = $inventory->prepare($delete_custom_query);
+                    $delete_custom_stmt->bind_param("i", $product_id);
+                    $delete_custom_stmt->execute();
+
+                    // Then delete the product
+                    $delete_query = "DELETE FROM products_offered WHERE id = ?";
                     $delete_stmt = $inventory->prepare($delete_query);
                     $delete_stmt->bind_param("i", $product_id);
                     $delete_stmt->execute();
-                }
 
-                // Delete from product_customization
-                $delete_custom_query = "DELETE FROM product_customization WHERE product_id = ?";
-                $delete_custom_stmt = $inventory->prepare($delete_custom_query);
-                $delete_custom_stmt->bind_param("i", $product_id);
-                $delete_custom_stmt->execute();
+                    if ($delete_stmt->affected_rows === 0) {
+                        throw new Exception("Product not found or already deleted");
+                    }
 
-                // Then delete the product
-                $delete_query = "DELETE FROM products_offered WHERE id = ?";
-                $delete_stmt = $inventory->prepare($delete_query);
-                $delete_stmt->bind_param("i", $product_id);
+                    $inventory->commit();
 
-                if ($delete_stmt->execute()) {
+                    // Only remove the image files once the DB transaction
+                    // has actually committed - if it had rolled back, the
+                    // product row would still exist but its images would
+                    // already be gone.
+                    deleteProductImages($product_id, 'all_images');
+
                     $_SESSION['message'] = "Product deleted successfully!";
-                } else {
+                } catch (Exception $e) {
+                    $inventory->rollback();
+                    error_log("Failed to delete product {$product_id}: " . $e->getMessage());
                     $_SESSION['error'] = "Failed to delete product!";
                 }
             }

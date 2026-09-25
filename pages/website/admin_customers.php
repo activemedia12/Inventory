@@ -22,11 +22,20 @@ if (isset($_POST['action'])) {
         case 'update_customer':
             $user_id = $_POST['user_id'];
             $username = trim($_POST['username']);
-            $first_name = trim($_POST['first_name']);
-            $last_name = trim($_POST['last_name']);
-            $contact_number = trim($_POST['contact_number']);
-            $address_line1 = trim($_POST['address_line1']);
-            $city = trim($_POST['city']);
+
+            // Determine whether this account is a personal or company
+            // customer by checking which row actually exists, rather than
+            // trusting a client-supplied type - the previous version only
+            // ever updated personal_customers, so editing a company
+            // customer silently updated nothing but the username.
+            $type_check_query = "SELECT
+                    (SELECT COUNT(*) FROM personal_customers WHERE user_id = ?) AS is_personal,
+                    (SELECT COUNT(*) FROM company_customers WHERE user_id = ?) AS is_company";
+            $type_check_stmt = $inventory->prepare($type_check_query);
+            $type_check_stmt->bind_param("ii", $user_id, $user_id);
+            $type_check_stmt->execute();
+            $type_row = $type_check_stmt->get_result()->fetch_assoc();
+            $is_company = !empty($type_row['is_company']);
 
             // Check if username already exists (excluding current user)
             $check_query = "SELECT id FROM users WHERE username = ? AND id != ? AND role = 'customer'";
@@ -48,14 +57,58 @@ if (isset($_POST['action'])) {
                     $user_stmt->bind_param("si", $username, $user_id);
                     $user_stmt->execute();
 
-                    // Update personal_customers table
-                    $customer_query = "UPDATE personal_customers SET 
-                                    first_name = ?, last_name = ?, contact_number = ?, 
-                                    address_line1 = ?, city = ? 
-                                    WHERE user_id = ?";
-                    $customer_stmt = $inventory->prepare($customer_query);
-                    $customer_stmt->bind_param("sssssi", $first_name, $last_name, $contact_number, $address_line1, $city, $user_id);
-                    $customer_stmt->execute();
+                    if ($is_company) {
+                        // Update company_customers table
+                        $company_name = trim($_POST['company_name'] ?? '');
+                        $taxpayer_name = trim($_POST['taxpayer_name'] ?? '');
+                        $contact_person = trim($_POST['contact_person'] ?? '');
+                        $contact_number = trim($_POST['company_contact_number'] ?? '');
+                        $building_or_block = trim($_POST['building_or_block'] ?? '');
+                        $lot_or_room_no = trim($_POST['lot_or_room_no'] ?? '');
+                        $subd_or_street = trim($_POST['subd_or_street'] ?? '');
+                        $barangay = trim($_POST['barangay'] ?? '');
+                        $city = trim($_POST['company_city'] ?? '');
+                        $province = trim($_POST['company_province'] ?? '');
+                        $zip_code = trim($_POST['company_zip_code'] ?? '');
+
+                        $customer_query = "UPDATE company_customers SET
+                                        company_name = ?, taxpayer_name = ?, contact_person = ?, contact_number = ?,
+                                        building_or_block = ?, lot_or_room_no = ?, subd_or_street = ?, barangay = ?,
+                                        city = ?, province = ?, zip_code = ?
+                                        WHERE user_id = ?";
+                        $customer_stmt = $inventory->prepare($customer_query);
+                        $customer_stmt->bind_param(
+                            "sssssssssssi",
+                            $company_name,
+                            $taxpayer_name,
+                            $contact_person,
+                            $contact_number,
+                            $building_or_block,
+                            $lot_or_room_no,
+                            $subd_or_street,
+                            $barangay,
+                            $city,
+                            $province,
+                            $zip_code,
+                            $user_id
+                        );
+                        $customer_stmt->execute();
+                    } else {
+                        // Update personal_customers table
+                        $first_name = trim($_POST['first_name'] ?? '');
+                        $last_name = trim($_POST['last_name'] ?? '');
+                        $contact_number = trim($_POST['contact_number'] ?? '');
+                        $address_line1 = trim($_POST['address_line1'] ?? '');
+                        $city = trim($_POST['city'] ?? '');
+
+                        $customer_query = "UPDATE personal_customers SET 
+                                        first_name = ?, last_name = ?, contact_number = ?, 
+                                        address_line1 = ?, city = ? 
+                                        WHERE user_id = ?";
+                        $customer_stmt = $inventory->prepare($customer_query);
+                        $customer_stmt->bind_param("sssssi", $first_name, $last_name, $contact_number, $address_line1, $city, $user_id);
+                        $customer_stmt->execute();
+                    }
 
                     $inventory->commit();
                     $_SESSION['message'] = "Customer updated successfully!";
@@ -103,11 +156,26 @@ if (isset($_POST['action'])) {
                     $delete_cart_stmt->bind_param("i", $user_id);
                     $delete_cart_stmt->execute();
 
+                    // Delete any open pricing requests tied to this customer
+                    $delete_pricing = "DELETE FROM pricing_requests WHERE user_id = ?";
+                    $delete_pricing_stmt = $inventory->prepare($delete_pricing);
+                    $delete_pricing_stmt->bind_param("i", $user_id);
+                    $delete_pricing_stmt->execute();
+
                     // Delete from personal_customers
                     $delete_personal = "DELETE FROM personal_customers WHERE user_id = ?";
                     $delete_personal_stmt = $inventory->prepare($delete_personal);
                     $delete_personal_stmt->bind_param("i", $user_id);
                     $delete_personal_stmt->execute();
+
+                    // Delete from company_customers - this was missing
+                    // entirely, so deleting a company account left its
+                    // company_customers row orphaned (pointing at a user_id
+                    // that no longer existed in users).
+                    $delete_company = "DELETE FROM company_customers WHERE user_id = ?";
+                    $delete_company_stmt = $inventory->prepare($delete_company);
+                    $delete_company_stmt->bind_param("i", $user_id);
+                    $delete_company_stmt->execute();
 
                     // Finally delete user
                     $delete_user = "DELETE FROM users WHERE id = ? AND role = 'customer'";
@@ -227,10 +295,11 @@ $types = '';
 
 // Add search filter
 if (!empty($search)) {
-    $query .= " AND (u.username LIKE ? OR pc.first_name LIKE ? OR pc.last_name LIKE ? OR pc.contact_number LIKE ?)";
+    $query .= " AND (u.username LIKE ? OR pc.first_name LIKE ? OR pc.last_name LIKE ? OR pc.contact_number LIKE ?
+                      OR cc.company_name LIKE ? OR cc.contact_person LIKE ? OR cc.contact_number LIKE ?)";
     $search_term = "%$search%";
-    $params = array_merge($params, [$search_term, $search_term, $search_term, $search_term]);
-    $types .= 'ssss';
+    $params = array_merge($params, array_fill(0, 7, $search_term));
+    $types .= str_repeat('s', 7);
 }
 
 // Add group by and sorting
@@ -238,7 +307,11 @@ $query .= " GROUP BY u.id";
 
 switch ($sort) {
     case 'name':
-        $query .= " ORDER BY pc.first_name ASC, pc.last_name ASC";
+        // Personal customers sort by first/last name; company customers
+        // have no first_name/last_name so they used to sort as NULL (i.e.
+        // dumped at one end regardless of their actual company name).
+        // Sort everyone by whichever display name they actually have.
+        $query .= " ORDER BY COALESCE(CONCAT(pc.first_name, ' ', pc.last_name), cc.company_name) ASC";
         break;
     case 'orders':
         $query .= " ORDER BY order_count DESC";
@@ -1162,32 +1235,99 @@ $stats = $stats_result->fetch_assoc();
                             <input type="email" name="username" id="editUsername" class="form-control" required>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group" id="personalContactGroup">
                             <label><i class="fas fa-phone"></i> Phone Number</label>
                             <input type="text" name="contact_number" id="editContactNumber" class="form-control">
                         </div>
                     </div>
 
-                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <div class="form-group">
-                            <label><i class="fas fa-user"></i> First Name</label>
-                            <input type="text" name="first_name" id="editFirstName" class="form-control" required>
+                    <!-- Personal customer fields -->
+                    <div id="personalFields">
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div class="form-group">
+                                <label><i class="fas fa-user"></i> First Name</label>
+                                <input type="text" name="first_name" id="editFirstName" class="form-control">
+                            </div>
+
+                            <div class="form-group">
+                                <label><i class="fas fa-user"></i> Last Name</label>
+                                <input type="text" name="last_name" id="editLastName" class="form-control">
+                            </div>
                         </div>
 
                         <div class="form-group">
-                            <label><i class="fas fa-user"></i> Last Name</label>
-                            <input type="text" name="last_name" id="editLastName" class="form-control" required>
+                            <label><i class="fas fa-map-marker-alt"></i> Address Line 1</label>
+                            <input type="text" name="address_line1" id="editAddressLine1" class="form-control">
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-city"></i> City</label>
+                            <input type="text" name="city" id="editCity" class="form-control">
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label><i class="fas fa-map-marker-alt"></i> Address Line 1</label>
-                        <input type="text" name="address_line1" id="editAddressLine1" class="form-control">
-                    </div>
+                    <!-- Company customer fields -->
+                    <div id="companyFields" style="display: none;">
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div class="form-group">
+                                <label><i class="fas fa-building"></i> Company Name</label>
+                                <input type="text" name="company_name" id="editCompanyName" class="form-control">
+                            </div>
 
-                    <div class="form-group">
-                        <label><i class="fas fa-city"></i> City</label>
-                        <input type="text" name="city" id="editCity" class="form-control">
+                            <div class="form-group">
+                                <label><i class="fas fa-file-invoice"></i> Taxpayer Name</label>
+                                <input type="text" name="taxpayer_name" id="editTaxpayerName" class="form-control">
+                            </div>
+                        </div>
+
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div class="form-group">
+                                <label><i class="fas fa-user"></i> Contact Person</label>
+                                <input type="text" name="contact_person" id="editContactPerson" class="form-control">
+                            </div>
+
+                            <div class="form-group">
+                                <label><i class="fas fa-phone"></i> Phone Number</label>
+                                <input type="text" name="company_contact_number" id="editCompanyContactNumber" class="form-control">
+                            </div>
+                        </div>
+
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div class="form-group">
+                                <label>Building/Block</label>
+                                <input type="text" name="building_or_block" id="editBuildingOrBlock" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Lot/Room No.</label>
+                                <input type="text" name="lot_or_room_no" id="editLotOrRoomNo" class="form-control">
+                            </div>
+                        </div>
+
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div class="form-group">
+                                <label>Subdivision/Street</label>
+                                <input type="text" name="subd_or_street" id="editSubdOrStreet" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Barangay</label>
+                                <input type="text" name="barangay" id="editBarangay" class="form-control">
+                            </div>
+                        </div>
+
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                            <div class="form-group">
+                                <label><i class="fas fa-city"></i> City</label>
+                                <input type="text" name="company_city" id="editCompanyCity" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Province</label>
+                                <input type="text" name="company_province" id="editCompanyProvince" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Zip Code</label>
+                                <input type="text" name="company_zip_code" id="editCompanyZipCode" class="form-control">
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1324,11 +1464,33 @@ $stats = $stats_result->fetch_assoc();
 
                     document.getElementById('editUserId').value = customer.id;
                     document.getElementById('editUsername').value = customer.username;
-                    document.getElementById('editFirstName').value = customer.first_name || '';
-                    document.getElementById('editLastName').value = customer.last_name || '';
-                    document.getElementById('editContactNumber').value = customer.contact_number || '';
-                    document.getElementById('editAddressLine1').value = customer.address_line1 || '';
-                    document.getElementById('editCity').value = customer.city || '';
+
+                    const isCompany = customer.customer_type === 'company';
+                    document.getElementById('personalFields').style.display = isCompany ? 'none' : 'block';
+                    document.getElementById('companyFields').style.display = isCompany ? 'block' : 'none';
+                    // The plain "Phone Number" field up top is the personal
+                    // one; company has its own phone field further down.
+                    document.getElementById('personalContactGroup').style.display = isCompany ? 'none' : 'block';
+
+                    if (isCompany) {
+                        document.getElementById('editCompanyName').value = customer.company_name || '';
+                        document.getElementById('editTaxpayerName').value = customer.taxpayer_name || '';
+                        document.getElementById('editContactPerson').value = customer.contact_person || '';
+                        document.getElementById('editCompanyContactNumber').value = customer.company_contact || '';
+                        document.getElementById('editBuildingOrBlock').value = customer.building_or_block || '';
+                        document.getElementById('editLotOrRoomNo').value = customer.lot_or_room_no || '';
+                        document.getElementById('editSubdOrStreet').value = customer.subd_or_street || '';
+                        document.getElementById('editBarangay').value = customer.barangay || '';
+                        document.getElementById('editCompanyCity').value = customer.company_city || '';
+                        document.getElementById('editCompanyProvince').value = customer.company_province || '';
+                        document.getElementById('editCompanyZipCode').value = customer.company_zip || '';
+                    } else {
+                        document.getElementById('editFirstName').value = customer.first_name || '';
+                        document.getElementById('editLastName').value = customer.last_name || '';
+                        document.getElementById('editContactNumber').value = customer.contact_number || '';
+                        document.getElementById('editAddressLine1').value = customer.address_line1 || '';
+                        document.getElementById('editCity').value = customer.city || '';
+                    }
 
                     document.getElementById('editCustomerModal').style.display = 'block';
                 })

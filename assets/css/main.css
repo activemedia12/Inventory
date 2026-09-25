@@ -6899,7 +6899,7 @@ body.auth-page {
   scrollbar-color: var(--line) transparent;
   border-top-right-radius: var(--r-lg);
   border-bottom-right-radius: var(--r-lg);
-  background: var(--paper-dim);
+  background: var(--paper);
 }
 
 .auth-form-panel::-webkit-scrollbar {
@@ -6968,7 +6968,7 @@ body.auth-page {
 }
 
 .auth-form-panel h1 {
-  font-size: clamp(1.35rem, 2.2vw, 1.6rem);
+  font-size: clamp(1.35rem, 2.2vw, 2.6rem);
   margin-bottom: 6px;
 }
 
@@ -6984,40 +6984,91 @@ body.auth-page {
   max-width: 36ch;
 }
 
-/* ---------- Notices ---------- */
+/* ---------- Notices ----------
+   Styled like a quick registration-check on a press sheet: a solid
+   spot-colour tab on the left, a crisp icon chip with a soft riso
+   "double-hit" ghost behind it (a nod to a slightly misaligned second
+   print pass), and a small uppercase eyebrow ahead of the message so
+   the state reads before the copy does. */
 .auth-notice {
+  --notice-tint: var(--paper-dim);
+  --notice-strong: var(--ink);
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 11px 14px;
-  margin-bottom: 14px;
-  background: var(--paper-white);
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--ink);
+  align-items: center;
+  gap: 13px;
+  padding: 13px 16px 13px 15px;
+  margin-bottom: 16px;
+  background: var(--notice-tint);
   border-radius: var(--r-md);
   font-size: 13px;
-  line-height: 1.45;
-  color: var(--ink-soft);
+  line-height: 1.5;
+  color: var(--ink);
   text-align: left;
+  overflow: hidden;
   box-shadow: var(--shadow-sm);
+  animation: authNoticeIn 0.4s var(--ease) both;
+}
+
+/* Solid spot-colour tab, standing in for the border-left accent */
+.auth-notice::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--notice-strong);
 }
 
 .auth-notice__icon {
-  width: 26px;
-  height: 26px;
+  position: relative;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   font-size: 12px;
-  background: var(--paper-dim);
-  color: var(--ink);
+  background: var(--paper-white);
+  color: var(--notice-strong);
+  box-shadow: 0 1px 2px rgba(23, 20, 15, 0.12);
+  animation: authDotFade 0.45s var(--ease) both;
+}
+
+/* Riso "double-hit" ghost: a soft duplicate of the icon circle, offset
+   like a colour pass that landed a pixel or two off-register */
+.auth-notice__icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--notice-strong);
+  opacity: 0.18;
+  z-index: -1;
+}
+
+.auth-notice__body {
+  padding-top: 1px;
+}
+
+.auth-notice__body::before {
+  content: "Notice";
+  display: block;
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--notice-strong);
+  margin-bottom: 3px;
 }
 
 .auth-notice__body a {
   color: var(--riso-blue);
   font-weight: 600;
+  text-underline-offset: 2px;
 }
 
 .auth-notice__body a:hover {
@@ -7025,31 +7076,57 @@ body.auth-page {
 }
 
 .auth-notice--success {
-  border-left-color: var(--ok, #23784a);
+  --notice-tint: var(--ok-soft, #e7f3ec);
+  --notice-strong: var(--ok, #23784a);
 }
 
-.auth-notice--success .auth-notice__icon {
-  background: var(--ok-soft, #e7f3ec);
-  color: var(--ok, #23784a);
-  animation: authDotFade 0.4s var(--ease) both;
+.auth-notice--success .auth-notice__body::before {
+  content: "Success";
 }
 
 .auth-notice--error {
-  border-left-color: var(--riso-red);
+  --notice-tint: #fdece8;
+  --notice-strong: var(--riso-red-dark);
+  animation:
+    authNoticeIn 0.4s var(--ease) both,
+    authNoticeShake 0.4s var(--ease) 0.4s both;
 }
 
-.auth-notice--error .auth-notice__icon {
-  background: #fdece8;
-  color: var(--riso-red);
+.auth-notice--error .auth-notice__body::before {
+  content: "Error";
 }
 
 .auth-notice--warn {
-  border-left-color: var(--cmyk-yellow);
+  --notice-tint: #fff6d9;
+  --notice-strong: #8a6d00;
 }
 
-.auth-notice--warn .auth-notice__icon {
-  background: var(--cmyk-yellow);
-  color: var(--ink);
+.auth-notice--warn .auth-notice__body::before {
+  content: "Heads up";
+}
+
+@keyframes authNoticeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes authNoticeShake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
 }
 
 /* ---------- Form elements (scoped to auth pages) ---------- */
@@ -7168,24 +7245,43 @@ body.auth-page {
 }
 
 .auth-page .error-text,
-.auth-page .error-message {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: -1px 0 6px;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--riso-red-dark);
-}
-
+.auth-page .error-message,
 .auth-page .success-text {
   display: flex;
   align-items: center;
   gap: 6px;
   margin: -1px 0 6px;
   font-size: 11.5px;
+  animation: authNoticeIn 0.25s var(--ease) both;
+}
+
+.auth-page .error-text,
+.auth-page .error-message {
+  font-weight: 500;
+  color: var(--riso-red-dark);
+}
+
+/* Plain-text field errors (set via JS textContent, no icon markup) get a
+   small colour dot so they don't read as bare copy under the field */
+.auth-page .error-text:not(:has(i))::before,
+.auth-page .error-message:not(:has(i))::before {
+  content: "";
+  flex-shrink: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--riso-red);
+}
+
+.auth-page .success-text {
   font-weight: 600;
   color: var(--ok, #23784a);
+}
+
+.auth-page .success-text i,
+.auth-page .error-text i,
+.auth-page .error-message i {
+  font-size: 10.5px;
 }
 
 .auth-page .age-display {
@@ -7452,29 +7548,151 @@ body.auth-page {
   color: var(--riso-blue);
 }
 
-/* ---------- Simple / confirmation cards (logout, invalid token) ---------- */
+/* ---------- Social login ---------- */
+.auth-social-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.auth-social-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 1;
+  padding: 9px 10px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12.5px;
+  border-radius: var(--r-sm);
+  border: 1.5px solid var(--line);
+  background-color: var(--paper-white);
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.auth-social-btn:hover {
+  color: var(--ink);
+  background-color: var(--paper-dim);
+}
+
+.auth-social-btn i {
+  font-size: 14px;
+}
+
+.auth-social-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.auth-social-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-social-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: var(--transition);
+}
+
+.auth-social-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--paper-dim);
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: var(--transition);
+}
+
+.auth-social-btn:hover .auth-social-content {
+  opacity: 0;
+}
+
+.auth-social-btn:hover::after {
+  opacity: 1;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 4px;
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background-color: var(--line);
+}
+
+/* ---------- Simple / confirmation cards (logout, invalid token) ----------
+   Same spot-colour + riso "double-hit" ghost language as .auth-notice
+   above, scaled up into a standalone hero badge, with a thin registration
+   ring standing in for the crop marks on a press sheet. */
 .auth-icon-badge {
-  width: 62px;
-  height: 62px;
+  --badge-strong: var(--ink);
+  --badge-tint: var(--paper-dim);
+  position: relative;
+  width: 64px;
+  height: 64px;
   margin: 0 auto 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: var(--paper-dim);
-  color: var(--ink);
+  background: var(--badge-tint);
+  color: var(--badge-strong);
   font-size: 24px;
+  box-shadow: 0 1px 2px rgba(23, 20, 15, 0.1);
   animation: authDotFade 0.5s var(--ease) both;
 }
 
+.auth-icon-badge::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px solid var(--badge-strong);
+  opacity: 0.18;
+}
+
+.auth-icon-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--badge-strong);
+  opacity: 0.14;
+  z-index: -1;
+}
+
 .auth-icon-badge--alert {
-  background: #fdece8;
-  color: var(--riso-red);
+  --badge-tint: #fdece8;
+  --badge-strong: var(--riso-red-dark);
 }
 
 .auth-icon-badge--ok {
-  background: var(--ok-soft, #e7f3ec);
-  color: var(--ok, #23784a);
+  --badge-tint: var(--ok-soft, #e7f3ec);
+  --badge-strong: var(--ok, #23784a);
 }
 
 .auth-btn-row {

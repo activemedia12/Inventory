@@ -11,21 +11,28 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'empl
 // Get dashboard statistics
 $stats = [];
 
-// Get current month dates
-$current_month_start = date('Y-m-01');
-$current_month_end = date('Y-m-t');
+// Get current month dates. Include the full last day (BETWEEN against a bare
+// date compares against midnight, which silently excludes every order placed
+// after 00:00:00 on the last day of the month).
+$current_month_start = date('Y-m-01') . ' 00:00:00';
+$current_month_end   = date('Y-m-t') . ' 23:59:59';
+
+// Orders in these statuses are treated as "counts toward revenue" everywhere
+// in the admin panel (dashboard, reports, export) so the numbers agree.
+$REVENUE_STATUSES = ['paid', 'processing', 'ready_for_pickup', 'completed'];
+$revenue_status_list = "'" . implode("','", array_map([$inventory, 'real_escape_string'], $REVENUE_STATUSES)) . "'";
 
 // Total Orders - Current Month
 $query = "SELECT COUNT(*) as total_orders FROM orders 
           WHERE created_at BETWEEN '$current_month_start' AND '$current_month_end'
-          AND status IN ('completed')";
+          AND status IN ($revenue_status_list)";
 $result = $inventory->query($query);
 $stats['total_orders'] = $result->fetch_assoc()['total_orders'];
 
 // Total Revenue - Current Month  
 $query = "SELECT COALESCE(SUM(total_amount), 0) as total_revenue FROM orders 
           WHERE created_at BETWEEN '$current_month_start' AND '$current_month_end'
-          AND status IN ('completed')";
+          AND status IN ($revenue_status_list)";
 $result = $inventory->query($query);
 $stats['total_revenue'] = $result->fetch_assoc()['total_revenue'];
 
@@ -60,7 +67,7 @@ $query = "SELECT oi.product_name, SUM(oi.quantity) as total_sold
           FROM order_items oi
           JOIN orders o ON oi.order_id = o.order_id
           WHERE o.created_at BETWEEN '$current_month_start' AND '$current_month_end'
-          AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+          AND o.status IN ($revenue_status_list)
           GROUP BY oi.product_name 
           ORDER BY total_sold DESC 
           LIMIT 5";
@@ -76,7 +83,7 @@ $query = "SELECT
             SUM(SUM(total_amount)) OVER (ORDER BY DATE_FORMAT(created_at, '%Y-%m')) as cumulative_revenue
           FROM orders 
           WHERE created_at >= '$current_year_start'
-          AND status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
+          AND status IN ($revenue_status_list)
           GROUP BY DATE_FORMAT(created_at, '%Y-%m')
           ORDER BY month";
 $cumulative_revenue_result = $inventory->query($query);
