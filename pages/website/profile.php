@@ -34,7 +34,7 @@ $user_data = $result->fetch_assoc();
 // title from the order's first line item (order_items.product_name).
 // Adjust "oi.order_item_id" below to whatever your order_items primary key
 // is actually called if it isn't that.
-$query = "SELECT o.order_id, o.total_amount, o.status, o.payment_proof, o.created_at,
+$query = "SELECT o.order_id, o.total_amount, o.status, o.payment_proof, o.created_at, o.cancellation_reason,
                  (SELECT oi.product_name
                     FROM order_items oi
                    WHERE oi.order_id = o.order_id
@@ -177,6 +177,24 @@ $order_active = $order_total - $order_completed - $order_cancelled;
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <link rel="stylesheet" href="../../assets/css/main.css">
+    <style>
+        .order-card__cancel-note {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin: 8px 0;
+            padding: 8px 12px;
+            background: #fbe9e7;
+            color: #d9463c;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .order-card__cancel-note i {
+            margin-top: 2px;
+        }
+    </style>
 </head>
 
 <body class="acct-page">
@@ -392,7 +410,8 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                                          data-date="<?php echo htmlspecialchars($placed_text); ?>"
                                          data-total="₱<?php echo number_format($order['total_amount'], 2); ?>"
                                          data-proof="<?php echo htmlspecialchars($proof_url); ?>"
-                                         data-items="<?php echo (int) $order['item_count']; ?>">
+                                         data-items="<?php echo (int) $order['item_count']; ?>"
+                                         data-cancel-reason="<?php echo htmlspecialchars($order['cancellation_reason'] ?? ''); ?>">
                                     <div class="order-card__top">
                                         <div class="order-card__id">
                                             <h3><?php echo htmlspecialchars($order['title']); ?></h3>
@@ -401,6 +420,12 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                                         </div>
                                         <div class="order-card__amount">₱<?php echo number_format($order['total_amount'], 2); ?></div>
                                     </div>
+                                    <?php if ($status_class === 'cancelled' && !empty($order['cancellation_reason'])): ?>
+                                        <div class="order-card__cancel-note">
+                                            <i class="fas fa-ban"></i>
+                                            <span><strong>Reason:</strong> <?php echo htmlspecialchars($order['cancellation_reason']); ?></span>
+                                        </div>
+                                    <?php endif; ?>
                                     <div class="order-card__foot">
                                         <span><i class="far fa-calendar"></i> <?php echo htmlspecialchars($placed_text); ?></span>
                                         <span>
@@ -692,9 +717,12 @@ $order_active = $order_total - $order_completed - $order_cancelled;
             if (d.status === 'completed') current = STEPS.length; // every step done
 
             if (d.status === 'cancelled') {
+                var reasonHtml = d.cancelReason
+                    ? '<strong>This order was cancelled.</strong> Reason: ' + escapeHtml(d.cancelReason)
+                    : '<strong>This order was cancelled.</strong> Chat with us if you have any questions.';
                 progressEl.appendChild(make('p', 'acct-modal__alert',
                     '<i class="fas fa-ban" aria-hidden="true"></i>' +
-                    '<span><strong>This order was cancelled.</strong> Chat with us if you have any questions.</span>'));
+                    '<span>' + reasonHtml + '</span>'));
             } else if (current > -1) {
                 var list = make('ol', 'acct-tracker');
                 list.setAttribute('aria-label', 'Order progress');

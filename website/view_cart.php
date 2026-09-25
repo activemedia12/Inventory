@@ -43,7 +43,8 @@ $query = "SELECT p.id, p.product_name, p.price AS unit_price, p.category AS prod
                  bo.option_name AS binding_option_name,
                  lo.option_name AS layout_option_name,
                  c.cart_id,
-                pri.admin_notes, pri.status AS pricing_status
+                pri.admin_notes, pri.status AS pricing_status,
+                pr2.request_date AS quote_request_date
           FROM cart_items ci
           JOIN products_offered p ON ci.product_id = p.id
           JOIN carts c ON ci.cart_id = c.cart_id
@@ -52,6 +53,7 @@ $query = "SELECT p.id, p.product_name, p.price AS unit_price, p.category AS prod
           LEFT JOIN binding_options bo ON ci.binding_option = bo.id
           LEFT JOIN layout_options lo ON ci.layout_option = lo.id
           LEFT JOIN pricing_requests_items pri ON ci.item_id = pri.cart_item_id
+          LEFT JOIN pricing_requests pr2 ON pr2.cart_id = c.cart_id AND pr2.status = 'pending'
           WHERE c.user_id = ?
           ORDER BY ci.added_at DESC";
 
@@ -80,6 +82,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['selected_items'])) {
 
 $selected_total = 0;
 $selected_confirmed_count = 0;
+$unconfirmed_selected_items = [];
+$unconfirmed_selected_total = 0;
 foreach ($cart_items as $item) {
     if (in_array($item['item_id'], $selected_items)) {
         // Use admin price if available, otherwise use unit price
@@ -88,7 +92,13 @@ foreach ($cart_items as $item) {
             ? $item['quoted_price']
             : $item['unit_price'];
         $selected_total += $actual_price * $item['quantity'];
-        if ($item_is_confirmed) $selected_confirmed_count++;
+        if ($item_is_confirmed) {
+            $selected_confirmed_count++;
+        } else {
+            // Only items still awaiting a store-confirmed price should go into a new request
+            $unconfirmed_selected_items[] = $item['item_id'];
+            $unconfirmed_selected_total += $item['unit_price'] * $item['quantity'];
+        }
     }
 }
 // True when every currently-selected item already has a store-confirmed
@@ -110,16 +120,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_pricing'])) {
         error_log("Selected Total: $selected_total");
 
         // Store the selected items in session for the pricing request
-        $_SESSION['pricing_request_items'] = $selected_items;
+        $_SESSION['pricing_request_items'] = $unconfirmed_selected_items;
 
         // Send notification to admin and save to database
-        $request_id = sendPricingRequestNotification($user_id, $selected_items, $selected_total);
+        // Only items still awaiting a confirmed price go into the request —
+        // already-quoted items in the same selection are excluded so they
+        // don't get re-sent to the admin.
+        $request_id = sendPricingRequestNotification($user_id, $unconfirmed_selected_items, $unconfirmed_selected_total);
 
         if ($request_id) {
             error_log("SUCCESS: Pricing request created with ID: $request_id");
             unset($_SESSION['selected_cart_items']);
+            $quote_deadline = cart_quote_deadline_text();
             echo "<script>
-                alert('Your pricing request #$request_id has been sent to our team. We will contact you shortly with the final pricing.');
+                alert('Your pricing request #$request_id has been sent to our team. Expect your quote by $quote_deadline.');
                 window.location.href = 'view_cart.php';
             </script>";
         } else {
@@ -262,6 +276,65 @@ function cart_h($v)
     return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
 }
 
+// Per-item ETA once a quote request has been sent: request time + 3 hours.
+function cart_item_quote_eta_text($request_date)
+{
+    if (empty($request_date)) {
+        return null;
+    }
+    try {
+        $requestedAt = new DateTime($request_date);
+    } catch (Exception $e) {
+        return null;
+    }
+    $expectBy = (clone $requestedAt)->modify('+3 hours');
+    $now = new DateTime('now');
+
+    if ($expectBy->format('Y-m-d') === $now->format('Y-m-d')) {
+        return $expectBy->format('g:i A') . ' today';
+    }
+    if ($expectBy->format('Y-m-d') === (clone $now)->modify('+1 day')->format('Y-m-d')) {
+        return $expectBy->format('g:i A') . ' tomorrow';
+    }
+    return $expectBy->format('l, M j \a\t g:i A');
+}
+// is the goal whenever there's still time left in today's business hours.
+function cart_quote_deadline_text()
+{
+    $now = new DateTime('now');
+    $dayOfWeek = (int) $now->format('N'); // 1 = Monday ... 7 = Sunday
+    $hour = (int) $now->format('G');
+
+    $isBusinessDay = $dayOfWeek >= 1 && $dayOfWeek <= 6; // Mon-Sat
+    $stillOpenToday = $isBusinessDay && $hour < 18;      // before 6 PM
+
+    if ($stillOpenToday) {
+        // There's still time today — quote today, no need to wait for tomorrow.
+        return 'today by 6 PM';
+    }
+
+    // Shop is closed for the day (or it's Sunday) — push to the next business day.
+    $deadline = clone $now;
+    if ($dayOfWeek === 7) {
+        $deadline->modify('next monday');
+    } elseif ($dayOfWeek === 6) {
+        // After hours Saturday -> shop closed Sunday -> next open day is Monday
+        $deadline->modify('next monday');
+    } else {
+        $deadline->modify('+1 day');
+        if ((int) $deadline->format('N') === 7) {
+            $deadline->modify('+1 day'); // skip Sunday
+        }
+    }
+
+    // "tomorrow" reads better than a weekday name when it genuinely is tomorrow
+    $tomorrow = (clone $now)->modify('+1 day')->format('Y-m-d');
+    if ($deadline->format('Y-m-d') === $tomorrow) {
+        return 'tomorrow by 6 PM';
+    }
+    return $deadline->format('l, M j') . ' by 6 PM';
+}
+
 function cart_str($v)
 {
     return is_scalar($v) ? (string)$v : '';
@@ -320,6 +393,27 @@ function cart_design_tile($label, $file, $icon = 'fa-file-image')
         echo '<div class="design-missing" title="Preview not available"><i class="fas ' . cart_h($icon) . '"></i></div>';
     }
     echo '<figcaption>' . cart_h($label) . '</figcaption></figure>';
+}
+
+// Layout files are saved by service_detail.php with its own relative prefix baked in
+// (e.g. "../../assets/uploads/user_layouts/5/layout_xyz.jpg"). Normalize to a path
+// that's correct relative to *this* page regardless of how many "../" segments were stored.
+function cart_layout_file_url($stored_path)
+{
+    $pos = strpos($stored_path, 'assets/uploads/');
+    if ($pos === false) {
+        return null;
+    }
+    return '../' . substr($stored_path, $pos);
+}
+
+function cart_layout_files_list($raw)
+{
+    $files = json_decode($raw, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($files)) {
+        return [];
+    }
+    return $files;
 }
 
 function cart_step_class($n, $current)
@@ -996,6 +1090,15 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             color: var(--riso-red);
         }
 
+        .pricing-status-alert.pending {
+            background: rgba(182, 121, 10, 0.07);
+            border-color: rgba(182, 121, 10, 0.3);
+        }
+
+        .pricing-status-alert.pending>i {
+            color: #b6790a;
+        }
+
         /* Job specs */
         .printing-details {
             margin-top: 16px;
@@ -1627,7 +1730,11 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
                                     <li>Urgency of the order</li>
                                     <li>Quantity adjustments</li>
                                 </ul>
-                                <p>Select your items and choose <strong>Request price confirmation</strong>. We'll review your requirements and send back the exact price.</p>
+                                <p>Select your items and choose <strong>Requote</strong>. We'll review your requirements and send back the exact price.</p>
+                                <p class="quote-turnaround-note" style="margin-top:8px;font-size:13px;color:#6b7280;">
+                                    <i class="fas fa-bolt" aria-hidden="true"></i>
+                                    We quote most requests <strong>the same day</strong> during business hours (Mon&ndash;Sat, 8 AM&ndash;6 PM) &mdash; 1 business day max.
+                                </p>
                             </div>
                         </details>
 
@@ -1707,6 +1814,20 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
                                                     <strong>Pricing request cancelled</strong>
                                                     <p>Your pricing request for this item has been cancelled. Contact us for details, or remove the item from your cart.</p>
                                                 </div>
+                                            <?php elseif ($status === 'pending'):
+                                                $item_eta = cart_item_quote_eta_text($row['quote_request_date'] ?? null);
+                                            ?>
+                                                <div class="pricing-status-alert pending">
+                                                    <i class="fas fa-hourglass-half"></i>
+                                                    <strong>Quote in progress</strong>
+                                                    <p>
+                                                        <?php if ($item_eta): ?>
+                                                            Expect this item to be quoted on or before <strong><?php echo cart_h($item_eta); ?></strong>.
+                                                        <?php else: ?>
+                                                            We're working on this one — expect a quote within 1 business day.
+                                                        <?php endif; ?>
+                                                    </p>
+                                                </div>
                                             <?php endif; ?>
 
                                             <?php
@@ -1770,6 +1891,36 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
                                                             </div>
                                                         <?php endif; ?>
                                                     </div>
+                                                </div>
+                                            <?php endif; ?>
+
+                                            <?php
+                                            $layout_files = !empty($row['user_layout_files']) ? cart_layout_files_list($row['user_layout_files']) : [];
+                                            if (!empty($layout_files)):
+                                            ?>
+                                                <div class="custom-design">
+                                                    <div class="custom-design-title">
+                                                        <i class="fas fa-file-upload"></i> Your uploaded layout file<?php echo count($layout_files) > 1 ? 's' : ''; ?>
+                                                    </div>
+                                                    <ul class="design-files" style="list-style:none;padding:0;margin:0;">
+                                                        <?php foreach ($layout_files as $lf):
+                                                            $url = cart_layout_file_url($lf);
+                                                            $name = basename($lf);
+                                                            $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+                                                            $icon = $ext === 'pdf' ? 'fa-file-pdf' : 'fa-file-image';
+                                                        ?>
+                                                            <li style="margin-bottom:4px;">
+                                                                <?php if ($url && file_exists($url)): ?>
+                                                                    <a href="<?php echo cart_h($url); ?>" target="_blank" rel="noopener">
+                                                                        <i class="fas <?php echo cart_h($icon); ?>"></i> <?php echo cart_h($name); ?>
+                                                                    </a>
+                                                                <?php else: ?>
+                                                                    <i class="fas <?php echo cart_h($icon); ?>"></i> <?php echo cart_h($name); ?>
+                                                                    <small style="color:#999;">(file not found)</small>
+                                                                <?php endif; ?>
+                                                            </li>
+                                                        <?php endforeach; ?>
+                                                    </ul>
                                                 </div>
                                             <?php endif; ?>
 
@@ -1877,6 +2028,7 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
                                                 All <?php echo $total_selected_items; ?> selected items are waiting for the store to confirm pricing.
                                             <?php endif; ?>
                                             Checkout opens once every selected item is confirmed.
+                                            Expect your quote by <strong><?php echo cart_h(cart_quote_deadline_text()); ?></strong>.
                                         </p>
                                     </div>
                                 <?php endif; ?>

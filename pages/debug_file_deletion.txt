@@ -1965,3 +1965,74 @@ Actual path: ../../assets/uploads/user_layouts/16/1789962433_1000074276.jpg
 Total layout files deleted: 1
 === END DELETE USER LAYOUT FILES DEBUG ===
 
+=== DELETE DESIGN FILES DEBUG ===
+User ID: 16
+Raw design_image: {\"front_mockup\":\"save_design/16/front_mockup_1790300009_b52bb785bb6f542d.png\",\"back_mockup\":\"save_design/16/back_mockup_1790300009_8ef853de91233f30.png\",\"front_uploaded_file\":\"save_design/16/front_design_18f6a86e5c58525f86ec93dc_IMG_1270.jpeg\",\"back_uploaded_file\":\"save_design/16/back_design_e7934dd11b9d3d4903ad2fe8_818516754_4522873474706592_6082289198299858523_n.jpg\",\"upload_type\":\"both_sides\",\"has_front_design\":\"1\",\"has_back_design\":\"1\",\"front_design_position\":{\"x\":447,\"y\":134,\"width\":50,\"height\":65},\"back_design_position\":{\"x\":342,\"y\":131,\"width\":135,\"height\":178}}
+Found escaped JSON, unescaping...
+✅ JSON parsed successfully
+Design data: Array
+(
+    [front_mockup] => save_design/16/front_mockup_1790300009_b52bb785bb6f542d.png
+    [back_mockup] => save_design/16/back_mockup_1790300009_8ef853de91233f30.png
+    [front_uploaded_file] => save_design/16/front_design_18f6a86e5c58525f86ec93dc_IMG_1270.jpeg
+    [back_uploaded_file] => save_design/16/back_design_e7934dd11b9d3d4903ad2fe8_818516754_4522873474706592_6082289198299858523_n.jpg
+    [upload_type] => both_sides
+    [has_front_design] => 1
+    [has_back_design] => 1
+    [front_design_position] => Array
+        (
+            [x] => 447
+            [y] => 134
+            [width] => 50
+            [height] => 65
+        )
+
+    [back_design_position] => Array
+        (
+            [x] => 342
+            [y] => 131
+            [width] => 135
+            [height] => 178
+        )
+
+)
+
+Separate upload type detected
+Files to delete: Array
+(
+    [0] => save_design/16/front_mockup_1790300009_b52bb785bb6f542d.png
+    [1] => save_design/16/back_mockup_1790300009_8ef853de91233f30.png
+    [2] => save_design/16/front_design_18f6a86e5c58525f86ec93dc_IMG_1270.jpeg
+    [3] => save_design/16/back_design_e7934dd11b9d3d4903ad2fe8_818516754_4522873474706592_6082289198299858523_n.jpg
+)
+
+Processing: save_design/16/front_mockup_1790300009_b52bb785bb6f542d.png
+Actual path: ../../assets/uploads/save_design/16/front_mockup_1790300009_b52bb785bb6f542d.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_mockup_1790300009_b52bb785bb6f542d.png
+Processing: save_design/16/back_mockup_1790300009_8ef853de91233f30.png
+Actual path: ../../assets/uploads/save_design/16/back_mockup_1790300009_8ef853de91233f30.png
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_mockup_1790300009_8ef853de91233f30.png
+Processing: save_design/16/front_design_18f6a86e5c58525f86ec93dc_IMG_1270.jpeg
+Actual path: ../../assets/uploads/save_design/16/front_design_18f6a86e5c58525f86ec93dc_IMG_1270.jpeg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/front_design_18f6a86e5c58525f86ec93dc_IMG_1270.jpeg
+Processing: save_design/16/back_design_e7934dd11b9d3d4903ad2fe8_818516754_4522873474706592_6082289198299858523_n.jpg
+Actual path: ../../assets/uploads/save_design/16/back_design_e7934dd11b9d3d4903ad2fe8_818516754_4522873474706592_6082289198299858523_n.jpg
+✅ SUCCESS: Deleted ../../assets/uploads/save_design/16/back_design_e7934dd11b9d3d4903ad2fe8_818516754_4522873474706592_6082289198299858523_n.jpg
+Total design files deleted: 4
+=== END DELETE DESIGN FILES DEBUG ===
+
+=== DELETE USER LAYOUT FILES DEBUG ===
+User ID: 16
+Raw layout data: ["..\/..\/assets\/uploads\/user_layouts\/16\/layout_cdad85d31fca66ebba2a62e2_726265E88C2F.pdf"]
+✅ JSON parsed successfully
+Layout files: Array
+(
+    [0] => ../../assets/uploads/user_layouts/16/layout_cdad85d31fca66ebba2a62e2_726265E88C2F.pdf
+)
+
+Processing: ../../assets/uploads/user_layouts/16/layout_cdad85d31fca66ebba2a62e2_726265E88C2F.pdf
+Actual path: ../../assets/uploads/user_layouts/16/layout_cdad85d31fca66ebba2a62e2_726265E88C2F.pdf
+✅ SUCCESS: Deleted ../../assets/uploads/user_layouts/16/layout_cdad85d31fca66ebba2a62e2_726265E88C2F.pdf
+Total layout files deleted: 1
+=== END DELETE USER LAYOUT FILES DEBUG ===
+

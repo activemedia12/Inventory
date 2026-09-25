@@ -2006,8 +2006,8 @@ $main_image = $product_images[0];
             if (layoutValue == 1) { // Assuming 1 is the ID for "User Layout"
                 layoutInputContainer.innerHTML = `
                     <label for="userLayoutUpload" class="pd-label required-field">Upload your design files</label>
-                    <input type="file" id="userLayoutUpload" class="pd-file" name="user_layout_upload[]" multiple accept="image/*,.pdf,.ai,.psd">
-                    <small class="pd-hint">You can upload multiple files (images, PDF, AI, PSD)</small>
+                    <input type="file" id="userLayoutUpload" class="pd-file" name="user_layout_upload[]" multiple accept="image/jpeg,image/png,.jpg,.jpeg,.png,.pdf,application/pdf">
+                    <small class="pd-hint">You can upload multiple files (JPEG, PNG, or PDF only)</small>
                     <div id="userLayoutPreview" class="pd-filelist"></div>
                 `;
 
@@ -2015,27 +2015,68 @@ $main_image = $product_images[0];
                 setTimeout(() => {
                     const uploadInput = document.getElementById('userLayoutUpload');
                     if (uploadInput) {
+                        let accumulatedLayoutFiles = [];
+
                         uploadInput.addEventListener('change', function(e) {
-                            const files = e.target.files;
+                            const newFiles = Array.from(e.target.files);
                             const previewContainer = document.getElementById('userLayoutPreview');
                             previewContainer.innerHTML = '';
 
-                            if (files.length > 0) {
+                            const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+                            const allowedExts = ['.jpg', '.jpeg', '.png', '.pdf'];
+                            const rejectedNames = [];
+
+                            newFiles.forEach(function(file) {
+                                const nameLower = file.name.toLowerCase();
+                                const extOk = allowedExts.some(ext => nameLower.endsWith(ext));
+                                const typeOk = allowedTypes.includes(file.type);
+                                const alreadyAdded = accumulatedLayoutFiles.some(f => f.name === file.name && f.size === file.size);
+                                if (extOk && (typeOk || file.type === '') && !alreadyAdded) {
+                                    accumulatedLayoutFiles.push(file);
+                                } else if (!extOk || !(typeOk || file.type === '')) {
+                                    rejectedNames.push(file.name);
+                                }
+                            });
+
+                            if (rejectedNames.length > 0) {
+                                alert('These files were not accepted (only JPEG, PNG, and PDF are allowed):\n' + rejectedNames.join('\n'));
+                            }
+
+                            // Rebuild the input's FileList so the form submits every accumulated file
+                            const dt = new DataTransfer();
+                            accumulatedLayoutFiles.forEach(f => dt.items.add(f));
+                            uploadInput.files = dt.files;
+
+                            if (accumulatedLayoutFiles.length > 0) {
                                 const title = document.createElement('p');
                                 title.className = 'pd-filelist__title';
                                 title.textContent = 'Uploaded files';
                                 previewContainer.appendChild(title);
 
-                                for (let i = 0; i < files.length; i++) {
-                                    const file = files[i];
+                                accumulatedLayoutFiles.forEach(function(file, idx) {
                                     const row = document.createElement('div');
                                     row.className = 'pd-filelist__item';
                                     row.innerHTML = '<i class="fas fa-file"></i>';
                                     const label = document.createElement('span');
                                     label.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
                                     row.appendChild(label);
+
+                                    const removeBtn = document.createElement('button');
+                                    removeBtn.type = 'button';
+                                    removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                                    removeBtn.title = 'Remove this file';
+                                    removeBtn.style.cssText = 'margin-left:8px;border:none;background:transparent;color:#d9463c;cursor:pointer;font-size:12px;';
+                                    removeBtn.addEventListener('click', function() {
+                                        accumulatedLayoutFiles.splice(idx, 1);
+                                        const dt2 = new DataTransfer();
+                                        accumulatedLayoutFiles.forEach(f => dt2.items.add(f));
+                                        uploadInput.files = dt2.files;
+                                        uploadInput.dispatchEvent(new Event('change'));
+                                    });
+                                    row.appendChild(removeBtn);
+
                                     previewContainer.appendChild(row);
-                                }
+                                });
                             }
                         });
                     }

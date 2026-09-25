@@ -18,10 +18,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (isset($_POST['update_status'])) {
     $order_id = $_POST['order_id'];
     $new_status = $_POST['status'];
+    $cancel_reason = isset($_POST['cancel_reason']) ? trim($_POST['cancel_reason']) : '';
 
-    $query = "UPDATE orders SET status = ?, updated_at = NOW() WHERE order_id = ?";
-    $stmt = $inventory->prepare($query);
-    $stmt->bind_param("si", $new_status, $order_id);
+    if ($new_status === 'cancelled' && $cancel_reason === '') {
+        $_SESSION['error'] = "Please provide a reason for cancelling order #$order_id!";
+        header("Location: admin_orders.php");
+        exit;
+    }
+
+    // Only overwrite the stored reason when cancelling; otherwise leave it as-is (or clear it if you'd rather)
+    if ($new_status === 'cancelled') {
+        $query = "UPDATE orders SET status = ?, cancellation_reason = ?, updated_at = NOW() WHERE order_id = ?";
+        $stmt = $inventory->prepare($query);
+        $stmt->bind_param("ssi", $new_status, $cancel_reason, $order_id);
+    } else {
+        $query = "UPDATE orders SET status = ?, updated_at = NOW() WHERE order_id = ?";
+        $stmt = $inventory->prepare($query);
+        $stmt->bind_param("si", $new_status, $order_id);
+    }
 
     if ($stmt->execute()) {
         $_SESSION['message'] = "Order #$order_id status updated to " . ucfirst($new_status) . "!";
@@ -366,6 +380,32 @@ while ($row = $orders_result->fetch_assoc()) {
             color: var(--success);
         }
 
+        .status-cancelled {
+            background: var(--danger-bg);
+            color: var(--danger);
+        }
+
+        .cancel-reason-input {
+            padding: 7px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--light-gray);
+            background: var(--card-bg);
+            font-size: 12px;
+            color: var(--dark);
+            min-width: 160px;
+        }
+
+        .cancel-reason-input:focus {
+            outline: none;
+            border-color: var(--danger);
+        }
+
+        .cancel-reason-note {
+            font-size: 11px;
+            color: var(--gray);
+            margin-top: 4px;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .main-content {
@@ -420,6 +460,7 @@ while ($row = $orders_result->fetch_assoc()) {
                     <option value="processing">Processing</option>
                     <option value="ready_for_pickup">Ready for Pickup</option>
                     <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
                 </select>
                 <button class="search-btn" onclick="filterOrders()">
                     <i class="fas fa-search"></i> Filter
@@ -456,7 +497,10 @@ while ($row = $orders_result->fetch_assoc()) {
                                 </td>
                                 <td><strong>₱<?php echo number_format($order['total_amount'], 2); ?></strong></td>
                                 <td>
-                                    <span class="status-badge status-<?php echo $order['status']; ?>">
+                                    <span class="status-badge status-<?php echo $order['status']; ?>"
+                                        <?php if ($order['status'] === 'cancelled' && !empty($order['cancellation_reason'])): ?>
+                                            title="Reason: <?php echo esc_html($order['cancellation_reason']); ?>"
+                                        <?php endif; ?>>
                                         <?php echo ucfirst(str_replace('_', ' ', $order['status'])); ?>
                                     </span>
                                 </td>
@@ -482,16 +526,21 @@ while ($row = $orders_result->fetch_assoc()) {
                                 </td>
                                 <td>
                                     <div class="order-actions">
-                                        <form method="post" class="status-form">
+                                        <form method="post" class="status-form" onsubmit="return validateCancelReason(this);">
 <?php echo csrf_field(); ?>
                                             <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
-                                            <select name="status" class="status-select">
+                                            <select name="status" class="status-select" onchange="toggleCancelReason(this);">
                                                 <option value="pending" <?php echo $order['status'] == 'pending' ? 'selected' : ''; ?>>Pending</option>
                                                 <option value="paid" <?php echo $order['status'] == 'paid' ? 'selected' : ''; ?>>Paid</option>
                                                 <option value="processing" <?php echo $order['status'] == 'processing' ? 'selected' : ''; ?>>Processing</option>
                                                 <option value="ready_for_pickup" <?php echo $order['status'] == 'ready_for_pickup' ? 'selected' : ''; ?>>Ready for Pickup</option>
                                                 <option value="completed" <?php echo $order['status'] == 'completed' ? 'selected' : ''; ?>>Completed</option>
+                                                <option value="cancelled" <?php echo $order['status'] == 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
                                             </select>
+                                            <input type="text" name="cancel_reason" class="cancel-reason-input"
+                                                placeholder="Reason for cancellation"
+                                                value="<?php echo $order['status'] == 'cancelled' ? esc_html($order['cancellation_reason'] ?? '') : ''; ?>"
+                                                style="display: <?php echo $order['status'] == 'cancelled' ? 'inline-block' : 'none'; ?>;">
                                             <button type="submit" name="update_status" class="update-btn" title="Update Status">
                                                 <i class="fas fa-sync"></i> Update
                                             </button>
@@ -523,6 +572,27 @@ while ($row = $orders_result->fetch_assoc()) {
                 }, 3000);
             });
         });
+
+        function toggleCancelReason(select) {
+            const reasonInput = select.closest('.status-form').querySelector('.cancel-reason-input');
+            if (select.value === 'cancelled') {
+                reasonInput.style.display = 'inline-block';
+            } else {
+                reasonInput.style.display = 'none';
+                reasonInput.value = '';
+            }
+        }
+
+        function validateCancelReason(form) {
+            const status = form.querySelector('.status-select').value;
+            const reasonInput = form.querySelector('.cancel-reason-input');
+            if (status === 'cancelled' && reasonInput.value.trim() === '') {
+                alert('Please enter a reason for cancelling this order.');
+                reasonInput.focus();
+                return false;
+            }
+            return true;
+        }
 
         function filterOrders() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
