@@ -239,6 +239,69 @@ $status_distribution_stmt = $inventory->prepare($status_distribution_query);
 $status_distribution_stmt->bind_param($types, ...$params);
 $status_distribution_stmt->execute();
 $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// Build a structured export payload for the currently active report.
+// This drives the "Export CSV" button: it carries the summary stats plus
+// every detail table's rows (not just whatever happens to be visible on
+// screen), so the export is complete even while the detail table below is
+// collapsed.
+$export_payload = [
+    'report_type' => $report_type,
+    'date_range' => "$start_date to $end_date",
+    'summary' => [],
+    'sections' => [],
+];
+
+if ($report_type === 'sales') {
+    $export_payload['summary'] = [
+        'Total Orders' => $sales_data['total_orders'],
+        'Total Revenue' => round((float) $sales_data['total_revenue'], 2),
+        'Average Order Value' => round((float) $sales_data['avg_order_value'], 2),
+        'Unique Customers' => $sales_data['unique_customers'],
+    ];
+    $export_payload['sections'][] = [
+        'title' => 'Top Selling Products',
+        'headers' => ['Product', 'Quantity Sold', 'Total Revenue'],
+        'rows' => array_map(function ($p) { return [$p['product_name'], $p['total_sold'], round((float) $p['total_revenue'], 2)]; }, $top_products),
+    ];
+} elseif ($report_type === 'customers') {
+    $export_payload['summary'] = [
+        'Active Customers' => $customer_stats['active_customers'],
+        'Avg Orders per Customer' => round((float) $customer_stats['avg_orders_per_customer'], 1),
+        'Avg Customer Value' => round((float) $customer_stats['avg_customer_value'], 2),
+    ];
+    $export_payload['sections'][] = [
+        'title' => 'Top Customers',
+        'headers' => ['Customer', 'Username', 'Orders', 'Total Spent'],
+        'rows' => array_map(
+            function ($c) {
+                return [trim($c['first_name'] . ' ' . $c['last_name']), $c['username'], $c['order_count'], round((float) $c['total_spent'], 2)];
+            },
+            $top_customers
+        ),
+    ];
+} elseif ($report_type === 'products') {
+    $export_payload['sections'][] = [
+        'title' => 'Product Performance',
+        'headers' => ['Product', 'Category', 'Price', 'Times Ordered', 'Total Quantity', 'Total Revenue'],
+        'rows' => array_map(
+            function ($p) {
+                return [$p['product_name'], $p['category'], round((float) $p['price'], 2), $p['times_ordered'], $p['total_quantity'], round((float) $p['total_revenue'], 2)];
+            },
+            $product_performance
+        ),
+    ];
+    $export_payload['sections'][] = [
+        'title' => 'Category Performance',
+        'headers' => ['Category', 'Total Orders', 'Total Quantity', 'Total Revenue'],
+        'rows' => array_map(
+            function ($c) {
+                return [$c['category'], $c['total_orders'], $c['total_quantity'], round((float) $c['total_revenue'], 2)];
+            },
+            $category_performance
+        ),
+    ];
+}
 ?>
 
 <!DOCTYPE html>
@@ -565,6 +628,21 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
             margin-bottom: 20px;
         }
 
+        .detail-toggle-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .detail-toggle-btn i {
+            transition: transform 0.15s ease;
+        }
+
+        .detail-tables.collapsed {
+            display: none;
+        }
+
         .table {
             width: 100%;
             border-collapse: collapse;
@@ -755,27 +833,35 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
                     </div>
                 </div>
 
-                <!-- Top Products -->
-                <div class="data-table">
-                    <h3 style="padding: 20px 20px 0; margin: 0;">Top Selling Products</h3>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Quantity Sold</th>
-                                <th>Total Revenue</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($top_products as $product): ?>
+                <!-- Detailed table toggle -->
+                <button type="button" class="btn btn-secondary detail-toggle-btn" onclick="toggleDetailTable()">
+                    <i id="toggleDetailIcon" class="fas fa-chevron-down"></i>
+                    <span id="toggleDetailLabel">Show Detailed Table</span>
+                </button>
+
+                <div id="detailTables" class="detail-tables collapsed">
+                    <!-- Top Products -->
+                    <div class="data-table">
+                        <h3 style="padding: 20px 20px 0; margin: 0;">Top Selling Products</h3>
+                        <table class="table">
+                            <thead>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($product['product_name']); ?></td>
-                                    <td><?php echo $product['total_sold']; ?></td>
-                                    <td>₱<?php echo number_format($product['total_revenue'], 2); ?></td>
+                                    <th>Product</th>
+                                    <th>Quantity Sold</th>
+                                    <th>Total Revenue</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($top_products as $product): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($product['product_name']); ?></td>
+                                        <td><?php echo $product['total_sold']; ?></td>
+                                        <td>₱<?php echo number_format($product['total_revenue'], 2); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             <?php endif; ?>
 
@@ -800,94 +886,132 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
                     </div>
                 </div>
 
-                <!-- Top Customers -->
-                <div class="data-table">
-                    <h3 style="padding: 20px 20px 0; margin: 0;">Top Customers</h3>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Customer</th>
-                                <th>Orders</th>
-                                <th>Total Spent</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($top_customers as $customer): ?>
+                <!-- Detailed table toggle -->
+                <button type="button" class="btn btn-secondary detail-toggle-btn" onclick="toggleDetailTable()">
+                    <i id="toggleDetailIcon" class="fas fa-chevron-down"></i>
+                    <span id="toggleDetailLabel">Show Detailed Table</span>
+                </button>
+
+                <div id="detailTables" class="detail-tables collapsed">
+                    <!-- Top Customers -->
+                    <div class="data-table">
+                        <h3 style="padding: 20px 20px 0; margin: 0;">Top Customers</h3>
+                        <table class="table">
+                            <thead>
                                 <tr>
-                                    <td>
-                                        <?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>
-                                        <br>
-                                        <small style="color: var(--gray);"><?php echo htmlspecialchars($customer['username']); ?></small>
-                                    </td>
-                                    <td><?php echo $customer['order_count']; ?></td>
-                                    <td>₱<?php echo number_format($customer['total_spent'], 2); ?></td>
+                                    <th>Customer</th>
+                                    <th>Orders</th>
+                                    <th>Total Spent</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($top_customers as $customer): ?>
+                                    <tr>
+                                        <td>
+                                            <?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>
+                                            <br>
+                                            <small style="color: var(--gray);"><?php echo htmlspecialchars($customer['username']); ?></small>
+                                        </td>
+                                        <td><?php echo $customer['order_count']; ?></td>
+                                        <td>₱<?php echo number_format($customer['total_spent'], 2); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             <?php endif; ?>
 
             <!-- Product Report -->
-            <?php if ($report_type === 'products'): ?>
-                <!-- Product Performance -->
-                <div class="data-table">
-                    <h3 style="padding: 20px 20px 0; margin: 0;">Product Performance</h3>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Category</th>
-                                <th>Price</th>
-                                <th>Times Ordered</th>
-                                <th>Total Quantity</th>
-                                <th>Total Revenue</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($product_performance as $product):
-                                $category_class = 'category-' . strtolower(str_replace(' ', '-', $product['category']));
-                            ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($product['product_name']); ?></td>
-                                    <td>
-                                        <span class="category-badge <?php echo $category_class; ?>">
-                                            <?php echo htmlspecialchars($product['category']); ?>
-                                        </span>
-                                    </td>
-                                    <td>₱<?php echo number_format($product['price'], 2); ?></td>
-                                    <td><?php echo $product['times_ordered']; ?></td>
-                                    <td><?php echo $product['total_quantity']; ?></td>
-                                    <td>₱<?php echo number_format($product['total_revenue'], 2); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+            <?php if ($report_type === 'products'):
+                $products_total_revenue = array_sum(array_column($category_performance, 'total_revenue'));
+                $top_category = $category_performance[0]['category'] ?? '—';
+            ?>
+                <!-- Product Summary -->
+                <div class="stats-grid">
+                    <div class="stat-card orders">
+                        <i class="fas fa-box"></i>
+                        <div class="stat-number"><?php echo count($product_performance); ?></div>
+                        <div class="stat-label">Products Listed</div>
+                    </div>
+                    <div class="stat-card revenue">
+                        <i class="fas fa-money-bill-wave"></i>
+                        <div class="stat-number">₱<?php echo number_format($products_total_revenue, 2); ?></div>
+                        <div class="stat-label">Total Revenue</div>
+                    </div>
+                    <div class="stat-card customers">
+                        <i class="fas fa-crown"></i>
+                        <div class="stat-number" style="font-size: 1.1rem;"><?php echo htmlspecialchars($top_category); ?></div>
+                        <div class="stat-label">Top Category</div>
+                    </div>
                 </div>
 
-                <!-- Category Performance -->
-                <div class="data-table">
-                    <h3 style="padding: 20px 20px 0; margin: 0;">Category Performance</h3>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Category</th>
-                                <th>Total Orders</th>
-                                <th>Total Quantity</th>
-                                <th>Total Revenue</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($category_performance as $category): ?>
+                <!-- Detailed table toggle -->
+                <button type="button" class="btn btn-secondary detail-toggle-btn" onclick="toggleDetailTable()">
+                    <i id="toggleDetailIcon" class="fas fa-chevron-down"></i>
+                    <span id="toggleDetailLabel">Show Detailed Table</span>
+                </button>
+
+                <div id="detailTables" class="detail-tables collapsed">
+                    <!-- Product Performance -->
+                    <div class="data-table">
+                        <h3 style="padding: 20px 20px 0; margin: 0;">Product Performance</h3>
+                        <table class="table">
+                            <thead>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($category['category']); ?></td>
-                                    <td><?php echo $category['total_orders']; ?></td>
-                                    <td><?php echo $category['total_quantity']; ?></td>
-                                    <td>₱<?php echo number_format($category['total_revenue'], 2); ?></td>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>Price</th>
+                                    <th>Times Ordered</th>
+                                    <th>Total Quantity</th>
+                                    <th>Total Revenue</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($product_performance as $product):
+                                    $category_class = 'category-' . strtolower(str_replace(' ', '-', $product['category']));
+                                ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($product['product_name']); ?></td>
+                                        <td>
+                                            <span class="category-badge <?php echo $category_class; ?>">
+                                                <?php echo htmlspecialchars($product['category']); ?>
+                                            </span>
+                                        </td>
+                                        <td>₱<?php echo number_format($product['price'], 2); ?></td>
+                                        <td><?php echo $product['times_ordered']; ?></td>
+                                        <td><?php echo $product['total_quantity']; ?></td>
+                                        <td>₱<?php echo number_format($product['total_revenue'], 2); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Category Performance -->
+                    <div class="data-table">
+                        <h3 style="padding: 20px 20px 0; margin: 0;">Category Performance</h3>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Total Orders</th>
+                                    <th>Total Quantity</th>
+                                    <th>Total Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($category_performance as $category): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($category['category']); ?></td>
+                                        <td><?php echo $category['total_orders']; ?></td>
+                                        <td><?php echo $category['total_quantity']; ?></td>
+                                        <td>₱<?php echo number_format($category['total_revenue'], 2); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             <?php endif; ?>
         </div>
@@ -929,25 +1053,103 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
             return date.toISOString().split('T')[0];
         }
 
-        // Export report
+        // The full data behind the current report — summary stats plus every
+        // detail-table row — embedded once at page load so export works
+        // instantly and matches what was actually queried, regardless of
+        // whether the detail table below is expanded or collapsed.
+        const REPORT_EXPORT_DATA = <?php echo json_encode($export_payload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
+
+        // Turns one field into a safe CSV cell: wraps in quotes and escapes
+        // embedded quotes whenever the value contains a comma, quote or
+        // newline (the standard RFC 4180 rule), left alone otherwise.
+        function csvCell(value) {
+            const str = value === null || value === undefined ? '' : String(value);
+            if (/[",\n]/.test(str)) {
+                return '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
+        }
+
+        function csvRow(cells) {
+            return cells.map(csvCell).join(',') + '\r\n';
+        }
+
+        // Export report: builds a real CSV from REPORT_EXPORT_DATA and
+        // downloads it immediately — no server round-trip, no screenshot.
         function exportReport() {
+            const data = REPORT_EXPORT_DATA;
+            const titles = { sales: 'Sales Report', customers: 'Customer Report', products: 'Product Report' };
+
+            let csv = '';
+            csv += csvRow([titles[data.report_type] || 'Report']);
+            csv += csvRow(['Date Range', data.date_range]);
+            csv += '\r\n';
+
+            const summaryKeys = Object.keys(data.summary || {});
+            if (summaryKeys.length) {
+                csv += csvRow(['Summary']);
+                summaryKeys.forEach(key => {
+                    csv += csvRow([key, data.summary[key]]);
+                });
+                csv += '\r\n';
+            }
+
+            (data.sections || []).forEach(section => {
+                csv += csvRow([section.title]);
+                csv += csvRow(section.headers);
+                section.rows.forEach(row => {
+                    csv += csvRow(row);
+                });
+                csv += '\r\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const filename = `${data.report_type}_report_${data.date_range.replace(/ /g, '')}.csv`;
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            showToast('success', 'Report exported as CSV');
+        }
+
+        // Detailed-table toggle: the summary (stats + charts) is what most
+        // visits need, so the full row-by-row table stays collapsed until
+        // asked for.
+        function toggleDetailTable() {
+            const wrapper = document.getElementById('detailTables');
+            const label = document.getElementById('toggleDetailLabel');
+            const icon = document.getElementById('toggleDetailIcon');
+            if (!wrapper) return;
+            const isHidden = wrapper.classList.toggle('collapsed');
+            if (label) label.textContent = isHidden ? 'Show Detailed Table' : 'Hide Detailed Table';
+            if (icon) icon.className = isHidden ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
+        }
+
+        // Same shared toast pattern used on the other admin pages
+        function showToast(icon, text) {
+            const palette = {
+                success: { background: 'var(--success-bg)', iconColor: 'var(--success)', color: 'var(--success)' },
+                error: { background: 'var(--danger-bg)', iconColor: 'var(--danger)', color: 'var(--danger)' },
+                info: { background: 'var(--info-bg)', iconColor: 'var(--info)', color: 'var(--info)' }
+            };
+            const theme = palette[icon] || palette.info;
             Swal.fire({
-                title: 'Export Report',
-                text: 'This feature will export the current report as CSV file.',
-                icon: 'info',
-                showCancelButton: true,
-                confirmButtonText: 'Export CSV',
-                cancelButtonText: 'Cancel'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // Add export functionality here
-                    const form = document.getElementById('reportForm');
-                    form.target = '_blank';
-                    form.action = 'export_report.php';
-                    form.submit();
-                    form.target = '';
-                    form.action = '';
-                }
+                icon: icon,
+                title: icon === 'success' ? 'Success!' : icon === 'error' ? 'Error!' : text,
+                text: icon === 'info' ? undefined : text,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: icon === 'error' ? 4000 : 3000,
+                timerProgressBar: true,
+                background: theme.background,
+                iconColor: theme.iconColor,
+                color: theme.color
             });
         }
 
@@ -992,16 +1194,18 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
                             backgroundColor: [
                                 '#fdf2df', // pending
                                 '#e8f1fc', // paid
-                                '#e3f6ee', // processing
+                                '#f6f3e3', // processing
                                 '#eef1ff', // ready_for_pickup
-                                '#e3f6ee' // completed
+                                '#e3f6ee', // completed
+                                '#f6e3e3', // cancelled
                             ],
                             borderColor: [
                                 '#b6790a',
                                 '#2a7ade',
-                                '#1a9c6b',
+                                '#9c841a',
                                 '#4048e0',
-                                '#1a9c6b'
+                                '#1a9c6b',
+                                '#fc3737'
                             ],
                             borderWidth: 1
                         }]

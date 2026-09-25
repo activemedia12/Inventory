@@ -164,6 +164,28 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'empl
             font-size: 17px;
         }
 
+        /* Notification badge shown on a nav button when its page has new
+           data (e.g. unread chats, pending orders/price requests). Hidden
+           by default; toggled on by JS once counts come back > 0. */
+        .nav-badge {
+            display: none;
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            min-width: 16px;
+            height: 16px;
+            padding: 0 4px;
+            border-radius: 999px;
+            background: #ef4444;
+            color: #fff;
+            border: 2px solid var(--card-bg);
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1;
+            align-items: center;
+            justify-content: center;
+        }
+
         /* Tooltip label */
         .tooltip {
             position: absolute;
@@ -309,13 +331,15 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'empl
             <span class="tooltip">Customers</span>
         </button>
 
-        <button data-page="website/admin_orders.php" onclick="loadPage(this, 'website/admin_orders.php')" title="Orders" aria-label="Orders">
+        <button data-page="website/admin_orders.php" data-badge-key="orders" onclick="loadPage(this, 'website/admin_orders.php')" title="Orders" aria-label="Orders">
             <i class="fas fa-clipboard-list" aria-hidden="true"></i>
+            <span class="nav-badge" aria-label="pending orders"></span>
             <span class="tooltip">Orders</span>
         </button>
 
-        <button data-page="website/admin_pricing_estimates.php" onclick="loadPage(this, 'website/admin_pricing_estimates.php')" title="Price Consultation" aria-label="Price Consultation">
+        <button data-page="website/admin_pricing_estimates.php" data-badge-key="pricing" onclick="loadPage(this, 'website/admin_pricing_estimates.php')" title="Price Consultation" aria-label="Price Consultation">
             <i class="fas fa-dollar-sign" aria-hidden="true"></i>
+            <span class="nav-badge" aria-label="pending price requests"></span>
             <span class="tooltip">Price Consultation</span>
         </button>
 
@@ -329,8 +353,9 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'empl
             <span class="tooltip">Reports</span>
         </button>
 
-        <button data-page="website/admin_chat.php" onclick="loadPage(this, 'website/admin_chat.php')" title="Chats" aria-label="Chats">
+        <button data-page="website/admin_chat.php" data-badge-key="chats" onclick="loadPage(this, 'website/admin_chat.php')" title="Chats" aria-label="Chats">
             <i class="fas fa-message" aria-hidden="true"></i>
+            <span class="nav-badge" aria-label="unread chats"></span>
             <span class="tooltip">Chats</span>
         </button>
     </div>
@@ -349,6 +374,35 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'empl
             document.querySelectorAll('.floating-nav button').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             localStorage.setItem(WEBSITE_ADMIN_PAGE_KEY, page);
+        }
+
+        // ========== NOTIFICATION BADGES ==========
+        const BADGE_COUNTS_URL = 'website/get_badge_counts.php';
+        const BADGE_POLL_INTERVAL_MS = 30000; // keep in step with the chat heartbeat below
+
+        function setBadge(key, count) {
+            const badge = document.querySelector(`.floating-nav button[data-badge-key="${key}"] .nav-badge`);
+            if (!badge) return;
+            const n = Number(count) || 0;
+            if (n > 0) {
+                badge.textContent = n > 99 ? '99+' : n;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        async function refreshBadgeCounts() {
+            try {
+                const response = await fetch(BADGE_COUNTS_URL, { credentials: 'include' });
+                if (!response.ok) return;
+                const counts = await response.json();
+                setBadge('chats', counts.chats);
+                setBadge('orders', counts.orders);
+                setBadge('pricing', counts.pricing);
+            } catch (error) {
+                console.log('Badge count refresh failed');
+            }
         }
 
         function goToLastProductPage() {
@@ -374,9 +428,29 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'empl
             // iframe in the background at all.
             if (!isDesktop()) return;
             document.getElementById('contentFrame').src = restoreLastWebsiteAdminPage();
+
+            // The admin_*.php pages inside the iframe do a normal
+            // POST + redirect after actions like updating an order or
+            // pricing-request status, which reloads the iframe's document.
+            // Catching that load event (rather than only polling on a
+            // timer) is what makes the badges update right after you act,
+            // instead of waiting up to BADGE_POLL_INTERVAL_MS or needing a
+            // full page refresh.
+            document.getElementById('contentFrame').addEventListener('load', refreshBadgeCounts);
+
+            refreshBadgeCounts();
+            setInterval(refreshBadgeCounts, BADGE_POLL_INTERVAL_MS);
         }
 
         document.addEventListener('DOMContentLoaded', initWebsiteAdmin);
+
+        // Also re-check as soon as the tab/window regains focus, so counts
+        // don't sit stale while the admin was away.
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && isDesktop()) {
+                refreshBadgeCounts();
+            }
+        });
     </script>
 
 </body>

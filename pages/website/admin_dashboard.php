@@ -230,11 +230,21 @@ while ($row = $status_distribution_result->fetch_assoc()) {
             border-radius: 8px;
             box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
             text-align: center;
-            transition: box-shadow 0.15s ease;
+            transition: box-shadow 0.15s ease, transform 0.15s ease;
+            display: block;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .stat-card:link,
+        .stat-card:visited {
+            color: inherit;
+            text-decoration: none;
         }
 
         .stat-card:hover {
             box-shadow: 0 4px 12px rgba(20, 23, 31, 0.08);
+            transform: translateY(-1px);
         }
 
         .stat-card i {
@@ -266,6 +276,19 @@ while ($row = $status_distribution_result->fetch_assoc()) {
             font-size: 22px;
             font-weight: 700;
             margin: 6px 0;
+            color: var(--dark);
+        }
+
+        .stat-card-hint {
+            font-size: 10px;
+            color: var(--gray);
+            margin-top: 2px;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        .stat-card:hover .stat-card-hint {
+            opacity: 1;
         }
 
         .stat-label {
@@ -406,31 +429,36 @@ while ($row = $status_distribution_result->fetch_assoc()) {
 
             <!-- Statistics Cards -->
             <div class="stats-grid">
-                <div class="stat-card orders">
+                <a href="admin_orders.php" class="stat-card orders">
                     <i class="fas fa-shopping-cart"></i>
                     <div class="stat-number"><?php echo $stats['total_orders']; ?></div>
                     <div class="stat-label">Total Orders</div>
-                </div>
-                <div class="stat-card revenue">
+                    <div class="stat-card-hint">View all orders →</div>
+                </a>
+                <a href="admin_reports.php" class="stat-card revenue">
                     <i class="fas fa-money-bill-wave"></i>
                     <div class="stat-number">₱<?php echo number_format($stats['total_revenue'], 2); ?></div>
                     <div class="stat-label">Total Revenue</div>
-                </div>
-                <div class="stat-card pending">
+                    <div class="stat-card-hint">View reports →</div>
+                </a>
+                <a href="admin_orders.php?status=pending" class="stat-card pending">
                     <i class="fas fa-clock"></i>
                     <div class="stat-number"><?php echo $stats['pending_orders']; ?></div>
                     <div class="stat-label">Pending Orders</div>
-                </div>
-                <div class="stat-card completed">
+                    <div class="stat-card-hint">View pending →</div>
+                </a>
+                <a href="admin_orders.php?status=completed" class="stat-card completed">
                     <i class="fas fa-check-circle"></i>
                     <div class="stat-number"><?php echo $stats['completed_orders']; ?></div>
                     <div class="stat-label">Completed Orders</div>
-                </div>
-                <div class="stat-card customers">
+                    <div class="stat-card-hint">View completed →</div>
+                </a>
+                <a href="admin_customers.php" class="stat-card customers">
                     <i class="fas fa-users"></i>
                     <div class="stat-number"><?php echo $stats['total_customers']; ?></div>
                     <div class="stat-label">Total Customers</div>
-                </div>
+                    <div class="stat-card-hint">View customers →</div>
+                </a>
             </div>
 
             <!-- Charts Section -->
@@ -559,16 +587,18 @@ while ($row = $status_distribution_result->fetch_assoc()) {
                     backgroundColor: [
                         '#fdf2df', // pending
                         '#e8f1fc', // paid
-                        '#e3f6ee', // processing
+                        '#f6f3e3', // processing
                         '#eef1ff', // ready_for_pickup
-                        '#e3f6ee' // completed
+                        '#e3f6ee', // completed
+                        '#f6e3e3', // cancelled
                     ],
                     borderColor: [
                         '#b6790a',
                         '#2a7ade',
-                        '#1a9c6b',
+                        '#9c841a',
                         '#4048e0',
-                        '#1a9c6b'
+                        '#1a9c6b',
+                        '#fc3737'
                     ],
                     borderWidth: 1
                 }]

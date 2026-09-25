@@ -133,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_pricing'])) {
             unset($_SESSION['selected_cart_items']);
             $quote_deadline = cart_quote_deadline_text();
             echo "<script>
-                alert('Your pricing request #$request_id has been sent to our team. Expect your quote by $quote_deadline.');
+                alert('Your pricing request #$request_id has been sent to our team.');
                 window.location.href = 'view_cart.php';
             </script>";
         } else {
@@ -304,7 +304,43 @@ function cart_h($v)
     return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
 }
 
-// Per-item ETA once a quote request has been sent: request time + 3 hours.
+// Office hours the shop actually staffs quotes during: Mon-Sat, 8 AM-6 PM
+// (closed Sunday). Given any moment, returns the next time the shop is
+// open - itself, if it's already within business hours; otherwise the
+// next opening (later today if it's simply before 8 AM, or the next
+// business day's 8 AM if it's past close / a Sunday, skipping Sunday).
+function cart_next_business_open(DateTime $from)
+{
+    $open = clone $from;
+    $open->setTime(8, 0, 0);
+
+    $day  = (int) $from->format('N'); // 1 = Monday ... 7 = Sunday
+    $hour = (int) $from->format('G');
+
+    if ($day === 7) {
+        // Sunday - closed all day.
+        $open->modify('next monday');
+    } elseif ($hour >= 18) {
+        // Already past today's close - roll to the next business day.
+        $open->modify('+1 day');
+        if ((int) $open->format('N') === 7) {
+            $open->modify('+1 day'); // skip Sunday
+        }
+    }
+    // Otherwise (before 8 AM, or already within hours, on a business day):
+    // today's 8 AM stays as the reference open time.
+
+    return $open;
+}
+
+// Per-item ETA once a quote request has been sent: 3 hours of business
+// time from the request, honoring Mon-Sat 8 AM-6 PM office hours. A
+// request made outside those hours (evenings, before opening doesn't
+// count here - see below, or Sundays) starts its 3-hour clock at the
+// next time the shop opens, so an after-hours or Sunday requote reads
+// as tomorrow (or Monday) instead of a literal same-day clock time. If
+// the 3 hours would run past closing, the remainder carries over to the
+// next business day's opening rather than landing after-hours.
 function cart_item_quote_eta_text($request_date)
 {
     if (empty($request_date)) {
@@ -315,7 +351,24 @@ function cart_item_quote_eta_text($request_date)
     } catch (Exception $e) {
         return null;
     }
-    $expectBy = (clone $requestedAt)->modify('+3 hours');
+
+    $day  = (int) $requestedAt->format('N');
+    $hour = (int) $requestedAt->format('G');
+    $withinOfficeHours = $day !== 7 && $hour >= 8 && $hour < 18;
+
+    $startAt = $withinOfficeHours ? clone $requestedAt : cart_next_business_open($requestedAt);
+
+    $expectBy = (clone $startAt)->modify('+3 hours');
+
+    // 3 hours from a late-afternoon start can spill past 6 PM close -
+    // carry the leftover time into the next business day's opening.
+    $closeSameDay = (clone $startAt)->setTime(18, 0, 0);
+    if ($expectBy > $closeSameDay) {
+        $overflowSeconds = $expectBy->getTimestamp() - $closeSameDay->getTimestamp();
+        $expectBy = cart_next_business_open((clone $closeSameDay)->modify('+1 minute'));
+        $expectBy->modify("+{$overflowSeconds} seconds");
+    }
+
     $now = new DateTime('now');
 
     if ($expectBy->format('Y-m-d') === $now->format('Y-m-d')) {

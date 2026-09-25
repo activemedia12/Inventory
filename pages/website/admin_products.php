@@ -547,14 +547,30 @@ if (isset($_GET['ajax'])) {
     }
 }
 
-// Get all products with customization settings
+// Pagination: the catalog is small today but this listing has no LIMIT at
+// all, so every product ever added gets rendered into the DOM on every
+// load. Page it server-side now, before that becomes a real cost.
+$per_page = 30;
+$page = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
+
+$total_products_result = $inventory->query("SELECT COUNT(*) as total FROM products_offered");
+$total_products = (int) $total_products_result->fetch_assoc()['total'];
+$total_pages = max(1, (int) ceil($total_products / $per_page));
+$page = min($page, $total_pages); // clamp so a stale/typed-in page= doesn't return an empty page
+$offset = ($page - 1) * $per_page;
+
+// Get products with customization settings, one page at a time
 $query = "SELECT p.*, 
                  pc.has_paper_option, pc.has_size_option, pc.has_finish_option,
                  pc.has_layout_option, pc.has_binding_option, pc.has_gsm_option
           FROM products_offered p
           LEFT JOIN product_customization pc ON p.id = pc.product_id
-          ORDER BY p.category, p.product_name";
-$products_result = $inventory->query($query);
+          ORDER BY p.category, p.product_name
+          LIMIT ? OFFSET ?";
+$products_stmt = $inventory->prepare($query);
+$products_stmt->bind_param('ii', $per_page, $offset);
+$products_stmt->execute();
+$products_result = $products_stmt->get_result();
 $products = [];
 while ($row = $products_result->fetch_assoc()) {
     // Check image existence for each product
@@ -758,6 +774,61 @@ while ($row = $categories_result->fetch_assoc()) {
             overflow: hidden;
             box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
             margin-bottom: 20px;
+        }
+
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+        }
+
+        .pagination-summary {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .pagination-controls .btn {
+            padding: 6px 12px;
+            font-size: 0.9rem;
+            background: var(--light);
+            color: var(--dark);
+            border: 1px solid var(--light-gray);
+            text-decoration: none;
+            border-radius: 6px;
+        }
+
+        .pagination-controls .btn:hover {
+            background: var(--light-gray);
+        }
+
+        .pagination-controls .btn.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+
+        .pagination-controls .btn.btn-disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .pagination-ellipsis {
+            color: var(--gray);
+            padding: 0 4px;
         }
 
         .table {
@@ -1148,17 +1219,21 @@ while ($row = $categories_result->fetch_assoc()) {
             </div>
 
             <?php if (isset($_SESSION['message'])): ?>
-                <div class="message">
-                    <i class="fas fa-check-circle"></i> <?php echo esc_html($_SESSION['message']);
-                                                        unset($_SESSION['message']); ?>
-                </div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        showToast('success', <?php echo esc_js($_SESSION['message']); ?>);
+                        <?php unset($_SESSION['message']); ?>
+                    });
+                </script>
             <?php endif; ?>
 
             <?php if (isset($_SESSION['error'])): ?>
-                <div class="error">
-                    <i class="fas fa-exclamation-circle"></i> <?php echo esc_html($_SESSION['error']);
-                                                                unset($_SESSION['error']); ?>
-                </div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        showToast('error', <?php echo esc_js($_SESSION['error']); ?>);
+                        <?php unset($_SESSION['error']); ?>
+                    });
+                </script>
             <?php endif; ?>
 
             <!-- Action Buttons -->
@@ -1275,6 +1350,43 @@ while ($row = $categories_result->fetch_assoc()) {
                     </tbody>
                 </table>
             </div>
+
+            <?php if ($total_pages > 1): ?>
+                <div class="pagination">
+                    <span class="pagination-summary">
+                        Showing <?php echo $offset + 1; ?>–<?php echo min($offset + $per_page, $total_products); ?>
+                        of <?php echo $total_products; ?> products
+                    </span>
+                    <div class="pagination-controls">
+                        <a href="?page=<?php echo max(1, $page - 1); ?>"
+                           class="btn <?php echo $page <= 1 ? 'btn-disabled' : ''; ?>"
+                           <?php echo $page <= 1 ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>
+                            <i class="fas fa-chevron-left"></i> Prev
+                        </a>
+                        <?php
+                        // A small window of page links around the current page, plus
+                        // first/last, so this stays compact even with many pages.
+                        $window = 2;
+                        for ($p = 1; $p <= $total_pages; $p++) {
+                            $show = $p === 1 || $p === $total_pages || abs($p - $page) <= $window;
+                            if (!$show) {
+                                if ($p === 2 || $p === $total_pages - 1) {
+                                    echo '<span class="pagination-ellipsis">&hellip;</span>';
+                                }
+                                continue;
+                            }
+                            $active = $p === $page ? 'active' : '';
+                            echo '<a href="?page=' . $p . '" class="btn ' . $active . '">' . $p . '</a>';
+                        }
+                        ?>
+                        <a href="?page=<?php echo min($total_pages, $page + 1); ?>"
+                           class="btn <?php echo $page >= $total_pages ? 'btn-disabled' : ''; ?>"
+                           <?php echo $page >= $total_pages ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>
+                            Next <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -1452,6 +1564,47 @@ while ($row = $categories_result->fetch_assoc()) {
         let currentProductId = null;
         let currentProductName = null;
 
+        // Shared non-blocking toast notification (replaces alert()/confirm()
+        // banners). icon: 'success' | 'error' | 'warning' | 'info'
+        function showToast(icon, text) {
+            const palette = {
+                success: {
+                    background: 'var(--success-bg)',
+                    iconColor: 'var(--success)',
+                    color: 'var(--success)'
+                },
+                error: {
+                    background: 'var(--danger-bg)',
+                    iconColor: 'var(--danger)',
+                    color: 'var(--danger)'
+                },
+                warning: {
+                    background: 'var(--warning-bg)',
+                    iconColor: 'var(--warning)',
+                    color: 'var(--warning)'
+                },
+                info: {
+                    background: 'var(--info-bg)',
+                    iconColor: 'var(--info)',
+                    color: 'var(--info)'
+                }
+            };
+            const theme = palette[icon] || palette.info;
+            Swal.fire({
+                icon: icon,
+                title: icon === 'success' ? 'Success!' : icon === 'error' ? 'Error!' : icon === 'warning' ? 'Warning' : text,
+                text: icon === 'info' ? undefined : text,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: icon === 'error' ? 4000 : 3000,
+                timerProgressBar: true,
+                background: theme.background,
+                iconColor: theme.iconColor,
+                color: theme.color
+            });
+        }
+
         // Modal functions
         function openAddModal() {
             document.getElementById('modalTitle').textContent = 'Add New Product';
@@ -1491,7 +1644,7 @@ while ($row = $categories_result->fetch_assoc()) {
                     console.log('Received data:', data);
 
                     if (data.error) {
-                        alert('Error: ' + data.error);
+                        showToast('error', 'Error: ' + data.error);
                         return;
                     }
 
@@ -1513,7 +1666,7 @@ while ($row = $categories_result->fetch_assoc()) {
                 })
                 .catch(error => {
                     console.error('Fetch Error:', error);
-                    alert('Error loading product data: ' + error.message);
+                    showToast('error', 'Error loading product data: ' + error.message);
                 })
                 .finally(() => {
                     // Hide loading state
@@ -1530,7 +1683,7 @@ while ($row = $categories_result->fetch_assoc()) {
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
-                        alert('Error: ' + data.error);
+                        showToast('error', 'Error: ' + data.error);
                         return;
                     }
 
@@ -1546,7 +1699,7 @@ while ($row = $categories_result->fetch_assoc()) {
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Error loading customization settings');
+                    showToast('error', 'Error loading customization settings');
                 });
         }
 
@@ -2045,19 +2198,19 @@ while ($row = $categories_result->fetch_assoc()) {
 
             if (!productName) {
                 e.preventDefault();
-                alert('Please enter a product name');
+                showToast('warning', 'Please enter a product name');
                 return;
             }
 
             if (!category) {
                 e.preventDefault();
-                alert('Please select a category');
+                showToast('warning', 'Please select a category');
                 return;
             }
 
             if (!price || price <= 0) {
                 e.preventDefault();
-                alert('Please enter a valid price');
+                showToast('warning', 'Please enter a valid price');
                 return;
             }
         });

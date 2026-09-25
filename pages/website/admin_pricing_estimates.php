@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $selected_items = json_decode($request_data['selected_items'], true);
 
         $final_price = 0; // recomputed below as the sum of each item's price
+        $returned_item_prices = []; // item_id => price actually saved, sent back to the browser
 
         if (is_array($selected_items)) {
             $item_count = max(count($selected_items), 1);
@@ -66,6 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $price_per_item = null;
                 }
                 $final_price += $price_per_item ?? 0;
+                $returned_item_prices[$item_id] = $price_per_item;
 
                 if ($existing_item) {
                     // Update existing record - ALWAYS update status and admin_notes
@@ -111,8 +113,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $query = "UPDATE pricing_requests SET status = ?, final_price = ?, admin_notes = ?, updated_at = NOW() WHERE id = ?";
         $stmt = $inventory->prepare($query);
         $stmt->bind_param("sdsi", $new_status, $final_price, $admin_notes, $request_id);
+        $success = $stmt->execute();
 
-        if ($stmt->execute()) {
+        // AJAX callers (the inline row form) get JSON back and update the
+        // row in place; anything still POSTing the old-fashioned way falls
+        // back to the session-flash + redirect behavior below.
+        if (isset($_POST['ajax'])) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => $success,
+                'message' => $success ? "Pricing request #$request_id updated successfully!" : 'Failed to update pricing request!',
+                'request_id' => (int) $request_id,
+                'status' => $new_status,
+                'status_label' => ucfirst($new_status),
+                'final_price' => $final_price,
+                'estimated_total' => (float) $request_data['estimated_total'],
+                'item_prices' => $returned_item_prices,
+            ]);
+            exit;
+        }
+
+        if ($success) {
             $_SESSION['message'] = "Pricing request #$request_id updated successfully!";
         } else {
             $_SESSION['error'] = "Failed to update pricing request!";
@@ -202,21 +223,42 @@ $stats = $stats_result->fetch_assoc();
 
 // Handle delete request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
-    $request_id = $_POST['request_id'] ?? 0;
+    $request_id = (int) ($_POST['request_id'] ?? 0);
+    $is_ajax = isset($_POST['ajax']);
 
     if ($request_id > 0) {
         $query = "DELETE FROM pricing_requests WHERE id = ?";
         $stmt = $inventory->prepare($query);
         $stmt->bind_param("i", $request_id);
+        $success = $stmt->execute();
 
-        if ($stmt->execute()) {
-            $_SESSION['success_message'] = "Pricing request deleted successfully.";
+        if ($is_ajax) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => $success,
+                'message' => $success ? 'Pricing request deleted successfully.' : ('Error deleting pricing request: ' . $stmt->error),
+                'request_id' => $request_id,
+            ]);
+            exit;
+        }
+
+        // NOTE: this used to set $_SESSION['success_message'] / ['error_message'],
+        // but the banner below only ever reads 'message' / 'error', so those
+        // never actually rendered. Using the same keys as the rest of the
+        // page fixes that (moot now that the delete button is AJAX-driven,
+        // but kept correct for any non-JS fallback).
+        if ($success) {
+            $_SESSION['message'] = "Pricing request deleted successfully.";
         } else {
-            $_SESSION['error_message'] = "Error deleting pricing request: " . $stmt->error;
+            $_SESSION['error'] = "Error deleting pricing request: " . $stmt->error;
         }
 
         // Redirect to prevent form resubmission
         header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
+    } elseif ($is_ajax) {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => false, 'message' => 'Invalid request id.']);
         exit;
     }
 }
@@ -1782,6 +1824,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
             color: var(--danger);
             font-size: 11px;
         }
+
+        /* Toasts */
+        .toast-stack {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10500;
+        }
+
+        .toast {
+            min-width: 260px;
+            max-width: 360px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 6px 20px rgba(20, 23, 31, 0.15);
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background: var(--success-bg); color: var(--success); }
+        .toast.error { background: var(--danger-bg); color: var(--danger); }
+
+        /* Custom confirm dialog (replaces native confirm()) */
+        .confirm-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(20, 23, 31, 0.45);
+            z-index: 10600;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .confirm-overlay.open { display: flex; }
+
+        .confirm-box {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 22px;
+            max-width: 380px;
+            width: 100%;
+            box-shadow: 0 20px 45px rgba(20, 23, 31, 0.25);
+            animation: slideIn 0.2s ease;
+        }
+
+        .confirm-box h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--danger);
+        }
+
+        .confirm-box p { font-size: 13px; color: var(--gray); margin-bottom: 18px; }
+
+        .confirm-box .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+        .confirm-box button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+        }
+
+        .confirm-cancel-btn { background: var(--light); color: var(--dark); }
+        .confirm-cancel-btn:hover { background: var(--light-gray); }
+        .confirm-ok-btn { background: var(--danger); color: #fff; }
+        .confirm-ok-btn:hover { opacity: 0.85; }
     </style>
 </head>
 
@@ -1810,22 +1935,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
             <div class="stats-cards">
                 <div class="stat-card total">
                     <i class="fas fa-file-invoice-dollar"></i>
-                    <div class="stat-number"><?php echo $stats['total_requests']; ?></div>
+                    <div class="stat-number" id="statTotal"><?php echo $stats['total_requests']; ?></div>
                     <div class="stat-label">Total Requests</div>
                 </div>
                 <div class="stat-card pending">
                     <i class="fas fa-clock"></i>
-                    <div class="stat-number"><?php echo $stats['pending_requests']; ?></div>
+                    <div class="stat-number" id="statPending"><?php echo $stats['pending_requests']; ?></div>
                     <div class="stat-label">Pending</div>
                 </div>
                 <div class="stat-card completed">
                     <i class="fas fa-check-circle"></i>
-                    <div class="stat-number"><?php echo $stats['quoted_requests']; ?></div>
+                    <div class="stat-number" id="statQuoted"><?php echo $stats['quoted_requests']; ?></div>
                     <div class="stat-label">Checked</div>
                 </div>
                 <div class="stat-card cancelled">
                     <i class="fas fa-times-circle"></i>
-                    <div class="stat-number"><?php echo $stats['cancelled_requests']; ?></div>
+                    <div class="stat-number" id="statCancelled"><?php echo $stats['cancelled_requests']; ?></div>
                     <div class="stat-label">Cancelled</div>
                 </div>
             </div>
@@ -1867,7 +1992,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                                 $request['username']);
                             $selected_items = json_decode($request['selected_items'], true);
                         ?>
-                            <tr class="request-row" data-status="<?php echo $request['status']; ?>">
+                            <tr class="request-row" id="request-row-<?php echo $request['id']; ?>" data-status="<?php echo $request['status']; ?>">
                                 <td><strong>#<?php echo $request['id']; ?></strong></td>
                                 <td>
                                     <div>
@@ -1883,26 +2008,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                                     <small style="color: var(--gray);"><?php echo count($selected_items); ?> items</small>
                                 </td>
                                 <td>
-                                    <?php if ($request['final_price']): ?>
-                                        <strong>₱<?php echo number_format($request['final_price'], 2); ?></strong>
-                                        <div class="price-comparison">
-                                            <?php
-                                            $difference = $request['final_price'] - $request['estimated_total'];
-                                            $percentage = $request['estimated_total'] > 0 ? ($difference / $request['estimated_total']) * 100 : 0;
-                                            if ($difference > 0): ?>
-                                                <small class="price-increase">+₱<?php echo number_format(abs($difference), 2); ?> (<?php echo number_format(abs($percentage), 1); ?>%)</small>
-                                            <?php elseif ($difference < 0): ?>
-                                                <small class="price-decrease">-₱<?php echo number_format(abs($difference), 2); ?> (<?php echo number_format(abs($percentage), 1); ?>%)</small>
-                                            <?php else: ?>
-                                                <small class="price-same">No change</small>
-                                            <?php endif; ?>
-                                        </div>
-                                    <?php else: ?>
-                                        <span style="color: var(--gray);">Not set</span>
-                                    <?php endif; ?>
+                                    <div data-role="final-price-cell">
+                                        <?php if ($request['final_price']): ?>
+                                            <strong>₱<?php echo number_format($request['final_price'], 2); ?></strong>
+                                            <div class="price-comparison">
+                                                <?php
+                                                $difference = $request['final_price'] - $request['estimated_total'];
+                                                $percentage = $request['estimated_total'] > 0 ? ($difference / $request['estimated_total']) * 100 : 0;
+                                                if ($difference > 0): ?>
+                                                    <small class="price-increase">+₱<?php echo number_format(abs($difference), 2); ?> (<?php echo number_format(abs($percentage), 1); ?>%)</small>
+                                                <?php elseif ($difference < 0): ?>
+                                                    <small class="price-decrease">-₱<?php echo number_format(abs($difference), 2); ?> (<?php echo number_format(abs($percentage), 1); ?>%)</small>
+                                                <?php else: ?>
+                                                    <small class="price-same">No change</small>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php else: ?>
+                                            <span style="color: var(--gray);">Not set</span>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                                 <td>
-                                    <span class="status-badge status-<?php echo $request['status']; ?>">
+                                    <span class="status-badge status-<?php echo $request['status']; ?>" data-role="status-badge">
                                         <?php echo ucfirst($request['status']); ?>
                                     </span>
                                 </td>
@@ -1913,7 +2040,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                                 </td>
                                 <td>
                                     <div class="pricing-actions">
-                                        <form method="post" class="status-form">
+                                        <form method="post" class="status-form" onsubmit="return submitPricingUpdate(event, this)" data-estimated-total="<?php echo (float) $request['estimated_total']; ?>">
 <?php echo csrf_field(); ?>
                                             <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
                                             <div class="status-form-row">
@@ -1923,7 +2050,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                                                     <option value="cancelled" <?php echo $request['status'] == 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
                                                 </select>
                                             </div>
-                                            <div class="item-price-list-label">Price per item</div>
+                                            <div class="item-price-list-label">
+                                                Price per item
+                                                <button type="button" title="Split the estimated total evenly across every item that doesn't have a price yet"
+                                                    style="margin-left:8px;font-size:11px;padding:3px 8px;border-radius:5px;border:1px solid var(--light-gray);background:var(--primary-bg);color:var(--secondary);cursor:pointer;font-weight:600;"
+                                                    onclick="fillEvenPrices(this)">
+                                                    <i class="fas fa-magic"></i> Split evenly
+                                                </button>
+                                            </div>
                                             <div class="item-price-list">
                                                 <?php foreach ($selected_items as $iid):
                                                     $iid = (int) $iid;
@@ -1934,6 +2068,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                                                     <div class="item-price-row">
                                                         <span class="item-price-label" title="<?php echo htmlspecialchars($label); ?>"><?php echo htmlspecialchars($label); ?></span>
                                                         <input type="number" name="item_price[<?php echo $iid; ?>]" class="price-input item-price-input"
+                                                            data-item-id="<?php echo $iid; ?>"
                                                             placeholder="0.00" step="0.01" min="0"
                                                             value="<?php echo $prefill !== '' ? htmlspecialchars($prefill) : ''; ?>">
                                                     </div>
@@ -1954,14 +2089,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                                             <button type="button" onclick="viewRequestDetails(<?php echo $request['id']; ?>)" class="view-details" title="View Details">
                                                 <i class="fas fa-eye"></i> View Details
                                             </button>
-                                            <form method="post" action="<?php echo esc_html($_SERVER['PHP_SELF']); ?>" style="display: inline;">
-<?php echo csrf_field(); ?>
-                                                <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
-                                                <button type="submit" name="delete_request" class="delete-btn"
-                                                    onclick="return confirm('Are you sure you want to delete this pricing request?')" title="Delete Request">
-                                                    <i class="fas fa-trash"></i> Delete
-                                                </button>
-                                            </form>
+                                            <button type="button" class="delete-btn" title="Delete Request" onclick="confirmDeleteRequest(<?php echo (int) $request['id']; ?>, this)">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </button>
                                         </div>
                                     </div>
                                 </td>
@@ -1986,7 +2116,221 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
         </div>
     </div>
 
+    <div class="toast-stack" id="toastStack"></div>
+
+    <div class="confirm-overlay" id="confirmOverlay">
+        <div class="confirm-box">
+            <h3><i class="fas fa-exclamation-triangle"></i> Delete this pricing request?</h3>
+            <p>This can't be undone. The request and its item quotes will be permanently removed.</p>
+            <div class="confirm-actions">
+                <button type="button" class="confirm-cancel-btn" id="confirmCancelBtn">Cancel</button>
+                <button type="button" class="confirm-ok-btn" id="confirmOkBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        const CSRF_TOKEN = <?php echo esc_js(csrf_token()); ?>;
+
+        // ---------- Toasts ----------
+        function showToast(message, type) {
+            const stack = document.getElementById('toastStack');
+            const toast = document.createElement('div');
+            toast.className = 'toast ' + (type === 'error' ? 'error' : 'success');
+            const icon = type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle';
+            toast.innerHTML = '<i class="fas ' + icon + '"></i><span></span>';
+            toast.querySelector('span').textContent = message;
+            stack.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 250);
+            }, 4000);
+        }
+
+        // ---------- Custom confirm dialog (Promise-based, replaces confirm()) ----------
+        function askConfirm() {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('confirmOverlay');
+                const okBtn = document.getElementById('confirmOkBtn');
+                const cancelBtn = document.getElementById('confirmCancelBtn');
+                overlay.classList.add('open');
+
+                function cleanup(result) {
+                    overlay.classList.remove('open');
+                    okBtn.removeEventListener('click', onOk);
+                    cancelBtn.removeEventListener('click', onCancel);
+                    overlay.removeEventListener('click', onOverlay);
+                    resolve(result);
+                }
+                function onOk() { cleanup(true); }
+                function onCancel() { cleanup(false); }
+                function onOverlay(e) { if (e.target === overlay) cleanup(false); }
+
+                okBtn.addEventListener('click', onOk);
+                cancelBtn.addEventListener('click', onCancel);
+                overlay.addEventListener('click', onOverlay);
+            });
+        }
+
+        // ---------- Delete (AJAX, no reload) ----------
+        async function confirmDeleteRequest(requestId, btn) {
+            const ok = await askConfirm();
+            if (!ok) return;
+
+            btn.disabled = true;
+            try {
+                const body = new URLSearchParams({
+                    ajax: '1',
+                    delete_request: '1',
+                    csrf_token: CSRF_TOKEN,
+                    request_id: requestId
+                });
+                const res = await fetch('admin_pricing_estimates.php', { method: 'POST', body });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    const row = document.getElementById('request-row-' + requestId);
+                    if (row) {
+                        const status = row.dataset.status;
+                        row.style.transition = 'opacity 0.2s ease';
+                        row.style.opacity = '0';
+                        setTimeout(() => row.remove(), 200);
+                        adjustStatCounts(status, null);
+                    }
+                } else {
+                    showToast(data.message || 'Failed to delete pricing request.', 'error');
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                showToast('Network error while deleting the request.', 'error');
+                btn.disabled = false;
+            }
+        }
+
+        // ---------- Status / pricing update (AJAX, no reload) ----------
+        async function submitPricingUpdate(event, form) {
+            event.preventDefault();
+            const btn = form.querySelector('.update-btn');
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Updating...';
+
+            const requestId = form.querySelector('[name="request_id"]').value;
+            const formData = new FormData(form);
+            formData.set('ajax', '1');
+            formData.set('update_pricing_status', '1');
+
+            try {
+                const res = await fetch('admin_pricing_estimates.php', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    const row = document.getElementById('request-row-' + requestId);
+                    const previousStatus = row ? row.dataset.status : null;
+                    applyPricingUpdateToRow(row, form, data);
+                    adjustStatCounts(previousStatus, data.status);
+                } else {
+                    showToast(data.message || 'Failed to update pricing request.', 'error');
+                }
+            } catch (e) {
+                showToast('Network error while updating the request.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+            return false;
+        }
+
+        function applyPricingUpdateToRow(row, form, data) {
+            if (!row) return;
+            row.dataset.status = data.status;
+
+            const badge = row.querySelector('[data-role="status-badge"]');
+            if (badge) {
+                badge.className = 'status-badge status-' + data.status;
+                badge.textContent = data.status_label;
+            }
+
+            // Sync each price input to whatever was actually saved (covers the
+            // even-split fallback the server applies when a request is first
+            // quoted with no explicit per-item price).
+            if (data.item_prices) {
+                Object.entries(data.item_prices).forEach(([itemId, price]) => {
+                    const input = form.querySelector('.item-price-input[data-item-id="' + itemId + '"]');
+                    if (input && price !== null && input.value === '') {
+                        input.value = Number(price).toFixed(2);
+                    }
+                });
+            }
+            const totalEl = form.querySelector('.computed-total');
+            if (totalEl) {
+                totalEl.textContent = '₱' + Number(data.final_price).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            const priceCell = row.querySelector('[data-role="final-price-cell"]');
+            if (priceCell) {
+                const finalPrice = Number(data.final_price);
+                const estimatedTotal = Number(data.estimated_total);
+                if (finalPrice > 0) {
+                    const difference = finalPrice - estimatedTotal;
+                    const percentage = estimatedTotal > 0 ? (difference / estimatedTotal) * 100 : 0;
+                    let comparisonHtml;
+                    if (difference > 0) {
+                        comparisonHtml = '<small class="price-increase">+₱' + Math.abs(difference).toFixed(2) + ' (' + Math.abs(percentage).toFixed(1) + '%)</small>';
+                    } else if (difference < 0) {
+                        comparisonHtml = '<small class="price-decrease">-₱' + Math.abs(difference).toFixed(2) + ' (' + Math.abs(percentage).toFixed(1) + '%)</small>';
+                    } else {
+                        comparisonHtml = '<small class="price-same">No change</small>';
+                    }
+                    priceCell.innerHTML = '<strong>₱' + finalPrice.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</strong>' +
+                        '<div class="price-comparison">' + comparisonHtml + '</div>';
+                } else {
+                    priceCell.innerHTML = '<span style="color: var(--gray);">Not set</span>';
+                }
+            }
+        }
+
+        // ---------- "Split evenly" quick action ----------
+        function fillEvenPrices(btn) {
+            const form = btn.closest('form');
+            const inputs = Array.from(form.querySelectorAll('.item-price-input'));
+            const empty = inputs.filter((i) => i.value.trim() === '');
+            const targets = empty.length > 0 ? empty : inputs; // nothing empty? split across all of them
+            const estimatedTotal = parseFloat(form.dataset.estimatedTotal) || 0;
+            const share = targets.length > 0 ? estimatedTotal / targets.length : 0;
+
+            targets.forEach((input) => {
+                input.value = share.toFixed(2);
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        }
+
+        // ---------- Stat card counters (best-effort local sync, matches server on next reload) ----------
+        function adjustStatCounts(fromStatus, toStatus) {
+            const ids = { pending: 'statPending', quoted: 'statQuoted', cancelled: 'statCancelled' };
+            function bump(status, delta) {
+                if (!status || !ids[status]) return;
+                const el = document.getElementById(ids[status]);
+                if (el) el.textContent = Math.max(0, parseInt(el.textContent, 10) + delta);
+            }
+
+            if (toStatus === null) {
+                // Deletion: one row leaves its current bucket and the total.
+                bump(fromStatus, -1);
+                const totalEl = document.getElementById('statTotal');
+                if (totalEl) totalEl.textContent = Math.max(0, parseInt(totalEl.textContent, 10) - 1);
+                return;
+            }
+
+            if (fromStatus !== toStatus) {
+                bump(fromStatus, -1);
+                bump(toStatus, 1);
+            }
+        }
+
         function filterRequests() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const statusFilter = document.getElementById('statusFilter').value;

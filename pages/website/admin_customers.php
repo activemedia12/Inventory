@@ -278,6 +278,42 @@ if (isset($_GET['ajax'])) {
 $search = $_GET['search'] ?? '';
 $sort = $_GET['sort'] ?? 'newest';
 
+// Shared WHERE clause + params, used by both the count query (for
+// pagination) and the main listing query below.
+$where_clause = "WHERE u.role = 'customer'";
+$where_params = [];
+$where_types = '';
+
+if (!empty($search)) {
+    $where_clause .= " AND (u.username LIKE ? OR pc.first_name LIKE ? OR pc.last_name LIKE ? OR pc.contact_number LIKE ?
+                      OR cc.company_name LIKE ? OR cc.contact_person LIKE ? OR cc.contact_number LIKE ?)";
+    $search_term = "%$search%";
+    $where_params = array_merge($where_params, array_fill(0, 7, $search_term));
+    $where_types .= str_repeat('s', 7);
+}
+
+// Pagination: this listing had no LIMIT at all, so every customer ever
+// registered got dumped into the DOM on every load. Count matching
+// customers first (COUNT(DISTINCT ...) since the join can multiply rows
+// per order), then page the main query.
+$per_page = 25;
+$page = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
+
+$count_query = "SELECT COUNT(DISTINCT u.id) as total
+          FROM users u
+          LEFT JOIN personal_customers pc ON u.id = pc.user_id
+          LEFT JOIN company_customers cc ON u.id = cc.user_id
+          $where_clause";
+$count_stmt = $inventory->prepare($count_query);
+if (!empty($where_params)) {
+    $count_stmt->bind_param($where_types, ...$where_params);
+}
+$count_stmt->execute();
+$total_customers_matching = (int) $count_stmt->get_result()->fetch_assoc()['total'];
+$total_pages = max(1, (int) ceil($total_customers_matching / $per_page));
+$page = min($page, $total_pages); // clamp so a stale/typed-in page= doesn't return an empty page
+$offset = ($page - 1) * $per_page;
+
 // Build query for customers
 $query = "SELECT u.id, u.username, 
                  pc.first_name, pc.last_name, pc.contact_number, pc.city,
@@ -289,18 +325,9 @@ $query = "SELECT u.id, u.username,
           LEFT JOIN personal_customers pc ON u.id = pc.user_id
           LEFT JOIN company_customers cc ON u.id = cc.user_id
           LEFT JOIN orders o ON u.id = o.user_id AND o.status IN ('paid', 'processing', 'ready_for_pickup', 'completed')
-          WHERE u.role = 'customer'";
-$params = [];
-$types = '';
-
-// Add search filter
-if (!empty($search)) {
-    $query .= " AND (u.username LIKE ? OR pc.first_name LIKE ? OR pc.last_name LIKE ? OR pc.contact_number LIKE ?
-                      OR cc.company_name LIKE ? OR cc.contact_person LIKE ? OR cc.contact_number LIKE ?)";
-    $search_term = "%$search%";
-    $params = array_merge($params, array_fill(0, 7, $search_term));
-    $types .= str_repeat('s', 7);
-}
+          $where_clause";
+$params = $where_params;
+$types = $where_types;
 
 // Add group by and sorting
 $query .= " GROUP BY u.id";
@@ -324,6 +351,11 @@ switch ($sort) {
         $query .= " ORDER BY u.id DESC";
         break;
 }
+
+$query .= " LIMIT ? OFFSET ?";
+$params[] = $per_page;
+$params[] = $offset;
+$types .= 'ii';
 
 // Prepare and execute query
 $stmt = $inventory->prepare($query);
@@ -597,6 +629,61 @@ $stats = $stats_result->fetch_assoc();
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
+        }
+
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 20px;
+        }
+
+        .pagination-summary {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .pagination-controls .btn {
+            padding: 6px 12px;
+            font-size: 0.9rem;
+            background: var(--light);
+            color: var(--dark);
+            border: 1px solid var(--light-gray);
+            text-decoration: none;
+            border-radius: 6px;
+        }
+
+        .pagination-controls .btn:hover {
+            background: var(--light-gray);
+        }
+
+        .pagination-controls .btn.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+
+        .pagination-controls .btn.btn-disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .pagination-ellipsis {
+            color: var(--gray);
+            padding: 0 4px;
         }
 
         .table {
@@ -1069,13 +1156,6 @@ $stats = $stats_result->fetch_assoc();
                 </script>
             <?php endif; ?>
 
-            <?php if (isset($_SESSION['error'])): ?>
-                <div class="error">
-                    <i class="fas fa-exclamation-circle"></i> <?php echo esc_html($_SESSION['error']);
-                                                                unset($_SESSION['error']); ?>
-                </div>
-            <?php endif; ?>
-
             <!-- Statistics Cards -->
             <div class="stats-grid">
                 <div class="stat-card customers">
@@ -1198,6 +1278,53 @@ $stats = $stats_result->fetch_assoc();
                     </tbody>
                 </table>
             </div>
+
+            <?php if ($total_pages > 1):
+                // Preserve search/sort on every pagination link
+                $base_params = [];
+                if (!empty($search)) {
+                    $base_params['search'] = $search;
+                }
+                if (!empty($sort) && $sort !== 'newest') {
+                    $base_params['sort'] = $sort;
+                }
+                $page_url = function ($p) use ($base_params) {
+                    return '?' . http_build_query(array_merge($base_params, ['page' => $p]));
+                };
+            ?>
+                <div class="pagination">
+                    <span class="pagination-summary">
+                        Showing <?php echo $offset + 1; ?>–<?php echo min($offset + $per_page, $total_customers_matching); ?>
+                        of <?php echo $total_customers_matching; ?> customers
+                    </span>
+                    <div class="pagination-controls">
+                        <a href="<?php echo htmlspecialchars($page_url(max(1, $page - 1))); ?>"
+                           class="btn <?php echo $page <= 1 ? 'btn-disabled' : ''; ?>"
+                           <?php echo $page <= 1 ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>
+                            <i class="fas fa-chevron-left"></i> Prev
+                        </a>
+                        <?php
+                        $window = 2;
+                        for ($p = 1; $p <= $total_pages; $p++) {
+                            $show = $p === 1 || $p === $total_pages || abs($p - $page) <= $window;
+                            if (!$show) {
+                                if ($p === 2 || $p === $total_pages - 1) {
+                                    echo '<span class="pagination-ellipsis">&hellip;</span>';
+                                }
+                                continue;
+                            }
+                            $active = $p === $page ? 'active' : '';
+                            echo '<a href="' . htmlspecialchars($page_url($p)) . '" class="btn ' . $active . '">' . $p . '</a>';
+                        }
+                        ?>
+                        <a href="<?php echo htmlspecialchars($page_url(min($total_pages, $page + 1))); ?>"
+                           class="btn <?php echo $page >= $total_pages ? 'btn-disabled' : ''; ?>"
+                           <?php echo $page >= $total_pages ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>
+                            Next <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -1351,12 +1478,37 @@ $stats = $stats_result->fetch_assoc();
                 .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
+        // Shared non-blocking toast (same pattern as the session-flash
+        // Swal toasts above) so every alert() on this page looks and
+        // behaves the same way.
+        function showToast(icon, text) {
+            const palette = {
+                success: { background: 'var(--success-bg)', iconColor: 'var(--success)', color: 'var(--success)' },
+                error: { background: 'var(--danger-bg)', iconColor: 'var(--danger)', color: 'var(--danger)' },
+                warning: { background: 'var(--warning-bg)', iconColor: 'var(--warning)', color: 'var(--warning)' }
+            };
+            const theme = palette[icon] || palette.error;
+            Swal.fire({
+                icon: icon,
+                title: icon === 'success' ? 'Success!' : icon === 'error' ? 'Error!' : 'Warning',
+                text: text,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: icon === 'error' ? 4000 : 3000,
+                timerProgressBar: true,
+                background: theme.background,
+                iconColor: theme.iconColor,
+                color: theme.color
+            });
+        }
+
         function viewCustomerDetails(userId) {
             fetch(`admin_customers.php?ajax=get_customer_stats&user_id=${userId}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
-                        alert('Error: ' + data.error);
+                        showToast('error', 'Error: ' + data.error);
                         return;
                     }
 
@@ -1448,7 +1600,7 @@ $stats = $stats_result->fetch_assoc();
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Error loading customer details');
+                    showToast('error', 'Error loading customer details');
                 });
         }
 
@@ -1458,7 +1610,7 @@ $stats = $stats_result->fetch_assoc();
                 .then(response => response.json())
                 .then(customer => {
                     if (customer.error) {
-                        alert('Error: ' + customer.error);
+                        showToast('error', 'Error: ' + customer.error);
                         return;
                     }
 
@@ -1496,7 +1648,7 @@ $stats = $stats_result->fetch_assoc();
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Error loading customer data');
+                    showToast('error', 'Error loading customer data');
                 });
         }
 

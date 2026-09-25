@@ -1112,6 +1112,27 @@ if (!empty($displayed_job_ids)) {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
   <link rel="stylesheet" href="../assets/css/pages/job_orders.css">
+  <style>
+    .nav-menu li a[href="website_admin.php"] {
+      display: flex;
+      align-items: center;
+    }
+
+    .website-nav-badge {
+      display: none;
+      margin-left: auto;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: #ef4444;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 18px;
+      text-align: center;
+    }
+  </style>
 </head>
 
 <body>
@@ -1126,7 +1147,7 @@ if (!empty($displayed_job_ids)) {
         <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
         <li><a href="job_orders.php" class="active"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
         <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
-        <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
+        <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span><span class="website-nav-badge" id="websiteNavBadge"></span></a></li>
         <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
       </ul>
     </div>
@@ -2122,6 +2143,40 @@ if (!empty($displayed_job_ids)) {
 
   <script src="../assets/js/pages/job_orders.js"></script>
   <script src="../assets/js/print.js"></script>
+  <script>
+    // Badge on the sidebar's "Website" link: same counts (unread chats,
+    // pending orders, pending price-consultation requests) that drive the
+    // per-section badges inside website_admin.php, summed into one number.
+    (function () {
+      function setWebsiteNavBadge(count) {
+        var badge = document.getElementById('websiteNavBadge');
+        if (!badge) return;
+        var n = Number(count) || 0;
+        if (n > 0) {
+          badge.textContent = n > 99 ? '99+' : n;
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+
+      function refreshWebsiteNavBadge() {
+        fetch('website/get_badge_counts.php', { credentials: 'include' })
+          .then(function (res) { return res.ok ? res.json() : null; })
+          .then(function (counts) {
+            if (!counts) return;
+            setWebsiteNavBadge((counts.chats || 0) + (counts.orders || 0) + (counts.pricing || 0));
+          })
+          .catch(function () { /* leave the badge as-is on a failed fetch */ });
+      }
+
+      refreshWebsiteNavBadge();
+      setInterval(refreshWebsiteNavBadge, 30000);
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) refreshWebsiteNavBadge();
+      });
+    })();
+  </script>
 </body>
 
 </html>
