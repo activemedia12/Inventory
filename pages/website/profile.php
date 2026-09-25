@@ -381,7 +381,7 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                                 $status_label = ucfirst(str_replace('_', ' ', $order['status']));
                                 $placed_text  = date('M j, Y · g:i A', strtotime($order['created_at']));
                                 $proof_url    = !empty($order['payment_proof'])
-                                    ? '../../assets/uploads/payments/user_' . (int) $user_id . '/' . rawurlencode($order['payment_proof'])
+                                    ? 'payment_proof.php?order_id=' . (int) $order['order_id']
                                     : '';
                             ?>
                                 <article class="order-card status-<?php echo $status_class; ?>"

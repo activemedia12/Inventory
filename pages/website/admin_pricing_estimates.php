@@ -1,11 +1,17 @@
 <?php
 session_start();
 require_once '../../config/db.php';
+require_once '../../config/security.php';
 
 // Check if user is logged in and is admin
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
     header("Location: ../accounts/login.php");
     exit;
+}
+
+// CSRF protection: every POST on this page must carry this session's token.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
 }
 
 // Handle pricing request actions
@@ -1776,14 +1782,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
 
             <?php if (isset($_SESSION['message'])): ?>
                 <div class="message">
-                    <i class="fas fa-check-circle"></i> <?php echo $_SESSION['message'];
+                    <i class="fas fa-check-circle"></i> <?php echo esc_html($_SESSION['message']);
                                                         unset($_SESSION['message']); ?>
                 </div>
             <?php endif; ?>
 
             <?php if (isset($_SESSION['error'])): ?>
                 <div class="error">
-                    <i class="fas fa-exclamation-circle"></i> <?php echo $_SESSION['error'];
+                    <i class="fas fa-exclamation-circle"></i> <?php echo esc_html($_SESSION['error']);
                                                                 unset($_SESSION['error']); ?>
                 </div>
             <?php endif; ?>
@@ -1896,6 +1902,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                                 <td>
                                     <div class="pricing-actions">
                                         <form method="post" class="status-form">
+<?php echo csrf_field(); ?>
                                             <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
                                             <div class="status-form-row">
                                                 <select name="status" class="status-select">
@@ -1935,7 +1942,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_request'])) {
                                             <button type="button" onclick="viewRequestDetails(<?php echo $request['id']; ?>)" class="view-details" title="View Details">
                                                 <i class="fas fa-eye"></i> View Details
                                             </button>
-                                            <form method="post" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: inline;">
+                                            <form method="post" action="<?php echo esc_html($_SERVER['PHP_SELF']); ?>" style="display: inline;">
+<?php echo csrf_field(); ?>
                                                 <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
                                                 <button type="submit" name="delete_request" class="delete-btn"
                                                     onclick="return confirm('Are you sure you want to delete this pricing request?')" title="Delete Request">

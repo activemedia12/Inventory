@@ -1,11 +1,17 @@
 <?php
 session_start();
 require_once '../../config/db.php';
+require_once '../../config/security.php';
 
 // Check if user is logged in and is admin
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
     header("Location: ../../accounts/login.php");
     exit;
+}
+
+// CSRF protection: every POST on this page must carry this session's token.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
 }
 
 if (!isset($_GET['id'])) {
@@ -535,9 +541,9 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                         <span class="detail-value">
                             <?php if ($order['payment_proof']):
                                 // Use the same path structure as profile.php
-                                $proof_path = "../../assets/uploads/payments/user_" . $order['user_id'] . "/" . $order['payment_proof'];
-                                if (file_exists($proof_path)): ?>
-                                    <a href="<?php echo $proof_path; ?>" target="_blank" style="color: var(--primary);">
+                                $proof_path = payment_proof_url((int) $order['order_id']);
+                                if (payment_proof_path((int) $order['user_id'], (string) $order['payment_proof'])): ?>
+                                    <a href="<?php echo esc_html($proof_path); ?>" target="_blank" style="color: var(--primary);">
                                         <i class="fas fa-external-link-alt"></i> View Payment Proof
                                     </a>
                                 <?php else: ?>
@@ -554,6 +560,7 @@ $order_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                 <div class="detail-section">
                     <h3><i class="fas fa-sync"></i> Update Order Status</h3>
                     <form method="post" action="admin_orders.php" style="display: flex; gap: 10px; align-items: center;">
+<?php echo csrf_field(); ?>
                         <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
                         <select name="status" class="status-select" style="padding: 10px; border-radius: 5px; border: 1px solid var(--light-gray);">
                             <option value="pending" <?php echo $order['status'] == 'pending' ? 'selected' : ''; ?>>Pending</option>

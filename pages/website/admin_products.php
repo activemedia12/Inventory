@@ -1,11 +1,17 @@
 <?php
 session_start();
 require_once '../../config/db.php';
+require_once '../../config/security.php';
 
 // Check if user is logged in and is admin
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
     header("Location: ../../accounts/login.php");
     exit;
+}
+
+// CSRF protection: every POST on this page must carry this session's token.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
 }
 
 // Function to handle product image uploads (supports single and multiple files)
@@ -1069,14 +1075,14 @@ while ($row = $categories_result->fetch_assoc()) {
 
             <?php if (isset($_SESSION['message'])): ?>
                 <div class="message">
-                    <i class="fas fa-check-circle"></i> <?php echo $_SESSION['message'];
+                    <i class="fas fa-check-circle"></i> <?php echo esc_html($_SESSION['message']);
                                                         unset($_SESSION['message']); ?>
                 </div>
             <?php endif; ?>
 
             <?php if (isset($_SESSION['error'])): ?>
                 <div class="error">
-                    <i class="fas fa-exclamation-circle"></i> <?php echo $_SESSION['error'];
+                    <i class="fas fa-exclamation-circle"></i> <?php echo esc_html($_SESSION['error']);
                                                                 unset($_SESSION['error']); ?>
                 </div>
             <?php endif; ?>
@@ -1185,7 +1191,7 @@ while ($row = $categories_result->fetch_assoc()) {
                                         <button class="btn btn-primary" onclick="openCustomizationModal(<?php echo $product['id']; ?>)">
                                             <i class="fas fa-cog"></i> Options
                                         </button>
-                                        <button class="btn btn-danger" onclick="confirmDelete(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['product_name']); ?>')">
+                                        <button class="btn btn-danger" onclick="confirmDelete(<?php echo (int) $product['id']; ?>, <?php echo esc_attr_js($product['product_name']); ?>)">
                                             <i class="fas fa-trash"></i> Delete
                                         </button>
                                     </div>
@@ -1204,6 +1210,7 @@ while ($row = $categories_result->fetch_assoc()) {
             <span class="close" onclick="closeModal('productModal')">&times;</span>
             <h2 id="modalTitle">Add New Product</h2>
             <form id="productForm" method="post" enctype="multipart/form-data">
+<?php echo csrf_field(); ?>
                 <input type="hidden" name="action" id="formAction" value="add_product">
                 <input type="hidden" name="product_id" id="productId">
 
@@ -1324,6 +1331,7 @@ while ($row = $categories_result->fetch_assoc()) {
             <span class="close" onclick="closeModal('customizationModal')">&times;</span>
             <h2>Customization Options</h2>
             <form id="customizationForm" method="post">
+<?php echo csrf_field(); ?>
                 <input type="hidden" name="action" value="update_customization">
                 <input type="hidden" name="product_id" id="customizationProductId">
 
@@ -1747,6 +1755,7 @@ while ($row = $categories_result->fetch_assoc()) {
                     // Create a form and submit it
                     const form = document.createElement('form');
                     form.method = 'POST';
+                    form.appendChild(csrfInput());
                     form.action = 'admin_products.php';
 
                     const actionInput = document.createElement('input');
@@ -1789,6 +1798,7 @@ while ($row = $categories_result->fetch_assoc()) {
                     // Create a form and submit it
                     const form = document.createElement('form');
                     form.method = 'POST';
+                    form.appendChild(csrfInput());
                     form.action = 'admin_products.php';
 
                     const actionInput = document.createElement('input');
@@ -1833,6 +1843,7 @@ while ($row = $categories_result->fetch_assoc()) {
                     // Create a form and submit it
                     const form = document.createElement('form');
                     form.method = 'POST';
+                    form.appendChild(csrfInput());
                     form.action = 'admin_products.php';
 
                     const actionInput = document.createElement('input');
@@ -1892,6 +1903,7 @@ while ($row = $categories_result->fetch_assoc()) {
                     // Create a form and submit it
                     const form = document.createElement('form');
                     form.method = 'POST';
+                    form.appendChild(csrfInput());
                     form.action = 'admin_products.php';
 
                     const actionInput = document.createElement('input');
@@ -1921,8 +1933,8 @@ while ($row = $categories_result->fetch_assoc()) {
             <?php foreach ($products as $product): ?>
                 rows.push([
                     '<?php echo $product['id']; ?>',
-                    '<?php echo addslashes($product['product_name']); ?>',
-                    '<?php echo addslashes($product['category']); ?>',
+                    <?php echo esc_js($product['product_name']); ?>,
+                    <?php echo esc_js($product['category']); ?>,
                     '<?php echo $product['price']; ?>'
                 ]);
             <?php endforeach; ?>
@@ -1989,6 +2001,16 @@ while ($row = $categories_result->fetch_assoc()) {
                 }, 3000);
             });
         });
+    </script>
+    <script>
+        // Adds the CSRF token to forms that are built in JavaScript
+        function csrfInput() {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'csrf_token';
+            input.value = <?php echo esc_js(csrf_token()); ?>;
+            return input;
+        }
     </script>
 </body>
 

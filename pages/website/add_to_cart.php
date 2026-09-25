@@ -1,45 +1,53 @@
 <?php
-session_start();
+// (service_detail.php includes this file, so only start the session if needed)
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once '../../config/db.php';
+require_once '../../config/security.php';
 
-// Debug: Log received data
-error_log("Add to Cart - POST: " . print_r($_POST, true));
-error_log("Add to Cart - GET: " . print_r($_GET, true));
+// The cart only changes on a POST request that carries the CSRF token.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
+    // Where to send the customer back to (same site only)
+    $referrer = safe_referrer('../website/landing.php');
 
-if (($_SERVER['REQUEST_METHOD'] == 'POST' || isset($_GET['product_id'])) && isset($_SESSION['user_id'])) {
+    if (!csrf_valid()) {
+        header("Location: " . $referrer . (strpos($referrer, '?') === false ? '?' : '&') . "error=csrf");
+        exit;
+    }
+
     $user_id = $_SESSION['user_id'];
-    $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : (isset($_GET['product_id']) ? intval($_GET['product_id']) : null);
-    $quantity = isset($_POST['quantity']) ? intval($_POST['quantity']) : (isset($_GET['quantity']) ? intval($_GET['quantity']) : 1);
+    $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : null;
+    $quantity = isset($_POST['quantity']) ? intval($_POST['quantity']) : 1;
     
     // Get upload type to determine which design field to use
-    $upload_type = isset($_POST['upload_type']) ? $_POST['upload_type'] : (isset($_GET['upload_type']) ? $_GET['upload_type'] : 'single');
+    $upload_type = isset($_POST['upload_type']) ? $_POST['upload_type'] : 'single';
     
     // Handle design data based on upload type
     if ($upload_type === 'single') {
-        $design_image = isset($_POST['design_image']) ? $_POST['design_image'] : (isset($_GET['design_image']) ? $_GET['design_image'] : null);
+        $design_image = isset($_POST['design_image']) ? $_POST['design_image'] : null;
     } else {
         // For separate uploads, use front_design_image as the main design_image
-        $design_image = isset($_POST['front_design_image']) ? $_POST['front_design_image'] : (isset($_GET['front_design_image']) ? $_GET['front_design_image'] : null);
+        $design_image = isset($_POST['front_design_image']) ? $_POST['front_design_image'] : null;
         
         // Debug: Check if we're getting the separate design data
-        error_log("Separate upload detected - Front design: " . ($_POST['front_design_image'] ?? $_GET['front_design_image'] ?? 'NOT SET'));
-        error_log("Separate upload detected - Back design: " . ($_POST['back_design_image'] ?? $_GET['back_design_image'] ?? 'NOT SET'));
+        error_log("Separate upload detected - Front design: " . ($_POST['front_design_image'] ?? 'NOT SET'));
+        error_log("Separate upload detected - Back design: " . ($_POST['back_design_image'] ?? 'NOT SET'));
     }
     
-    $size_option   = $_POST['size_option']   ?? ($_GET['size_option']   ?? null);
-    $custom_size   = $_POST['custom_size']   ?? ($_GET['custom_size']   ?? null);
-    $color_option  = $_POST['color_option']  ?? ($_GET['color_option']  ?? null);
-    $custom_color  = $_POST['custom_color']  ?? ($_GET['custom_color']  ?? null);
-    $finish_option = $_POST['finish_option'] ?? ($_GET['finish_option'] ?? null);
-    $paper_option  = $_POST['paper_option']  ?? ($_GET['paper_option']  ?? null);
-    $binding_option= $_POST['binding_option']?? ($_GET['binding_option']?? null);
-    $layout_option = $_POST['layout_option'] ?? ($_GET['layout_option'] ?? null);
-    $layout_details= $_POST['layout_details']?? ($_GET['layout_details']?? null);
-    $gsm_option    = $_POST['gsm_option']    ?? ($_GET['gsm_option']    ?? null);
-    $user_layout_files = $_POST['user_layout_files'] ?? ($_GET['user_layout_files'] ?? null);
+    $size_option   = $_POST['size_option']   ?? null;
+    $custom_size   = $_POST['custom_size']   ?? null;
+    $color_option  = $_POST['color_option']  ?? null;
+    $custom_color  = $_POST['custom_color']  ?? null;
+    $finish_option = $_POST['finish_option'] ?? null;
+    $paper_option  = $_POST['paper_option']  ?? null;
+    $binding_option= $_POST['binding_option']?? null;
+    $layout_option = $_POST['layout_option'] ?? null;
+    $layout_details= $_POST['layout_details']?? null;
+    $gsm_option    = $_POST['gsm_option']    ?? null;
+    $user_layout_files = $_POST['user_layout_files'] ?? null;
     
-    // Store the referring URL to redirect back
-    $referrer = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '../website/landing.php';
+    // $referrer was set (and checked) at the top of this block
     
     // Validate inputs
     if (!$product_id || $product_id < 1) {
@@ -68,7 +76,7 @@ if (($_SERVER['REQUEST_METHOD'] == 'POST' || isset($_GET['product_id'])) && isse
         }
     } else {
         // If no design image but we have separate designs, try to use front design
-        $front_design_image = isset($_POST['front_design_image']) ? $_POST['front_design_image'] : (isset($_GET['front_design_image']) ? $_GET['front_design_image'] : null);
+        $front_design_image = isset($_POST['front_design_image']) ? $_POST['front_design_image'] : null;
         if ($front_design_image) {
             $design_image = $inventory->real_escape_string($front_design_image);
             error_log("Using front_design_image as fallback: " . $design_image);
@@ -191,24 +199,17 @@ if (($_SERVER['REQUEST_METHOD'] == 'POST' || isset($_GET['product_id'])) && isse
         }
     }
 } else {
-    // If user is not logged in, redirect to login page
-    $redirect_uri = $_SERVER['REQUEST_URI'];
-    if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['product_id'])) {
-        $redirect_uri .= "?product_id=" . $_GET['product_id'] . "&quantity=" . ($_GET['quantity'] ?? 1);
-        if (isset($_GET['design_image'])) {
-            $redirect_uri .= "&design_image=" . urlencode($_GET['design_image']);
-        }
-        if (isset($_GET['upload_type'])) {
-            $redirect_uri .= "&upload_type=" . urlencode($_GET['upload_type']);
-        }
-        if (isset($_GET['front_design_image'])) {
-            $redirect_uri .= "&front_design_image=" . urlencode($_GET['front_design_image']);
-        }
-        if (isset($_GET['back_design_image'])) {
-            $redirect_uri .= "&back_design_image=" . urlencode($_GET['back_design_image']);
+    // Not logged in (or not a POST): send them to login and bring them back to the page they came from.
+    $back = safe_referrer('');
+    $redirect_uri = '';
+    if ($back !== '') {
+        $redirect_uri = (string) parse_url($back, PHP_URL_PATH);
+        $query = parse_url($back, PHP_URL_QUERY);
+        if ($query) {
+            $redirect_uri .= '?' . $query;
         }
     }
-    header("Location: ../accounts/login.php?redirect=" . urlencode($redirect_uri));
+    header("Location: ../accounts/login.php" . ($redirect_uri !== '' ? "?redirect=" . urlencode($redirect_uri) : ''));
     exit;
 }
 

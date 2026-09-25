@@ -7,6 +7,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../../config/db.php';
+require_once '../../config/security.php';
 
 // Fetch user info (personal or company)
 $userQuery = "SELECT 
@@ -54,6 +55,8 @@ if (isset($_GET['error'])) {
         'cart_error'      => 'Error creating cart!',
         'update_error'    => 'Error updating cart!',
         'add_error'       => 'Error adding to cart!',
+        'csrf'            => 'Your session expired. Please try again.',
+        'upload_error'    => 'One of your files could not be uploaded (unsupported type or too large).',
     ];
     if (isset($error_messages[$_GET['error']])) {
         $toast = ['type' => 'error', 'message' => $error_messages[$_GET['error']], 'ms' => 5000];
@@ -244,6 +247,17 @@ $cat_meta = $ink_map[$product['category']] ?? ['ink' => 'black', 'anchor' => 'se
 
 // Handle add to cart
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_to_cart'])) {
+    // Where to go back to if something is wrong with the request (this same page)
+    $back_url = strtok($_SERVER['REQUEST_URI'], '#');
+    $back_url = preg_replace('/([?&])(success|error)=[^&]*&?/', '$1', $back_url);
+    $back_url = rtrim($back_url, '?&');
+    $back_url .= (strpos($back_url, '?') === false ? '?' : '&');
+
+    if (!csrf_valid()) {
+        header("Location: " . $back_url . "error=csrf");
+        exit;
+    }
+
     $quantity = isset($_POST['quantity']) ? intval($_POST['quantity']) : 1;
     $design_image = isset($_POST['design_image']) ? $_POST['design_image'] : '';
     $front_design_image = isset($_POST['front_design_image']) ? $_POST['front_design_image'] : '';
@@ -258,45 +272,41 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_to_cart'])) {
     $color_option = isset($_POST['color_option']) ? $_POST['color_option'] : '';
     $custom_color = isset($_POST['custom_color']) ? $_POST['custom_color'] : '';
 
-    // Handle user layout file uploads
+    // Handle user layout file uploads (validated: allowed types only, random safe names)
     $user_layout_files = [];
-    if (isset($_FILES['user_layout_upload']) && $_FILES['user_layout_upload']['error'][0] == 0) {
-        $user_id = $_SESSION['user_id'];
-        $upload_dir = '../../assets/uploads/user_layouts/' . $user_id . '/';
-        if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
-        }
-        foreach ($_FILES['user_layout_upload']['tmp_name'] as $key => $tmp_name) {
-            $original_name = basename($_FILES['user_layout_upload']['name'][$key]);
-            $target_file = $upload_dir . time() . '_' . preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $original_name);
-            if (move_uploaded_file($tmp_name, $target_file)) {
-                $user_layout_files[] = $target_file;
+    $layout_upload_failed = false;
+    if (isset($_FILES['user_layout_upload']) && is_array($_FILES['user_layout_upload']['name'])) {
+        $layout_dir = '../../assets/uploads/user_layouts/' . (int) $_SESSION['user_id'] . '/';
+        foreach (array_keys($_FILES['user_layout_upload']['name']) as $key) {
+            if ($_FILES['user_layout_upload']['error'][$key] === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+            $one_file = [
+                'name'     => $_FILES['user_layout_upload']['name'][$key],
+                'type'     => $_FILES['user_layout_upload']['type'][$key],
+                'tmp_name' => $_FILES['user_layout_upload']['tmp_name'][$key],
+                'error'    => $_FILES['user_layout_upload']['error'][$key],
+                'size'     => $_FILES['user_layout_upload']['size'][$key],
+            ];
+            $saved = save_uploaded_file($one_file, $layout_dir, upload_allowed_design(), 'layout_', UPLOAD_MAX_DESIGN_BYTES, true);
+            if ($saved['ok']) {
+                $user_layout_files[] = $layout_dir . $saved['filename'];
+            } else {
+                $layout_upload_failed = true;
             }
         }
     }
+    if ($layout_upload_failed) {
+        header("Location: " . $back_url . "error=upload_error");
+        exit;
+    }
     $user_layout_files_json = !empty($user_layout_files) ? json_encode($user_layout_files) : '';
 
-    $url = "add_to_cart.php?product_id=" . $product_id . "&quantity=" . $quantity;
-    $url .= "&upload_type=" . urlencode($upload_type);
-
-    // Include all design image fields
-    $url .= "&design_image=" . urlencode($design_image);
-    $url .= "&front_design_image=" . urlencode($front_design_image);
-    $url .= "&back_design_image=" . urlencode($back_design_image);
-
-    $url .= "&layout_option=" . urlencode($layout_option);
-    $url .= "&layout_details=" . urlencode($layout_details);
-    $url .= "&size_option=" . urlencode($size_option);
-    $url .= "&custom_size=" . urlencode($custom_size);
-    $url .= "&color_option=" . urlencode($color_option);
-    $url .= "&custom_color=" . urlencode($custom_color);
-    $url .= "&finish_option=" . urlencode($_POST['finish_option'] ?? '');
-    $url .= "&paper_option=" . urlencode($_POST['paper_option'] ?? '');
-    $url .= "&binding_option=" . urlencode($_POST['binding_option'] ?? '');
-    $url .= "&gsm_option=" . urlencode($_POST['gsm_option'] ?? '');
-    $url .= "&user_layout_files=" . urlencode($user_layout_files_json);
-
-    header("Location: " . $url);
+    // Hand over to add_to_cart.php in this same request (POST + CSRF token, nothing in the URL)
+    $_POST['product_id']        = $product_id;
+    $_POST['quantity']          = $quantity;
+    $_POST['user_layout_files'] = $user_layout_files_json;
+    require __DIR__ . '/add_to_cart.php';
     exit;
 }
 
@@ -447,6 +457,7 @@ $main_image = $product_images[0];
             </nav>
 
             <form method="post" id="cartForm" action="" enctype="multipart/form-data">
+                <?php echo csrf_field(); ?>
                 <input type="hidden" name="add_to_cart" value="1">
 
                 <div class="pd-top">
@@ -1929,6 +1940,7 @@ $main_image = $product_images[0];
 
                 // ALWAYS send both images, even if one is empty
                 // For empty sides, we'll send a flag to create a plain mockup
+                formData.append('csrf_token', <?php echo esc_js(csrf_token()); ?>);
                 formData.append('front_image', frontImageData || '');
                 formData.append('back_image', backImageData || '');
                 formData.append('has_front_design', frontDesign !== null ? '1' : '0');

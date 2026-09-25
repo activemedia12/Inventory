@@ -1,12 +1,18 @@
 <?php
 session_start();
 require_once '../../config/db.php';
+require_once '../../config/security.php';
 require_once '../../config/ChatController.php';
 
 // Check if user is logged in and is admin
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
     header("Location: ../accounts/login.php");
     exit;
+}
+
+// CSRF protection: every POST on this page must carry this session's token.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
 }
 
 $customers = [];
@@ -1102,14 +1108,14 @@ $chatController->updateAdminOnlineStatus($user_id, true);
             <!-- Messages -->
             <?php if (isset($_SESSION['chat_message'])): ?>
                 <div class="message">
-                    <i class="fas fa-check-circle"></i> <?php echo $_SESSION['chat_message'];
+                    <i class="fas fa-check-circle"></i> <?php echo esc_html($_SESSION['chat_message']);
                                                         unset($_SESSION['chat_message']); ?>
                 </div>
             <?php endif; ?>
 
             <?php if (isset($_SESSION['chat_error'])): ?>
                 <div class="error">
-                    <i class="fas fa-exclamation-circle"></i> <?php echo $_SESSION['chat_error'];
+                    <i class="fas fa-exclamation-circle"></i> <?php echo esc_html($_SESSION['chat_error']);
                                                                 unset($_SESSION['chat_error']); ?>
                 </div>
             <?php endif; ?>
@@ -1210,6 +1216,7 @@ $chatController->updateAdminOnlineStatus($user_id, true);
 
                         <div class="chat-input-area">
                             <form method="post" class="chat-input-form" id="messageForm">
+<?php echo csrf_field(); ?>
                                 <input type="hidden" name="conversation_id" value="<?php echo $current_conversation['id']; ?>">
                                 <textarea name="message" class="chat-input" placeholder="Type your message..." rows="1" required id="messageInput"></textarea>
                                 <button type="submit" name="send_message" class="chat-send-btn">
@@ -1238,6 +1245,7 @@ $chatController->updateAdminOnlineStatus($user_id, true);
             </div>
             <div class="modal-body">
                 <form method="post" class="modal-form" id="newConversationForm">
+<?php echo csrf_field(); ?>
                     <div class="form-group">
                         <label for="customer_search">Search Customer</label>
                         <div class="select-search-container">
@@ -1284,6 +1292,7 @@ $chatController->updateAdminOnlineStatus($user_id, true);
                 <p>This will permanently delete this conversation and all its messages. This action cannot be undone.</p>
 
                 <form method="post" id="deleteForm">
+<?php echo csrf_field(); ?>
                     <input type="hidden" name="conversation_id" value="<?php echo isset($current_conversation) ? $current_conversation['id'] : ''; ?>">
                     <input type="hidden" name="confirm_delete" value="yes">
 

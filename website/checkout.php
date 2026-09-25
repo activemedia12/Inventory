@@ -6,6 +6,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../config/db.php';
+require_once '../config/security.php';
 
 // Get selected items from URL
 $selected_items = isset($_GET['selected_items']) ? explode(',', $_GET['selected_items']) : [];
@@ -108,7 +109,7 @@ while ($row = $result->fetch_assoc()) {
 }
 
 $shipping = 0;
-$tax = $subtotal * 0.03;
+$tax = $subtotal * ORDER_TAX_RATE;   // same constant process_order.php uses
 $total = $subtotal + $tax;
 
 $cart_count = 0;
@@ -618,6 +619,7 @@ $has_items = !empty($checkout_items);
                         </div>
 
                         <form action="../pages/website/process_order.php" method="post" enctype="multipart/form-data" id="checkoutForm" novalidate>
+                            <?php echo csrf_field(); ?>
                             <input type="hidden" name="selected_items" value="<?php echo co_h(implode(',', $selected_items)); ?>">
                             <input type="hidden" name="total_amount" value="<?php echo co_h($total); ?>">
 

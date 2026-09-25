@@ -1,11 +1,17 @@
 <?php
 session_start();
 require_once '../../config/db.php';
+require_once '../../config/security.php';
 
 // Check if user is logged in and is admin
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
     header("Location: ../../accounts/login.php");
     exit;
+}
+
+// CSRF protection: every POST on this page must carry this session's token.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
 }
 
 // Handle customer actions
@@ -128,10 +134,11 @@ if (isset($_POST['action'])) {
 
 // Handle AJAX requests
 if (isset($_GET['ajax'])) {
+    header('Content-Type: application/json; charset=utf-8');
     switch ($_GET['ajax']) {
         case 'get_customer':
             $user_id = $_GET['user_id'];
-            $query = "SELECT u.*, 
+            $query = "SELECT u.id, u.username, 
                             pc.first_name, pc.last_name, pc.middle_name, pc.age, pc.gender, pc.birthdate, 
                             pc.contact_number, pc.address_line1, pc.city, pc.province, pc.zip_code,
                             cc.company_name, cc.taxpayer_name, cc.contact_person, cc.contact_number AS company_contact, 
@@ -204,7 +211,7 @@ $search = $_GET['search'] ?? '';
 $sort = $_GET['sort'] ?? 'newest';
 
 // Build query for customers
-$query = "SELECT u.*, 
+$query = "SELECT u.id, u.username, 
                  pc.first_name, pc.last_name, pc.contact_number, pc.city,
                  cc.company_name, cc.contact_person, cc.contact_number as company_contact, cc.city as company_city,
                  COUNT(o.order_id) as order_count,
@@ -953,7 +960,7 @@ $stats = $stats_result->fetch_assoc();
                         Swal.fire({
                             icon: 'success',
                             title: 'Success!',
-                            text: '<?php echo $_SESSION['message']; ?>',
+                            text: <?php echo esc_js($_SESSION['message']); ?>,
                             toast: true,
                             position: 'top-end',
                             showConfirmButton: false,
@@ -974,7 +981,7 @@ $stats = $stats_result->fetch_assoc();
                         Swal.fire({
                             icon: 'error',
                             title: 'Error!',
-                            text: '<?php echo $_SESSION['error']; ?>',
+                            text: <?php echo esc_js($_SESSION['error']); ?>,
                             toast: true,
                             position: 'top-end',
                             showConfirmButton: false,
@@ -991,7 +998,7 @@ $stats = $stats_result->fetch_assoc();
 
             <?php if (isset($_SESSION['error'])): ?>
                 <div class="error">
-                    <i class="fas fa-exclamation-circle"></i> <?php echo $_SESSION['error'];
+                    <i class="fas fa-exclamation-circle"></i> <?php echo esc_html($_SESSION['error']);
                                                                 unset($_SESSION['error']); ?>
                 </div>
             <?php endif; ?>
@@ -1108,7 +1115,7 @@ $stats = $stats_result->fetch_assoc();
                                         <button class="btn btn-warning" onclick="editCustomer(<?php echo $customer['id']; ?>)">
                                             <i class="fas fa-edit"></i> Edit
                                         </button>
-                                        <button class="btn btn-danger" onclick="confirmDelete(<?php echo $customer['id']; ?>, '<?php echo htmlspecialchars($customer['username']); ?>')">
+                                        <button class="btn btn-danger" onclick="confirmDelete(<?php echo (int) $customer['id']; ?>, <?php echo esc_attr_js($customer['username']); ?>)">
                                             <i class="fas fa-trash"></i> Delete
                                         </button>
                                     </div>
@@ -1144,6 +1151,7 @@ $stats = $stats_result->fetch_assoc();
                 <button class="close" onclick="closeModal('editCustomerModal')">&times;</button>
             </div>
             <form id="editCustomerForm" method="post">
+<?php echo csrf_field(); ?>
                 <div class="modal-body">
                     <input type="hidden" name="action" value="update_customer">
                     <input type="hidden" name="user_id" id="editUserId">
@@ -1196,6 +1204,13 @@ $stats = $stats_result->fetch_assoc();
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
+        // Escapes text so customer-supplied values can never run as HTML/JS
+        function esc(value) {
+            return String(value === null || value === undefined ? '' : value)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
         function viewCustomerDetails(userId) {
             fetch(`admin_customers.php?ajax=get_customer_stats&user_id=${userId}`)
                 .then(response => response.json())
@@ -1216,10 +1231,10 @@ $stats = $stats_result->fetch_assoc();
                             if (recentOrders.length > 0) {
                                 ordersHtml = recentOrders.map(order => `
                             <tr>
-                                <td>#${order.order_id}</td>
-                                <td>₱${parseFloat(order.total_amount).toFixed(2)}</td>
-                                <td><span class="status-badge status-${order.status}">${order.status}</span></td>
-                                <td>${new Date(order.created_at).toLocaleDateString()}</td>
+                                <td>#${esc(order.order_id)}</td>
+                                <td>₱${esc(parseFloat(order.total_amount).toFixed(2))}</td>
+                                <td><span class="status-badge status-${esc(order.status)}">${esc(order.status)}</span></td>
+                                <td>${esc(new Date(order.created_at).toLocaleDateString())}</td>
                             </tr>
                         `).join('');
                             } else {
@@ -1231,22 +1246,22 @@ $stats = $stats_result->fetch_assoc();
 
                             if (customer.customer_type === 'personal') {
                                 customerInfoHtml = `
-                            <h3>${customer.first_name} ${customer.last_name}</h3>
-                            <p><strong>Email:</strong> ${customer.username}</p>
-                            <p><strong>Full Name:</strong> ${customer.first_name} ${customer.middle_name || ''} ${customer.last_name}</p>
-                            <p><strong>Phone:</strong> ${customer.contact_number || 'Not provided'}</p>
-                            <p><strong>Address:</strong> ${customer.address_line1 || 'Not provided'} ${customer.city ? ', ' + customer.city : ''} ${customer.province ? ', ' + customer.province : ''} ${customer.zip_code ? ' ' + customer.zip_code : ''}</p>
-                            <p><strong>Age/Gender:</strong> ${customer.age || 'Not provided'} / ${customer.gender || 'Not provided'}</p>
-                            <p><strong>Birthdate:</strong> ${customer.birthdate ? new Date(customer.birthdate).toLocaleDateString() : 'Not provided'}</p>
+                            <h3>${esc(customer.first_name)} ${esc(customer.last_name)}</h3>
+                            <p><strong>Email:</strong> ${esc(customer.username)}</p>
+                            <p><strong>Full Name:</strong> ${esc(customer.first_name)} ${esc(customer.middle_name || '')} ${esc(customer.last_name)}</p>
+                            <p><strong>Phone:</strong> ${esc(customer.contact_number || 'Not provided')}</p>
+                            <p><strong>Address:</strong> ${esc(customer.address_line1 || 'Not provided')} ${esc(customer.city ? ', ' + customer.city : '')} ${esc(customer.province ? ', ' + customer.province : '')} ${esc(customer.zip_code ? ' ' + customer.zip_code : '')}</p>
+                            <p><strong>Age/Gender:</strong> ${esc(customer.age || 'Not provided')} / ${esc(customer.gender || 'Not provided')}</p>
+                            <p><strong>Birthdate:</strong> ${esc(customer.birthdate ? new Date(customer.birthdate).toLocaleDateString() : 'Not provided')}</p>
                         `;
                             } else if (customer.customer_type === 'company') {
                                 customerInfoHtml = `
-                            <h3>${customer.company_name}</h3>
-                            <p><strong>Email:</strong> ${customer.username}</p>
-                            <p><strong>Taxpayer:</strong> ${customer.taxpayer_name || 'Not provided'}</p>
-                            <p><strong>Person:</strong> ${customer.contact_person || 'Not provided'}</p>
-                            <p><strong>Phone:</strong> ${customer.company_contact || 'Not provided'}</p>
-                            <p><strong>Address:</strong> ${customer.building_or_block || ''} ${customer.lot_or_room_no || ''} ${customer.subd_or_street || ''} ${customer.barangay || ''} ${customer.city || ''} ${customer.province || ''} ${customer.zip_code || ''}</p>
+                            <h3>${esc(customer.company_name)}</h3>
+                            <p><strong>Email:</strong> ${esc(customer.username)}</p>
+                            <p><strong>Taxpayer:</strong> ${esc(customer.taxpayer_name || 'Not provided')}</p>
+                            <p><strong>Person:</strong> ${esc(customer.contact_person || 'Not provided')}</p>
+                            <p><strong>Phone:</strong> ${esc(customer.company_contact || 'Not provided')}</p>
+                            <p><strong>Address:</strong> ${esc(customer.building_or_block || '')} ${esc(customer.lot_or_room_no || '')} ${esc(customer.subd_or_street || '')} ${esc(customer.barangay || '')} ${esc(customer.city || '')} ${esc(customer.province || '')} ${esc(customer.zip_code || '')}</p>
                         `;
                             }
 
@@ -1337,6 +1352,7 @@ $stats = $stats_result->fetch_assoc();
                 if (result.isConfirmed) {
                     const form = document.createElement('form');
                     form.method = 'POST';
+                    form.appendChild(csrfInput());
                     form.action = 'admin_customers.php';
 
                     const actionInput = document.createElement('input');
@@ -1384,6 +1400,16 @@ $stats = $stats_result->fetch_assoc();
                 }, 3000);
             });
         });
+    </script>
+    <script>
+        // Adds the CSRF token to forms that are built in JavaScript
+        function csrfInput() {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'csrf_token';
+            input.value = <?php echo esc_js(csrf_token()); ?>;
+            return input;
+        }
     </script>
 </body>
 

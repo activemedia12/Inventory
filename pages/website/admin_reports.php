@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../config/db.php';
+require_once '../../config/security.php';
 
 // Check if user is logged in and is admin
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
@@ -8,10 +9,19 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'empl
     exit;
 }
 
+// CSRF protection: every POST on this page must carry this session's token.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_require();
+}
+
 // Get date range filters
-$start_date = $_GET['start_date'] ?? date('Y-m-01'); // First day of current month
-$end_date = $_GET['end_date'] ?? date('Y-m-t'); // Last day of current month
+// Only real dates and known report types are accepted (anything else falls back to the default)
+$start_date = valid_ymd($_GET['start_date'] ?? '') ?? date('Y-m-01'); // First day of current month
+$end_date = valid_ymd($_GET['end_date'] ?? '') ?? date('Y-m-t'); // Last day of current month
 $report_type = $_GET['report_type'] ?? 'sales';
+if (!in_array($report_type, ['sales', 'customers', 'products'], true)) {
+    $report_type = 'sales';
+}
 
 // Validate dates
 if (!empty($start_date) && !empty($end_date) && $start_date > $end_date) {
@@ -662,19 +672,19 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
             <!-- Report Filters -->
             <div class="report-filters">
                 <form method="GET" id="reportForm">
-                    <input type="hidden" name="report_type" id="reportType" value="<?php echo $report_type; ?>">
+                    <input type="hidden" name="report_type" id="reportType" value="<?php echo esc_html($report_type); ?>">
 
                     <div class="filter-row">
                         <div class="form-group">
                             <label for="start_date">Start Date</label>
                             <input type="date" id="start_date" name="start_date" class="form-control"
-                                value="<?php echo $start_date; ?>" required>
+                                value="<?php echo esc_html($start_date); ?>" required>
                         </div>
 
                         <div class="form-group">
                             <label for="end_date">End Date</label>
                             <input type="date" id="end_date" name="end_date" class="form-control"
-                                value="<?php echo $end_date; ?>" required>
+                                value="<?php echo esc_html($end_date); ?>" required>
                         </div>
 
                         <div class="form-group">
@@ -996,7 +1006,7 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
                 Swal.fire({
                     icon: 'success',
                     title: 'Success!',
-                    text: '<?php echo $_SESSION['message']; ?>',
+                    text: <?php echo esc_js($_SESSION['message']); ?>,
                     toast: true,
                     position: 'top-end',
                     showConfirmButton: false,
@@ -1017,7 +1027,7 @@ $status_distribution = $status_distribution_stmt->get_result()->fetch_all(MYSQLI
                 Swal.fire({
                     icon: 'error',
                     title: 'Error!',
-                    text: '<?php echo $_SESSION['error']; ?>',
+                    text: <?php echo esc_js($_SESSION['error']); ?>,
                     toast: true,
                     position: 'top-end',
                     showConfirmButton: false,
