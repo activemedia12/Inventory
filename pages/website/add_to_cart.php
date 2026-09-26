@@ -20,28 +20,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
     $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : null;
     $quantity = isset($_POST['quantity']) ? intval($_POST['quantity']) : 1;
     
-    // Get upload type to determine which design field to use
-    $upload_type = isset($_POST['upload_type']) ? $_POST['upload_type'] : 'single';
-    
-    // Handle design data based on upload type
-    if ($upload_type === 'single') {
-        $design_image = isset($_POST['design_image']) ? $_POST['design_image'] : null;
-    } else {
-        // For separate uploads, combine front + back into one JSON payload so
-        // the back design is actually persisted instead of being dropped.
-        $front_design_image = isset($_POST['front_design_image']) ? $_POST['front_design_image'] : null;
-        $back_design_image  = isset($_POST['back_design_image'])  ? $_POST['back_design_image']  : null;
-
-        error_log("Separate upload detected - Front design: " . ($front_design_image ?? 'NOT SET'));
-        error_log("Separate upload detected - Back design: " . ($back_design_image ?? 'NOT SET'));
-
-        if ($front_design_image || $back_design_image) {
-            $design_image = json_encode([
-                'front' => $front_design_image ? basename($front_design_image) : null,
-                'back'  => $back_design_image ? basename($back_design_image) : null,
-            ]);
-        } else {
-            $design_image = null;
+    // service_detail.php always submits the SAME full design JSON blob (front_mockup,
+    // back_mockup, front_uploaded_file, back_uploaded_file, upload_type, positions, etc.)
+    // in all three of design_image / front_design_image / back_design_image - the actual
+    // front/back split lives inside that JSON, not across separate POST fields. Take
+    // whichever of the three is populated rather than branching on upload_type (its real
+    // values - 'none'/'front_only'/'back_only'/'both_sides' - never match the literal
+    // 'single' this used to check for, so that branch never ran and the code below used to
+    // run basename() on the whole JSON blob, corrupting it).
+    $design_image = null;
+    foreach (['design_image', 'front_design_image', 'back_design_image'] as $field) {
+        if (!empty($_POST[$field])) {
+            $design_image = $_POST[$field];
+            break;
         }
     }
     
@@ -68,10 +59,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
     if ($quantity < 1) {
         $quantity = 1;
     }
-    
-    // Debug: Log design image data
-    error_log("Upload Type: " . $upload_type);
-    error_log("Design Image: " . $design_image);
     
     // Handle design_image (could be JSON or single filename)
     if ($design_image) {
@@ -159,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
         $stmt->bind_param("ii", $new_quantity, $item_row['item_id']);
         
         if ($stmt->execute()) {
-            header("Location: " . $referrer . (strpos($referrer, '?') === false ? '?' : '&') . "success=updated");
+            header("Location: ../../website/view_cart.php?success=updated");
             exit;
         } else {
             error_log("Update cart item failed: " . $inventory->error);
@@ -194,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
         
         if ($stmt->execute()) {
             error_log("Cart item added successfully. Design image: " . $design_image);
-            header("Location: " . $referrer . (strpos($referrer, '?') === false ? '?' : '&') . "success=added");
+            header("Location: ../../website/view_cart.php?success=added");
             exit;
         } else {
             error_log("Add to cart failed: " . $inventory->error);

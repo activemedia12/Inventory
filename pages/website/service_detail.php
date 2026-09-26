@@ -352,6 +352,129 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <link rel="stylesheet" href="../../assets/css/main.css">
     <link rel="stylesheet" href="../../assets/css/service_detail.css">
+    <style>
+        /* --- Design studio: multi-image thumbs, tool groups, rotate/opacity controls ---
+           Added inline so these work regardless of what's in service_detail.css. */
+        .design-thumbs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .design-thumb {
+            position: relative;
+            width: 64px;
+            height: 64px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.12);
+            background: #f4f4f5;
+            flex: 0 0 auto;
+            cursor: pointer;
+        }
+        .design-thumb.is-selected {
+            border: 2px solid #4f46e5;
+        }
+        /* Each uploaded image gets its own draggable box on the canvas; the
+           one currently selected for the position/size/rotate/opacity tools
+           is outlined and drawn above the others. */
+        .draggable-design.is-selected {
+            outline: 2px dashed #4f46e5;
+            outline-offset: 2px;
+        }
+        .design-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .design-thumb__remove {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 18px;
+            height: 18px;
+            line-height: 18px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.65);
+            color: #fff;
+            font-size: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+        .design-thumb__remove:hover { background: #d9463c; }
+        .add-more-tile {
+            width: 64px;
+            height: 64px;
+            border-radius: 8px;
+            border: 1px dashed rgba(0, 0, 0, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #666;
+            flex: 0 0 auto;
+            background: transparent;
+        }
+        .add-more-tile:hover { border-color: #999; color: #333; }
+
+        .positioning-tools { display: flex; flex-direction: column; gap: 10px; }
+        .tool-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .tool-group__buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+        .tool-group__label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            min-width: 62px;
+        }
+        .tool-btn.icon-only { padding: 6px 10px; }
+        .range-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1 1 160px;
+            min-width: 140px;
+        }
+        .range-control input[type="range"] { flex: 1; accent-color: #d9463c; }
+        .range-readout {
+            font-size: 12px;
+            color: #555;
+            min-width: 34px;
+            text-align: right;
+        }
+
+        .rotate-handle {
+            position: absolute;
+            left: 50%;
+            top: -22px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            border: 2px solid #d9463c;
+            transform: translateX(-50%);
+            cursor: alias;
+        }
+        .rotate-handle::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 100%;
+            width: 1px;
+            height: 14px;
+            background: #d9463c;
+            transform: translateX(-50%);
+        }
+    </style>
 </head>
 <body>
     <!-- Side Pill Navigation -->
@@ -649,18 +772,19 @@ $main_image = $product_images[0];
 
                                     <div class="design-upload-container">
                                         <label class="upload-zone" id="frontUploadZone">
-                                            <input type="file" id="frontDesignUpload" name="front_design_upload" accept="image/*" hidden
+                                            <input type="file" id="frontDesignUpload" name="front_design_upload" accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple hidden
                                                 onchange="handleDesignUpload(this, 'front')">
                                             <i class="fas fa-cloud-upload-alt"></i>
                                             <span class="upload-text">Upload front design</span>
-                                            <small class="upload-hint">JPG, PNG, GIF (max 5MB)</small>
+                                            <small class="upload-hint">JPG, PNG, GIF (max 5MB each, up to 6 images)</small>
                                         </label>
 
                                         <div class="design-preview" id="frontDesignPreview">
-                                            <img src="" alt="Front design preview" id="frontPreviewImage">
+                                            <img src="" alt="Front design preview" id="frontPreviewImage" style="display:none;">
+                                            <div class="design-thumbs" id="frontDesignThumbs"></div>
                                             <div class="design-actions">
                                                 <button type="button" class="btn-remove-design" onclick="removeDesign('front')">
-                                                    <i class="fas fa-trash"></i> Remove
+                                                    <i class="fas fa-trash"></i> Remove all
                                                 </button>
                                             </div>
                                         </div>
@@ -677,18 +801,19 @@ $main_image = $product_images[0];
 
                                     <div class="design-upload-container">
                                         <label class="upload-zone" id="backUploadZone">
-                                            <input type="file" id="backDesignUpload" name="back_design_upload" accept="image/*" hidden
+                                            <input type="file" id="backDesignUpload" name="back_design_upload" accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple hidden
                                                 onchange="handleDesignUpload(this, 'back')">
                                             <i class="fas fa-cloud-upload-alt"></i>
                                             <span class="upload-text">Upload back design</span>
-                                            <small class="upload-hint">JPG, PNG, GIF (max 5MB)</small>
+                                            <small class="upload-hint">JPG, PNG, GIF (max 5MB each, up to 6 images)</small>
                                         </label>
 
                                         <div class="design-preview" id="backDesignPreview">
-                                            <img src="" alt="Back design preview" id="backPreviewImage">
+                                            <img src="" alt="Back design preview" id="backPreviewImage" style="display:none;">
+                                            <div class="design-thumbs" id="backDesignThumbs"></div>
                                             <div class="design-actions">
                                                 <button type="button" class="btn-remove-design" onclick="removeDesign('back')">
-                                                    <i class="fas fa-trash"></i> Remove
+                                                    <i class="fas fa-trash"></i> Remove all
                                                 </button>
                                             </div>
                                         </div>
@@ -718,21 +843,58 @@ $main_image = $product_images[0];
                         </div>
 
                         <div class="positioning-tools">
-                            <button type="button" class="tool-btn" onclick="enableDragging()" id="dragBtn">
-                                <i class="fas fa-arrows-alt"></i> Move design
-                            </button>
-                            <button type="button" class="tool-btn" onclick="resizeDesign(1.1)">
-                                <i class="fas fa-search-plus"></i> Enlarge
-                            </button>
-                            <button type="button" class="tool-btn" onclick="resizeDesign(0.9)">
-                                <i class="fas fa-search-minus"></i> Shrink
-                            </button>
-                            <button type="button" class="tool-btn" onclick="resetDesignPosition()">
-                                <i class="fas fa-redo"></i> Reset
-                            </button>
-                            <button type="button" class="tool-btn" onclick="toggleBoundary()" id="boundaryBtn">
-                                <i class="fas fa-border-all"></i> Show boundaries
-                            </button>
+                            <div class="tool-group">
+                                <span class="tool-group__label">Position</span>
+                                <div class="tool-group__buttons">
+                                    <button type="button" class="tool-btn" onclick="enableDragging()" id="dragBtn">
+                                        <i class="fas fa-arrows-alt"></i> Move design
+                                    </button>
+                                    <button type="button" class="tool-btn" onclick="toggleBoundary()" id="boundaryBtn">
+                                        <i class="fas fa-border-all"></i> Show boundaries
+                                    </button>
+                                    <button type="button" class="tool-btn" onclick="resetDesignPosition()">
+                                        <i class="fas fa-redo"></i> Reset
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="tool-group">
+                                <span class="tool-group__label">Size</span>
+                                <div class="tool-group__buttons">
+                                    <button type="button" class="tool-btn icon-only" onclick="resizeDesign(1.1)" title="Enlarge">
+                                        <i class="fas fa-search-plus"></i> Enlarge
+                                    </button>
+                                    <button type="button" class="tool-btn icon-only" onclick="resizeDesign(0.9)" title="Shrink">
+                                        <i class="fas fa-search-minus"></i> Shrink
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="tool-group">
+                                <span class="tool-group__label">Rotate</span>
+                                <div class="tool-group__buttons">
+                                    <button type="button" class="tool-btn icon-only" onclick="rotateDesignBy(-15)" title="Rotate left 15°">
+                                        <i class="fas fa-undo"></i>
+                                    </button>
+                                    <button type="button" class="tool-btn icon-only" onclick="rotateDesignBy(15)" title="Rotate right 15°">
+                                        <i class="fas fa-redo"></i>
+                                    </button>
+                                </div>
+                                <div class="range-control">
+                                    <input type="range" id="rotateSlider" min="0" max="359" step="1" value="0"
+                                        oninput="setDesignRotation(this.value)">
+                                    <span class="range-readout" id="rotateReadout">0°</span>
+                                </div>
+                            </div>
+
+                            <div class="tool-group">
+                                <span class="tool-group__label">Opacity</span>
+                                <div class="range-control">
+                                    <input type="range" id="opacitySlider" min="10" max="100" step="1" value="100"
+                                        oninput="setDesignOpacity(this.value)">
+                                    <span class="range-readout" id="opacityReadout">100%</span>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="pd-canvas">
@@ -747,19 +909,12 @@ $main_image = $product_images[0];
                     </div>
                     </div>
 
-                    <div class="preview-section">
-                    <div class="preview-container">
-                        <img src="" alt="Mockup preview" class="mockup-preview" id="mockupPreview">
-                        <p id="previewText">Upload an image to generate a preview</p>
-                    </div>
-                    <div class="pd-preview-actions">
-                        <h3 class="pd-sub"><i class="fas fa-eye"></i> Design preview</h3>
-                        <p class="pd-note">Generate a mockup to check how your design sits on the product, then apply it before adding to cart.</p>
-                        <button type="button" class="btn pd-btn-ink" onclick="generateMockup()">
-                            <i class="fas fa-image"></i> Generate mockup
+                    <div class="pd-studio__done">
+                        <p class="pd-note">Happy with the placement? Press Done to preview the mockup and apply your design.</p>
+                        <button type="button" class="btn btn-primary pd-btn-done" onclick="generateMockup()">
+                            <i class="fas fa-check"></i> Done
                         </button>
                     </div>
-                </div>
                 </section>
                 <?php endif; ?>
 
@@ -773,7 +928,7 @@ $main_image = $product_images[0];
                         <input type="number" name="quantity" class="quantity-input" id="quantity" value="1" min="1" aria-label="Quantity">
                         <button type="button" class="quantity-btn" onclick="increaseQuantity()" aria-label="Increase quantity"><i class="fas fa-plus"></i></button>
                     </div>
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary" id="cartSubmitBtn">
                         <i class="fas fa-shopping-cart"></i> Add to cart
                     </button>
                 </div>
@@ -817,7 +972,7 @@ $main_image = $product_images[0];
                 <button type="button" class="btn btn-secondary" onclick="closeModal()">
                     <i class="fas fa-times"></i> Close
                 </button>
-                <button type="button" class="btn btn-primary" onclick="useThisDesign()">
+                <button type="button" class="btn btn-primary" id="useDesignBtn" onclick="useThisDesign()">
                     <i class="fas fa-check"></i> Use this design
                 </button>
             </div>
@@ -957,26 +1112,33 @@ $main_image = $product_images[0];
     </script>
     <script>
         // Global variables for the new design system
-        let frontDesign = null;
-        let backDesign = null;
         let currentMockup = null;
         let backMockup = null;
+        // True only while currentMockup/backMockup reflect a mockup the user has
+        // explicitly approved via "Use This Design" AND nothing has changed since.
+        // The actual files are NOT written to disk until Add to Cart is pressed -
+        // see submitCartForm(). Any edit to the design (remove/re-upload) flips
+        // this back to false so a stale, unapproved mockup can never be saved.
+        let designApplied = false;
         let isDraggingEnabled = false;
+        // The DOM element of whichever image is currently selected (see
+        // selectedImage below) - kept as its own variable because the
+        // drag/resize/rotate/opacity code below reads/writes it directly.
         let currentDesign = null;
         let currentView = 'front';
         let currentUploadType = 'none'; // 'front_only', 'back_only', 'both_sides'
-        let frontDesignPosition = {
-            x: 100,
-            y: 100,
-            width: 200,
-            height: 200
-        };
-        let backDesignPosition = {
-            x: 100,
-            y: 100,
-            width: 200,
-            height: 200
-        };
+        // The individual source images the user has uploaded per side. Each
+        // entry is { file, dataUrl, img, position, el }: `position` is that
+        // image's OWN {x,y,width,height,rotation,opacity} box, and `el` is the
+        // draggable DOM element currently rendering it (only set while its
+        // side is the active view). Every image is independently draggable,
+        // resizable and rotatable - nothing is flattened together anymore.
+        let frontImages = [];
+        let backImages = [];
+        // { side: 'front'|'back', index } of whichever image the position/
+        // size/rotation/opacity tools currently act on.
+        let selectedImage = null;
+        const MAX_DESIGN_IMAGES_PER_SIDE = 6;
         let isDragging = false;
         let isResizing = false;
         let startX, startY;
@@ -1063,106 +1225,356 @@ $main_image = $product_images[0];
             }
         }
 
-        // Handle design upload for both front and back
+        // Handle design upload for both front and back. Supports selecting
+        // several images at once (input has "multiple"), and can be called
+        // again later ("Add more") to append further images to the same side.
         function handleDesignUpload(input, side) {
-            const file = input.files[0];
-            if (!file) return;
+            const files = Array.from(input.files || []);
+            if (files.length === 0) return;
 
-            // Validate file size (5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                alert('File size too large. Maximum size is 5MB.');
+            const images = side === 'front' ? frontImages : backImages;
+            const room = MAX_DESIGN_IMAGES_PER_SIDE - images.length;
+
+            if (room <= 0) {
+                alert(`You can upload up to ${MAX_DESIGN_IMAGES_PER_SIDE} images per side.`);
                 input.value = '';
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const previewId = side + 'PreviewImage';
-                const previewContainer = side + 'DesignPreview';
-                const statusId = side + 'DesignStatus';
-                const designArea = side + 'DesignArea';
-
-                // Update preview
-                document.getElementById(previewId).src = event.target.result;
-                document.getElementById(previewContainer).style.display = 'block';
-                
-                // Update status and area styling
-                document.getElementById(statusId).textContent = 'Uploaded';
-                document.getElementById(statusId).classList.add('is-done');
-                document.getElementById(designArea).classList.add('has-design');
-
-                // Hide upload zone
-                document.getElementById(side + 'UploadZone').style.display = 'none';
-
-                // Store design
-                if (side === 'front') {
-                    frontDesign = new Image();
-                    frontDesign.src = event.target.result;
-                    frontDesign.onload = function() {
-                        if (currentView === 'front') {
-                            initDesignOverlay(event.target.result);
-                        }
-                        calculateImageBoundary();
-                        updateDesignType();
-                        updatePreview();
-                    };
+            const accepted = [];
+            const rejected = [];
+            files.slice(0, room).forEach(file => {
+                if (file.size > 5 * 1024 * 1024) {
+                    rejected.push(file.name + ' (too large, max 5MB)');
+                } else if (!['image/jpeg', 'image/png'].includes(file.type)) {
+                    rejected.push(file.name + ' (only JPEG or PNG images are allowed)');
                 } else {
-                    backDesign = new Image();
-                    backDesign.src = event.target.result;
-                    backDesign.onload = function() {
-                        if (currentView === 'back') {
-                            initDesignOverlay(event.target.result);
-                        }
-                        calculateImageBoundary();
-                        updateDesignType();
-                        updatePreview();
-                    };
+                    accepted.push(file);
                 }
-            };
-            reader.readAsDataURL(file);
+            });
+            if (files.length > room) {
+                rejected.push(`${files.length - room} file(s) skipped - limit is ${MAX_DESIGN_IMAGES_PER_SIDE} images per side`);
+            }
+            if (rejected.length > 0) {
+                alert('Some files were not added:\n' + rejected.join('\n'));
+            }
+            input.value = ''; // allow re-selecting the same file later
+
+            if (accepted.length === 0) return;
+
+            // A newly chosen file makes any previously-approved mockup stale.
+            designApplied = false;
+            document.getElementById('designImageInput').value = '';
+            document.getElementById('frontDesignImageInput').value = '';
+            document.getElementById('backDesignImageInput').value = '';
+
+            let remaining = accepted.length;
+            accepted.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const aspect = (img.naturalWidth / img.naturalHeight) || 1;
+                        images.push({
+                            file: file,
+                            dataUrl: event.target.result,
+                            img: img,
+                            position: defaultPositionFor(aspect, images.length)
+                        });
+                        remaining--;
+                        if (remaining === 0) {
+                            syncDesignImages(side);
+                        }
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
         }
 
-        // Remove design
-        function removeDesign(side) {
-            const inputId = side + 'DesignUpload';
-            const previewContainer = side + 'DesignPreview';
+        // A fresh, centered box for a newly-added image, sized to that image's
+        // own aspect ratio. Successive images are cascaded slightly so they
+        // don't land exactly on top of each other and are immediately visible
+        // (and grabbable) as separate, independently-draggable pieces.
+        function defaultPositionFor(aspect, cascadeIndex) {
+            const maxBox = (imageBoundary.width > 0 && imageBoundary.height > 0)
+                ? Math.min(imageBoundary.width, imageBoundary.height) * 0.45
+                : 150;
+            let w = maxBox, h = maxBox / aspect;
+            if (h > maxBox) { h = maxBox; w = maxBox * aspect; }
+            w = Math.max(50, w);
+            h = Math.max(50, h);
+
+            const step = 22;
+            const offset = ((cascadeIndex || 0) % 5) * step - step * 2;
+
+            const baseX = imageBoundary.width > 0 ? imageBoundary.x + (imageBoundary.width - w) / 2 : 100;
+            const baseY = imageBoundary.height > 0 ? imageBoundary.y + (imageBoundary.height - h) / 2 : 100;
+
+            return {
+                x: baseX + offset,
+                y: baseY + offset,
+                width: w,
+                height: h,
+                rotation: 0,
+                opacity: 1
+            };
+        }
+
+        // Re-derive an existing image's height from its own aspect ratio (in
+        // case the stored position was left over from a different photo) and
+        // clamp its box into the current printable area, without touching
+        // x/y/width beyond what's needed to keep it on the canvas.
+        function ensurePosition(entry) {
+            const aspect = (entry.img.naturalWidth && entry.img.naturalHeight)
+                ? entry.img.naturalWidth / entry.img.naturalHeight
+                : 1;
+            entry.position.height = entry.position.width / aspect;
+
+            if (imageBoundary.width > 0 && imageBoundary.height > 0) {
+                entry.position.width = Math.min(entry.position.width, imageBoundary.width);
+                entry.position.height = Math.min(entry.position.height, imageBoundary.height);
+                entry.position.x = Math.min(Math.max(entry.position.x, imageBoundary.x), imageBoundary.x + imageBoundary.width - entry.position.width);
+                entry.position.y = Math.min(Math.max(entry.position.y, imageBoundary.y), imageBoundary.y + imageBoundary.height - entry.position.height);
+            }
+        }
+
+        // Refresh a side's thumbnail strip / status text / upload zone after
+        // its image list changes, and re-render the on-canvas overlay if that
+        // side is the one currently being viewed.
+        function syncDesignImages(side) {
+            const images = side === 'front' ? frontImages : backImages;
             const statusId = side + 'DesignStatus';
             const designArea = side + 'DesignArea';
-            const uploadZone = side + 'UploadZone';
+            const previewContainer = side + 'DesignPreview';
 
-            // Reset input
-            document.getElementById(inputId).value = '';
-            
-            // Hide preview and show upload zone
-            document.getElementById(previewContainer).style.display = 'none';
-            document.getElementById(uploadZone).style.display = 'flex';
-            
-            // Update status and styling
-            document.getElementById(statusId).textContent = 'Not uploaded';
-            document.getElementById(statusId).classList.remove('is-done');
-            document.getElementById(designArea).classList.remove('has-design');
+            renderDesignThumbs(side);
 
-            // Clear design data
-            if (side === 'front') {
-                frontDesign = null;
-                if (currentView === 'front') {
-                    resetDesignOverlay();
-                }
-            } else {
-                backDesign = null;
-                if (currentView === 'back') {
-                    resetDesignOverlay();
-                }
+            if (images.length === 0) {
+                document.getElementById(statusId).textContent = 'Not uploaded';
+                document.getElementById(statusId).classList.remove('is-done');
+                document.getElementById(designArea).classList.remove('has-design');
+                document.getElementById(side + 'UploadZone').style.display = 'flex';
+                document.getElementById(previewContainer).style.display = 'none';
+                if (currentView === side) resetDesignOverlay();
+                updateDesignType();
+                return;
             }
 
+            document.getElementById(statusId).textContent = images.length > 1
+                ? `${images.length} images - each is independently movable`
+                : 'Uploaded';
+            document.getElementById(statusId).classList.add('is-done');
+            document.getElementById(designArea).classList.add('has-design');
+            document.getElementById(side + 'UploadZone').style.display = 'none';
+            document.getElementById(previewContainer).style.display = 'block';
+
+            if (currentView === side) {
+                renderDesignOverlay(side);
+            }
             updateDesignType();
             updatePreview();
         }
 
+        // Build the draggable/resizable DOM element for one image entry.
+        function buildDraggableElement(side, index, entry) {
+            const designElement = document.createElement('div');
+            designElement.className = 'draggable-design';
+            designElement.dataset.side = side;
+            designElement.dataset.index = index;
+            designElement.dataset.aspect = (entry.img.naturalWidth / entry.img.naturalHeight) || 1;
+            designElement.style.position = 'absolute';
+            designElement.style.backgroundImage = `url(${entry.dataUrl})`;
+            designElement.style.backgroundSize = 'contain';
+            designElement.style.backgroundRepeat = 'no-repeat';
+            designElement.style.backgroundPosition = 'center';
+            designElement.style.width = `${entry.position.width}px`;
+            designElement.style.height = `${entry.position.height}px`;
+            designElement.style.left = `${entry.position.x}px`;
+            designElement.style.top = `${entry.position.y}px`;
+            designElement.style.transform = `rotate(${entry.position.rotation || 0}deg)`;
+            designElement.style.opacity = entry.position.opacity ?? 1;
+            designElement.style.cursor = isDraggingEnabled ? 'move' : 'default';
+            designElement.style.pointerEvents = isDraggingEnabled ? 'auto' : 'none';
+
+            const resizeHandle = document.createElement('div');
+            resizeHandle.className = 'resize-handle';
+            designElement.appendChild(resizeHandle);
+
+            designElement.addEventListener('mousedown', function(e) {
+                selectImage(side, index);
+                startDrag(e);
+            });
+            resizeHandle.addEventListener('mousedown', function(e) {
+                selectImage(side, index);
+                startResize(e);
+            });
+
+            return designElement;
+        }
+
+        // Render every uploaded image for a side as its own draggable element
+        // on the canvas. Called whenever that side's image list changes while
+        // it's the active view, or when switching to that view.
+        function renderDesignOverlay(side) {
+            const overlay = document.getElementById('designOverlay');
+            const images = side === 'front' ? frontImages : backImages;
+
+            if (images.length === 0) {
+                resetDesignOverlay();
+                return;
+            }
+
+            calculateImageBoundary();
+            images.forEach(entry => ensurePosition(entry));
+
+            // Dragging is on by default whenever there's something to drag.
+            isDraggingEnabled = true;
+            document.getElementById('dragBtn').classList.add('is-on');
+            document.getElementById('dragBtn').innerHTML = '<i class="fas fa-hand-paper"></i> Dragging on';
+
+            overlay.innerHTML = '';
+            images.forEach((entry, index) => {
+                const el = buildDraggableElement(side, index, entry);
+                entry.el = el;
+                overlay.appendChild(el);
+            });
+
+            let indexToSelect = images.length - 1; // default: the most recently added
+            if (selectedImage && selectedImage.side === side && selectedImage.index < images.length) {
+                indexToSelect = selectedImage.index;
+            }
+            selectImage(side, indexToSelect);
+        }
+
+        // Mark one image as the active one for the position/size/rotation/
+        // opacity tools, highlight it (and its thumbnail) and bring it to front.
+        function selectImage(side, index) {
+            const images = side === 'front' ? frontImages : backImages;
+            if (index < 0 || index >= images.length) return;
+
+            selectedImage = { side: side, index: index };
+            currentDesign = images[index].el || null;
+
+            images.forEach((entry, i) => {
+                if (!entry.el) return;
+                entry.el.classList.toggle('is-selected', i === index);
+                entry.el.style.zIndex = (i === index) ? 10 : 1;
+            });
+
+            renderDesignThumbs(side);
+            syncToolSlidersToView();
+        }
+
+        // The image entry the tools currently act on, or null if none.
+        function getSelectedEntry() {
+            if (!selectedImage) return null;
+            const images = selectedImage.side === 'front' ? frontImages : backImages;
+            return images[selectedImage.index] || null;
+        }
+
+        // Render the thumbnail strip (with remove buttons) plus an "add more"
+        // tile for a side's uploaded images.
+        function renderDesignThumbs(side) {
+            const images = side === 'front' ? frontImages : backImages;
+            const container = document.getElementById(side + 'DesignThumbs');
+            container.innerHTML = '';
+
+            images.forEach((entry, index) => {
+                const thumb = document.createElement('div');
+                thumb.className = 'design-thumb';
+                if (selectedImage && selectedImage.side === side && selectedImage.index === index) {
+                    thumb.classList.add('is-selected');
+                }
+                thumb.title = 'Click to select this image for positioning';
+
+                const img = document.createElement('img');
+                img.src = entry.dataUrl;
+                img.alt = `${side} design ${index + 1}`;
+                thumb.appendChild(img);
+
+                thumb.addEventListener('click', () => {
+                    if (currentView !== side) {
+                        switchView(side);
+                    }
+                    selectImage(side, index);
+                });
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'design-thumb__remove';
+                removeBtn.title = 'Remove this image';
+                removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                removeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    removeDesignImage(side, index);
+                };
+                thumb.appendChild(removeBtn);
+
+                container.appendChild(thumb);
+            });
+
+            if (images.length < MAX_DESIGN_IMAGES_PER_SIDE) {
+                const addTile = document.createElement('button');
+                addTile.type = 'button';
+                addTile.className = 'add-more-tile';
+                addTile.title = 'Add another image';
+                addTile.innerHTML = '<i class="fas fa-plus"></i>';
+                addTile.onclick = () => document.getElementById(side + 'DesignUpload').click();
+                container.appendChild(addTile);
+            }
+        }
+
+        // Remove a single image from a side's list.
+        function removeDesignImage(side, index) {
+            const images = side === 'front' ? frontImages : backImages;
+            images.splice(index, 1);
+
+            if (selectedImage && selectedImage.side === side) {
+                selectedImage = null; // let syncDesignImages/renderDesignOverlay re-pick a valid one
+            }
+
+            designApplied = false;
+            document.getElementById('designImageInput').value = '';
+            document.getElementById('frontDesignImageInput').value = '';
+            document.getElementById('backDesignImageInput').value = '';
+            if (side === 'front') { currentMockup = null; } else { backMockup = null; }
+
+            syncDesignImages(side);
+        }
+
+        // Remove every image for a side
+        function removeDesign(side) {
+            const images = side === 'front' ? frontImages : backImages;
+            images.length = 0;
+
+            if (selectedImage && selectedImage.side === side) {
+                selectedImage = null;
+            }
+
+            if (side === 'front') {
+                currentMockup = null;
+            } else {
+                backMockup = null;
+            }
+
+            // The previously-approved mockup no longer matches what's on screen,
+            // so it can no longer be used at Add to Cart time. Nothing was ever
+            // written to disk for it (that only happens on Add to Cart), so there
+            // is nothing to clean up - the user just has to regenerate and
+            // re-approve before they can add this item to their cart.
+            designApplied = false;
+            document.getElementById('designImageInput').value = '';
+            document.getElementById('frontDesignImageInput').value = '';
+            document.getElementById('backDesignImageInput').value = '';
+
+            syncDesignImages(side); // resets UI, calls updateDesignType/updatePreview
+        }
+
         // Automatically determine design type based on uploaded designs
         function updateDesignType() {
-            const hasFront = frontDesign !== null;
-            const hasBack = backDesign !== null;
+            const hasFront = frontImages.length > 0;
+            const hasBack = backImages.length > 0;
             const hasBackTemplate = backImageUrl !== '';
 
             let designType = 'none';
@@ -1191,24 +1603,10 @@ $main_image = $product_images[0];
             document.getElementById('uploadTypeInput').value = designType;
         }
 
-        // Update preview based on current view and available designs
-        function updatePreview() {
-            const previewText = document.getElementById('previewText');
-            const mockupPreview = document.getElementById('mockupPreview');
-
-            if (currentView === 'front' && frontDesign) {
-                previewText.style.display = 'none';
-                mockupPreview.style.display = 'block';
-                mockupPreview.src = frontDesign.src;
-            } else if (currentView === 'back' && backDesign) {
-                previewText.style.display = 'none';
-                mockupPreview.style.display = 'block';
-                mockupPreview.src = backDesign.src;
-            } else {
-                previewText.style.display = 'block';
-                mockupPreview.style.display = 'none';
-            }
-        }
+        // The small raw-image "design preview" box was removed in favor of the
+        // on-product mockup shown after pressing "Done". This is kept as a
+        // no-op so existing call sites don't need to change.
+        function updatePreview() {}
 
         // Auto-select first option for each button group
         function autoSelectFirstOptions() {
@@ -1320,17 +1718,24 @@ $main_image = $product_images[0];
                 baseImage.src = backImageUrl;
             }
 
-            // Reinitialize design overlay for the current view
-            if (view === 'front' && frontDesign) {
-                initDesignOverlay(frontDesign.src);
-            } else if (view === 'back' && backDesign) {
-                initDesignOverlay(backDesign.src);
-            } else {
-                resetDesignOverlay();
-            }
+            // Re-render the per-image overlay for the current view
+            renderDesignOverlay(view);
 
             updatePreview();
             setTimeout(calculateImageBoundary, 100);
+        }
+
+        // Keep the rotate/opacity sliders showing the selected image's values
+        // (each image remembers its own rotation and opacity).
+        function syncToolSlidersToView() {
+            const entry = getSelectedEntry();
+            const position = entry ? entry.position : { rotation: 0, opacity: 1 };
+            const rotation = Math.round(position.rotation || 0);
+            const opacityPct = Math.round((position.opacity ?? 1) * 100);
+            document.getElementById('rotateSlider').value = rotation;
+            document.getElementById('rotateReadout').textContent = `${rotation}°`;
+            document.getElementById('opacitySlider').value = opacityPct;
+            document.getElementById('opacityReadout').textContent = `${opacityPct}%`;
         }
 
         // Calculate the actual image boundary within the container with better precision
@@ -1448,11 +1853,11 @@ $main_image = $product_images[0];
             }
         }
 
-        // Enable/disable dragging
+        // Enable/disable dragging for every image on the current side at once
         function enableDragging() {
-            const hasDesign = (currentView === 'front' && frontDesign) || (currentView === 'back' && backDesign);
-            
-            if (!hasDesign) {
+            const images = currentView === 'front' ? frontImages : backImages;
+
+            if (images.length === 0) {
                 alert(`Please upload a ${currentView} design image first!`);
                 return;
             }
@@ -1460,82 +1865,32 @@ $main_image = $product_images[0];
             isDraggingEnabled = !isDraggingEnabled;
             const btn = document.getElementById('dragBtn');
 
+            images.forEach(entry => {
+                if (!entry.el) return;
+                entry.el.style.cursor = isDraggingEnabled ? 'move' : 'default';
+                entry.el.style.pointerEvents = isDraggingEnabled ? 'auto' : 'none';
+            });
+
             if (isDraggingEnabled) {
                 btn.classList.add('is-on');
                 btn.innerHTML = '<i class="fas fa-hand-paper"></i> Dragging on';
-
-                if (currentDesign) {
-                    currentDesign.style.cursor = 'move';
-                    currentDesign.style.pointerEvents = 'auto';
-                }
             } else {
                 btn.classList.remove('is-on');
                 btn.innerHTML = '<i class="fas fa-arrows-alt"></i> Move design';
-
-                if (currentDesign) {
-                    currentDesign.style.cursor = 'default';
-                    currentDesign.style.pointerEvents = 'none';
-                }
             }
         }
 
-        // Initialize design overlay with better positioning
-        function initDesignOverlay(imageSrc) {
-            const overlay = document.getElementById('designOverlay');
-            overlay.innerHTML = '';
-            
-            // Get the current design position for the active view
-            const designPosition = currentView === 'front' ? frontDesignPosition : backDesignPosition;
-
-            // Keep the starting box inside the printable area, whatever the layout width is
-            calculateImageBoundary(); // make sure the boundary reflects the current canvas size
-            if (imageBoundary.width > 0 && imageBoundary.height > 0) {
-                designPosition.width = Math.min(designPosition.width, imageBoundary.width);
-                designPosition.height = Math.min(designPosition.height, imageBoundary.height);
-                designPosition.x = Math.min(Math.max(designPosition.x, imageBoundary.x), imageBoundary.x + imageBoundary.width - designPosition.width);
-                designPosition.y = Math.min(Math.max(designPosition.y, imageBoundary.y), imageBoundary.y + imageBoundary.height - designPosition.height);
-            }
-            
-            // Create design element with high-quality rendering
-            const designElement = document.createElement('div');
-            designElement.className = 'draggable-design';
-            designElement.style.backgroundImage = `url(${imageSrc})`;
-            designElement.style.backgroundSize = 'contain';
-            designElement.style.backgroundRepeat = 'no-repeat';
-            designElement.style.backgroundPosition = 'center';
-            designElement.style.width = `${designPosition.width}px`;
-            designElement.style.height = `${designPosition.height}px`;
-            designElement.style.left = `${designPosition.x}px`;
-            designElement.style.top = `${designPosition.y}px`;
-            
-            // Add resize handle
-            const resizeHandle = document.createElement('div');
-            resizeHandle.className = 'resize-handle';
-            designElement.appendChild(resizeHandle);
-            
-            // Add event listeners for dragging
-            designElement.addEventListener('mousedown', startDrag);
-            resizeHandle.addEventListener('mousedown', startResize);
-            
-            overlay.appendChild(designElement);
-            currentDesign = designElement;
-            
-            // Enable dragging by default when design is loaded
-            isDraggingEnabled = true;
-            document.getElementById('dragBtn').classList.add('is-on');
-            document.getElementById('dragBtn').innerHTML = '<i class="fas fa-hand-paper"></i> Dragging on';
-            designElement.style.cursor = 'move';
-            designElement.style.pointerEvents = 'auto';
-        }
-
-        // Helper function to reset design overlay
+        // Helper function to reset design overlay (nothing left to show/drag
+        // for the current side).
         function resetDesignOverlay() {
             const overlay = document.getElementById('designOverlay');
             overlay.innerHTML = '';
             currentDesign = null;
+            selectedImage = null;
             isDraggingEnabled = false;
             document.getElementById('dragBtn').innerHTML = '<i class="fas fa-arrows-alt"></i> Move design';
             document.getElementById('dragBtn').classList.remove('is-on');
+            syncToolSlidersToView();
         }
 
         // Start dragging
@@ -1544,6 +1899,7 @@ $main_image = $product_images[0];
             if (e.target.classList.contains('resize-handle')) return;
 
             e.preventDefault();
+            e.stopPropagation();
             isDragging = true;
             startX = e.clientX;
             startY = e.clientY;
@@ -1584,13 +1940,11 @@ $main_image = $product_images[0];
         function stopDrag() {
             isDragging = false;
 
-            // Save the position for the current view
-            if (currentView === 'front') {
-                frontDesignPosition.x = parseInt(currentDesign.style.left);
-                frontDesignPosition.y = parseInt(currentDesign.style.top);
-            } else {
-                backDesignPosition.x = parseInt(currentDesign.style.left);
-                backDesignPosition.y = parseInt(currentDesign.style.top);
+            // Save the position on the selected image itself, not the side
+            const entry = getSelectedEntry();
+            if (entry && currentDesign) {
+                entry.position.x = parseInt(currentDesign.style.left);
+                entry.position.y = parseInt(currentDesign.style.top);
             }
 
             document.removeEventListener('mousemove', doDrag);
@@ -1614,22 +1968,34 @@ $main_image = $product_images[0];
             document.addEventListener('mouseup', stopResize);
         }
 
-        // Perform resizing with boundary constraints
+        // Perform resizing with boundary constraints. Locked to the design
+        // image's own aspect ratio (currentDesign.dataset.aspect) so the
+        // photo is scaled uniformly instead of stretched - whichever axis
+        // the pointer is moving more on drives the resize, and the other
+        // dimension is derived from the aspect ratio.
         function doResize(e) {
             if (!isResizing) return;
 
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
+            const aspect = parseFloat(currentDesign.dataset.aspect) ||
+                (initialDesignPosition.width / initialDesignPosition.height) || 1;
 
-            let newWidth = Math.max(50, initialDesignPosition.width + dx);
-            let newHeight = Math.max(50, initialDesignPosition.height + dy);
+            let newWidth = Math.abs(dx) >= Math.abs(dy)
+                ? initialDesignPosition.width + dx
+                : (initialDesignPosition.height + dy) * aspect;
+            newWidth = Math.max(50, newWidth);
+            let newHeight = newWidth / aspect;
 
-            // Apply boundary constraints during resizing
+            // Apply boundary constraints during resizing - scale both
+            // dimensions together so the aspect ratio holds at the edges too.
             const maxWidth = imageBoundary.x + imageBoundary.width - initialDesignPosition.x;
             const maxHeight = imageBoundary.y + imageBoundary.height - initialDesignPosition.y;
-
-            newWidth = Math.min(newWidth, maxWidth);
-            newHeight = Math.min(newHeight, maxHeight);
+            const scale = Math.min(1, maxWidth / newWidth, maxHeight / newHeight);
+            if (scale < 1) {
+                newWidth *= scale;
+                newHeight *= scale;
+            }
 
             currentDesign.style.width = `${newWidth}px`;
             currentDesign.style.height = `${newHeight}px`;
@@ -1639,23 +2005,25 @@ $main_image = $product_images[0];
         function stopResize() {
             isResizing = false;
 
-            // Save the size for the current view
-            if (currentView === 'front') {
-                frontDesignPosition.width = parseInt(currentDesign.style.width);
-                frontDesignPosition.height = parseInt(currentDesign.style.height);
-            } else {
-                backDesignPosition.width = parseInt(currentDesign.style.width);
-                backDesignPosition.height = parseInt(currentDesign.style.height);
+            const entry = getSelectedEntry();
+            if (entry && currentDesign) {
+                entry.position.width = parseInt(currentDesign.style.width);
+                entry.position.height = parseInt(currentDesign.style.height);
             }
 
             document.removeEventListener('mousemove', doResize);
             document.removeEventListener('mouseup', stopResize);
         }
 
-        // Resize design with buttons
+        // Resize the SELECTED image with buttons - always scales both
+        // dimensions by the same factor, so this alone never stretches the
+        // design; boundary clamping also scales both dimensions together for
+        // the same reason. Only affects the currently selected image, not
+        // every image on the side.
         function resizeDesign(factor) {
-            if (!currentDesign) {
-                alert('Please upload a design image for the current view first!');
+            const entry = getSelectedEntry();
+            if (!currentDesign || !entry) {
+                alert('Please select a design image first!');
                 return;
             }
 
@@ -1670,55 +2038,86 @@ $main_image = $product_images[0];
             // Apply boundary constraints
             const maxWidth = imageBoundary.x + imageBoundary.width - currentX;
             const maxHeight = imageBoundary.y + imageBoundary.height - currentY;
-
-            newWidth = Math.min(newWidth, maxWidth);
-            newHeight = Math.min(newHeight, maxHeight);
+            const scale = Math.min(1, maxWidth / newWidth, maxHeight / newHeight);
+            if (scale < 1) {
+                newWidth *= scale;
+                newHeight *= scale;
+            }
 
             currentDesign.style.width = `${newWidth}px`;
             currentDesign.style.height = `${newHeight}px`;
 
-            // Save the size for the current view
-            if (currentView === 'front') {
-                frontDesignPosition.width = newWidth;
-                frontDesignPosition.height = newHeight;
-            } else {
-                backDesignPosition.width = newWidth;
-                backDesignPosition.height = newHeight;
-            }
+            entry.position.width = newWidth;
+            entry.position.height = newHeight;
         }
 
-        // Reset design position
+        // Rotate the SELECTED image by a relative amount (degrees), via the
+        // Rotate left/right buttons.
+        function rotateDesignBy(deltaDegrees) {
+            const entry = getSelectedEntry();
+            if (!currentDesign || !entry) {
+                alert('Please select a design image first!');
+                return;
+            }
+            let rotation = ((entry.position.rotation || 0) + deltaDegrees) % 360;
+            if (rotation < 0) rotation += 360;
+            entry.position.rotation = rotation;
+            currentDesign.style.transform = `rotate(${rotation}deg)`;
+
+            const rounded = Math.round(rotation);
+            document.getElementById('rotateSlider').value = rounded;
+            document.getElementById('rotateReadout').textContent = `${rounded}°`;
+        }
+
+        // Rotate the SELECTED image to an absolute angle, via the slider.
+        function setDesignRotation(value) {
+            const entry = getSelectedEntry();
+            if (!currentDesign || !entry) return;
+            const rotation = parseFloat(value) || 0;
+            entry.position.rotation = rotation;
+            currentDesign.style.transform = `rotate(${rotation}deg)`;
+            document.getElementById('rotateReadout').textContent = `${Math.round(rotation)}°`;
+        }
+
+        // Set the SELECTED image's opacity (0.1-1), via the slider.
+        function setDesignOpacity(value) {
+            const entry = getSelectedEntry();
+            if (!currentDesign || !entry) return;
+            const opacity = Math.max(0.1, Math.min(1, parseFloat(value) / 100));
+            entry.position.opacity = opacity;
+            currentDesign.style.opacity = opacity;
+            document.getElementById('opacityReadout').textContent = `${Math.round(opacity * 100)}%`;
+        }
+
+        // Reset the SELECTED image's position, size, rotation and opacity -
+        // the default box is sized to the image's own aspect ratio (not a
+        // fixed square) so it starts out true to the photo. Other images on
+        // the same side are left exactly where they are.
         function resetDesignPosition() {
-            if (!currentDesign) {
-                alert('Please upload a design image for the current view first!');
+            const entry = getSelectedEntry();
+            if (!currentDesign || !entry) {
+                alert('Please select a design image first!');
                 return;
             }
 
-            // Center the design within the image boundary
-            const newPosition = {
-                x: imageBoundary.x + (imageBoundary.width - 200) / 2,
-                y: imageBoundary.y + (imageBoundary.height - 200) / 2,
-                width: 200,
-                height: 200
-            };
+            const aspect = parseFloat(currentDesign.dataset.aspect) || 1;
+            const newPosition = defaultPositionFor(aspect, 0);
+            entry.position = newPosition;
 
             currentDesign.style.width = `${newPosition.width}px`;
             currentDesign.style.height = `${newPosition.height}px`;
             currentDesign.style.left = `${newPosition.x}px`;
             currentDesign.style.top = `${newPosition.y}px`;
+            currentDesign.style.transform = 'rotate(0deg)';
+            currentDesign.style.opacity = 1;
 
-            // Save the position for the current view
-            if (currentView === 'front') {
-                frontDesignPosition = { ...newPosition };
-            } else {
-                backDesignPosition = { ...newPosition };
-            }
+            syncToolSlidersToView();
         }
 
         // Generate mockup preview - ALWAYS show both sides if templates exist
         function generateMockup() {
-            const hasFrontDesign = frontDesign !== null;
-            const hasBackDesign = backDesign !== null;
+            const hasFrontDesign = frontImages.length > 0;
+            const hasBackDesign = backImages.length > 0;
 
             if (!hasFrontDesign && !hasBackDesign) {
                 alert('Please upload at least one design image!');
@@ -1739,13 +2138,13 @@ $main_image = $product_images[0];
             // ALWAYS generate front mockup if template exists
             if (frontTemplate) {
                 if (hasFrontDesign) {
-                    // Use uploaded front design
-                    generateSingleMockup(
-                        frontDesign,
+                    // Composite every uploaded front image, each at its own
+                    // position/size/rotation/opacity
+                    generateSideMockup(
+                        frontImages,
                         frontTemplate,
                         'mockupFront',
                         'frontMockupContainer',
-                        frontDesignPosition,
                         'Front View'
                     );
                 } else {
@@ -1764,13 +2163,11 @@ $main_image = $product_images[0];
             // ALWAYS generate back mockup if template exists
             if (backTemplate) {
                 if (hasBackDesign) {
-                    // Use uploaded back design
-                    generateSingleMockup(
-                        backDesign,
+                    generateSideMockup(
+                        backImages,
                         backTemplate,
                         'mockupBack',
                         'backMockupContainer',
-                        backDesignPosition,
                         'Back View'
                     );
                 } else {
@@ -1828,8 +2225,11 @@ $main_image = $product_images[0];
             };
         }
 
-        // Generate single mockup by embedding design onto product template
-        function generateSingleMockup(designImage, templatePath, outputId, containerId, position, label) {
+        // Generate a side's mockup by embedding EVERY uploaded image for that
+        // side onto the product template, each at its own independently-set
+        // position/size/rotation/opacity - same math the on-screen overlay
+        // uses, just scaled up to the template's real resolution.
+        function generateSideMockup(images, templatePath, outputId, containerId, label) {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             const productTemplate = new Image();
@@ -1839,7 +2239,7 @@ $main_image = $product_images[0];
                 // Set canvas to high resolution
                 canvas.width = productTemplate.width;
                 canvas.height = productTemplate.height;
-                
+
                 // Use high-quality image rendering
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = 'high';
@@ -1850,31 +2250,64 @@ $main_image = $product_images[0];
                 // Calculate scale factors based on actual image dimensions, not container
                 const scaleX = productTemplate.width / imageBoundary.width;
                 const scaleY = productTemplate.height / imageBoundary.height;
-                
-                // Calculate position relative to the actual image boundary
-                const x = (position.x - imageBoundary.x) * scaleX;
-                const y = (position.y - imageBoundary.y) * scaleY;
-                const width = position.width * scaleX;
-                const height = position.height * scaleY;
 
-                // Draw user's design on top of the product template with high quality
-                ctx.save();
-                ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = 'high';
-                ctx.drawImage(designImage, x, y, width, height);
-                ctx.restore();
+                images.forEach(entry => {
+                    const position = entry.position;
+                    const designImage = entry.img;
+
+                    // Calculate this image's box position relative to the actual image boundary
+                    const boxX = (position.x - imageBoundary.x) * scaleX;
+                    const boxY = (position.y - imageBoundary.y) * scaleY;
+                    const boxWidth = position.width * scaleX;
+                    const boxHeight = position.height * scaleY;
+
+                    // The on-screen preview shows each image with
+                    // backgroundSize: 'contain' inside its own box (never
+                    // stretched). Match that here: fit the image's own aspect
+                    // ratio inside the box instead of stretching it to fill
+                    // boxWidth x boxHeight exactly.
+                    const designAspect = (designImage.naturalWidth && designImage.naturalHeight)
+                        ? designImage.naturalWidth / designImage.naturalHeight
+                        : boxWidth / boxHeight;
+                    const boxAspect = boxWidth / boxHeight;
+
+                    let drawWidth = boxWidth, drawHeight = boxHeight;
+                    if (designAspect > boxAspect) {
+                        drawWidth = boxWidth;
+                        drawHeight = boxWidth / designAspect;
+                    } else {
+                        drawHeight = boxHeight;
+                        drawWidth = boxHeight * designAspect;
+                    }
+                    const drawX = boxX + (boxWidth - drawWidth) / 2;
+                    const drawY = boxY + (boxHeight - drawHeight) / 2;
+
+                    // Draw this image on top of the product template with
+                    // high quality, applying its own rotation and opacity
+                    // (rotating/fading around its own box's center).
+                    ctx.save();
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.globalAlpha = position.opacity ?? 1;
+                    const centerX = boxX + boxWidth / 2;
+                    const centerY = boxY + boxHeight / 2;
+                    ctx.translate(centerX, centerY);
+                    ctx.rotate(((position.rotation || 0) * Math.PI) / 180);
+                    ctx.drawImage(designImage, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+                    ctx.restore();
+                });
 
                 // Output the combined image to the mockup preview
                 const finalImage = canvas.toDataURL('image/png', 1.0); // Maximum quality
                 document.getElementById(outputId).src = finalImage;
                 document.getElementById(containerId).style.display = 'block';
-                
+
                 // Update the label
                 const labelElement = document.querySelector(`#${containerId} p`);
                 if (labelElement) {
                     labelElement.textContent = label;
                 }
-                
+
                 // Store mockup
                 if (outputId === 'mockupFront') {
                     currentMockup = finalImage;
@@ -1892,48 +2325,34 @@ $main_image = $product_images[0];
             link.click();
         }
 
-        // Use this design - ALWAYS save both sides
+        // Use this design - approve the mockup for use, but do NOT touch the
+        // server/disk yet. Files are only written when the user actually presses
+        // "Add to cart" (see submitCartForm()). This is what previously caused
+        // orphaned mockup files: clicking "Use This Design" used to save
+        // immediately, so removing the photo afterwards left saved files behind
+        // with nothing ever referencing them.
         function useThisDesign() {
-            const hasFrontDesign = frontDesign !== null;
-            const hasBackDesign = backDesign !== null;
+            const hasFrontDesign = frontImages.length > 0;
+            const hasBackDesign = backImages.length > 0;
 
             if (!hasFrontDesign && !hasBackDesign) {
                 alert('Please generate mockups for your designs first!');
                 return;
             }
 
-            // ALWAYS save both mockups, even if one is empty
-            const frontMockupToSave = currentMockup || '';
-            const backMockupToSave = backMockup || '';
+            // Nothing is uploaded here - we just mark the currently generated
+            // currentMockup/backMockup as approved. removeDesign() and a fresh
+            // file upload both flip designApplied back to false, so a stale
+            // mockup can never slip through to the server later.
+            designApplied = true;
 
-            saveBothDesigns(frontMockupToSave, backMockupToSave).then(designData => {
-                console.log('Design save response:', designData);
-
-                const completeDesignData = {
-                    front_mockup: designData.front_mockup || '',
-                    back_mockup: designData.back_mockup || '',
-                    front_uploaded_file: designData.front_uploaded_file || '',
-                    back_uploaded_file: designData.back_uploaded_file || '',
-                    upload_type: currentUploadType,
-                    has_front_design: hasFrontDesign ? '1' : '0',
-                    has_back_design: hasBackDesign ? '1' : '0',
-                    front_design_position: frontDesignPosition,
-                    back_design_position: backDesignPosition
-                };
-
-                const designDataString = JSON.stringify(completeDesignData);
-                
-                // Store in hidden inputs
-                document.getElementById('designImageInput').value = designDataString;
-                document.getElementById('frontDesignImageInput').value = designDataString;
-                document.getElementById('backDesignImageInput').value = designDataString;
-
-                alert('Designs applied successfully! You can now add to cart.');
-                closeModal();
-            });
+            alert('Design applied. It will be saved when you add this item to your cart.');
+            closeModal();
         }
 
         // Helper function to save designs and uploaded files - ALWAYS save both mockups
+        // Only called from submitCartForm(), i.e. once the user actually presses
+        // "Add to cart" - this is the sole point where files get written to disk.
         async function saveBothDesigns(frontImageData, backImageData) {
             try {
                 const formData = new FormData();
@@ -1943,19 +2362,21 @@ $main_image = $product_images[0];
                 formData.append('csrf_token', <?php echo esc_js(csrf_token()); ?>);
                 formData.append('front_image', frontImageData || '');
                 formData.append('back_image', backImageData || '');
-                formData.append('has_front_design', frontDesign !== null ? '1' : '0');
-                formData.append('has_back_design', backDesign !== null ? '1' : '0');
+                formData.append('has_front_design', frontImages.length > 0 ? '1' : '0');
+                formData.append('has_back_design', backImages.length > 0 ? '1' : '0');
 
-                // Add the actual uploaded files (only if they exist)
-                const frontUploadInput = document.getElementById('frontDesignUpload');
-                if (frontUploadInput && frontUploadInput.files[0]) {
-                    formData.append('front_design_file', frontUploadInput.files[0]);
-                }
-
-                const backUploadInput = document.getElementById('backDesignUpload');
-                if (backUploadInput && backUploadInput.files[0]) {
-                    formData.append('back_design_file', backUploadInput.files[0]);
-                }
+                // Add every original uploaded file as a record, one per side.
+                // These are kept purely as reference copies of what the
+                // customer supplied - the combined design itself (what
+                // actually appears on the product) always goes through
+                // front_image/back_image above regardless of how many source
+                // photos it was built from.
+                frontImages.forEach(entry => {
+                    if (entry.file) formData.append('front_design_file[]', entry.file);
+                });
+                backImages.forEach(entry => {
+                    if (entry.file) formData.append('back_design_file[]', entry.file);
+                });
 
                 // Add design configuration
                 formData.append('upload_type', currentUploadType);
@@ -1966,27 +2387,23 @@ $main_image = $product_images[0];
                 formData.append('front_template', "<?php echo $base_image_url; ?>");
                 formData.append('back_template', "<?php echo !empty($back_base_image_url) ? $back_base_image_url : ''; ?>");
 
-                console.log('Saving design data with configuration:', {
-                    upload_type: currentUploadType,
-                    has_front: frontDesign !== null,
-                    has_back: backDesign !== null
-                });
-
                 const response = await fetch('save_design.php', {
                     method: 'POST',
                     body: formData
                 });
 
                 const result = await response.json();
-                console.log('Save design result:', result);
+                if (!response.ok && result.success === undefined) {
+                    // Defensive fallback in case the server ever responds with a
+                    // non-2xx status but no explicit success flag.
+                    result.success = false;
+                }
                 return result;
             } catch (error) {
                 console.error('Error saving designs:', error);
                 return {
-                    front_mockup: 'error',
-                    back_mockup: 'error',
-                    front_uploaded_file: 'error',
-                    back_uploaded_file: 'error'
+                    success: false,
+                    error: 'Could not reach the server to save your design. Please check your connection and try again.'
                 };
             }
         }
@@ -2102,13 +2519,81 @@ $main_image = $product_images[0];
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
-        // Form validation before submitting to cart
+        // Form validation + design persistence before submitting to cart.
+        // This is the ONLY place save_design.php is ever called, so design
+        // files only ever reach disk once the user has actually committed to
+        // adding the item to their cart.
         document.getElementById('cartForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitCartForm();
+        });
+
+        async function submitCartForm() {
             if (!validateForm()) {
-                e.preventDefault(); // Stop form submission
                 return false;
             }
-        });
+
+            const cartForm = document.getElementById('cartForm');
+            const submitBtn = document.getElementById('cartSubmitBtn');
+
+            <?php if ($show_image_customization): ?>
+            const hasFrontDesign = frontImages.length > 0;
+            const hasBackDesign = backImages.length > 0;
+
+            if (hasFrontDesign || hasBackDesign) {
+                // designApplied is guaranteed true here (validateForm just checked
+                // it), so currentMockup/backMockup are known to match what's
+                // currently on screen.
+                const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving design...';
+                }
+
+                try {
+                    const designData = await saveBothDesigns(currentMockup || '', backMockup || '');
+
+                    const frontFailed = hasFrontDesign && (!designData.front_mockup || designData.front_mockup === 'error');
+                    const backFailed = hasBackDesign && (!designData.back_mockup || designData.back_mockup === 'error');
+
+                    if (designData.success === false || frontFailed || backFailed) {
+                        const messages = Array.isArray(designData.errors) && designData.errors.length
+                            ? designData.errors.join('\n')
+                            : (designData.error || 'Something went wrong while saving your design. Please try again.');
+                        alert(messages);
+                        return false; // Nothing was added to the cart.
+                    }
+
+                    const completeDesignData = {
+                        front_mockup: designData.front_mockup || '',
+                        back_mockup: designData.back_mockup || '',
+                        front_uploaded_files: designData.front_uploaded_files || [],
+                        back_uploaded_files: designData.back_uploaded_files || [],
+                        upload_type: currentUploadType,
+                        has_front_design: hasFrontDesign ? '1' : '0',
+                        has_back_design: hasBackDesign ? '1' : '0',
+                        front_design_position: frontImages.map(entry => entry.position),
+                        back_design_position: backImages.map(entry => entry.position)
+                    };
+                    const designDataString = JSON.stringify(completeDesignData);
+
+                    document.getElementById('designImageInput').value = designDataString;
+                    document.getElementById('frontDesignImageInput').value = designDataString;
+                    document.getElementById('backDesignImageInput').value = designDataString;
+                } finally {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnHtml;
+                    }
+                }
+            }
+            <?php endif; ?>
+
+            // Everything needed is now in the hidden fields - hand off to
+            // add_to_cart.php. Using the native submit() bypasses this same
+            // 'submit' listener, so it won't loop back into validation.
+            cartForm.submit();
+        }
 
         function validateForm() {
             const productId = <?php echo $product_id; ?>;
@@ -2245,19 +2730,19 @@ $main_image = $product_images[0];
 
             // Validate image customization for Other Services
             <?php if ($show_image_customization): ?>
-                const hasFrontDesign = frontDesign !== null;
-                const hasBackDesign = backDesign !== null;
+                const hasFrontDesign = frontImages.length > 0;
+                const hasBackDesign = backImages.length > 0;
 
                 if (!hasFrontDesign && !hasBackDesign) {
                     isValid = false;
                     errorMessage += '• Please upload at least one design image\n';
                 }
 
-                // Check if design was applied
-                const designImageInput = document.getElementById('designImageInput');
-                if ((hasFrontDesign || hasBackDesign) && (!designImageInput || !designImageInput.value)) {
+                // Check if design was applied (and still matches what's on screen -
+                // removing/re-uploading a design resets this until re-approved)
+                if ((hasFrontDesign || hasBackDesign) && !designApplied) {
                     isValid = false;
-                    errorMessage += '• Please generate and apply your design using the "Generate Mockup" and "Use This Design" buttons\n';
+                    errorMessage += '• Please press "Done" and "Use This Design" to apply your design\n';
                 }
             <?php endif; ?>
 
@@ -2341,61 +2826,32 @@ $main_image = $product_images[0];
                 });
         }
 
-        // Helper function to populate a specific design area
+        // Helper function to populate a specific design area with an
+        // AI-generated design. Feeds it through the same frontImages/backImages
+        // array + syncDesignImages() pathway as a manual upload, so it shows
+        // up in the thumbnail strip, gets its own independent position, and
+        // stays separately draggable if the customer adds more images
+        // afterwards instead of silently getting overwritten.
         function populateDesignArea(side, file, imageData) {
-            const inputId = side + 'DesignUpload';
-            const previewId = side + 'PreviewImage';
-            const previewContainer = side + 'DesignPreview';
-            const statusId = side + 'DesignStatus';
-            const designArea = side + 'DesignArea';
-            const uploadZone = side + 'UploadZone';
+            designApplied = false;
+            document.getElementById('designImageInput').value = '';
+            document.getElementById('frontDesignImageInput').value = '';
+            document.getElementById('backDesignImageInput').value = '';
 
-            const input = document.getElementById(inputId);
-            const previewImg = document.getElementById(previewId);
-            const previewDiv = document.getElementById(previewContainer);
-            const statusSpan = document.getElementById(statusId);
-            const areaDiv = document.getElementById(designArea);
-            const zoneDiv = document.getElementById(uploadZone);
-
-            if (input && previewImg && previewDiv) {
-                // Create a new FileList-like object
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                input.files = dataTransfer.files;
-
-                // Update UI
-                previewImg.src = imageData;
-                previewDiv.style.display = 'block';
-                statusSpan.textContent = 'AI generated';
-                statusSpan.classList.add('is-done');
-                areaDiv.classList.add('has-design');
-                zoneDiv.style.display = 'none';
-
-                // Store design data
-                if (side === 'front') {
-                    frontDesign = new Image();
-                    frontDesign.src = imageData;
-                    frontDesign.onload = function() {
-                        if (currentView === 'front') {
-                            initDesignOverlay(imageData);
-                        }
-                        calculateImageBoundary();
-                        updateDesignType();
-                        updatePreview();
-                    };
-                } else {
-                    backDesign = new Image();
-                    backDesign.src = imageData;
-                    backDesign.onload = function() {
-                        if (currentView === 'back') {
-                            initDesignOverlay(imageData);
-                        }
-                        calculateImageBoundary();
-                        updateDesignType();
-                        updatePreview();
-                    };
-                }
-            }
+            const images = side === 'front' ? frontImages : backImages;
+            const img = new Image();
+            img.onload = function() {
+                const aspect = (img.naturalWidth / img.naturalHeight) || 1;
+                images.push({
+                    file: file,
+                    dataUrl: imageData,
+                    img: img,
+                    position: defaultPositionFor(aspect, images.length)
+                });
+                syncDesignImages(side);
+                document.getElementById(side + 'DesignStatus').textContent = 'AI generated';
+            };
+            img.src = imageData;
         }
     </script>
     <script>

@@ -182,6 +182,22 @@ function upload_allowed_design(): array
 }
 
 /**
+ * Like upload_allowed_design(), but restricted to plain jpeg/png raster
+ * images - no PDF, no vector/office formats. Used for the raw "original
+ * design" reference file(s) saved alongside a generated mockup, where the
+ * only thing ever done with them again is show a thumbnail in the admin
+ * order panel.
+ */
+function upload_allowed_design_image(): array
+{
+    return [
+        'jpg'  => ['image/jpeg'],
+        'jpeg' => ['image/jpeg'],
+        'png'  => ['image/png'],
+    ];
+}
+
+/**
  * Validate and store one uploaded file.
  *
  *  - checks the upload really came from PHP's upload handler

@@ -481,7 +481,34 @@ function convertDbPathToFilePath($db_path) {
  */
 function cleanupUserDirectories($user_id) {
     error_log("=== CLEANUP DIRECTORIES DEBUG ===");
-    
+
+    // save_design/{user_id}/ now holds one subfolder per product_id (see
+    // save_design.php), so remove any now-empty product subfolders first -
+    // otherwise the user-dir emptiness check below always sees them as
+    // "contents" and the user folder never gets cleaned up either.
+    $save_design_user_dir = "../../assets/uploads/save_design/" . $user_id . '/';
+    if (is_dir($save_design_user_dir)) {
+        foreach (scandir($save_design_user_dir) as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+            $product_dir = $save_design_user_dir . $entry . '/';
+            if (!is_dir($product_dir)) {
+                continue;
+            }
+            $product_files = array_diff(scandir($product_dir), ['.', '..']);
+            if (count($product_files) === 0) {
+                if (rmdir($product_dir)) {
+                    error_log("✅ Removed empty product directory: " . $product_dir);
+                } else {
+                    error_log("❌ Failed to remove product directory: " . $product_dir);
+                }
+            } else {
+                error_log("📁 Product directory not empty, keeping: " . $product_dir . " (contains " . count($product_files) . " files)");
+            }
+        }
+    }
+
     $base_dirs = [
         "../../assets/uploads/save_design/",
         "../../assets/uploads/user_layouts/"

@@ -630,6 +630,15 @@ textarea.pd-input {
   min-width: 0;
 }
 
+.pd-studio__done {
+  text-align: right;
+  margin-top: 20px;
+}
+
+.pd-studio__done p {
+  margin: 10px;
+}
+
 .pd-page .design-areas {
   display: grid;
   gap: 16px;

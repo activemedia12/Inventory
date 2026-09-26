@@ -114,6 +114,27 @@ function render_item_customization(array $item): void
 /**
  * Render one design-file preview <div>, or a "file not found" placeholder.
  */
+/**
+ * Normalizes the "original design file(s)" value for one side into a plain
+ * list of path strings. Accepts the new array shape (front_uploaded_files /
+ * back_uploaded_files, written by save_design.php going forward) as well as
+ * the old single-string shape (front_uploaded_file / back_uploaded_file)
+ * still sitting in orders placed before this change. Anything else (null,
+ * empty string, unexpected type) becomes an empty list.
+ */
+function normalize_design_file_list($value): array
+{
+    if (is_array($value)) {
+        return array_values(array_filter($value, static function ($item) {
+            return is_string($item) && $item !== '';
+        }));
+    }
+    if (is_string($value) && $value !== '') {
+        return [$value];
+    }
+    return [];
+}
+
 function render_design_preview(string $file, string $label, string $accentVar): void
 {
     $path = "../../assets/uploads/" . $file;
@@ -296,30 +317,29 @@ function render_order_panel_html(mysqli $inventory, int $order_id, array $STATUS
 
                 <?php if (!empty($item['design_image'])):
                     $designData = $item['design_image'];
-                    $frontMockup = $backMockup = $uploadedFile = $frontUploadedFile = $backUploadedFile = '';
+                    $frontMockup = $backMockup = $uploadedFile = '';
+                    // Originals are a list per side now, but orders placed before this
+                    // change stored a single string under front_uploaded_file /
+                    // back_uploaded_file - normalize both shapes into a plain array.
+                    $frontUploadedFiles = $backUploadedFiles = [];
                     $designArray = json_decode($designData, true);
 
-                    if (json_last_error() === JSON_ERROR_NONE && is_array($designArray)) {
+                    if (!(json_last_error() === JSON_ERROR_NONE && is_array($designArray)) && preg_match('/\{.*\}/', $designData)) {
+                        $fixedJson = stripslashes(str_replace('\"', '"', $designData));
+                        $designArray = json_decode($fixedJson, true);
+                    }
+
+                    if (is_array($designArray)) {
                         $frontMockup = $designArray['front_mockup'] ?? '';
                         $backMockup = $designArray['back_mockup'] ?? '';
                         $uploadedFile = $designArray['uploaded_file'] ?? '';
-                        $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
-                        $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
-                    } elseif (preg_match('/\{.*\}/', $designData)) {
-                        $fixedJson = stripslashes(str_replace('\"', '"', $designData));
-                        $designArray = json_decode($fixedJson, true);
-                        if (json_last_error() === JSON_ERROR_NONE && is_array($designArray)) {
-                            $frontMockup = $designArray['front_mockup'] ?? '';
-                            $backMockup = $designArray['back_mockup'] ?? '';
-                            $uploadedFile = $designArray['uploaded_file'] ?? '';
-                            $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
-                            $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
-                        }
+                        $frontUploadedFiles = normalize_design_file_list($designArray['front_uploaded_files'] ?? ($designArray['front_uploaded_file'] ?? null));
+                        $backUploadedFiles = normalize_design_file_list($designArray['back_uploaded_files'] ?? ($designArray['back_uploaded_file'] ?? null));
                     } else {
                         $uploadedFile = $designData;
                     }
 
-                    $hasDesigns = $frontMockup || $backMockup || $uploadedFile || $frontUploadedFile || $backUploadedFile;
+                    $hasDesigns = $frontMockup || $backMockup || $uploadedFile || $frontUploadedFiles || $backUploadedFiles;
                     if ($hasDesigns): ?>
                         <div style="margin-top:15px;padding-top:15px;border-top:2px dashed var(--primary);">
                             <div style="font-weight:bold;margin-bottom:10px;color:var(--primary);font-size:1em;">
@@ -328,8 +348,14 @@ function render_order_panel_html(mysqli $inventory, int $order_id, array $STATUS
                             <div class="design-previews">
                                 <?php
                                 if ($uploadedFile) render_design_preview($uploadedFile, 'Original File', 'var(--light-gray)');
-                                if ($frontUploadedFile) render_design_preview($frontUploadedFile, 'Front Original', 'var(--light-gray)');
-                                if ($backUploadedFile) render_design_preview($backUploadedFile, 'Back Original', 'var(--light-gray)');
+                                foreach ($frontUploadedFiles as $i => $file) {
+                                    $label = count($frontUploadedFiles) > 1 ? 'Front Original ' . ($i + 1) : 'Front Original';
+                                    render_design_preview($file, $label, 'var(--light-gray)');
+                                }
+                                foreach ($backUploadedFiles as $i => $file) {
+                                    $label = count($backUploadedFiles) > 1 ? 'Back Original ' . ($i + 1) : 'Back Original';
+                                    render_design_preview($file, $label, 'var(--light-gray)');
+                                }
                                 if ($frontMockup) render_design_preview($frontMockup, 'Front Mockup', 'var(--primary)');
                                 if ($backMockup) render_design_preview($backMockup, 'Back Mockup', 'var(--primary)');
                                 ?>
