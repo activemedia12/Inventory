@@ -2109,7 +2109,6 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
                                                 All <?php echo $total_selected_items; ?> selected items are waiting for the store to confirm pricing.
                                             <?php endif; ?>
                                             Checkout opens once every selected item is confirmed.
-                                            Expect your quote by <strong><?php echo cart_h(cart_quote_deadline_text()); ?></strong>.
                                         </p>
                                     </div>
                                 <?php endif; ?>

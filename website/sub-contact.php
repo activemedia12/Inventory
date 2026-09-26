@@ -182,7 +182,7 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
                         <i class="fas fa-chevron-down"></i>
                     </div>
                     <div class="faq-answer">
-                        <p>Yes, we offer both local delivery and nationwide shipping. Local delivery is free for orders over $200 within a 25-mile radius. For larger orders or specialized shipping needs, we work with reliable carriers to ensure your products arrive safely and on time.</p>
+                        <p>Yes, we offer both local delivery and nationwide shipping. Local delivery is free for orders within a 20 kilometer radius. For larger orders or specialized shipping needs, we work with reliable carriers to ensure your products arrive safely and on time.</p>
                     </div>
                 </div>
             </div>

@@ -589,7 +589,6 @@ $has_items = !empty($checkout_items);
                 <aside class="co-pay">
                     <div class="co-pay__bar" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
                     <div class="co-pay__body">
-                        <span class="section-eyebrow"><span class="reg-mark"></span> Payment method</span>
                         <div style="display: flex;">
                             <h2>Pay with </h2>
                             <img src="../assets/images/InstaPay-Logo.webp" alt="" style="height: 30px; margin: -3px 0 0 2px;">

@@ -4,6 +4,9 @@
 // This is what lets try/catch + rollback in process_order.php actually work.
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
+// PHP timezone
+date_default_timezone_set('Asia/Manila');
+
 $host = 'localhost';
 $user = 'root';
 $password = '';
@@ -16,6 +19,10 @@ if ($inventory->connect_error) {
 
 $inventory->set_charset("utf8mb4");
 $inventory->query("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+// Make the MySQL/MariaDB session use UTC.
+// This keeps localhost consistent with your Hostinger database.
+$inventory->query("SET time_zone = '+08:00'");
 
 // Where payment proofs and other private files are stored.
 // Point this OUTSIDE your web root if you can, e.g. one folder above it:
