@@ -464,6 +464,53 @@ $product_back_image_url = file_exists($product_back_image_path) ? $product_back_
             transform: translateX(-50%);
             cursor: alias;
         }
+        /* Front and back canvases shown live, side by side. Wraps to a single
+           column on narrow screens instead of squeezing both too small. */
+        .dual-canvas {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+        .dual-canvas__col {
+            flex: 1 1 260px;
+            min-width: 220px;
+        }
+        /* The canvas takes the product image's own shape (set from JS), and
+           the image and overlay fill it exactly - no letterboxing/cropping. */
+        .dual-canvas .positioning-container {
+            position: relative;
+            width: 100%;
+        }
+        .dual-canvas .product-base-image {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        .dual-canvas .product-base-image > img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: fill;
+        }
+        .dual-canvas .design-overlay {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .dual-canvas .design-boundary {
+            position: absolute;
+            pointer-events: none;
+        }
+        .dual-canvas__label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 6px;
+            text-align: center;
+        }
         .rotate-handle::after {
             content: '';
             position: absolute;
@@ -829,18 +876,7 @@ $main_image = $product_images[0];
                         </div>
 
                         <div class="pd-studio__col positioning-section">
-                        <h3 class="pd-sub"><i class="fas fa-arrows-alt"></i> Position your design</h3>
-
-                        <div class="view-selector">
-                            <button type="button" class="view-btn active" id="frontViewBtn" onclick="switchView('front')">
-                                <i class="fas fa-tshirt"></i> Front view
-                            </button>
-                            <?php if (!empty($back_base_image_url)): ?>
-                                <button type="button" class="view-btn" id="backViewBtn" onclick="switchView('back')">
-                                    <i class="fas fa-tshirt"></i> Back view
-                                </button>
-                            <?php endif; ?>
-                        </div>
+                        <h3 class="pd-sub"><i class="fas fa-arrows-alt"></i> Position your design<?php echo !empty($back_base_image_url) ? 's' : ''; ?></h3>
 
                         <div class="positioning-tools">
                             <div class="tool-group">
@@ -897,14 +933,41 @@ $main_image = $product_images[0];
                             </div>
                         </div>
 
-                        <div class="pd-canvas">
-                            <div class="positioning-container">
-                                <div class="product-base-image">
-                                    <img src="<?php echo $base_image_url; ?>" alt="Product base" id="baseImage">
-                                    <div id="designOverlay" class="design-overlay"></div>
-                                    <div id="designBoundary" class="design-boundary"></div>
+                        <?php if (!empty($back_base_image_url)): ?>
+                            <p class="pd-hint" style="margin:0 0 10px;color:#666;font-size:12px;">
+                                Both sides are shown live below - click any image (on either side) or its thumbnail to select it for the tools above.
+                            </p>
+                        <?php endif; ?>
+
+                        <div class="dual-canvas">
+                            <div class="dual-canvas__col">
+                                <?php if (!empty($back_base_image_url)): ?>
+                                    <div class="dual-canvas__label">Front</div>
+                                <?php endif; ?>
+                                <div class="pd-canvas">
+                                    <div class="positioning-container" id="frontPositioningContainer">
+                                        <div class="product-base-image">
+                                            <img src="<?php echo $base_image_url; ?>" alt="Product base - front" id="frontBaseImage">
+                                            <div id="frontDesignOverlay" class="design-overlay"></div>
+                                            <div id="frontDesignBoundary" class="design-boundary"></div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                            <?php if (!empty($back_base_image_url)): ?>
+                                <div class="dual-canvas__col">
+                                    <div class="dual-canvas__label">Back</div>
+                                    <div class="pd-canvas">
+                                        <div class="positioning-container" id="backPositioningContainer">
+                                            <div class="product-base-image">
+                                                <img src="<?php echo $back_base_image_url; ?>" alt="Product base - back" id="backBaseImage">
+                                                <div id="backDesignOverlay" class="design-overlay"></div>
+                                                <div id="backDesignBoundary" class="design-boundary"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                     </div>
@@ -1096,11 +1159,10 @@ $main_image = $product_images[0];
                 }, ms);
             }
 
-            // The canvas is fluid: keep the printable-area maths in step with its size
+            // The canvases are fluid: keep the printable-area maths in step with their size
             window.addEventListener('resize', function () {
-                if (document.getElementById('baseImage') && document.querySelector('.positioning-container')) {
-                    calculateImageBoundary();
-                }
+                if (document.getElementById('frontBaseImage')) calculateImageBoundary('front');
+                if (document.getElementById('backBaseImage')) calculateImageBoundary('back');
             });
 
             document.addEventListener('keydown', function (e) {
@@ -1125,7 +1187,6 @@ $main_image = $product_images[0];
         // selectedImage below) - kept as its own variable because the
         // drag/resize/rotate/opacity code below reads/writes it directly.
         let currentDesign = null;
-        let currentView = 'front';
         let currentUploadType = 'none'; // 'front_only', 'back_only', 'both_sides'
         // The individual source images the user has uploaded per side. Each
         // entry is { file, dataUrl, img, position, el }: `position` is that
@@ -1144,22 +1205,33 @@ $main_image = $product_images[0];
         let startX, startY;
         let initialDesignPosition;
         let showBoundary = false;
-        let imageBoundary = {
-            x: 0,
-            y: 0,
-            width: 0,
-            height: 0
+        // Front and back are now both live at once, each in its own canvas,
+        // so each needs its own printable-area math instead of one shared
+        // imageBoundary that only ever matched whichever side used to be
+        // "the current view".
+        let imageBoundaries = {
+            front: { x: 0, y: 0, width: 0, height: 0 },
+            back: { x: 0, y: 0, width: 0, height: 0 }
         };
         let frontImageUrl = "<?php echo $base_image_url; ?>";
         let backImageUrl = "<?php echo !empty($back_base_image_url) ? $back_base_image_url : ''; ?>";
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            // Calculate the image boundary for the initial product image
-            const baseImage = document.getElementById('baseImage');
-            baseImage.onload = function() {
-                calculateImageBoundary();
+            // Calculate the image boundary for each canvas's own product image
+            const frontBaseImageEl = document.getElementById('frontBaseImage');
+            frontBaseImageEl.onload = function() {
+                calculateImageBoundary('front');
             };
+            const backBaseImageEl = document.getElementById('backBaseImage');
+            if (backBaseImageEl) {
+                backBaseImageEl.onload = function() {
+                    calculateImageBoundary('back');
+                };
+                if (backBaseImageEl.complete) calculateImageBoundary('back');
+            }
+            // Cached images may already be loaded, in which case onload never fires
+            if (frontBaseImageEl.complete) calculateImageBoundary('front');
 
             // Initialize upload type
             document.getElementById('uploadTypeInput').value = currentUploadType;
@@ -1279,7 +1351,7 @@ $main_image = $product_images[0];
                             file: file,
                             dataUrl: event.target.result,
                             img: img,
-                            position: defaultPositionFor(aspect, images.length)
+                            position: defaultPositionFor(aspect, images.length, side)
                         });
                         remaining--;
                         if (remaining === 0) {
@@ -1296,9 +1368,10 @@ $main_image = $product_images[0];
         // own aspect ratio. Successive images are cascaded slightly so they
         // don't land exactly on top of each other and are immediately visible
         // (and grabbable) as separate, independently-draggable pieces.
-        function defaultPositionFor(aspect, cascadeIndex) {
-            const maxBox = (imageBoundary.width > 0 && imageBoundary.height > 0)
-                ? Math.min(imageBoundary.width, imageBoundary.height) * 0.45
+        function defaultPositionFor(aspect, cascadeIndex, side) {
+            const boundary = imageBoundaries[side] || imageBoundaries.front;
+            const maxBox = (boundary.width > 0 && boundary.height > 0)
+                ? Math.min(boundary.width, boundary.height) * 0.45
                 : 150;
             let w = maxBox, h = maxBox / aspect;
             if (h > maxBox) { h = maxBox; w = maxBox * aspect; }
@@ -1308,8 +1381,8 @@ $main_image = $product_images[0];
             const step = 22;
             const offset = ((cascadeIndex || 0) % 5) * step - step * 2;
 
-            const baseX = imageBoundary.width > 0 ? imageBoundary.x + (imageBoundary.width - w) / 2 : 100;
-            const baseY = imageBoundary.height > 0 ? imageBoundary.y + (imageBoundary.height - h) / 2 : 100;
+            const baseX = boundary.width > 0 ? boundary.x + (boundary.width - w) / 2 : 100;
+            const baseY = boundary.height > 0 ? boundary.y + (boundary.height - h) / 2 : 100;
 
             return {
                 x: baseX + offset,
@@ -1325,17 +1398,54 @@ $main_image = $product_images[0];
         // case the stored position was left over from a different photo) and
         // clamp its box into the current printable area, without touching
         // x/y/width beyond what's needed to keep it on the canvas.
-        function ensurePosition(entry) {
+        function ensurePosition(entry, side) {
+            const boundary = imageBoundaries[side] || imageBoundaries.front;
+            // Re-derive pixel values from the saved relative box so the image
+            // stays at the same spot on the product at any canvas size.
+            if (entry.rel) applyRel(entry, side);
             const aspect = (entry.img.naturalWidth && entry.img.naturalHeight)
                 ? entry.img.naturalWidth / entry.img.naturalHeight
                 : 1;
             entry.position.height = entry.position.width / aspect;
 
-            if (imageBoundary.width > 0 && imageBoundary.height > 0) {
-                entry.position.width = Math.min(entry.position.width, imageBoundary.width);
-                entry.position.height = Math.min(entry.position.height, imageBoundary.height);
-                entry.position.x = Math.min(Math.max(entry.position.x, imageBoundary.x), imageBoundary.x + imageBoundary.width - entry.position.width);
-                entry.position.y = Math.min(Math.max(entry.position.y, imageBoundary.y), imageBoundary.y + imageBoundary.height - entry.position.height);
+            if (boundary.width > 0 && boundary.height > 0) {
+                entry.position.width = Math.min(entry.position.width, boundary.width);
+                entry.position.height = Math.min(entry.position.height, boundary.height);
+                entry.position.x = Math.min(Math.max(entry.position.x, boundary.x), boundary.x + boundary.width - entry.position.width);
+                entry.position.y = Math.min(Math.max(entry.position.y, boundary.y), boundary.y + boundary.height - entry.position.height);
+            }
+            commitRel(entry, side);
+        }
+
+        // Positions are shown in pixels, but pixels only mean something for
+        // the canvas size they were placed at. So every image also keeps
+        // `rel`: its x/y/width/height as FRACTIONS of the base image
+        // (0 to 1). rel is the source of truth - it's what survives window
+        // resizes and what the mockup generator uses - and the pixel values
+        // are re-derived from it whenever the canvas size changes.
+        function commitRel(entry, side) {
+            const b = imageBoundaries[side];
+            if (!b || b.width <= 0 || b.height <= 0) return;
+            entry.rel = {
+                x: (entry.position.x - b.x) / b.width,
+                y: (entry.position.y - b.y) / b.height,
+                w: entry.position.width / b.width,
+                h: entry.position.height / b.height
+            };
+        }
+
+        function applyRel(entry, side) {
+            const b = imageBoundaries[side];
+            if (!entry.rel || !b || b.width <= 0 || b.height <= 0) return;
+            entry.position.x = b.x + entry.rel.x * b.width;
+            entry.position.y = b.y + entry.rel.y * b.height;
+            entry.position.width = entry.rel.w * b.width;
+            entry.position.height = entry.rel.h * b.height;
+            if (entry.el) {
+                entry.el.style.left = `${entry.position.x}px`;
+                entry.el.style.top = `${entry.position.y}px`;
+                entry.el.style.width = `${entry.position.width}px`;
+                entry.el.style.height = `${entry.position.height}px`;
             }
         }
 
@@ -1356,22 +1466,20 @@ $main_image = $product_images[0];
                 document.getElementById(designArea).classList.remove('has-design');
                 document.getElementById(side + 'UploadZone').style.display = 'flex';
                 document.getElementById(previewContainer).style.display = 'none';
-                if (currentView === side) resetDesignOverlay();
+                resetDesignOverlay(side);
                 updateDesignType();
                 return;
             }
 
             document.getElementById(statusId).textContent = images.length > 1
-                ? `${images.length} images - each is independently movable`
+                ? `${images.length} images`
                 : 'Uploaded';
             document.getElementById(statusId).classList.add('is-done');
             document.getElementById(designArea).classList.add('has-design');
             document.getElementById(side + 'UploadZone').style.display = 'none';
             document.getElementById(previewContainer).style.display = 'block';
 
-            if (currentView === side) {
-                renderDesignOverlay(side);
-            }
+            renderDesignOverlay(side);
             updateDesignType();
             updatePreview();
         }
@@ -1417,18 +1525,19 @@ $main_image = $product_images[0];
         // on the canvas. Called whenever that side's image list changes while
         // it's the active view, or when switching to that view.
         function renderDesignOverlay(side) {
-            const overlay = document.getElementById('designOverlay');
+            const overlay = document.getElementById(side + 'DesignOverlay');
             const images = side === 'front' ? frontImages : backImages;
 
             if (images.length === 0) {
-                resetDesignOverlay();
+                resetDesignOverlay(side);
                 return;
             }
 
-            calculateImageBoundary();
-            images.forEach(entry => ensurePosition(entry));
+            calculateImageBoundary(side);
+            images.forEach(entry => ensurePosition(entry, side));
 
-            // Dragging is on by default whenever there's something to drag.
+            // Dragging is on by default whenever there's something to drag -
+            // applies to both canvases at once, since it's one shared toggle.
             isDraggingEnabled = true;
             document.getElementById('dragBtn').classList.add('is-on');
             document.getElementById('dragBtn').innerHTML = '<i class="fas fa-hand-paper"></i> Dragging on';
@@ -1439,6 +1548,7 @@ $main_image = $product_images[0];
                 entry.el = el;
                 overlay.appendChild(el);
             });
+            applyDraggingStateToAll();
 
             let indexToSelect = images.length - 1; // default: the most recently added
             if (selectedImage && selectedImage.side === side && selectedImage.index < images.length) {
@@ -1456,13 +1566,20 @@ $main_image = $product_images[0];
             selectedImage = { side: side, index: index };
             currentDesign = images[index].el || null;
 
-            images.forEach((entry, i) => {
-                if (!entry.el) return;
-                entry.el.classList.toggle('is-selected', i === index);
-                entry.el.style.zIndex = (i === index) ? 10 : 1;
+            // Only one image is selected across BOTH canvases, so clear the
+            // highlight on the other side too.
+            ['front', 'back'].forEach(s => {
+                const list = s === 'front' ? frontImages : backImages;
+                list.forEach((entry, i) => {
+                    if (!entry.el) return;
+                    const isSel = (s === side && i === index);
+                    entry.el.classList.toggle('is-selected', isSel);
+                    entry.el.style.zIndex = isSel ? 10 : 1;
+                });
             });
 
-            renderDesignThumbs(side);
+            renderDesignThumbs('front');
+            if (backImageUrl) renderDesignThumbs('back');
             syncToolSlidersToView();
         }
 
@@ -1494,10 +1611,12 @@ $main_image = $product_images[0];
                 thumb.appendChild(img);
 
                 thumb.addEventListener('click', () => {
-                    if (currentView !== side) {
-                        switchView(side);
-                    }
+                    // Both canvases are always visible now, so clicking a
+                    // thumbnail just needs to select that image and bring
+                    // its canvas into view.
                     selectImage(side, index);
+                    const container = document.getElementById(side + 'PositioningContainer');
+                    if (container) container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 });
 
                 const removeBtn = document.createElement('button');
@@ -1696,35 +1815,6 @@ $main_image = $product_images[0];
             handleLayoutOptionChange();
         }
 
-        // Switch between front and back views
-        function switchView(view) {
-            // Only allow switching to back view if back image exists
-            if (view === 'back' && !backImageUrl) {
-                alert('Back view is not available for this product');
-                return;
-            }
-
-            currentView = view;
-
-            // Update button states
-            document.getElementById('frontViewBtn').classList.toggle('active', view === 'front');
-            document.getElementById('backViewBtn').classList.toggle('active', view === 'back');
-
-            // Change the base image
-            const baseImage = document.getElementById('baseImage');
-            if (view === 'front') {
-                baseImage.src = frontImageUrl;
-            } else {
-                baseImage.src = backImageUrl;
-            }
-
-            // Re-render the per-image overlay for the current view
-            renderDesignOverlay(view);
-
-            updatePreview();
-            setTimeout(calculateImageBoundary, 100);
-        }
-
         // Keep the rotate/opacity sliders showing the selected image's values
         // (each image remembers its own rotation and opacity).
         function syncToolSlidersToView() {
@@ -1738,63 +1828,71 @@ $main_image = $product_images[0];
             document.getElementById('opacityReadout').textContent = `${opacityPct}%`;
         }
 
-        // Calculate the actual image boundary within the container with better precision
-        function calculateImageBoundary() {
-            const container = document.querySelector('.positioning-container');
-            const img = document.getElementById('baseImage');
-            
+        // Calculate the actual image boundary within one side's own canvas,
+        // with better precision. Front and back are independent now (they
+        // can even be different aspect ratios), so this always operates on
+        // one named side and stores the result under imageBoundaries[side].
+        function calculateImageBoundary(side) {
+            const container = document.getElementById(side + 'PositioningContainer');
+            const img = document.getElementById(side + 'BaseImage');
+            if (!container || !img) return;
+
             if (!img.complete) {
                 // If image isn't loaded yet, wait for it
-                img.onload = calculateImageBoundary;
+                img.onload = function () { calculateImageBoundary(side); };
                 return;
             }
-            
+
             // Get the natural dimensions of the image
             const naturalWidth = img.naturalWidth;
             const naturalHeight = img.naturalHeight;
-            
-            // Get the displayed dimensions
-            const displayedWidth = img.offsetWidth;
-            const displayedHeight = img.offsetHeight;
-            
-            // Calculate the aspect ratios
-            const containerAspect = container.offsetWidth / container.offsetHeight;
-            const imageAspect = naturalWidth / naturalHeight;
-            
-            // Calculate the actual displayed image area (not including any whitespace)
-            if (imageAspect > containerAspect) {
-                // Image is wider than container - image fills width, centered vertically
-                imageBoundary.width = container.offsetWidth;
-                imageBoundary.height = container.offsetWidth / imageAspect;
-                imageBoundary.x = 0;
-                imageBoundary.y = (container.offsetHeight - imageBoundary.height) / 2;
-            } else {
-                // Image is taller than container - image fills height, centered horizontally
-                imageBoundary.height = container.offsetHeight;
-                imageBoundary.width = container.offsetHeight * imageAspect;
-                imageBoundary.y = 0;
-                imageBoundary.x = (container.offsetWidth - imageBoundary.width) / 2;
+
+            // Make the canvas the SAME shape as the product image. Before, the
+            // canvas had its own fixed shape, so the image was letterboxed or
+            // cropped inside it and the overlay's coordinates no longer lined
+            // up with the picture (and so not with the mockup either). With
+            // matching aspect ratios the image fills the canvas exactly and
+            // the overlay covers exactly the image. !important so it wins over
+            // any fixed height set in the external stylesheet.
+            if (naturalWidth > 0 && naturalHeight > 0) {
+                container.style.setProperty('aspect-ratio', naturalWidth + ' / ' + naturalHeight, 'important');
+                container.style.setProperty('height', 'auto', 'important');
             }
-            
-            console.log('Image Boundary:', imageBoundary); // Debug info
-            
+
+            // Measure where the image REALLY is, relative to the overlay that
+            // the design images are positioned in, instead of assuming.
+            const overlayEl = document.getElementById(side + 'DesignOverlay');
+            const imgRect = img.getBoundingClientRect();
+            const originRect = (overlayEl || container).getBoundingClientRect();
+            const boundary = imageBoundaries[side];
+            boundary.x = imgRect.left - originRect.left;
+            boundary.y = imgRect.top - originRect.top;
+            boundary.width = imgRect.width;
+            boundary.height = imgRect.height;
+
+            // The canvas size may have changed (window resize, layout change):
+            // move/scale this side's images with it so they stay put on the product.
+            (side === 'front' ? frontImages : backImages).forEach(entry => applyRel(entry, side));
+
             // Update boundary indicator if shown
             if (showBoundary) {
-                updateBoundaryIndicator();
+                updateBoundaryIndicator(side);
             }
         }
 
-        // Update the boundary indicator
-        function updateBoundaryIndicator() {
-            const boundary = document.getElementById('designBoundary');
-            boundary.style.display = 'block';
-            boundary.style.left = `${imageBoundary.x}px`;
-            boundary.style.top = `${imageBoundary.y}px`;
-            boundary.style.width = `${imageBoundary.width}px`;
-            boundary.style.height = `${imageBoundary.height}px`;
+        // Update one side's boundary indicator
+        function updateBoundaryIndicator(side) {
+            const boundaryEl = document.getElementById(side + 'DesignBoundary');
+            if (!boundaryEl) return;
+            const boundary = imageBoundaries[side];
+            boundaryEl.style.display = 'block';
+            boundaryEl.style.left = `${boundary.x}px`;
+            boundaryEl.style.top = `${boundary.y}px`;
+            boundaryEl.style.width = `${boundary.width}px`;
+            boundaryEl.style.height = `${boundary.height}px`;
         }
 
-        // Toggle boundary visibility
+        // Toggle boundary visibility on BOTH canvases at once
         function toggleBoundary() {
             showBoundary = !showBoundary;
             const btn = document.getElementById('boundaryBtn');
@@ -1802,11 +1900,14 @@ $main_image = $product_images[0];
             if (showBoundary) {
                 btn.classList.add('is-on');
                 btn.innerHTML = '<i class="fas fa-border-all"></i> Hide boundaries';
-                updateBoundaryIndicator();
+                updateBoundaryIndicator('front');
+                if (backImageUrl) updateBoundaryIndicator('back');
             } else {
                 btn.classList.remove('is-on');
                 btn.innerHTML = '<i class="fas fa-border-all"></i> Show boundaries';
-                document.getElementById('designBoundary').style.display = 'none';
+                document.getElementById('frontDesignBoundary').style.display = 'none';
+                const backBoundaryEl = document.getElementById('backDesignBoundary');
+                if (backBoundaryEl) backBoundaryEl.style.display = 'none';
             }
         }
 
@@ -1853,23 +1954,28 @@ $main_image = $product_images[0];
             }
         }
 
-        // Enable/disable dragging for every image on the current side at once
-        function enableDragging() {
-            const images = currentView === 'front' ? frontImages : backImages;
+        // Apply the shared dragging on/off state to every image on BOTH
+        // sides at once - both canvases are live together now, so this is
+        // one toggle rather than a per-side one.
+        function applyDraggingStateToAll() {
+            [...frontImages, ...backImages].forEach(entry => {
+                if (!entry.el) return;
+                entry.el.style.cursor = isDraggingEnabled ? 'move' : 'default';
+                entry.el.style.pointerEvents = isDraggingEnabled ? 'auto' : 'none';
+            });
+        }
 
-            if (images.length === 0) {
-                alert(`Please upload a ${currentView} design image first!`);
+        // Enable/disable dragging for every image on both sides at once
+        function enableDragging() {
+            if (frontImages.length === 0 && backImages.length === 0) {
+                alert('Please upload a design image first!');
                 return;
             }
 
             isDraggingEnabled = !isDraggingEnabled;
             const btn = document.getElementById('dragBtn');
 
-            images.forEach(entry => {
-                if (!entry.el) return;
-                entry.el.style.cursor = isDraggingEnabled ? 'move' : 'default';
-                entry.el.style.pointerEvents = isDraggingEnabled ? 'auto' : 'none';
-            });
+            applyDraggingStateToAll();
 
             if (isDraggingEnabled) {
                 btn.classList.add('is-on');
@@ -1880,17 +1986,24 @@ $main_image = $product_images[0];
             }
         }
 
-        // Helper function to reset design overlay (nothing left to show/drag
-        // for the current side).
-        function resetDesignOverlay() {
-            const overlay = document.getElementById('designOverlay');
+        // Helper function to reset one side's design overlay (nothing left to
+        // show/drag for that side - the other side, if any, is untouched).
+        function resetDesignOverlay(side) {
+            const overlay = document.getElementById(side + 'DesignOverlay');
             overlay.innerHTML = '';
-            currentDesign = null;
-            selectedImage = null;
-            isDraggingEnabled = false;
-            document.getElementById('dragBtn').innerHTML = '<i class="fas fa-arrows-alt"></i> Move design';
-            document.getElementById('dragBtn').classList.remove('is-on');
-            syncToolSlidersToView();
+
+            if (selectedImage && selectedImage.side === side) {
+                currentDesign = null;
+                selectedImage = null;
+                syncToolSlidersToView();
+            }
+
+            // Only turn the shared dragging toggle off once BOTH sides are empty.
+            if (frontImages.length === 0 && backImages.length === 0) {
+                isDraggingEnabled = false;
+                document.getElementById('dragBtn').innerHTML = '<i class="fas fa-arrows-alt"></i> Move design';
+                document.getElementById('dragBtn').classList.remove('is-on');
+            }
         }
 
         // Start dragging
@@ -1904,8 +2017,8 @@ $main_image = $product_images[0];
             startX = e.clientX;
             startY = e.clientY;
             initialDesignPosition = {
-                x: parseInt(currentDesign.style.left),
-                y: parseInt(currentDesign.style.top)
+                x: parseFloat(currentDesign.style.left),
+                y: parseFloat(currentDesign.style.top)
             };
 
             document.addEventListener('mousemove', doDrag);
@@ -1922,15 +2035,16 @@ $main_image = $product_images[0];
             let newX = initialDesignPosition.x + dx;
             let newY = initialDesignPosition.y + dy;
 
-            // Apply boundary constraints
-            const designWidth = parseInt(currentDesign.style.width);
-            const designHeight = parseInt(currentDesign.style.height);
+            // Apply boundary constraints (whichever side's canvas this is)
+            const designWidth = parseFloat(currentDesign.style.width);
+            const designHeight = parseFloat(currentDesign.style.height);
+            const boundary = imageBoundaries[selectedImage ? selectedImage.side : 'front'];
 
             // Ensure design stays within image boundaries
-            newX = Math.max(imageBoundary.x, newX);
-            newY = Math.max(imageBoundary.y, newY);
-            newX = Math.min(imageBoundary.x + imageBoundary.width - designWidth, newX);
-            newY = Math.min(imageBoundary.y + imageBoundary.height - designHeight, newY);
+            newX = Math.max(boundary.x, newX);
+            newY = Math.max(boundary.y, newY);
+            newX = Math.min(boundary.x + boundary.width - designWidth, newX);
+            newY = Math.min(boundary.y + boundary.height - designHeight, newY);
 
             currentDesign.style.left = `${newX}px`;
             currentDesign.style.top = `${newY}px`;
@@ -1943,8 +2057,9 @@ $main_image = $product_images[0];
             // Save the position on the selected image itself, not the side
             const entry = getSelectedEntry();
             if (entry && currentDesign) {
-                entry.position.x = parseInt(currentDesign.style.left);
-                entry.position.y = parseInt(currentDesign.style.top);
+                entry.position.x = parseFloat(currentDesign.style.left);
+                entry.position.y = parseFloat(currentDesign.style.top);
+                commitRel(entry, selectedImage.side);
             }
 
             document.removeEventListener('mousemove', doDrag);
@@ -1958,10 +2073,10 @@ $main_image = $product_images[0];
             startX = e.clientX;
             startY = e.clientY;
             initialDesignPosition = {
-                width: parseInt(currentDesign.style.width),
-                height: parseInt(currentDesign.style.height),
-                x: parseInt(currentDesign.style.left),
-                y: parseInt(currentDesign.style.top)
+                width: parseFloat(currentDesign.style.width),
+                height: parseFloat(currentDesign.style.height),
+                x: parseFloat(currentDesign.style.left),
+                y: parseFloat(currentDesign.style.top)
             };
 
             document.addEventListener('mousemove', doResize);
@@ -1989,8 +2104,9 @@ $main_image = $product_images[0];
 
             // Apply boundary constraints during resizing - scale both
             // dimensions together so the aspect ratio holds at the edges too.
-            const maxWidth = imageBoundary.x + imageBoundary.width - initialDesignPosition.x;
-            const maxHeight = imageBoundary.y + imageBoundary.height - initialDesignPosition.y;
+            const resizeBoundary = imageBoundaries[selectedImage ? selectedImage.side : 'front'];
+            const maxWidth = resizeBoundary.x + resizeBoundary.width - initialDesignPosition.x;
+            const maxHeight = resizeBoundary.y + resizeBoundary.height - initialDesignPosition.y;
             const scale = Math.min(1, maxWidth / newWidth, maxHeight / newHeight);
             if (scale < 1) {
                 newWidth *= scale;
@@ -2007,8 +2123,9 @@ $main_image = $product_images[0];
 
             const entry = getSelectedEntry();
             if (entry && currentDesign) {
-                entry.position.width = parseInt(currentDesign.style.width);
-                entry.position.height = parseInt(currentDesign.style.height);
+                entry.position.width = parseFloat(currentDesign.style.width);
+                entry.position.height = parseFloat(currentDesign.style.height);
+                commitRel(entry, selectedImage.side);
             }
 
             document.removeEventListener('mousemove', doResize);
@@ -2027,17 +2144,18 @@ $main_image = $product_images[0];
                 return;
             }
 
-            const currentWidth = parseInt(currentDesign.style.width);
-            const currentHeight = parseInt(currentDesign.style.height);
-            const currentX = parseInt(currentDesign.style.left);
-            const currentY = parseInt(currentDesign.style.top);
+            const currentWidth = parseFloat(currentDesign.style.width);
+            const currentHeight = parseFloat(currentDesign.style.height);
+            const currentX = parseFloat(currentDesign.style.left);
+            const currentY = parseFloat(currentDesign.style.top);
 
             let newWidth = Math.max(50, currentWidth * factor);
             let newHeight = Math.max(50, currentHeight * factor);
 
             // Apply boundary constraints
-            const maxWidth = imageBoundary.x + imageBoundary.width - currentX;
-            const maxHeight = imageBoundary.y + imageBoundary.height - currentY;
+            const btnResizeBoundary = imageBoundaries[selectedImage.side];
+            const maxWidth = btnResizeBoundary.x + btnResizeBoundary.width - currentX;
+            const maxHeight = btnResizeBoundary.y + btnResizeBoundary.height - currentY;
             const scale = Math.min(1, maxWidth / newWidth, maxHeight / newHeight);
             if (scale < 1) {
                 newWidth *= scale;
@@ -2049,6 +2167,7 @@ $main_image = $product_images[0];
 
             entry.position.width = newWidth;
             entry.position.height = newHeight;
+            commitRel(entry, selectedImage.side);
         }
 
         // Rotate the SELECTED image by a relative amount (degrees), via the
@@ -2101,8 +2220,9 @@ $main_image = $product_images[0];
             }
 
             const aspect = parseFloat(currentDesign.dataset.aspect) || 1;
-            const newPosition = defaultPositionFor(aspect, 0);
+            const newPosition = defaultPositionFor(aspect, 0, selectedImage.side);
             entry.position = newPosition;
+            commitRel(entry, selectedImage.side);
 
             currentDesign.style.width = `${newPosition.width}px`;
             currentDesign.style.height = `${newPosition.height}px`;
@@ -2145,7 +2265,8 @@ $main_image = $product_images[0];
                         frontTemplate,
                         'mockupFront',
                         'frontMockupContainer',
-                        'Front View'
+                        'Front View',
+                        imageBoundaries.front
                     );
                 } else {
                     // Show front template only (no design)
@@ -2168,7 +2289,8 @@ $main_image = $product_images[0];
                         backTemplate,
                         'mockupBack',
                         'backMockupContainer',
-                        'Back View'
+                        'Back View',
+                        imageBoundaries.back
                     );
                 } else {
                     // Show back template only (no design)
@@ -2228,8 +2350,11 @@ $main_image = $product_images[0];
         // Generate a side's mockup by embedding EVERY uploaded image for that
         // side onto the product template, each at its own independently-set
         // position/size/rotation/opacity - same math the on-screen overlay
-        // uses, just scaled up to the template's real resolution.
-        function generateSideMockup(images, templatePath, outputId, containerId, label) {
+        // uses, just scaled up to the template's real resolution. `boundary`
+        // is that side's OWN imageBoundaries entry - front and back now have
+        // independent canvases (and can even have different aspect ratios),
+        // so each must be scaled using its own boundary, not a shared one.
+        function generateSideMockup(images, templatePath, outputId, containerId, label, boundary) {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             const productTemplate = new Image();
@@ -2248,18 +2373,22 @@ $main_image = $product_images[0];
                 ctx.drawImage(productTemplate, 0, 0, canvas.width, canvas.height);
 
                 // Calculate scale factors based on actual image dimensions, not container
-                const scaleX = productTemplate.width / imageBoundary.width;
-                const scaleY = productTemplate.height / imageBoundary.height;
+                const scaleX = productTemplate.width / boundary.width;
+                const scaleY = productTemplate.height / boundary.height;
 
                 images.forEach(entry => {
                     const position = entry.position;
                     const designImage = entry.img;
 
                     // Calculate this image's box position relative to the actual image boundary
-                    const boxX = (position.x - imageBoundary.x) * scaleX;
-                    const boxY = (position.y - imageBoundary.y) * scaleY;
-                    const boxWidth = position.width * scaleX;
-                    const boxHeight = position.height * scaleY;
+                    // Use the relative box (fractions of the base image) when we
+                    // have it - it's independent of whatever size the canvas
+                    // happened to be on screen. Fall back to pixels otherwise.
+                    const rel = entry.rel;
+                    const boxX = rel ? rel.x * canvas.width : (position.x - boundary.x) * scaleX;
+                    const boxY = rel ? rel.y * canvas.height : (position.y - boundary.y) * scaleY;
+                    const boxWidth = rel ? rel.w * canvas.width : position.width * scaleX;
+                    const boxHeight = rel ? rel.h * canvas.height : position.height * scaleY;
 
                     // The on-screen preview shows each image with
                     // backgroundSize: 'contain' inside its own box (never
@@ -2572,8 +2701,8 @@ $main_image = $product_images[0];
                         upload_type: currentUploadType,
                         has_front_design: hasFrontDesign ? '1' : '0',
                         has_back_design: hasBackDesign ? '1' : '0',
-                        front_design_position: frontImages.map(entry => entry.position),
-                        back_design_position: backImages.map(entry => entry.position)
+                        front_design_position: frontImages.map(entry => ({ ...entry.position, rel: entry.rel })),
+                        back_design_position: backImages.map(entry => ({ ...entry.position, rel: entry.rel }))
                     };
                     const designDataString = JSON.stringify(completeDesignData);
 
@@ -2811,13 +2940,12 @@ $main_image = $product_images[0];
                         else if (placement === 'both') message += 'Design applied to both sides.';
                         
                         alert(message);
-                        
-                        // Switch to appropriate view
-                        if (placement === 'back') {
-                            switchView('back');
-                        } else {
-                            switchView('front');
-                        }
+
+                        // Both canvases are always visible now - just scroll
+                        // the relevant one into view.
+                        const scrollSide = placement === 'back' ? 'back' : 'front';
+                        const container = document.getElementById(scrollSide + 'PositioningContainer');
+                        if (container) container.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }, 500);
                 })
                 .catch(error => {
@@ -2846,7 +2974,7 @@ $main_image = $product_images[0];
                     file: file,
                     dataUrl: imageData,
                     img: img,
-                    position: defaultPositionFor(aspect, images.length)
+                    position: defaultPositionFor(aspect, images.length, side)
                 });
                 syncDesignImages(side);
                 document.getElementById(side + 'DesignStatus').textContent = 'AI generated';

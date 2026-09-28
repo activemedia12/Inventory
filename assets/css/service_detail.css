@@ -765,6 +765,7 @@ textarea.pd-input {
 .pd-page .design-actions {
   display: flex;
   justify-content: center;
+  margin-top: 10px;
 }
 
 .pd-page .btn-remove-design {
