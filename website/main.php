@@ -159,9 +159,11 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
 
     <!-- Site Intro — Scroll Expand -->
     <section class="scroll-expand" id="site-intro"
-        data-start-width="10"
+        data-start-width="36"
         data-start-height="20"
-        data-start-radius="100"
+        data-pill-ratio="1"
+        data-mobile-start-width="21"
+        data-mobile-start-height="14"
         data-end-radius="0"
         data-media-zoom="1.5"
         data-scroll-distance="0.8"

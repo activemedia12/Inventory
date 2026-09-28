@@ -10,7 +10,10 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 date_default_timezone_set('Asia/Manila');
 
 $error = '';
@@ -87,7 +90,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Forgot Password - Active Media Designs &amp; Printing</title>
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">

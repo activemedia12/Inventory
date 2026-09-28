@@ -1,11 +1,14 @@
 <?php
 require_once '../config/db.php';
-session_start();
 date_default_timezone_set('Asia/Manila');
 
 // Security headers
 header("X-Frame-Options: DENY");
 header("X-Content-Type-Options: nosniff");
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $error = '';
 $success = '';
@@ -66,7 +69,7 @@ if (!empty($token)) {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reset Password - Active Media Designs &amp; Printing</title>
     <link rel="icon" type="image/png" href="../assets/images/plainlogo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -71,6 +71,137 @@
   );
 })();
 
+// Mobile nav — on phones the dock is tucked into the left edge behind a
+// small arrow tab. Tap the tab to slide the dock out; it slides back on
+// scroll, an outside tap, a link tap, or Esc. (Tablet/desktop keep the
+// hover dock above; the tab is display:none there.)
+(function () {
+  const nav = document.querySelector(".side-nav");
+  const list = nav && nav.querySelector(".side-nav-list");
+  if (!nav || !list) return;
+
+  const mq = window.matchMedia(
+    "(max-width: 768px), (max-height: 500px) and (pointer: coarse)",
+  );
+
+  if (!nav.id) nav.id = "sideNav";
+
+  const tab = document.createElement("button");
+  tab.type = "button";
+  tab.className = "side-nav-tab";
+  tab.setAttribute("aria-label", "Open menu");
+  tab.setAttribute("aria-expanded", "false");
+  tab.setAttribute("aria-controls", nav.id);
+  // A blob of ink welling up out of the edge. The goo filter (blur, then a
+  // hard alpha threshold) is what makes the droplets stretch and merge
+  // into the body; the gloss + rim sit on top, un-filtered, for depth.
+  const BLOB =
+    "M0 2C0 22 7 30 15 38C23 46 26 50 26 56C26 62 23 66 15 74C7 82 0 90 0 110Z";
+  tab.innerHTML =
+    '<span class="liquid-wrap"><span class="liquid">' +
+    '<svg class="liquid-svg" viewBox="0 0 40 112" width="40" height="112" ' +
+    'aria-hidden="true" focusable="false"><defs>' +
+    '<filter id="liquidGoo" filterUnits="userSpaceOnUse" x="-6" y="-6" ' +
+    'width="52" height="124" color-interpolation-filters="sRGB">' +
+    '<feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>' +
+    '<feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 20 -9"/>' +
+    "</filter>" +
+    '<linearGradient id="liquidGrad" gradientUnits="userSpaceOnUse" x1="4" y1="6" x2="30" y2="108">' +
+    '<stop offset="0" stop-color="#4b78d0"/><stop offset=".45" stop-color="#24478f"/>' +
+    '<stop offset="1" stop-color="#1b3568"/></linearGradient>' +
+    '<clipPath id="liquidClip"><path d="' +
+    BLOB +
+    '"/></clipPath></defs>' +
+    '<g filter="url(#liquidGoo)" fill="url(#liquidGrad)">' +
+    '<path d="' +
+    BLOB +
+    '"/>' +
+    '<circle class="drop drop-a" cx="6" cy="27" r="3.2"/>' +
+    '<circle class="drop drop-b" cx="5" cy="86" r="2.6"/></g>' +
+    '<g clip-path="url(#liquidClip)">' +
+    '<path d="' +
+    BLOB +
+    '" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1.6"/>' +
+    '<ellipse cx="15" cy="45" rx="6.5" ry="2.3" transform="rotate(38 15 45)" fill="#fff" fill-opacity=".34"/>' +
+    '<circle cx="21" cy="55" r="1.3" fill="#fff" fill-opacity=".45"/></g></svg>' +
+    '<svg class="liquid-chev" viewBox="0 0 12 12" aria-hidden="true">' +
+    '<path d="M4 1.5 8.5 6 4 10.5" fill="none" stroke="#fff" stroke-width="1.9" ' +
+    'stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>';
+  nav.appendChild(tab);
+
+  // Pop out of the bezel on load
+  nav.classList.add("pop-in");
+  setTimeout(function () {
+    nav.classList.remove("pop-in");
+  }, 2000);
+
+  let openedAtY = 0;
+  let closingTimer = 0;
+
+  function isOpen() {
+    return nav.classList.contains("is-open");
+  }
+
+  function setOpen(open) {
+    if (open && !mq.matches) return;
+    const wasOpen = isOpen();
+    if (open) {
+      clearTimeout(closingTimer);
+      nav.classList.remove("is-closing");
+    } else if (wasOpen) {
+      // one-shot wobble as the dock tucks back into the edge
+      nav.classList.add("is-closing");
+      clearTimeout(closingTimer);
+      closingTimer = setTimeout(function () {
+        nav.classList.remove("is-closing");
+      }, 1000);
+    }
+    nav.classList.toggle("is-open", open);
+    tab.setAttribute("aria-expanded", open ? "true" : "false");
+    tab.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    if (open) openedAtY = window.scrollY;
+  }
+
+  tab.addEventListener("click", function (e) {
+    e.stopPropagation();
+    setOpen(!isOpen());
+  });
+
+  // Tapping anywhere outside the dock tucks it away again
+  document.addEventListener("click", function (e) {
+    if (isOpen() && !e.target.closest(".side-nav")) setOpen(false);
+  });
+
+  // Following a link (or opening chat) tucks it away too
+  list.addEventListener("click", function (e) {
+    if (e.target.closest("a")) setOpen(false);
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && isOpen()) {
+      setOpen(false);
+      tab.focus();
+    }
+  });
+
+  // Scrolling closes it (a few px of slack so a tiny touch wobble or the
+  // browser's address bar settling doesn't slam it shut)
+  window.addEventListener(
+    "scroll",
+    function () {
+      if (isOpen() && Math.abs(window.scrollY - openedAtY) > 8) setOpen(false);
+    },
+    { passive: true },
+  );
+
+  // Rotating / resizing past the breakpoint resets it
+  if (mq.addEventListener) {
+    mq.addEventListener("change", function () {
+      setOpen(false);
+    });
+  }
+})();
+
 // Mobile Menu Toggle
 const observer = new IntersectionObserver((entries) => {
   entries.forEach((entry) => {
@@ -90,7 +221,13 @@ document.addEventListener("DOMContentLoaded", function () {
   // Side pill navigation — tap-to-expand for touch devices
   const sideNavList = document.querySelector(".side-nav-list");
   if (sideNavList) {
+    const mobileNavMQ = window.matchMedia(
+      "(max-width: 768px), (max-height: 500px) and (pointer: coarse)",
+    );
     sideNavList.addEventListener("click", function (e) {
+      // Phones use the arrow tab instead (see "Mobile nav" below): links
+      // navigate on the first tap.
+      if (mobileNavMQ.matches) return;
       const isCollapsed = !sideNavList.classList.contains("active");
       const linkClicked = e.target.closest("a");
 
@@ -362,6 +499,7 @@ function autoResize(textarea) {
     var title = root.querySelector(".scroll-expand__title");
     var hint = root.querySelector(".scroll-expand__hint");
     var mark = root.querySelector(".intro-media__mark");
+    var rule = root.querySelector(".intro-media__rule");
 
     if (!track || !stage || !frame || !media) return;
 
@@ -372,10 +510,23 @@ function autoResize(textarea) {
       return isFinite(parsed) ? parsed : fallback;
     }
 
+    /* The resting shape is a true pill (capsule), sized in PIXELS from the
+       viewport instead of in % of width and % of height. Percent insets
+       gave a different pill on every screen ratio (a sliver on phones, a
+       near-circle on desktops).
+         startHeight -> pill height, as % of the stage height
+         pillRatio   -> pill width / height (0.5 = a 1:2 capsule)
+         startWidth  -> the widest the pill may get, as % of the stage width
+         startRadius -> optional fixed px radius; omit it for a true pill */
     var cfg = {
-      startWidth: num(root.dataset.startWidth, 42),
-      startHeight: num(root.dataset.startHeight, 58),
-      startRadius: num(root.dataset.startRadius, 24),
+      startWidth: num(root.dataset.startWidth, 56),
+      startHeight: num(root.dataset.startHeight, 40),
+      pillRatio: num(root.dataset.pillRatio, 0.5),
+      /* Optional smaller size on phones (viewport width <= breakpoint) */
+      mobileBreakpoint: num(root.dataset.mobileBreakpoint, 768),
+      mobileStartWidth: num(root.dataset.mobileStartWidth, -1),
+      mobileStartHeight: num(root.dataset.mobileStartHeight, -1),
+      startRadius: num(root.dataset.startRadius, -1),
       endRadius: num(root.dataset.endRadius, 0),
       mediaZoom: num(root.dataset.mediaZoom, 1.35),
       scrollDistance: num(root.dataset.scrollDistance, 1.2),
@@ -393,6 +544,9 @@ function autoResize(textarea) {
     var current = 0;
     var target = 0;
     var stageH = 0;
+    var stageW = 0;
+    var pillW = 0;
+    var pillH = 0;
     var lastTime = 0;
     var resizeTimer = null;
 
@@ -410,23 +564,34 @@ function autoResize(textarea) {
 
       /* Clip the frame open rather than resizing it. The media keeps
          its full size the whole way, so nothing squashes or reflows. */
-      var w = cfg.startWidth + (100 - cfg.startWidth) * e;
-      var h = cfg.startHeight + (100 - cfg.startHeight) * e;
-      var ix = Math.max(0, (100 - w) / 2);
-      var iy = Math.max(0, (100 - h) / 2);
-      var r = cfg.startRadius + (cfg.endRadius - cfg.startRadius) * e;
+      var w = pillW + (stageW - pillW) * e;
+      var h = pillH + (stageH - pillH) * e;
+      var ix = Math.max(0, (stageW - w) / 2);
+      var iy = Math.max(0, (stageH - h) / 2);
+
+      /* Radius follows the SHORTER side of the current shape, so the ends
+         stay fully round (a real pill) at every size and ratio, then melt
+         to square just before full bleed. A fixed px radius can't do
+         that: it stops being a pill the moment the shape outgrows it. */
+      var r;
+      if (cfg.startRadius >= 0) {
+        r = cfg.startRadius + (cfg.endRadius - cfg.startRadius) * e;
+      } else {
+        var round = 1 - smoothstep(0, 0.9, p);
+        r = cfg.endRadius + (Math.min(w, h) / 2 - cfg.endRadius) * round;
+      }
 
       frame.style.clipPath =
         "inset(" +
-        iy +
-        "% " +
-        ix +
-        "% " +
-        iy +
-        "% " +
-        ix +
-        "% round " +
-        r +
+        iy.toFixed(2) +
+        "px " +
+        ix.toFixed(2) +
+        "px " +
+        iy.toFixed(2) +
+        "px " +
+        ix.toFixed(2) +
+        "px round " +
+        r.toFixed(2) +
         "px)";
       /* Safari < 15.4 */
       frame.style.webkitClipPath = frame.style.clipPath;
@@ -472,15 +637,84 @@ function autoResize(textarea) {
         mark.style.opacity = String(1 - 0.82 * inn);
       }
 
+      /* The accent rule sits near the bottom and would run behind the
+         buttons on short screens, so it leaves with the resting card. */
+      if (rule) {
+        rule.style.opacity = String(1 - inn);
+      }
+
       /* Expensive to keep on during the clip-path animation (see the
          CSS comment) — only carry the shadow while the frame is still
          basically card-sized, right at the start of the scroll range. */
       frame.classList.toggle("is-resting", p < 0.03);
     }
 
+    /* Height of the LARGEST viewport (100lvh). window.innerHeight changes
+       as a mobile URL bar shows/hides, which used to resize the stage and
+       the pill mid-scroll. This value stays put. */
+    var probe = document.createElement("div");
+    probe.setAttribute("aria-hidden", "true");
+    probe.style.cssText =
+      "position:fixed;left:0;top:0;width:0;height:100vh;height:100lvh;" +
+      "visibility:hidden;pointer-events:none;";
+    root.appendChild(probe);
+
+    /* Smallest viewport (URL bar showing) — used to keep the expanded copy
+       inside what is really visible on phones. */
+    var probeSmall = probe.cloneNode(false);
+    probeSmall.style.height = "100vh";
+    probeSmall.style.height = "100svh";
+    root.appendChild(probeSmall);
+
+    var copy = overlay ? overlay.querySelector(".intro-overlay") : null;
+
+    /* Shrink the expanded copy just enough to fit the screen. Layout size
+       is untouched (transform only), so this never reflows anything. */
+    function fitCopy() {
+      if (!overlay || !copy) return;
+      var bar = Math.max(0, stageH - (probeSmall.offsetHeight || stageH));
+      stage.style.setProperty("--se-bar", bar + "px");
+      copy.style.setProperty("--se-fit", "1");
+
+      var cs = getComputedStyle(overlay);
+      var avail =
+        overlay.clientHeight -
+        (parseFloat(cs.paddingTop) || 0) -
+        (parseFloat(cs.paddingBottom) || 0);
+      var need = copy.offsetHeight;
+      if (avail > 0 && need > 0) {
+        copy.style.setProperty(
+          "--se-fit",
+          clamp(avail / need, 0.55, 1).toFixed(3),
+        );
+      }
+    }
+
     function measure() {
-      stageH = window.innerHeight;
+      stageH = probe.offsetHeight || window.innerHeight;
       if (stageH <= 0) return;
+      stageW = root.clientWidth || window.innerWidth;
+
+      /* Pill: as tall as asked, at the chosen ratio, but never wider than
+         its share of the screen (keeps it a capsule on narrow phones). */
+      var ratio = Math.max(0.1, cfg.pillRatio);
+      var isMobile = window.innerWidth <= cfg.mobileBreakpoint;
+      var sizeH =
+        isMobile && cfg.mobileStartHeight >= 0
+          ? cfg.mobileStartHeight
+          : cfg.startHeight;
+      var sizeW =
+        isMobile && cfg.mobileStartWidth >= 0
+          ? cfg.mobileStartWidth
+          : cfg.startWidth;
+      pillH = (stageH * sizeH) / 100;
+      pillW = pillH * ratio;
+      var maxW = (stageW * sizeW) / 100;
+      if (pillW > maxW) {
+        pillW = maxW;
+        pillH = pillW / ratio;
+      }
+      pillH = Math.min(pillH, stageH);
 
       stage.style.height = stageH + "px";
       track.style.height =
@@ -490,7 +724,9 @@ function autoResize(textarea) {
             Math.max(0, cfg.holdDistance)) +
         "px";
 
-      var w = root.clientWidth || stageH;
+      fitCopy();
+
+      var w = stageW;
       stage.style.setProperty(
         "--se-title-size",
         clamp(w * 0.075, 20, 84) + "px",
@@ -600,7 +836,13 @@ function autoResize(textarea) {
     window.addEventListener("orientationchange", onResize);
 
     if (typeof ResizeObserver !== "undefined") {
-      new ResizeObserver(onResize).observe(root);
+      var ro = new ResizeObserver(onResize);
+      ro.observe(root);
+      /* Copy height changes when the display font finishes loading */
+      if (copy) ro.observe(copy);
+    }
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(onResize);
     }
 
     /* The logo can shift layout once it decodes */
@@ -1236,4 +1478,130 @@ function autoResize(textarea) {
     var msgs = document.getElementById("chatMessages");
     if (msgs) new MutationObserver(save).observe(msgs, opts);
   });
+})();
+
+// Checkout dock — on cart.php / checkout.php the order summary sits below
+// the whole item list once the layout stacks, so on a phone the action is a
+// long scroll away. This builds a slim bar pinned to the bottom of the
+// screen that mirrors the live total and the real action button, and slides
+// away whenever the real button (or the footer) is already on screen.
+(function () {
+  const isCheckout = document.body.classList.contains("co-page");
+  const cartForm = document.getElementById("cartForm");
+  if (!isCheckout && !cartForm) return;
+
+  const els = isCheckout
+    ? {
+        total: document.querySelector(".co-amount strong"),
+        submit: document.getElementById("confirm-order-btn"),
+        anchor: document.querySelector(".co-pay__foot"),
+      }
+    : {
+        total: document.getElementById("total-amount"),
+        count: document.getElementById("selected-count"),
+        checkout: document.querySelector(".checkout-btn"),
+        waiting: document.querySelector(".waiting-btn"),
+        request: document.querySelector(".request-btn"),
+        anchor: document.querySelector(".cart-buttons"),
+        watch: document.querySelector(".cart-summary"),
+      };
+  if (!els.total || !els.anchor) return;
+
+  document.body.classList.add(isCheckout ? "has-dock--co" : "has-dock--cart");
+
+  const dock = document.createElement("div");
+  dock.className = "m-dock is-away";
+  dock.setAttribute("role", "region");
+  dock.setAttribute("aria-label", isCheckout ? "Order total" : "Cart total");
+  dock.innerHTML =
+    '<div class="m-dock__sum"><span class="m-dock__label"></span>' +
+    '<strong class="m-dock__total"></strong></div>' +
+    '<button type="button" class="btn btn-primary m-dock__btn"></button>';
+  document.body.appendChild(dock);
+
+  const label = dock.querySelector(".m-dock__label");
+  const total = dock.querySelector(".m-dock__total");
+  const btn = dock.querySelector(".m-dock__btn");
+  let target = null; // the real button the dock forwards its tap to
+  let idle = false; // nothing to act on (e.g. no items ticked)
+
+  function sync() {
+    total.textContent = els.total.textContent.trim();
+
+    if (isCheckout) {
+      label.textContent = "Amount to pay";
+      btn.className = "btn btn-primary m-dock__btn";
+      btn.innerHTML = '<i class="fas fa-check"></i> Confirm order';
+      btn.disabled = !!(els.submit && els.submit.disabled);
+      target = els.submit;
+      idle = !els.submit;
+      return;
+    }
+
+    const n = els.count ? parseInt(els.count.textContent, 10) || 0 : 0;
+    label.textContent = n + (n === 1 ? " item selected" : " items selected");
+
+    if (els.checkout && !els.checkout.hidden) {
+      btn.className = "btn btn-primary m-dock__btn";
+      btn.innerHTML = '<i class="fas fa-check"></i> Checkout';
+      btn.disabled = false;
+      target = els.checkout;
+      idle = false;
+    } else if (n > 0 && els.request) {
+      btn.className = "btn btn-ink m-dock__btn";
+      btn.innerHTML = '<i class="fas fa-envelope"></i> Request price';
+      btn.disabled = els.request.disabled;
+      target = els.request;
+      idle = false;
+    } else {
+      target = null;
+      idle = true; // nothing ticked: no reason to show the bar
+    }
+  }
+
+  btn.addEventListener("click", function () {
+    if (target && !btn.disabled) target.click();
+  });
+
+  // Keep the mirror live as the cart script updates totals and buttons
+  sync();
+  if (els.watch && "MutationObserver" in window) {
+    new MutationObserver(sync).observe(els.watch, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["hidden", "disabled"],
+    });
+  }
+  if (isCheckout && els.submit && "MutationObserver" in window) {
+    new MutationObserver(sync).observe(els.submit, {
+      attributes: true,
+      attributeFilter: ["disabled"],
+    });
+  }
+
+  // Slide away while the real button or the footer is visible
+  const seen = new Set();
+  function render() {
+    dock.classList.toggle("is-away", idle || seen.size > 0);
+  }
+  if ("IntersectionObserver" in window) {
+    const io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) seen.add(e.target);
+        else seen.delete(e.target);
+      });
+      render();
+    });
+    io.observe(els.anchor);
+    const footer = document.querySelector(".footer");
+    if (footer) io.observe(footer);
+  }
+  // sync() can flip "idle" without an intersection change
+  new MutationObserver(render).observe(dock, {
+    childList: true,
+    subtree: true,
+  });
+  render();
 })();

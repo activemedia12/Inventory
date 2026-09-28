@@ -1833,16 +1833,20 @@ img {
     grid-template-columns: 1fr;
   }
 
+  /* No sideways scrolling: all four methods stay on screen as a 2x2 grid */
   .catalog-tabs {
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    overflow-x: auto;
-    padding-bottom: 6px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
 
   .catalog-tab {
-    flex-shrink: 0;
+    min-width: 0;
+    border-radius: 18px;
+  }
+
+  .catalog-tab-text {
+    min-width: 0;
   }
 
   .panel-spotlight {
@@ -1891,6 +1895,379 @@ img {
 
   .side-nav-list.suppress-hover:hover {
     width: 48px;
+  }
+}
+
+/* =========================================================
+   Mobile nav — phones (<= 768px wide, or a landscape phone).
+   The dock tucks into the left edge as a small arrow tab. Tap the
+   tab and the dock glides out; it glides back when the page scrolls,
+   on an outside tap, a link tap, or Esc. main.js adds the tab button
+   and toggles .is-open on .side-nav. Tablets/desktops are untouched.
+   ========================================================= */
+.side-nav-tab {
+  display: none;
+}
+
+@media (max-width: 768px), (max-height: 500px) and (pointer: coarse) {
+  .side-nav {
+    --nav-w: 188px;
+    --nav-gap: 12px;
+    --tab-gap: -1px;
+    left: 0;
+    display: flex;
+    align-items: center;
+    /* Closed: slid left until only the tab is left on screen */
+    transform: translate(
+      calc(-1 * (var(--nav-w) + var(--nav-gap) + var(--tab-gap))),
+      -50%
+    );
+    transition: transform 0.6s cubic-bezier(0.32, 0.72, 0, 1);
+    will-change: transform;
+  }
+
+  .side-nav.is-open {
+    transform: translate(0, -50%);
+  }
+
+  .side-nav .side-nav-list {
+    margin-left: var(--nav-gap);
+    max-height: calc(100vh - 24px);
+    max-height: calc(100svh - 24px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    /* Hidden from taps / screen readers / tab order while tucked away */
+    visibility: hidden;
+    transition:
+      visibility 0s linear 0.6s,
+      box-shadow 0.45s var(--ease);
+  }
+
+  .side-nav .side-nav-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .side-nav.is-open .side-nav-list {
+    visibility: visible;
+    transition-delay: 0s;
+    box-shadow: var(--shadow-hover);
+  }
+
+  /* When it is out, the dock is always the full (labelled) pill — the
+     tap-to-expand / hover states are for larger screens only. */
+  .side-nav .side-nav-list.side-nav-list,
+  .side-nav .side-nav-list.side-nav-list:is(.active, .suppress-hover, :hover) {
+    width: var(--nav-w);
+    padding: 10px;
+  }
+
+  .side-nav .side-nav-list.side-nav-list li a,
+  .side-nav
+    .side-nav-list.side-nav-list:is(.active, .suppress-hover, :hover)
+    li
+    a {
+    justify-content: flex-start;
+    gap: 12px;
+  }
+
+  .side-nav .side-nav-list.side-nav-list li a .side-nav-label,
+  .side-nav
+    .side-nav-list.side-nav-list:is(.active, .suppress-hover, :hover)
+    li
+    a
+    .side-nav-label {
+    opacity: 1;
+    max-width: 150px;
+    transform: none;
+    transition-delay: 0s;
+  }
+
+  /* Items rise in one after another as the dock arrives */
+  .side-nav.is-open .side-nav-list > li {
+    animation: sideNavItemIn 0.5s var(--ease) both;
+  }
+
+  .side-nav.is-open .side-nav-list > li:nth-child(1) {
+    animation-delay: 0.1s;
+  }
+  .side-nav.is-open .side-nav-list > li:nth-child(2) {
+    animation-delay: 0.14s;
+  }
+  .side-nav.is-open .side-nav-list > li:nth-child(3) {
+    animation-delay: 0.18s;
+  }
+  .side-nav.is-open .side-nav-list > li:nth-child(4) {
+    animation-delay: 0.22s;
+  }
+  .side-nav.is-open .side-nav-list > li:nth-child(5) {
+    animation-delay: 0.26s;
+  }
+  .side-nav.is-open .side-nav-list > li:nth-child(6) {
+    animation-delay: 0.3s;
+  }
+  .side-nav.is-open .side-nav-list > li:nth-child(7) {
+    animation-delay: 0.34s;
+  }
+  .side-nav.is-open .side-nav-list > li:nth-child(8) {
+    animation-delay: 0.38s;
+  }
+  .side-nav.is-open .side-nav-list > li:nth-child(n + 9) {
+    animation-delay: 0.42s;
+  }
+
+  /* The liquid tab: a blob of ink that wells up out of the screen edge
+     (meniscus flaring along the bezel, a bulge in the middle, little
+     droplets breaking away and merging back through an SVG "goo"
+     filter). When the dock is out, the same blob is attached to the
+     dock's edge as the close handle. main.js supplies the SVG. */
+  .side-nav-tab {
+    position: relative;
+    display: block;
+    flex-shrink: 0;
+    width: 40px;
+    height: 112px;
+    margin-left: var(--tab-gap);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #fff;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transform-origin: left center;
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Press = the liquid squishes toward the edge, release = it springs back */
+  .side-nav-tab:active {
+    transform: scale(0.84, 0.93);
+    transition-duration: 0.12s;
+  }
+
+  .side-nav-tab:focus-visible {
+    outline: 2px solid var(--cmyk-yellow);
+    outline-offset: 2px;
+    border-radius: 0 28px 28px 0;
+  }
+
+  /* Bigger invisible hit area than the visible blob */
+  .side-nav-tab::before {
+    content: "";
+    position: absolute;
+    inset: -8px -14px -8px 0;
+  }
+
+  .liquid-wrap {
+    position: absolute;
+    inset: 0;
+    display: block;
+    transform-origin: left center;
+    pointer-events: none;
+  }
+
+  .liquid {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform-origin: left center;
+    filter: drop-shadow(3px 5px 7px rgba(23, 20, 15, 0.3));
+    animation: liquidBreathe 4.6s ease-in-out infinite;
+  }
+
+  .liquid-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .liquid-svg .drop {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .liquid-svg .drop-a {
+    animation: liquidDropA 3.8s ease-in-out infinite;
+  }
+
+  .liquid-svg .drop-b {
+    animation: liquidDropB 5.2s ease-in-out -1.7s infinite;
+  }
+
+  .liquid-chev {
+    position: absolute;
+    left: 5px;
+    top: 50px;
+    width: 12px;
+    height: 12px;
+    display: block;
+    filter: drop-shadow(0 1px 1px rgba(10, 20, 50, 0.35));
+    transition: transform 0.75s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .side-nav.is-open .liquid-chev {
+    transform: rotate(180deg);
+  }
+
+  /* Pops up out of the bezel on page load, then wobbles like a liquid
+     when the dock leaves and arrives (order matters: later wins). */
+  .side-nav.pop-in .liquid-wrap {
+    animation: liquidPop 1.15s cubic-bezier(0.3, 0.9, 0.4, 1) 0.45s backwards;
+  }
+
+  .side-nav.is-open .liquid-wrap {
+    animation: liquidOpen 0.9s ease-out;
+  }
+
+  .side-nav.is-closing .liquid-wrap {
+    animation: liquidClose 0.9s ease-out;
+  }
+
+  /* Dock is off-canvas now, so pages don't need to leave room for it */
+  body:has(.side-nav) .container {
+    padding: 0 20px 0 26px;
+  }
+}
+
+@media (max-width: 560px) {
+  body:has(.side-nav) .container {
+    padding: 0 18px 0 26px;
+  }
+}
+
+/* Landscape phones are short: tighten the rows so the dock fits */
+@media (max-height: 500px) and (pointer: coarse) {
+  .side-nav .side-nav-list.side-nav-list li a {
+    padding: 7px 11px;
+  }
+
+  .side-nav-divider {
+    margin: 3px 11px;
+  }
+}
+
+@keyframes sideNavItemIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes liquidBreathe {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  50% {
+    transform: scale(1.07, 0.975);
+  }
+}
+
+@keyframes liquidPop {
+  0% {
+    transform: translateX(-38px) scale(0.4, 0.7);
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  58% {
+    transform: translateX(3px) scale(1.24, 0.94);
+  }
+  78% {
+    transform: translateX(0) scale(0.94, 1.03);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes liquidOpen {
+  0% {
+    transform: none;
+  }
+  28% {
+    transform: scale(0.58, 1.06);
+  }
+  62% {
+    transform: scale(1.24, 0.95);
+  }
+  82% {
+    transform: scale(0.96, 1.02);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes liquidClose {
+  0% {
+    transform: none;
+  }
+  30% {
+    transform: scale(1.32, 0.94);
+  }
+  62% {
+    transform: scale(0.86, 1.04);
+  }
+  82% {
+    transform: scale(1.05, 0.99);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* Droplets break off the flare and get reabsorbed (goo filter merges them) */
+@keyframes liquidDropA {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  45% {
+    transform: translate(1px, 8px) scale(0.8);
+  }
+  72% {
+    transform: translate(3px, 13px) scale(0.35);
+  }
+}
+
+@keyframes liquidDropB {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  45% {
+    transform: translate(1px, -8px) scale(0.8);
+  }
+  72% {
+    transform: translate(3px, -13px) scale(0.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .side-nav {
+    transition-duration: 0.01s !important;
+  }
+
+  .side-nav.is-open .side-nav-list > li {
+    animation: none;
+  }
+
+  .liquid,
+  .liquid-wrap,
+  .liquid-svg .drop {
+    animation: none !important;
+  }
+
+  .liquid-chev,
+  .side-nav-tab {
+    transition-duration: 0.01s !important;
   }
 }
 
@@ -1988,7 +2365,9 @@ img {
   /* JS sets the exact height. This fallback just makes sure the stage
      exists at first paint, so the entrance reveal below is visible. */
   height: 100vh;
-  height: 100svh;
+  /* lvh = largest viewport, matches what main.js measures, so the stage
+     doesn't resize when a mobile URL bar collapses. */
+  height: 100lvh;
 }
 
 /* The frame: clip-path is what animates. The media inside never
@@ -1996,7 +2375,8 @@ img {
 .scroll-expand__frame {
   position: absolute;
   inset: 0;
-  clip-path: inset(21% 29% 21% 29% round 24px);
+  /* First-paint fallback only; main.js writes the real pixel-based pill. */
+  clip-path: inset(30% 36% 30% 36% round 999px);
   will-change: clip-path;
   background-color: var(--ink);
 }
@@ -2059,7 +2439,10 @@ img {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 3%;
+  /* Side padding keeps the copy clear of the fixed left nav dock.
+     --se-bar (set by main.js) is the height a mobile URL bar covers, so
+     the copy centres in what is actually visible. */
+  padding: 24px max(3%, 108px) calc(24px + var(--se-bar, 0px));
   opacity: 0;
   pointer-events: none;
   will-change: opacity, transform;
@@ -2159,14 +2542,14 @@ img {
    below matches the current 10 / 20 / 100 setup. */
 @keyframes se-frame-open {
   0% {
-    clip-path: inset(50% 50% 50% 50% round 100px);
+    clip-path: inset(50% 50% 50% 50% round 999px);
     opacity: 0;
   }
   25% {
     opacity: 1;
   }
   100% {
-    clip-path: var(--se-rest-clip, inset(40% 45% 40% 45% round 100px));
+    clip-path: var(--se-rest-clip, inset(30% 36% 30% 36% round 999px));
     opacity: 1;
   }
 }
@@ -2305,9 +2688,13 @@ img {
 
 /* ---------- Overlay content ---------- */
 .intro-overlay {
-  width: 84%;
+  width: 100%;
   max-width: 1180px;
   color: var(--paper-white);
+  /* main.js sets --se-fit (<= 1) when the copy is taller than the screen,
+     so nothing is ever cut off, whatever the ratio. */
+  transform: scale(var(--se-fit, 1));
+  transform-origin: center center;
 }
 
 .intro-overlay__eyebrow {
@@ -2454,7 +2841,7 @@ img {
 
 .intro-stat__value {
   font-family: var(--font-display);
-  font-size: 1.3rem;
+  font-size: clamp(1rem, 1.8vw, 1.3rem);
   font-weight: 600;
   color: var(--paper-white);
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
@@ -2485,28 +2872,192 @@ img {
   color: var(--ink);
 }
 
-/* ---------- Responsive ---------- */
+/* ---------- Responsive (expanded state) ---------- */
+
+/* The nav dock is 60px wide from here down */
+@media (max-width: 900px) {
+  .scroll-expand__overlay {
+    padding-left: 72px;
+    padding-right: 72px;
+  }
+}
+
 @media (max-width: 768px) {
   .intro-media__mark {
     width: min(38vw, 160px);
   }
 
-  .intro-overlay {
-    width: 94%;
+  .intro-overlay__eyebrow {
+    margin-bottom: 12px;
+    font-size: 11px;
+    letter-spacing: 0.05em;
   }
 
+  .intro-overlay__title {
+    margin-bottom: 12px;
+    font-size: clamp(1.5rem, 6.4vw, 2.1rem);
+  }
+
+  .intro-overlay__text {
+    max-width: none;
+    margin-bottom: 18px;
+    font-size: clamp(0.84rem, 3.5vw, 0.95rem);
+    line-height: 1.5;
+  }
+
+  /* Highlights: compact 2x2, icon beside the text instead of above it */
   .intro-overlay__highlights {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 18px;
   }
 
-  .intro-stat {
-    padding: 0 18px;
+  .intro-highlight {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "icon title"
+      "icon text";
+    column-gap: 10px;
+    row-gap: 2px;
+    align-items: center;
+    justify-items: start;
+    padding: 10px;
+    border-radius: 10px;
+    text-align: left;
+  }
+
+  .intro-highlight__icon {
+    grid-area: icon;
+    width: 32px;
+    height: 32px;
+    margin: 0;
+    font-size: 13px;
+  }
+
+  .intro-highlight__title {
+    grid-area: title;
+    font-size: 0.82rem;
+    line-height: 1.2;
+  }
+
+  .intro-highlight__text {
+    grid-area: text;
+    font-size: 10.5px;
+    line-height: 1.35;
+  }
+
+  /* Stats: three equal columns that wrap instead of overflowing */
+  .intro-overlay__stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    margin-bottom: 18px;
+  }
+
+  .intro-stat,
+  .intro-stat:first-child,
+  .intro-stat:last-child {
+    padding: 0 8px;
+    gap: 3px;
+    text-align: center;
+  }
+
+  .intro-stat__value {
+    font-size: clamp(0.72rem, 3.3vw, 0.95rem);
+    line-height: 1.2;
+  }
+
+  .intro-stat__label {
+    font-size: 9.5px;
+    letter-spacing: 0.03em;
   }
 
   .intro-overlay .hero-actions {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
+  }
+
+  .intro-overlay .btn {
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+}
+
+/* Phones: the dock sits on the left edge, so bias the copy to the right */
+/* Phones: the dock is tucked away, so the copy centres normally */
+@media (max-width: 768px), (max-height: 500px) and (pointer: coarse) {
+  .scroll-expand__overlay {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+}
+
+/* Very narrow phones: drop the icons to give the text room */
+@media (max-width: 380px) {
+  .intro-highlight {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "title"
+      "text";
+  }
+
+  .intro-highlight__icon {
+    display: none;
+  }
+}
+
+/* Short phones: descriptions go first, the headline + actions stay */
+@media (max-width: 768px) and (max-height: 640px) {
+  .intro-highlight {
+    padding: 8px 10px;
+  }
+
+  .intro-highlight__text {
+    display: none;
+  }
+}
+
+/* Landscape phones / very short windows: keep it to one tidy block */
+@media (max-height: 520px) {
+  .intro-overlay__highlights {
+    display: none;
+  }
+
+  .intro-overlay__eyebrow {
+    margin-bottom: 8px;
+  }
+
+  .intro-overlay__title {
+    margin-bottom: 8px;
+    font-size: clamp(1.25rem, 3.6vw, 1.9rem);
+  }
+
+  .intro-overlay__text {
+    max-width: 70ch;
+    margin-bottom: 12px;
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+
+  .intro-overlay__stats {
+    margin-bottom: 14px;
+  }
+
+  .intro-stat,
+  .intro-stat:first-child,
+  .intro-stat:last-child {
+    padding: 0 14px;
+  }
+
+  .intro-stat__value {
+    font-size: 0.95rem;
+  }
+
+  .intro-overlay .hero-actions {
+    flex-direction: row;
+    align-items: center;
   }
 }
 
@@ -2523,6 +3074,8 @@ img {
   }
 
   .scroll-expand__frame {
+    position: relative;
+    min-height: 78vh;
     clip-path: none !important;
   }
 
@@ -2535,6 +3088,9 @@ img {
   }
 
   .scroll-expand__overlay {
+    position: relative;
+    inset: auto;
+    min-height: 78vh;
     opacity: 1 !important;
     transform: none !important;
     pointer-events: auto;
@@ -7989,12 +8545,14 @@ body.auth-page {
     height: auto;
     min-height: 200px;
     padding: 26px 28px 24px;
+    border-radius: 20px 20px 0 0;
   }
 
   .auth-form-panel {
     height: auto;
     overflow: visible;
     padding: 34px 28px 40px;
+    border-radius: 0 0 20px 20px;
   }
 
   .auth-grid--simple {
@@ -8020,6 +8578,7 @@ body.auth-page {
 
   .auth-brand {
     padding: 24px 22px 22px;
+    border-radius: 0;
   }
 
   .auth-brand__tags {
@@ -8029,6 +8588,7 @@ body.auth-page {
   .auth-form-panel,
   .auth-grid--simple .auth-form-panel {
     padding: 28px 20px 36px;
+    border-radius: 0;
   }
 
   .auth-btn-row {
@@ -8049,5 +8609,905 @@ body.auth-page {
   .auth-bg-blobs span,
   .auth-brand__reg {
     animation: none !important;
+  }
+}
+
+/* =========================================================
+   Responsive layer
+   Additive rules that close gaps on phones, small tablets and
+   landscape phones. Deliberately does NOT touch .scroll-expand,
+   .intro-* or .se-line (the scroll-expand hero) or the dock's
+   hover behaviour on larger screens.
+   ========================================================= */
+
+/* ---------- Safety net (all sizes) ---------- */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* clip (not hidden) so position: sticky keeps working */
+body {
+  overflow-x: clip;
+}
+
+/* :where() keeps specificity at zero so no component rule is overridden */
+:where(
+  img:not([class*="scroll-expand"]):not([class*="intro-"]),
+  video,
+  canvas,
+  iframe
+) {
+  max-width: 100%;
+}
+
+:where(p, li, dd, dt, h1, h2, h3, h4, h5, h6) {
+  overflow-wrap: break-word;
+}
+
+/* Grid/flex children may shrink below their content, which is what
+   stops long emails, filenames and prices from stretching a column */
+.contact-layout > *,
+.browse-layout > *,
+.acct-layout > *,
+.acct-layout--edit > *,
+.co-layout > *,
+.footer-content > * {
+  min-width: 0;
+}
+
+.info-card-body a,
+.contact-info li,
+.footer-section a {
+  overflow-wrap: anywhere;
+}
+
+.acct-modal__body {
+  overflow-x: auto;
+}
+
+/* ---------- Touch devices ---------- */
+@media (pointer: coarse) {
+  .btn,
+  .catalog-tab,
+  .faq-question,
+  .side-nav-list li a {
+    min-height: 44px;
+  }
+
+  .search-btn,
+  .chat-send-btn,
+  .chat-close,
+  .chat-back-btn,
+  .social-icons a {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+
+/* ---------- Small tablets and phones ---------- */
+@media (max-width: 768px) {
+  /* 16px stops iOS Safari zooming the page when a field is focused */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+      [type="file"]
+    ),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+
+  /* There is no top bar on these pages, so the tall hero offsets that
+     leave room for a header are just dead space on a phone */
+  .contact-hero,
+  .about-hero,
+  .acct-hero,
+  .co-hero {
+    padding-top: 104px;
+  }
+
+  .panel-spotlight-text {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+
+  .map-card iframe {
+    height: 260px;
+  }
+
+  .footer-links {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 18px;
+  }
+
+  .footer {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Chat becomes a near-full-screen sheet that respects the dynamic
+     browser toolbar (100vh is taller than what is actually visible) */
+  .chat-widget {
+    top: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    left: 12px;
+    width: auto;
+    height: auto;
+    max-height: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-page .form-row,
+  .password-requirements {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stat-number {
+    font-size: 1.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .story-mark {
+    width: 128px;
+    height: 128px;
+  }
+
+  .contact-hero__texture,
+  .acct-hero__texture,
+  .co-hero__texture {
+    width: 200px;
+    height: 200px;
+  }
+
+  .contact-buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .contact-buttons .btn {
+    justify-content: center;
+  }
+}
+
+/* ---------- Very narrow phones (<= 360px) ---------- */
+@media (max-width: 360px) {
+  .btn {
+    padding-inline: 16px;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-actions .btn {
+    justify-content: center;
+  }
+}
+
+/* ---------- Landscape phones (short viewport) ---------- */
+@media (max-height: 500px) and (pointer: coarse) {
+  .contact-hero,
+  .about-hero,
+  .acct-hero,
+  .co-hero {
+    padding-top: 72px;
+    padding-bottom: 32px;
+  }
+
+  .chat-widget {
+    top: 8px;
+    bottom: 8px;
+  }
+
+  .map-card iframe {
+    height: 220px;
+  }
+}
+
+/* =========================================================
+   Mobile type + density scale
+   Sizes are taken straight from the scroll-expand hero on
+   main.php so every page reads at the same scale on a phone:
+     title  clamp(1.5rem, 6.4vw, 2.1rem)
+     body   clamp(0.84rem, 3.5vw, 0.95rem)
+     small  0.8rem / 10.5-11px labels, 14px buttons
+   Nothing here targets .scroll-expand, .intro-* or .se-line.
+   Pages with an inline <style> (cart, service detail, profile)
+   are matched with a "body" prefix so these rules win on
+   specificity rather than source order.
+   ========================================================= */
+@media (max-width: 768px), (max-height: 500px) and (pointer: coarse) {
+  :root {
+    --m-title: clamp(1.5rem, 6.4vw, 2.1rem);
+    --m-h2: clamp(1.3rem, 5.4vw, 1.65rem);
+    --m-h3: 1rem;
+    --m-body: clamp(0.84rem, 3.5vw, 0.95rem);
+    --m-small: 0.8rem;
+  }
+
+  p {
+    line-height: 1.55;
+  }
+
+  /* ----- Headings ----- */
+  .section-title {
+    font-size: var(--m-h2);
+    margin-bottom: 8px;
+  }
+
+  .about-hero .section-title,
+  .ai-tool-section h1.section-title,
+  .contact-hero-title,
+  .acct-hero-title,
+  .co-hero-title,
+  body .cart-hero-title {
+    font-size: var(--m-title);
+    line-height: 1.15;
+    margin-bottom: 12px;
+  }
+
+  .section-subtitle,
+  .contact-hero-sub,
+  .acct-hero-sub,
+  .co-hero-sub,
+  body .cart-hero-sub {
+    font-size: var(--m-body);
+  }
+
+  .section-eyebrow {
+    font-size: 11px;
+  }
+
+  .section-header {
+    margin-bottom: 28px;
+  }
+
+  /* ----- Section rhythm ----- */
+  .services-overview {
+    padding: 52px 0 12px;
+  }
+  .catalog-section,
+  .all-services-section,
+  .about-section {
+    padding: 48px 0;
+  }
+  .process-section {
+    padding: 12px 0 56px;
+  }
+  .cta-section {
+    padding: 52px 0;
+  }
+  .faq-section {
+    padding: 44px 0 56px;
+  }
+  .ai-tool-section {
+    padding: 104px 0 64px;
+  }
+  .acct-hero,
+  .co-hero,
+  body .cart-hero {
+    padding-bottom: 20px;
+  }
+
+  .cta-content h2 {
+    font-size: var(--m-h2);
+    margin-bottom: 10px;
+  }
+  .cta-content p {
+    font-size: var(--m-body);
+    margin-bottom: 22px;
+  }
+
+  /* ----- Buttons ----- */
+  .btn {
+    padding: 11px 20px;
+    font-size: 14px;
+    gap: 8px;
+  }
+
+  /* ----- Cards ----- */
+  .service-card {
+    padding: 22px 18px;
+  }
+  .service-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+  .service-card h3 {
+    font-size: var(--m-h3);
+  }
+  .service-card p {
+    font-size: 13.5px;
+    margin-bottom: 14px;
+  }
+
+  .catalog-tab {
+    padding: 8px 16px 8px 8px;
+    gap: 10px;
+  }
+  .catalog-tab-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .panel-spotlight-text h3,
+  .process-step h3,
+  .timeline-title,
+  .team-name,
+  .ai-block-title {
+    font-size: var(--m-h3);
+  }
+
+  .product-info {
+    padding: 14px 16px 16px;
+  }
+  .product-name {
+    font-size: 0.95rem;
+  }
+  .product-price {
+    font-size: 14px;
+  }
+
+  .info-card {
+    padding: 16px;
+    gap: 14px;
+  }
+  .info-card-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 15px;
+  }
+  .info-card-body h3,
+  .quick-contact h3 {
+    font-size: var(--m-h3);
+  }
+
+  .faq-question {
+    padding: 14px 16px;
+    font-size: 14px;
+  }
+  .faq-answer p {
+    font-size: 13.5px;
+  }
+
+  .stat-number {
+    font-size: 1.6rem;
+  }
+  .stat-label {
+    font-size: 12.5px;
+  }
+  .prose-block p {
+    font-size: var(--m-body);
+    line-height: 1.7;
+  }
+
+  /* ----- Footer ----- */
+  .footer {
+    padding-top: 44px;
+  }
+  .footer-section h3 {
+    font-size: var(--m-h3);
+  }
+  .footer-section p,
+  .footer-section ul li a {
+    font-size: 13px;
+  }
+  .footer-bottom {
+    font-size: 12px;
+  }
+  .social-icons a {
+    width: 34px;
+    height: 34px;
+  }
+
+  /* ----- Account pages (profile / edit profile) ----- */
+  .acct-page .stat-tile__value {
+    font-size: 1.45rem;
+  }
+  .acct-page .order-card__id h3 {
+    font-size: var(--m-h3);
+  }
+  .acct-page .order-card__amount {
+    font-size: 1.15rem;
+  }
+  .acct-page .profile-card__id h2,
+  .acct-page .rail-id h2 {
+    font-size: 1.05rem;
+  }
+  .acct-page .form-card__head h2,
+  .acct-empty h3,
+  .acct-modal__section h3 {
+    font-size: 1.05rem;
+  }
+  .acct-page .order-item-name {
+    font-size: 0.95rem;
+  }
+  .acct-page .order-item-price,
+  .acct-fact--total dd {
+    font-size: 1rem;
+  }
+  .acct-avatar {
+    width: 54px;
+    height: 54px;
+    font-size: 1.15rem;
+  }
+
+  /* ----- Checkout ----- */
+  .co-card {
+    padding: 18px 16px 20px;
+  }
+  .co-card__title h2 {
+    font-size: 1.05rem;
+  }
+  .co-item__name {
+    font-size: 0.95rem;
+  }
+  .co-item__price strong,
+  .co-item__total,
+  .co-totals__row--total {
+    font-size: 1rem;
+  }
+  .co-totals__row--total span:last-child {
+    font-size: 1.4rem;
+  }
+  .co-pay__body h2 {
+    font-size: 1.1rem;
+  }
+  .co-amount strong {
+    font-size: 1.5rem;
+  }
+  .co-step {
+    font-size: 13px;
+  }
+
+  /* ----- Cart (inline <style>, so "body" prefix) ----- */
+  body .cart-item {
+    padding: 14px;
+  }
+  body .cart-item-info h3 {
+    font-size: var(--m-h3);
+  }
+  body .cart-item .price {
+    font-size: 1.1rem;
+  }
+  body .subtotal-amount {
+    font-size: 1.1rem;
+  }
+  body .summary-body {
+    padding: 18px 16px 20px;
+  }
+  body .summary-title {
+    font-size: 1.05rem;
+  }
+  body .summary-row.total {
+    font-size: 1rem;
+  }
+  body .summary-row.total span:last-child {
+    font-size: 1.4rem;
+  }
+  body .empty-cart h2 {
+    font-size: 1.3rem;
+  }
+  body .pricing-info summary {
+    font-size: 14px;
+  }
+
+  /* ----- AI tool ----- */
+  .ai-block-desc,
+  .ai-card select,
+  .ai-card label,
+  .style-option {
+    font-size: 13.5px;
+  }
+  .ai-generate-btn {
+    font-size: 14px;
+  }
+}
+
+/* =========================================================
+   Checkout dock (cart + checkout, small screens)
+   The order summary sits under the whole item list once the
+   layout stacks, so the action is a long scroll away. main.js
+   builds this bar, mirrors the live total and action into it,
+   and hides it whenever the real button (or the footer) is
+   already on screen.
+   ========================================================= */
+.m-dock {
+  display: none;
+}
+
+@media (max-width: 1279px) {
+  body.has-dock--cart .m-dock {
+    display: flex;
+  }
+}
+
+@media (max-width: 1099px) {
+  body.has-dock--co .m-dock {
+    display: flex;
+  }
+}
+
+.m-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 500;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  background-color: rgba(250, 247, 241, 0.94);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -10px 28px -14px rgba(23, 20, 15, 0.28);
+  transition:
+    transform 0.4s var(--ease),
+    visibility 0s linear 0s;
+}
+
+.m-dock.is-away {
+  transform: translateY(110%);
+  visibility: hidden;
+  transition:
+    transform 0.4s var(--ease),
+    visibility 0s linear 0.4s;
+}
+
+.m-dock__sum {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.m-dock__label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m-dock__total {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.m-dock__btn {
+  flex-shrink: 0;
+  padding: 12px 22px;
+  font-size: 14px;
+}
+
+.m-dock__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m-dock,
+  .m-dock.is-away {
+    transition-duration: 0.01s !important;
+  }
+}
+
+/* =========================================================
+   Products stay two-up on phones (main.php / sub-main.php)
+   The grid used to fall to one column at 560px. Cards are now
+   compacted so two fit comfortably down to ~320px wide.
+   ========================================================= */
+@media (max-width: 560px) {
+  .products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .product-card {
+    border-radius: var(--r-md);
+  }
+
+  .product-image {
+    aspect-ratio: 1 / 1;
+  }
+
+  .category-badge {
+    top: 8px;
+    left: 8px;
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+
+  /* The hover "View Details" overlay has no hover on touch and crowds a
+     small card; the image and title are already links */
+  .product-overlay {
+    display: none;
+  }
+
+  .product-card:hover {
+    transform: none;
+  }
+
+  .product-info {
+    padding: 10px 12px 12px;
+  }
+
+  .product-name {
+    font-size: 0.85rem;
+    line-height: 1.3;
+    margin-bottom: 4px;
+  }
+
+  .product-category {
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+
+  .product-price {
+    font-size: 12.5px;
+    line-height: 1.3;
+  }
+}
+
+@media (max-width: 340px) {
+  .products-grid {
+    gap: 8px;
+  }
+
+  .product-info {
+    padding: 8px 10px 10px;
+  }
+}
+
+/* =========================================================
+   Mobile refinements: catalog tabs + footer
+   ========================================================= */
+
+/* ----- Catalog tabs on phones: four compact cards, icon on top ----- */
+@media (max-width: 560px) {
+  .catalog-shell {
+    gap: 24px;
+  }
+
+  .catalog-tabs {
+    gap: 8px;
+  }
+
+  .catalog-tab {
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 8px 12px;
+    text-align: center;
+  }
+
+  .catalog-tab-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+  }
+
+  .catalog-tab-text {
+    align-items: center;
+    gap: 2px;
+  }
+
+  .catalog-tab-text strong {
+    font-size: 14px;
+  }
+
+  .catalog-tab-text small {
+    font-size: 11.5px;
+    line-height: 1.3;
+  }
+}
+
+/* ----- Footer on phones -----
+   Brand block on top, the three link lists side by side, contact
+   details full width, then the legal row. Every page shares this
+   footer (brand, Services, Company, Support, Contact Info). */
+@media (max-width: 768px) {
+  .footer {
+    padding-top: 40px;
+  }
+
+  .footer-content {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 30px 16px;
+    padding-bottom: 32px;
+  }
+
+  .footer-content > .footer-section:first-child,
+  .footer-content > .footer-section:last-child {
+    grid-column: 1 / -1;
+  }
+
+  /* Brand */
+  .footer-content > .footer-section:first-child h3 {
+    font-size: 1.25rem;
+    margin-bottom: 10px;
+  }
+
+  .footer-content > .footer-section:first-child p {
+    max-width: 46ch;
+    margin-bottom: 16px;
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+
+  /* Link lists: small caps headings, tidy tappable rows */
+  .footer-content > .footer-section:not(:first-child):not(:last-child) h3,
+  .footer-content > .footer-section:last-child h3 {
+    margin-bottom: 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: rgba(250, 247, 241, 0.9);
+  }
+
+  .footer-section ul li {
+    margin-bottom: 0;
+  }
+
+  .footer-section ul li a {
+    display: inline-block;
+    padding: 6px 0;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  /* The hover nudge is a mouse affordance; on touch it just jiggles */
+  .footer-section ul li a:hover {
+    padding-left: 0;
+  }
+
+  /* Contact details: a divided block instead of a loose list */
+  .footer-content > .footer-section:last-child {
+    padding-top: 22px;
+    border-top: 1px solid rgba(250, 247, 241, 0.14);
+  }
+
+  .footer-content > .footer-section:last-child .contact-info li {
+    padding: 6px 0;
+    font-size: 13.5px;
+  }
+
+  .footer-content > .footer-section:last-child .contact-info li + li {
+    margin-top: 2px;
+  }
+
+  /* Legal row */
+  .footer-bottom {
+    flex-direction: column;
+    gap: 10px;
+    padding: 20px 0 22px;
+    text-align: center;
+  }
+
+  .footer-links {
+    order: -1;
+    justify-content: center;
+    gap: 6px 18px;
+  }
+
+  .copyright p {
+    margin: 0;
+  }
+}
+
+/* Very narrow phones: two link columns, the third list drops below */
+@media (max-width: 340px) {
+  .footer-content {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* =========================================================
+   Auth pages (login, sign up, password reset, logout) — phones
+   ========================================================= */
+
+/* Compact brand header: the form should be on screen straight away,
+   not a whole scroll below a big hero */
+@media (max-width: 560px) {
+  .auth-brand {
+    min-height: 0;
+    gap: 20px;
+    padding: 18px 20px 22px;
+  }
+
+  .auth-brand__mark,
+  .auth-brand__tags {
+    display: none;
+  }
+
+  .auth-brand h1,
+  .auth-brand h2 {
+    margin-bottom: 8px;
+    font-size: 1.5rem;
+  }
+
+  .auth-brand h1 br {
+    display: none;
+  }
+
+  .auth-brand p {
+    max-width: none;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  .auth-backlink {
+    white-space: nowrap;
+  }
+}
+
+/* Short phones: the headline alone is enough */
+@media (max-width: 560px) and (max-height: 720px) {
+  .auth-brand p {
+    display: none;
+  }
+
+  .auth-brand h1,
+  .auth-brand h2 {
+    margin-bottom: 0;
+  }
+}
+
+/* Narrow phones: keep the logo text and the back link on one line each */
+@media (max-width: 400px) {
+  .auth-brandmark {
+    gap: 8px;
+    font-size: 0.92rem;
+    white-space: nowrap;
+  }
+
+  .auth-brandmark img {
+    width: 26px;
+    height: 26px;
+  }
+
+  .auth-backlink {
+    gap: 6px;
+    padding: 8px 12px 8px 11px;
+    font-size: 12px;
+  }
+}
+
+/* Touch: bigger targets for the small controls */
+@media (pointer: coarse) {
+  .auth-page .password-toggle {
+    top: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 100%;
+    max-height: 52px;
+    font-size: 16px;
+  }
+
+  .auth-fp-link {
+    margin: -8px 0 6px;
+    padding: 10px 0;
+  }
+
+  .auth-backlink {
+    min-height: 40px;
+  }
+
+  .auth-social-btn {
+    min-height: 44px;
   }
 }

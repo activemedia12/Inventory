@@ -110,7 +110,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           <form method="post" id="signupForm">
             <div class="form-group">
               <label class="form-label" for="username">Username</label>
-              <input type="text" id="username" name="username" placeholder="Enter a username" required autocomplete="off">
+              <input type="text" id="username" name="username" placeholder="Enter a username" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
             </div>
 
             <div class="form-group">
