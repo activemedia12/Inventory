@@ -188,6 +188,350 @@ $has_items = !empty($checkout_items);
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <link rel="stylesheet" href="../assets/css/main.css">
+    <style>
+        /* =========================================================
+           Checkout — mobile / tablet refinements.
+           Loaded after main.css so it only adds to / overrides the
+           co- rules. Desktop (>1099px) is untouched.
+        ========================================================= */
+        .co-foot-total,
+        .co-pay__handle {
+            display: none;
+        }
+
+        /* Copy button next to the GCash number */
+        .co-gcash dd {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px 10px;
+        }
+
+        .co-copy {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 11px;
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: var(--r-pill);
+            font-family: var(--font-body);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--riso-blue);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .co-copy:hover,
+        .co-copy.is-done {
+            background: var(--riso-blue);
+            border-color: var(--riso-blue);
+            color: var(--paper-white);
+        }
+
+        @media (max-width: 1099px) {
+            .co-layout {
+                display: block;
+            }
+
+            .co-stack {
+                margin-bottom: 22px;
+            }
+
+            .co-main {
+                padding-bottom: 32px;
+            }
+
+            /* The payment card becomes a dock pinned to the bottom of the screen
+               (same pattern as the order summary in view_cart.php). Confirm
+               order + the total are always in reach; one tap on the handle
+               opens the QR code, GCash number and proof upload right there,
+               so nobody has to scroll down the page to pay. */
+            .co-pay {
+                position: sticky;
+                bottom: 10px;
+                bottom: max(10px, env(safe-area-inset-bottom, 0px));
+                z-index: 60;
+                display: flex;
+                flex-direction: column;
+                max-height: none;
+                overflow: hidden;
+                border-radius: var(--r-lg);
+                box-shadow: var(--shadow-hover);
+            }
+
+            .co-pay__bar {
+                height: 4px;
+            }
+
+            .co-pay__handle {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                width: 100%;
+                padding: 12px 16px 10px;
+                background: none;
+                border: 0;
+                font: inherit;
+                color: inherit;
+                text-align: left;
+                cursor: pointer;
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            .co-pay__handle-icon {
+                flex-shrink: 0;
+                width: 38px;
+                height: 38px;
+                display: grid;
+                place-items: center;
+                background: var(--paper-dim);
+                border-radius: 50%;
+                font-size: 15px;
+                color: var(--ink);
+            }
+
+            .co-pay__handle-text {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .co-pay__handle-text strong {
+                display: block;
+                font-family: var(--font-display);
+                font-size: 14px;
+                color: var(--ink);
+            }
+
+            .co-pay__handle-text small {
+                display: block;
+                font-size: 12px;
+                line-height: 1.35;
+                color: var(--ink-faint);
+            }
+
+            .co-pay__handle-chev {
+                font-size: 12px;
+                color: var(--ink-faint);
+                transition: transform 0.3s var(--ease);
+            }
+
+            .co-pay.is-expanded .co-pay__handle-chev {
+                transform: rotate(180deg);
+            }
+
+            /* Collapsed by default; grows upward and scrolls inside the dock */
+            .co-pay .co-pay__body {
+                flex: 0 1 auto;
+                max-height: 0;
+                padding-top: 0;
+                padding-bottom: 0;
+                overflow: hidden;
+                visibility: hidden;
+                overscroll-behavior: contain;
+                transition: max-height 0.3s var(--ease), padding 0.3s var(--ease), visibility 0s linear 0.3s;
+            }
+
+            .co-pay.is-expanded .co-pay__body {
+                max-height: 58vh;
+                max-height: 58dvh;
+                padding: 4px 16px 18px;
+                overflow-y: auto;
+                visibility: visible;
+                transition-delay: 0s;
+            }
+
+            /* The handle and the footer already show the amount / title */
+            .co-pay__body .co-pay__title,
+            .co-pay__body .co-amount {
+                display: none;
+            }
+
+            .co-pay__body .co-payto {
+                margin-top: 0;
+            }
+
+            /* Total + Confirm order: always visible at the bottom of the dock */
+            .co-pay__foot {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                padding: 12px 16px;
+            }
+
+            .co-foot-total {
+                display: flex;
+                flex-direction: column;
+                line-height: 1.15;
+            }
+
+            .co-foot-total span {
+                font-size: 11.5px;
+                color: var(--ink-faint);
+            }
+
+            .co-foot-total strong {
+                font-family: var(--font-display);
+                font-size: 1.25rem;
+                letter-spacing: -0.02em;
+                color: var(--ink);
+            }
+
+            .co-pay .co-submit {
+                flex: 1;
+                width: auto;
+                padding: 14px 16px;
+            }
+
+            /* The error line was tiny + absolutely positioned; give it room */
+            .co-upload__error {
+                position: static;
+                margin-top: 8px;
+                font-size: 12.5px;
+            }
+        }
+
+        @media (max-width: 820px) {
+            .co-steps {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 8px;
+                margin-bottom: 20px;
+            }
+
+            .co-step {
+                flex-direction: column;
+                gap: 6px;
+                padding: 10px 6px 12px;
+                text-align: center;
+                border-radius: var(--r-md);
+            }
+
+            .co-step strong {
+                font-size: 12px;
+            }
+
+            .co-step small {
+                font-size: 10.5px;
+                line-height: 1.3;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .co-card {
+                padding: 18px 16px 20px;
+            }
+
+            .co-card__head {
+                margin-bottom: 16px;
+                padding-bottom: 14px;
+            }
+
+            .co-card__icon {
+                width: 38px;
+                height: 38px;
+                font-size: 14px;
+            }
+
+            .co-link {
+                min-height: 44px;
+                align-items: center;
+            }
+
+            .co-info {
+                gap: 16px;
+            }
+
+            .co-items {
+                gap: 12px;
+            }
+
+            .co-item {
+                grid-template-columns: 60px minmax(0, 1fr);
+                gap: 6px 14px;
+                padding: 14px;
+            }
+
+            .co-item__image {
+                width: 60px;
+                font-size: 18px;
+            }
+
+            .co-item__name {
+                font-size: 1rem;
+            }
+
+            .co-item__total {
+                font-size: 1.1rem;
+            }
+
+            .co-details {
+                grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+            }
+
+            .co-design {
+                padding: 12px;
+            }
+
+            .co-design__tiles {
+                gap: 10px;
+            }
+
+            .co-print {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .co-hero {
+                padding: 88px 0 16px;
+            }
+
+            .co-hero__texture {
+                width: 200px;
+                height: 200px;
+            }
+
+            .co-hero-sub {
+                font-size: 1rem;
+            }
+        }
+
+        @media (max-width: 560px) {
+            /* QR on top, big enough to scan or screenshot */
+            .co-payto {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 14px;
+                text-align: center;
+            }
+
+            .co-qr {
+                flex: none;
+                width: min(220px, 70%);
+                margin: 0 auto;
+            }
+
+            .co-qr img {
+                width: 100%;
+                height: auto;
+                aspect-ratio: 1;
+            }
+
+            .co-gcash {
+                text-align: left;
+            }
+
+            .co-upload__drop {
+                padding: 16px 14px;
+            }
+
+            .co-copy {
+                min-height: 36px;
+                padding: 5px 13px;
+            }
+        }
+    </style>
 </head>
 
 <body class="co-page">
@@ -586,10 +930,21 @@ $has_items = !empty($checkout_items);
                 </div>
 
                 <!-- Right column: payment -->
-                <aside class="co-pay">
+                <aside class="co-pay" id="payment">
                     <div class="co-pay__bar" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-                    <div class="co-pay__body">
-                        <div style="display: flex;">
+
+                    <!-- Tablet/phone: tap to open the QR code without scrolling -->
+                    <button type="button" class="co-pay__handle co-noprint" id="payHandle" aria-expanded="false" aria-controls="payDetails">
+                        <span class="co-pay__handle-icon" aria-hidden="true"><i class="fas fa-qrcode"></i></span>
+                        <span class="co-pay__handle-text">
+                            <strong>Pay with InstaPay</strong>
+                            <small id="payHandleHint">Tap to show the QR code and upload proof</small>
+                        </span>
+                        <i class="fas fa-chevron-up co-pay__handle-chev" aria-hidden="true"></i>
+                    </button>
+
+                    <div class="co-pay__body" id="payDetails">
+                        <div class="co-pay__title" style="display: flex;">
                             <h2>Pay with </h2>
                             <img src="../assets/images/InstaPay-Logo.webp" alt="" style="height: 30px; margin: -3px 0 0 2px;">
                         </div>
@@ -608,7 +963,10 @@ $has_items = !empty($checkout_items);
                             <dl class="co-gcash">
                                 <div>
                                     <dt>GCash number</dt>
-                                    <dd>0998-791-6018</dd>
+                                    <dd>
+                                        <span>0998-791-6018</span>
+                                        <button type="button" class="co-copy co-noprint" data-copy="09987916018" aria-label="Copy GCash number"><i class="fas fa-copy"></i> <span>Copy</span></button>
+                                    </dd>
                                 </div>
                                 <div>
                                     <dt>Account name</dt>
@@ -658,6 +1016,7 @@ $has_items = !empty($checkout_items);
                     </div>
 
                     <div class="co-pay__foot">
+                        <div class="co-foot-total"><span>Total</span><strong>₱<?php echo number_format($total, 2); ?></strong></div>
                         <button type="submit" form="checkoutForm" class="btn btn-primary co-submit" id="confirm-order-btn"<?php echo $has_items ? '' : ' disabled'; ?>>
                             <i class="fas fa-check"></i> Confirm order
                         </button>
@@ -894,8 +1253,12 @@ $has_items = !empty($checkout_items);
                 if (!input.files.length) {
                     e.preventDefault();
                     showError('Please upload your payment proof before confirming the order.');
-                    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    input.focus();
+                    // On tablet/phone the upload box lives inside the collapsed dock: open it first
+                    var opened = window.coExpandPay ? window.coExpandPay() : false;
+                    setTimeout(function () {
+                        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        input.focus();
+                    }, opened ? 320 : 0);
                     return;
                 }
 
@@ -913,6 +1276,81 @@ $has_items = !empty($checkout_items);
                     submitBtn.innerHTML = submitHtml;
                 }
             });
+        })();
+    </script>
+    <script>
+        // Mobile helpers: expandable payment dock + copy GCash number
+        (function () {
+            'use strict';
+
+            var pay = document.getElementById('payment');
+            var handle = document.getElementById('payHandle');
+            var hint = document.getElementById('payHandleHint');
+            var dockMq = window.matchMedia ? window.matchMedia('(max-width: 1099px)') : null;
+
+            // Open / close the payment dock. Returns true if the state changed.
+            function setPayExpanded(on) {
+                if (!pay || !handle) return false;
+                var changed = pay.classList.contains('is-expanded') !== on;
+                pay.classList.toggle('is-expanded', on);
+                handle.setAttribute('aria-expanded', on ? 'true' : 'false');
+                if (hint) hint.textContent = on ? 'Tap to hide' : 'Tap to show the QR code and upload proof';
+                return changed;
+            }
+
+            // Used by the submit check below: open the dock so the upload box is visible
+            window.coExpandPay = function () {
+                return dockMq && dockMq.matches ? setPayExpanded(true) : false;
+            };
+
+            if (pay && handle) {
+                handle.addEventListener('click', function () {
+                    setPayExpanded(!pay.classList.contains('is-expanded'));
+                });
+                document.addEventListener('click', function (e) {
+                    if (pay.classList.contains('is-expanded') && !pay.contains(e.target)) setPayExpanded(false);
+                });
+                document.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape') setPayExpanded(false);
+                });
+            }
+
+            var copyBtn = document.querySelector('.co-copy');
+            if (copyBtn) {
+                copyBtn.addEventListener('click', function () {
+                    var text = copyBtn.getAttribute('data-copy');
+                    var label = copyBtn.querySelector('span');
+                    var icon = copyBtn.querySelector('i');
+
+                    function done() {
+                        copyBtn.classList.add('is-done');
+                        label.textContent = 'Copied';
+                        icon.className = 'fas fa-check';
+                        setTimeout(function () {
+                            copyBtn.classList.remove('is-done');
+                            label.textContent = 'Copy';
+                            icon.className = 'fas fa-copy';
+                        }, 1800);
+                    }
+
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(text).then(done, fallback);
+                    } else {
+                        fallback();
+                    }
+
+                    function fallback() {
+                        var ta = document.createElement('textarea');
+                        ta.value = text;
+                        ta.style.position = 'fixed';
+                        ta.style.opacity = '0';
+                        document.body.appendChild(ta);
+                        ta.select();
+                        try { document.execCommand('copy'); done(); } catch (err) {}
+                        document.body.removeChild(ta);
+                    }
+                });
+            }
         })();
     </script>
     <script>

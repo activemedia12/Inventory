@@ -194,6 +194,322 @@ $order_active = $order_total - $order_completed - $order_cancelled;
         .order-card__cancel-note i {
             margin-top: 2px;
         }
+
+        /* Short date is only used in the compact phone layout */
+        .order-card__date-short {
+            display: none;
+        }
+
+        /* =========================================================
+           Phones: compact 2-column order grid.
+           Each card becomes a small tile (title, ref, status, amount,
+           date, proof, details). Tablet/desktop layout is unchanged.
+        ========================================================= */
+        @media (max-width: 640px) {
+            .acct-page .order-list {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+            }
+
+            .acct-page .order-list .order-card {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                min-width: 0;
+                padding: 12px 12px 10px 11px;
+                border-left-width: 3px;
+            }
+
+            .acct-page .order-list .order-card:hover {
+                transform: none;
+                box-shadow: none;
+            }
+
+            .acct-page .order-list .order-card__top {
+                flex-direction: column;
+                align-items: flex-start;
+                flex-wrap: nowrap;
+                gap: 6px;
+            }
+
+            .acct-page .order-list .order-card__id {
+                flex-direction: column;
+                align-items: flex-start;
+                flex-wrap: nowrap;
+                gap: 4px;
+                width: 100%;
+                min-width: 0;
+            }
+
+            /* Long product names stop at two lines */
+            .acct-page .order-list .order-card__id h3 {
+                display: -webkit-box;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+                overflow: hidden;
+                font-size: 0.92rem;
+                line-height: 1.25;
+                overflow-wrap: anywhere;
+            }
+
+            .acct-page .order-list .order-card__number {
+                font-size: 11.5px;
+            }
+
+            .acct-page .order-list .order-status {
+                gap: 5px;
+                padding: 2px 8px;
+                font-size: 10px;
+                letter-spacing: 0.02em;
+            }
+
+            .acct-page .order-list .order-status::before {
+                width: 6px;
+                height: 6px;
+            }
+
+            .acct-page .order-list .order-card__amount {
+                font-size: 1.05rem;
+            }
+
+            .acct-page .order-list .order-card__cancel-note {
+                margin: 0;
+                padding: 6px 8px;
+                gap: 6px;
+                font-size: 11.5px;
+                line-height: 1.35;
+                overflow-wrap: anywhere;
+            }
+
+            /* Footer stacks and sits at the bottom so tiles in a row line up */
+            .acct-page .order-list .order-card__foot {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+                margin-top: auto;
+                padding-top: 8px;
+                font-size: 11.5px;
+            }
+
+            .acct-page .order-list .order-card__foot > span {
+                align-items: flex-start;
+                gap: 6px;
+            }
+
+            .acct-page .order-list .order-card__open {
+                margin-left: 0;
+                margin-top: 2px;
+                font-size: 12.5px;
+            }
+
+            .order-card__date-full {
+                display: none;
+            }
+
+            .order-card__date-short {
+                display: inline;
+            }
+        }
+
+        /* =========================================================
+           Order details dialog: phone bottom sheet.
+           Compact header, dots-only tracker with a one-line caption,
+           small fact tiles, a swipe-down grabber, and a one-row footer
+           with 44px touch targets. Tablet/desktop keep the centred dialog.
+        ========================================================= */
+        .acct-tracker__now,
+        .acct-modal__chat i {
+            display: none;
+        }
+
+        @media (max-width: 640px) {
+            .acct-modal {
+                overscroll-behavior: contain;
+            }
+
+            .acct-modal__panel {
+                max-height: 94vh;
+                max-height: 94dvh;
+            }
+
+            /* header: grabber, no eyebrow, two-line title */
+            .acct-modal__head {
+                padding: 26px 64px 14px 16px;
+            }
+
+            .acct-modal__head::after {
+                content: "";
+                position: absolute;
+                top: 8px;
+                left: 50%;
+                width: 40px;
+                height: 4px;
+                margin-left: -20px;
+                border-radius: 2px;
+                background: rgba(250, 247, 241, 0.4);
+            }
+
+            .acct-modal__eyebrow {
+                display: none;
+            }
+
+            .acct-modal__head h2 {
+                display: -webkit-box;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+                overflow: hidden;
+                margin-bottom: 8px;
+                font-size: 1.15rem;
+                line-height: 1.25;
+            }
+
+            .acct-modal__ref {
+                font-size: 13px;
+            }
+
+            .acct-modal__close {
+                top: 14px;
+                right: 10px;
+                width: 44px;
+                height: 44px;
+            }
+
+            .acct-modal__scroll {
+                gap: 12px;
+                padding: 12px 12px 16px;
+                overscroll-behavior: contain;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* tracker: numbered dots only, current step spelled out underneath */
+            .acct-tracker {
+                padding: 14px 6px 8px;
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+                border-bottom: 0;
+            }
+
+            .acct-tracker__step > span:last-child {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                overflow: hidden;
+                clip: rect(0 0 0 0);
+                white-space: nowrap;
+            }
+
+            .acct-tracker__dot {
+                width: 28px;
+                height: 28px;
+                font-size: 12px;
+            }
+
+            .acct-tracker__step + .acct-tracker__step::before {
+                top: 13px;
+            }
+
+            .acct-tracker__now {
+                display: block;
+                margin: 0;
+                padding: 0 12px 12px;
+                background: var(--paper-white);
+                border: 1px solid var(--line);
+                border-top: 0;
+                border-radius: 0 0 var(--r-md) var(--r-md);
+                text-align: center;
+                font-size: 13px;
+                color: var(--ink-soft);
+            }
+
+            .acct-tracker__now strong {
+                font-family: var(--font-display);
+                color: var(--ink);
+            }
+
+            .acct-modal__alert {
+                gap: 10px;
+                padding: 12px 14px;
+                font-size: 13.5px;
+            }
+
+            .acct-modal__alert > i {
+                width: 30px;
+                height: 30px;
+            }
+
+            /* key facts: small tiles */
+            .acct-facts {
+                gap: 8px;
+            }
+
+            .acct-fact {
+                padding: 9px 12px;
+            }
+
+            .acct-fact dt {
+                margin-bottom: 2px;
+                font-size: 10.5px;
+                letter-spacing: 0.05em;
+            }
+
+            .acct-fact dd {
+                font-size: 13.5px;
+            }
+
+            .acct-fact--total dd {
+                font-size: 1.15rem;
+            }
+
+            .acct-modal__section {
+                margin: 2px 0 -4px;
+            }
+
+            .acct-modal__section h3 {
+                font-size: 1rem;
+            }
+
+            /* footer: Chat + Close side by side, thumb-sized */
+            .acct-modal__foot {
+                flex-wrap: nowrap;
+                gap: 10px;
+                padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+            }
+
+            .acct-modal__foot p {
+                flex: 1;
+                min-width: 0;
+                margin: 0;
+            }
+
+            .acct-modal__foot-q {
+                display: none;
+            }
+
+            .acct-modal__chat {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                width: 100%;
+                min-height: 44px;
+                padding: 0 12px;
+                border: 1.5px solid var(--ink);
+                border-radius: var(--r-sm);
+                font-size: 14px;
+                color: var(--ink);
+            }
+
+            .acct-modal__chat i {
+                display: inline;
+            }
+
+            .acct-modal__foot .btn {
+                flex: 1;
+                width: auto;
+                min-height: 44px;
+                padding: 0 12px;
+            }
+        }
     </style>
 </head>
 
@@ -398,6 +714,7 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                                 $status_class = preg_replace('/[^a-z0-9_-]/i', '', (string) $order['status']);
                                 $status_label = ucfirst(str_replace('_', ' ', $order['status']));
                                 $placed_text  = date('M j, Y · g:i A', strtotime($order['created_at']));
+                                $placed_short = date('M j, Y', strtotime($order['created_at']));
                                 $proof_url    = !empty($order['payment_proof'])
                                     ? 'payment_proof.php?order_id=' . (int) $order['order_id']
                                     : '';
@@ -427,7 +744,11 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                                         </div>
                                     <?php endif; ?>
                                     <div class="order-card__foot">
-                                        <span><i class="far fa-calendar"></i> <?php echo htmlspecialchars($placed_text); ?></span>
+                                        <span>
+                                            <i class="far fa-calendar"></i>
+                                            <span class="order-card__date-full"><?php echo htmlspecialchars($placed_text); ?></span>
+                                            <span class="order-card__date-short"><?php echo htmlspecialchars($placed_short); ?></span>
+                                        </span>
                                         <span>
                                             <i class="fas fa-receipt"></i>
                                             <?php if (!empty($order['payment_proof'])): ?>
@@ -491,7 +812,7 @@ $order_active = $order_total - $order_completed - $order_cancelled;
             </div>
 
             <div class="acct-modal__foot">
-                <p>Questions about this order? <button type="button" class="acct-modal__chat" id="modalChatBtn">Chat with us</button></p>
+                <p><span class="acct-modal__foot-q">Questions about this order?</span> <button type="button" class="acct-modal__chat" id="modalChatBtn"><i class="fas fa-comments" aria-hidden="true"></i> Chat with us</button></p>
                 <button type="button" class="btn btn-secondary" data-close>Close</button>
             </div>
         </div>
@@ -654,6 +975,41 @@ $order_active = $order_total - $order_completed - $order_cancelled;
             if (e.target === modal || e.target.closest('[data-close]')) closeModal();
         });
 
+        // Phones: drag the header down to dismiss the bottom sheet
+        (function () {
+            var head = modal.querySelector('.acct-modal__head');
+            var phone = window.matchMedia ? window.matchMedia('(max-width: 640px)') : null;
+            var startY = null;
+            var dy = 0;
+
+            head.addEventListener('touchstart', function (e) {
+                if (!phone || !phone.matches || e.touches.length !== 1 || e.target.closest('[data-close]')) return;
+                startY = e.touches[0].clientY;
+                dy = 0;
+                panel.style.transition = 'none';
+            }, { passive: true });
+
+            head.addEventListener('touchmove', function (e) {
+                if (startY === null) return;
+                dy = Math.max(0, e.touches[0].clientY - startY);
+                panel.style.transform = 'translateY(' + dy + 'px)';
+            }, { passive: true });
+
+            function release() {
+                if (startY === null) return;
+                var dismiss = dy > 90;
+                startY = null;
+                dy = 0;
+                // hand control back to the stylesheet: it animates from where the finger let go
+                panel.style.transition = '';
+                panel.style.transform = '';
+                if (dismiss) closeModal();
+            }
+
+            head.addEventListener('touchend', release);
+            head.addEventListener('touchcancel', release);
+        })();
+
         // "Chat with us": close the dialog, then open the chat widget
         chatBtn.addEventListener('click', function () {
             closeModal();
@@ -735,6 +1091,11 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                     list.appendChild(item);
                 });
                 progressEl.appendChild(list);
+
+                // Phones show only the dots; this line says where the order is
+                var nowIdx = Math.min(current, STEPS.length - 1);
+                progressEl.appendChild(make('p', 'acct-tracker__now',
+                    'Step ' + (nowIdx + 1) + ' of ' + STEPS.length + ' &middot; <strong>' + STEPS[nowIdx][1] + '</strong>'));
             }
 
             // Key facts
@@ -794,6 +1155,51 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                 window.viewOrderDetails(orderId, orderTitle);
             });
         }
+
+        // Order items are tap-to-open cards. The markup arrives by AJAX (scripts in it
+        // would not run), so the clicks are handled here, once, on the container.
+        function setItemOpen(item, open) {
+            item.classList.toggle('is-open', open);
+            var btn = item.querySelector('.oi-toggle');
+            if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+
+        function syncExpandAll() {
+            var btn = contentEl.querySelector('.oi-expand');
+            if (!btn) return;
+            var items = contentEl.querySelectorAll('.order-item-detail');
+            var all = items.length > 0 && Array.prototype.every.call(items, function (i) {
+                return i.classList.contains('is-open');
+            });
+            btn.setAttribute('aria-pressed', all ? 'true' : 'false');
+            btn.querySelector('span').textContent = all ? 'Collapse all' : 'Expand all';
+        }
+
+        contentEl.addEventListener('click', function (e) {
+            var toggle = e.target.closest('.oi-toggle');
+            if (toggle) {
+                var item = toggle.closest('.order-item-detail');
+                var opening = !item.classList.contains('is-open');
+                setItemOpen(item, opening);
+                syncExpandAll();
+                // once it has finished growing, bring the rest of the card into view
+                if (opening) {
+                    setTimeout(function () {
+                        item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 340);
+                }
+                return;
+            }
+
+            var expandAll = e.target.closest('.oi-expand');
+            if (expandAll) {
+                var openAll = expandAll.getAttribute('aria-pressed') !== 'true';
+                contentEl.querySelectorAll('.order-item-detail').forEach(function (i) {
+                    setItemOpen(i, openAll);
+                });
+                syncExpandAll();
+            }
+        });
 
         // Called from each order card
         window.viewOrderDetails = function (orderId, orderTitle) {

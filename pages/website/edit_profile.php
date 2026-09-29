@@ -330,6 +330,8 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
         'id'           => 'f-' . $name,
         'autocomplete' => '',
         'password'     => false,
+        'inputmode'    => '',
+        'enterkeyhint' => 'next',
     ], $opts);
 
     $error  = $field_errors[$name] ?? null;
@@ -347,6 +349,12 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
     }
     if ($o['autocomplete'] !== '') {
         $input .= ' autocomplete="' . htmlspecialchars($o['autocomplete']) . '"';
+    }
+    if ($o['inputmode'] !== '') {
+        $input .= ' inputmode="' . htmlspecialchars($o['inputmode']) . '"';
+    }
+    if ($o['enterkeyhint'] !== '') {
+        $input .= ' enterkeyhint="' . htmlspecialchars($o['enterkeyhint']) . '"';
     }
     if ($o['required']) {
         $input .= ' required';
@@ -384,7 +392,8 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#faf7f1">
     <title>Edit Profile - Active Media Designs & Printing</title>
     <link rel="icon" type="image/png" href="../../assets/images/plainlogo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -392,6 +401,162 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <link rel="stylesheet" href="../../assets/css/main.css">
+    <style>
+        /* =========================================================
+           Edit profile — phone layout.
+           Mirrors the profile page: compact card, one-tap section
+           chips, paired short fields, thumb-sized inputs, and a save
+           bar that respects the home indicator. Tablet/desktop
+           layouts are untouched (everything below is <= 720px).
+        ========================================================= */
+        .acct-page .rail-nav { scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .acct-page .rail-nav::-webkit-scrollbar { display: none; }
+
+        /* The scroll-reveal (.hide/.show) leaves transform + filter on the section,
+           and any transformed/filtered ancestor turns position:fixed into
+           "fixed to that section". Clear them once revealed so the save bar
+           can float over the viewport. */
+        .acct-page .acct-main.show {
+            transform: none;
+            filter: none;
+        }
+
+        .savebar-nav { display: none; }
+
+        @media (max-width: 720px) {
+            .acct-hero { padding: 96px 0 12px; }
+            .acct-hero__texture { display: none; }
+            .acct-hero-title { margin-bottom: 8px; font-size: clamp(1.75rem, 8vw, 2.2rem); }
+            .acct-hero-sub { margin-bottom: 10px; font-size: 0.95rem; line-height: 1.5; }
+            .acct-backlink { display: inline-flex; align-items: center; min-height: 44px; }
+            .acct-main { padding: 4px 0 48px; }
+            .acct-layout--edit { gap: 14px; }
+
+            /* --- identity card: slim, avatar left, badges beneath --- */
+            .acct-page .rail-card { padding: 14px 16px 12px; }
+            .acct-page .rail-id { gap: 12px; margin-bottom: 10px; }
+            .acct-page .rail-id .acct-avatar { width: 46px; height: 46px; font-size: 1rem; }
+            .acct-page .rail-id .acct-avatar::after { inset: -4px; }
+            .acct-page .rail-id h2 { font-size: 1rem; }
+            .acct-page .rail-id span { font-size: 13px; }
+            .acct-page .acct-badges { gap: 6px; }
+            .acct-page .acct-badge { padding: 4px 10px; font-size: 12px; }
+            .acct-page .rail-verify { min-height: 44px; margin-top: 10px; }
+
+            /* --- section nav now lives inside the floating save bar --- */
+            .acct-page .rail-nav { display: none; }
+
+            /* --- form cards --- */
+            .acct-form-col { gap: 14px; }
+            .acct-page .form-card {
+                scroll-margin-top: 16px;
+                padding: 18px 16px 20px;
+                border-left-width: 3px;
+            }
+            .acct-page .form-card__head { gap: 12px; margin-bottom: 16px; padding-bottom: 14px; }
+            .acct-page .form-card__icon { width: 38px; height: 38px; font-size: 15px; }
+            .acct-page .form-card__head h2 { font-size: 1.08rem; }
+            .acct-page .form-card__head p { font-size: 13px; line-height: 1.4; }
+
+            /* one column by default, short fields sit in pairs */
+            .acct-page .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+            .acct-page .form-group,
+            .acct-page .form-group.col-2,
+            .acct-page .form-group.full-width { grid-column: 1 / -1; }
+            .acct-page .form-group.m-half { grid-column: span 1; }
+
+            .acct-page .form-label { margin-bottom: 6px; font-size: 13px; }
+
+            /* 16px stops iOS zooming on focus; 48px is a comfortable tap target */
+            .acct-page .form-input,
+            .acct-page .form-select {
+                min-height: 48px;
+                padding: 12px 14px;
+                font-size: 16px;
+                -webkit-appearance: none;
+                appearance: none;
+            }
+            .acct-page .form-select { padding-right: 38px; background-position: right 14px center; }
+            .acct-page input[type="date"].form-input {
+                display: block;
+                width: 100%;
+                max-width: 100%;
+                text-align: left;
+                line-height: 1.2;
+            }
+            .acct-page input[type="date"].form-input::-webkit-date-and-time-value { text-align: left; min-height: 1.2em; }
+            .acct-page .password-input-container .form-input { padding-right: 52px; }
+            .acct-page .password-toggle { right: 4px; width: 44px; height: 44px; font-size: 16px; }
+            .acct-page .form-help,
+            .acct-page .error-message,
+            .acct-page .age-display { font-size: 12.5px; line-height: 1.4; }
+
+            /* --- notices --- */
+            .acct-notice { align-items: flex-start; gap: 10px; padding: 12px 14px; margin-bottom: 12px; font-size: 14px; }
+            .acct-notice__body a { display: inline-block; margin-top: 2px; padding: 6px 0; }
+
+            /* --- save bar: floats over the form while scrolling, then settles
+               into its natural spot at the end of the form (above the footer) --- */
+            .acct-savebar {
+                position: sticky;
+                left: auto;
+                right: auto;
+                bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+                z-index: 30;
+                gap: 8px;
+                padding: 10px;
+                border: 1px solid var(--line);
+                border-radius: var(--r-lg);
+                box-shadow: 0 10px 30px rgba(20, 17, 12, 0.22), 0 2px 6px rgba(20, 17, 12, 0.10);
+            }
+            .savebar-nav {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 6px;
+                width: 100%;
+            }
+            .savebar-nav a {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                min-height: 40px;
+                padding: 6px 8px;
+                border: 1.5px solid var(--line);
+                border-radius: var(--r-pill);
+                background: var(--paper-white);
+                font-size: 12.5px;
+                font-weight: 600;
+                white-space: nowrap;
+                color: var(--ink-soft);
+                -webkit-tap-highlight-color: transparent;
+            }
+            .savebar-nav a .rail-nav__num { width: 20px; height: 20px; font-size: 10.5px; }
+            .savebar-nav a.is-active {
+                background: var(--ink);
+                border-color: var(--ink);
+                color: var(--paper-white);
+            }
+            .acct-savebar__status { width: 100%; justify-content: center; font-size: 13px; }
+            .acct-savebar__actions { width: 100%; gap: 10px; }
+            .acct-savebar .btn {
+                flex: 1;
+                min-height: 48px;
+                padding: 0 16px;
+                justify-content: center;
+                font-size: 15px;
+            }
+            .acct-savebar .btn-primary { flex: 1.6; }
+
+        }
+
+        @media (max-width: 380px) {
+            .acct-page .form-grid { grid-template-columns: minmax(0, 1fr); }
+            .acct-page .form-group.m-half { grid-column: 1 / -1; }
+            .acct-page .form-card { padding: 16px 14px 18px; }
+            .savebar-nav a .rail-nav__num { display: none; }
+        }
+    </style>
 </head>
 
 <body class="acct-page">
@@ -542,12 +707,12 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                             </div>
                             <div class="form-grid">
                                 <?php
-                                acct_field('first_name', 'First Name', $user_data['first_name'] ?? '', $field_errors, ['required' => true, 'span' => 'col-2']);
-                                acct_field('middle_name', 'Middle Name', $user_data['middle_name'] ?? '', $field_errors, ['span' => 'col-2']);
-                                acct_field('last_name', 'Last Name', $user_data['last_name'] ?? '', $field_errors, ['required' => true, 'span' => 'col-2']);
+                                acct_field('first_name', 'First Name', $user_data['first_name'] ?? '', $field_errors, ['required' => true, 'span' => 'col-2', 'autocomplete' => 'given-name']);
+                                acct_field('middle_name', 'Middle Name', $user_data['middle_name'] ?? '', $field_errors, ['span' => 'col-2', 'autocomplete' => 'additional-name']);
+                                acct_field('last_name', 'Last Name', $user_data['last_name'] ?? '', $field_errors, ['required' => true, 'span' => 'col-2', 'autocomplete' => 'family-name']);
                                 ?>
 
-                                <div class="form-group col-2">
+                                <div class="form-group col-2 m-half">
                                     <label class="form-label" for="f-gender">Gender</label>
                                     <select name="gender" id="f-gender" class="form-select">
                                         <option value="">Select Gender</option>
@@ -557,7 +722,7 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                                     </select>
                                 </div>
 
-                                <div class="form-group col-2">
+                                <div class="form-group col-2 m-half">
                                     <label class="form-label" for="birthdate">Birthdate</label>
                                     <input type="date"
                                            name="birthdate"
@@ -574,6 +739,9 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                                     'span'        => 'col-2',
                                     'placeholder' => 'e.g., 09123456789',
                                     'help'        => 'Format: 09XXXXXXXXX or +639XXXXXXXXX',
+                                    'type'        => 'tel',
+                                    'inputmode'   => 'tel',
+                                    'autocomplete' => 'tel',
                                 ]);
                                 ?>
                             </div>
@@ -591,11 +759,12 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                                 <?php
                                 acct_field('address_line1', 'Address Line', $user_data['address_line1'] ?? '', $field_errors, [
                                     'span'        => 'full-width',
+                                    'autocomplete' => 'address-line1',
                                     'placeholder' => 'Lot No., Block No., Phase No. Street, Subd.',
                                 ]);
-                                acct_field('p_city', 'City', $user_data['personal_city'] ?? '', $field_errors, ['span' => 'col-2', 'placeholder' => 'City']);
-                                acct_field('p_province', 'Province', $user_data['personal_province'] ?? '', $field_errors, ['span' => 'col-2', 'placeholder' => 'Province']);
-                                acct_field('p_zip', 'ZIP Code', $user_data['personal_zip'] ?? '', $field_errors, ['span' => 'col-2', 'placeholder' => 'ZIP Code']);
+                                acct_field('p_city', 'City', $user_data['personal_city'] ?? '', $field_errors, ['span' => 'col-2 m-half', 'placeholder' => 'City', 'autocomplete' => 'address-level2']);
+                                acct_field('p_province', 'Province', $user_data['personal_province'] ?? '', $field_errors, ['span' => 'col-2 m-half', 'placeholder' => 'Province', 'autocomplete' => 'address-level1']);
+                                acct_field('p_zip', 'ZIP Code', $user_data['personal_zip'] ?? '', $field_errors, ['span' => 'col-2', 'placeholder' => 'ZIP Code', 'autocomplete' => 'postal-code', 'inputmode' => 'numeric', 'enterkeyhint' => 'done']);
                                 ?>
                             </div>
                         </section>
@@ -612,13 +781,16 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                             </div>
                             <div class="form-grid">
                                 <?php
-                                acct_field('company_name', 'Company Name', $user_data['company_name'] ?? '', $field_errors, ['required' => true]);
+                                acct_field('company_name', 'Company Name', $user_data['company_name'] ?? '', $field_errors, ['required' => true, 'autocomplete' => 'organization']);
                                 acct_field('taxpayer_name', 'Taxpayer Name', $user_data['taxpayer_name'] ?? '', $field_errors, ['placeholder' => 'Taxpayer Name (if different from company)']);
                                 acct_field('contact_person', 'Contact Person', $user_data['contact_person'] ?? '', $field_errors, ['required' => true]);
                                 acct_field('company_contact', 'Contact Number', $user_data['company_contact'] ?? '', $field_errors, [
                                     'required'    => true,
                                     'placeholder' => 'e.g., 09123456789',
                                     'help'        => 'Format: 09XXXXXXXXX or +639XXXXXXXXX',
+                                    'type'        => 'tel',
+                                    'inputmode'   => 'tel',
+                                    'autocomplete' => 'tel',
                                 ]);
                                 ?>
                             </div>
@@ -634,13 +806,13 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                             </div>
                             <div class="form-grid">
                                 <?php
-                                acct_field('c_province', 'Province', $user_data['company_province'] ?? '', $field_errors, ['span' => 'col-2', 'placeholder' => 'Province']);
-                                acct_field('c_city', 'City', $user_data['company_city'] ?? '', $field_errors, ['span' => 'col-2', 'placeholder' => 'City']);
+                                acct_field('c_province', 'Province', $user_data['company_province'] ?? '', $field_errors, ['span' => 'col-2 m-half', 'placeholder' => 'Province', 'autocomplete' => 'address-level1']);
+                                acct_field('c_city', 'City', $user_data['company_city'] ?? '', $field_errors, ['span' => 'col-2 m-half', 'placeholder' => 'City', 'autocomplete' => 'address-level2']);
                                 acct_field('c_barangay', 'Barangay', $user_data['barangay'] ?? '', $field_errors, ['span' => 'col-2', 'placeholder' => 'Barangay']);
                                 acct_field('c_street', 'Subdivision/Street', $user_data['subd_or_street'] ?? '', $field_errors, ['placeholder' => 'Subdivision or Street']);
                                 acct_field('c_building', 'Building/Block', $user_data['building_or_block'] ?? '', $field_errors, ['placeholder' => 'Building or Block']);
-                                acct_field('c_lotroom', 'Lot/Room No.', $user_data['lot_or_room_no'] ?? '', $field_errors, ['placeholder' => 'Lot or Room Number']);
-                                acct_field('c_zip', 'ZIP Code', $user_data['company_zip'] ?? '', $field_errors, ['placeholder' => 'ZIP Code']);
+                                acct_field('c_lotroom', 'Lot/Room No.', $user_data['lot_or_room_no'] ?? '', $field_errors, ['placeholder' => 'Lot or Room Number', 'span' => 'm-half']);
+                                acct_field('c_zip', 'ZIP Code', $user_data['company_zip'] ?? '', $field_errors, ['placeholder' => 'ZIP Code', 'span' => 'm-half', 'autocomplete' => 'postal-code', 'inputmode' => 'numeric', 'enterkeyhint' => 'done']);
                                 ?>
                             </div>
                         </section>
@@ -669,6 +841,7 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                             acct_field('confirm_password', 'Confirm New Password', '', $field_errors, [
                                 'type' => 'password', 'password' => true, 'id' => 'confirmPassword',
                                 'span' => 'col-2', 'autocomplete' => 'new-password',
+                                'enterkeyhint' => 'done',
                             ]);
                             ?>
                         </div>
@@ -676,6 +849,11 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
 
                     <!-- Save bar -->
                     <div class="acct-savebar" id="saveBar">
+                        <nav class="savebar-nav" aria-label="Jump to section">
+                            <a href="#sec-details" class="is-active"><span class="rail-nav__num">1</span> <span><?php echo $is_company ? 'Company' : 'Personal'; ?></span></a>
+                            <a href="#sec-address"><span class="rail-nav__num">2</span> <span>Address</span></a>
+                            <a href="#sec-password"><span class="rail-nav__num">3</span> <span>Password</span></a>
+                        </nav>
                         <p class="acct-savebar__status" aria-live="polite">
                             <span class="acct-savebar__dot"></span>
                             <span id="saveBarText">No changes yet</span>
@@ -902,25 +1080,47 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
 
         // Highlight the rail link for the section currently in view
         function setupSectionNav() {
-            const links = document.querySelectorAll('.rail-nav a');
+            const links = document.querySelectorAll('.rail-nav a, .savebar-nav a');
             if (!links.length || !('IntersectionObserver' in window)) return;
 
             const byId = {};
             links.forEach(link => {
                 const target = document.querySelector(link.getAttribute('href'));
-                if (target) byId[target.id] = link;
+                if (!target) return;
+                (byId[target.id] = byId[target.id] || []).push(link);
             });
 
             const spy = new IntersectionObserver(entries => {
                 entries.forEach(entry => {
                     if (!entry.isIntersecting) return;
                     links.forEach(l => l.classList.remove('is-active'));
-                    if (byId[entry.target.id]) byId[entry.target.id].classList.add('is-active');
+                    (byId[entry.target.id] || []).forEach(l => l.classList.add('is-active'));
                 });
             }, { rootMargin: '-20% 0px -60% 0px' });
 
             Object.keys(byId).forEach(id => spy.observe(document.getElementById(id)));
         }
+
+        // Tapping a section chip highlights it straight away and scrolls smoothly
+        document.querySelectorAll('.savebar-nav a').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                const target = document.querySelector(link.getAttribute('href'));
+                if (!target) return;
+                e.preventDefault();
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                document.querySelectorAll('.rail-nav a, .savebar-nav a').forEach(l => l.classList.remove('is-active'));
+                document.querySelectorAll('a[href="' + link.getAttribute('href') + '"]').forEach(l => l.classList.add('is-active'));
+            });
+        });
+
+        // Phones: when a field is focused, keep it clear of the on-screen keyboard and the save bar
+        document.addEventListener('focusin', function(e) {
+            if (!window.matchMedia('(max-width: 720px)').matches) return;
+            if (!e.target.matches('.form-input, .form-select')) return;
+            setTimeout(function() {
+                e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }, 300);
+        });
 
         function calculateAgeFromDate() {
             const birthdateInput = document.getElementById('birthdate');

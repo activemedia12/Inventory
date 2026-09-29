@@ -835,6 +835,10 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             color: var(--ink-faint);
         }
 
+        .toolbar-count + .expand-all-btn {
+            margin-left: 0;
+        }
+
         .remove-selected-btn {
             display: inline-flex;
             align-items: center;
@@ -854,6 +858,36 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
         .remove-selected-btn:hover {
             background: var(--riso-red);
             color: var(--paper-white);
+        }
+
+        .expand-all-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 16px;
+            background: transparent;
+            border: 1.5px solid var(--ink);
+            border-radius: var(--r-sm);
+            color: var(--ink);
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 13.5px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .expand-all-btn:hover {
+            background: var(--ink);
+            color: var(--paper-white);
+        }
+
+        .expand-all-btn i {
+            font-size: 11px;
+            transition: transform 0.3s var(--ease);
+        }
+
+        .expand-all-btn[aria-pressed="true"] i {
+            transform: rotate(180deg);
         }
 
         /* Custom checkbox — ink square, matches the ink-filled active states elsewhere */
@@ -906,22 +940,16 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             transform: none;
         }
 
-        /* ---------- Cart items ---------- */
+        /* ---------- Cart items (tap-to-expand cards) ---------- */
         .cart-items {
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 12px;
         }
 
         .cart-item {
             --item-ink: var(--ink);
             position: relative;
-            display: grid;
-            grid-template-columns: auto 128px minmax(0, 1fr) auto;
-            grid-template-areas: "check image info actions";
-            gap: 20px;
-            align-items: start;
-            padding: 22px;
             background: var(--paper-white);
             border: 1px solid var(--line);
             border-left: 4px solid var(--item-ink);
@@ -945,8 +973,9 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             --item-ink: var(--cmyk-yellow);
         }
 
-        .cart-item:hover {
-            box-shadow: var(--shadow);
+        .cart-item:hover,
+        .cart-item.is-open {
+            box-shadow: var(--shadow-sm);
         }
 
         .cart-item:has(.cart-check:checked) {
@@ -955,14 +984,44 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             box-shadow: var(--shadow);
         }
 
+        /* Always-visible row: checkbox + tap target that opens the card */
+        .cart-item-head {
+            display: flex;
+            align-items: stretch;
+        }
+
         .item-checkbox {
-            grid-area: check;
-            padding-top: 4px;
+            flex: 0 0 52px;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+        }
+
+        .item-toggle {
+            flex: 1;
+            min-width: 0;
+            display: grid;
+            grid-template-columns: 80px minmax(0, 1fr) auto 18px;
+            align-items: center;
+            gap: 16px;
+            padding: 14px 16px 14px 0;
+            background: none;
+            border: 0;
+            border-radius: var(--r-md);
+            font: inherit;
+            color: inherit;
+            text-align: left;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .item-toggle:focus-visible {
+            outline: 2px solid var(--riso-blue);
+            outline-offset: -2px;
         }
 
         .cart-item-image {
-            grid-area: image;
-            width: 128px;
+            width: 80px;
             aspect-ratio: 1;
             display: grid;
             place-items: center;
@@ -970,7 +1029,7 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             background: var(--paper-dim);
             border-radius: var(--r-md);
             color: var(--ink-faint);
-            font-size: 26px;
+            font-size: 22px;
         }
 
         .cart-item-image img {
@@ -979,9 +1038,9 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             object-fit: cover;
         }
 
-        .cart-item-info {
-            grid-area: info;
+        .item-summary {
             min-width: 0;
+            display: block;
         }
 
         .item-group {
@@ -1002,9 +1061,115 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             box-shadow: 0 0 0 1px rgba(23, 20, 15, 0.18);
         }
 
+        .item-name {
+            display: block;
+            margin: 2px 0 6px;
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 1.05rem;
+            line-height: 1.25;
+            color: var(--ink);
+            overflow-wrap: anywhere;
+        }
+
+        .item-line {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px 8px;
+            font-size: 13px;
+            color: var(--ink-soft);
+        }
+
+        .item-line strong {
+            font-family: var(--font-display);
+            font-weight: 600;
+            color: var(--riso-blue);
+        }
+
+        .mini-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: var(--r-pill);
+            background: var(--paper-dim);
+            color: var(--ink-soft);
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .mini-tag.is-confirmed {
+            background: var(--riso-blue);
+            color: var(--paper-white);
+        }
+
+        .mini-tag.is-pending {
+            background: var(--cmyk-yellow);
+            color: var(--ink);
+        }
+
+        .mini-tag.is-cancelled {
+            background: var(--riso-red);
+            color: var(--paper-white);
+        }
+
+        .item-sub {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 1.1rem;
+            white-space: nowrap;
+            color: var(--ink);
+        }
+
+        .item-chev {
+            font-size: 12px;
+            color: var(--ink-faint);
+            transition: transform 0.3s var(--ease);
+        }
+
+        .cart-item.is-open .item-chev {
+            transform: rotate(180deg);
+        }
+
+        /* The dropdown itself (animates height without JS measuring) */
+        .cart-item-panel {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.32s var(--ease);
+        }
+
+        .cart-item.is-open .cart-item-panel {
+            grid-template-rows: 1fr;
+        }
+
+        .cart-item-panel__inner {
+            min-height: 0;
+            overflow: hidden;
+            visibility: hidden;
+            transition: visibility 0s linear 0.32s;
+        }
+
+        .cart-item.is-open .cart-item-panel__inner {
+            visibility: visible;
+            transition-delay: 0s;
+        }
+
+        .cart-items.no-anim .cart-item-panel,
+        .cart-items.no-anim .cart-item-panel__inner {
+            transition: none;
+        }
+
+        .cart-item-info {
+            min-width: 0;
+            margin: 0 18px;
+            padding: 4px 0 16px;
+            border-top: 1px dashed var(--line);
+        }
+
         .cart-item-info h3 {
-            margin: 4px 0 10px;
-            font-size: 1.15rem;
+            margin: 12px 0 10px;
+            font-size: 1.1rem;
         }
 
         .cart-item-info h3 a:hover {
@@ -1311,12 +1476,14 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
 
         /* Quantity / subtotal / remove */
         .cart-item-actions {
-            grid-area: actions;
             display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 16px;
-            min-width: 150px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px 18px;
+            margin: 0 18px;
+            padding: 14px 0 18px;
+            border-top: 1px dashed var(--line);
         }
 
         .quantity-controls {
@@ -1612,88 +1779,309 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             justify-content: center;
         }
 
-        /* ---------- Responsive ---------- */
+        /* ---------- Order summary as a dock (tablet + phone) ---------- */
+        .summary-handle {
+            display: none;
+        }
+
         @media (max-width: 1279px) {
             .cart-layout {
-                grid-template-columns: minmax(0, 1fr);
+                display: block;
+                padding-bottom: 40px;
+            }
+
+            .cart-main {
+                margin-bottom: 16px;
+            }
+
+            /* Pinned to the bottom of the screen while you scroll the list,
+               and it settles into its normal place at the end of the list */
+            .cart-side {
+                position: sticky;
+                bottom: 10px;
+                bottom: max(10px, env(safe-area-inset-bottom, 0px));
+                z-index: 60;
             }
 
             .cart-summary {
                 position: static;
                 max-height: none;
+                overflow: hidden;
+                border-radius: var(--r-lg);
+                box-shadow: var(--shadow-hover);
+            }
+
+            .summary-bar {
+                height: 4px;
+            }
+
+            .summary-body {
+                padding: 0;
+            }
+
+            .summary-handle {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                width: 100%;
+                padding: 12px 16px 10px;
+                background: none;
+                border: 0;
+                font: inherit;
+                color: inherit;
+                text-align: left;
+                cursor: pointer;
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            .summary-handle__text {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .summary-handle__text strong {
+                display: block;
+                font-family: var(--font-display);
+                font-size: 14px;
+                color: var(--ink);
+            }
+
+            .summary-handle__text small {
+                display: block;
+                font-size: 12px;
+                line-height: 1.35;
+                color: var(--ink-faint);
+            }
+
+            .summary-handle__total {
+                font-family: var(--font-display);
+                font-weight: 600;
+                font-size: 1.4rem;
+                letter-spacing: -0.02em;
+                color: var(--ink);
+                white-space: nowrap;
+            }
+
+            .summary-handle__chev {
+                font-size: 12px;
+                color: var(--ink-faint);
+                transition: transform 0.3s var(--ease);
+            }
+
+            .cart-summary.is-expanded .summary-handle__chev {
+                transform: rotate(180deg);
+            }
+
+            .summary-details {
+                display: grid;
+                grid-template-rows: 0fr;
+                transition: grid-template-rows 0.3s var(--ease);
+            }
+
+            .cart-summary.is-expanded .summary-details {
+                grid-template-rows: 1fr;
+            }
+
+            .summary-details__inner {
+                min-height: 0;
+                overflow: hidden;
+                padding: 0 16px;
+                visibility: hidden;
+                transition: visibility 0s linear 0.3s;
+            }
+
+            .cart-summary.is-expanded .summary-details__inner {
+                overflow-y: auto;
+                max-height: 42vh;
+                max-height: 42dvh;
+                visibility: visible;
+                transition-delay: 0s;
+                padding-bottom: 6px;
+            }
+
+            .summary-title {
+                margin-top: 4px;
+            }
+
+            .cart-buttons {
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-top: 0;
+                padding: 8px 16px 14px;
+            }
+
+            .cart-buttons .btn {
+                flex: 1 1 140px;
+                padding: 13px 12px;
+                font-size: 14px;
+            }
+
+            .cart-buttons .continue-btn {
+                flex: 1 1 100%;
+                margin-top: 0;
+            }
+
+            .cart-summary:not(.is-expanded) .continue-btn,
+            .cart-summary:not(.is-expanded) .summary-fineprint {
+                display: none;
+            }
+
+            .summary-fineprint {
+                margin: 0;
+                padding: 0 16px 14px;
             }
         }
 
-        @media (max-width: 640px) {
-            .cart-hero {
-                padding-top: 120px;
-            }
-        }
-
+        /* ---------- Responsive ---------- */
         @media (max-width: 820px) {
             .cart-steps {
-                grid-template-columns: minmax(0, 1fr);
+                grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 8px;
+                margin-bottom: 20px;
             }
 
-            .cart-item {
-                grid-template-columns: auto minmax(0, 1fr);
+            .cart-step {
+                flex-direction: column;
+                gap: 6px;
+                padding: 10px 6px 12px;
+                text-align: center;
+                border-radius: var(--r-md);
+            }
+
+            .cart-step strong {
+                font-size: 12px;
+            }
+
+            .cart-step small {
+                font-size: 10.5px;
+                line-height: 1.3;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .cart-hero {
+                padding: 88px 0 20px;
+            }
+
+            .cart-hero__texture {
+                width: 200px;
+                height: 200px;
+            }
+
+            .cart-hero-sub {
+                font-size: 1rem;
+                margin-bottom: 16px;
+            }
+
+            .item-toggle {
+                grid-template-columns: 60px minmax(0, 1fr) 16px;
                 grid-template-areas:
-                    "check image"
-                    "info info"
-                    "actions actions";
-                gap: 14px 16px;
-                padding: 18px;
+                    "img sum chev"
+                    "img sub chev";
+                gap: 2px 12px;
+                padding: 12px 12px 12px 0;
             }
 
-            .cart-item-image {
-                width: 96px;
+            .item-toggle .cart-item-image {
+                grid-area: img;
+                width: 60px;
+                align-self: start;
+                border-radius: var(--r-sm);
+                font-size: 18px;
+            }
+
+            .item-toggle .item-summary {
+                grid-area: sum;
+            }
+
+            .item-toggle .item-sub {
+                grid-area: sub;
+                font-size: 1.05rem;
+            }
+
+            .item-toggle .item-chev {
+                grid-area: chev;
+            }
+
+            .item-name {
+                font-size: 1rem;
+                margin-bottom: 4px;
+            }
+
+            .cart-item-info,
+            .cart-item-actions {
+                margin: 0 14px;
             }
 
             .cart-item-actions {
-                flex-direction: row;
-                flex-wrap: wrap;
-                align-items: center;
-                justify-content: space-between;
-                min-width: 0;
-                padding-top: 14px;
-                border-top: 1px dashed var(--line);
+                padding-bottom: 16px;
             }
 
-            .item-subtotal {
-                order: 2;
+            .details-row {
+                grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+            }
+
+            /* Bigger, thumb-friendly targets (and 16px so iOS doesn't zoom) */
+            .cart-check {
+                width: 24px;
+                height: 24px;
+            }
+
+            .item-checkbox {
+                flex-basis: 48px;
+            }
+
+            .quantity-btn {
+                width: 44px;
+                height: 44px;
+            }
+
+            .quantity-input {
+                width: 52px;
+                height: 44px;
+                font-size: 16px;
             }
 
             .remove-btn {
-                order: 3;
+                min-height: 44px;
+                padding: 0 4px;
+            }
+
+            .cart-item-actions {
+                gap: 10px 14px;
+            }
+
+            .item-subtotal__label {
+                display: inline;
+                margin-right: 6px;
             }
         }
 
         @media (max-width: 560px) {
-            .toolbar-count {
-                display: none;
-            }
-
-            .remove-selected-btn {
-                margin-left: auto;
-                white-space: nowrap;
-            }
-
-            .select-all {
-                white-space: nowrap;
-            }
-
             .cart-toolbar {
+                flex-wrap: wrap;
                 gap: 10px;
                 padding: 12px 14px;
             }
 
-            .remove-selected-btn {
-                padding: 9px 12px;
+            .select-all {
+                flex: 1 1 40%;
+                white-space: nowrap;
             }
 
-            .summary-body {
-                padding: 22px 20px 22px;
+            .toolbar-count {
+                flex: 1 1 40%;
+                margin-left: 0;
+                text-align: right;
+            }
+
+            .expand-all-btn,
+            .remove-selected-btn {
+                flex: 1 1 calc(50% - 5px);
+                justify-content: center;
+                min-height: 44px;
+                white-space: nowrap;
             }
 
             .empty-cart {
@@ -1814,7 +2202,7 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
                                 <p>Select your items and choose <strong>Requote</strong>. We'll review your requirements and send back the exact price.</p>
                                 <p class="quote-turnaround-note" style="margin-top:8px;font-size:13px;color:#6b7280;">
                                     <i class="fas fa-bolt" aria-hidden="true"></i>
-                                    We quote most requests <strong>the same day</strong> during business hours (Mon&ndash;Sat, 8 AM&ndash;6 PM) &mdash; 1 business day max.
+                                    We quote most requests <strong>the same day</strong> during business hours (Mon &ndash; Sat, 8 AM &ndash; 6 PM) &ndash; 1 business day max.
                                 </p>
                             </div>
                         </details>
@@ -1826,6 +2214,9 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
                                     <span>Select all</span>
                                 </label>
                                 <span class="toolbar-count js-lines"><?php echo count($cart_items); ?> <?php echo count($cart_items) === 1 ? 'job' : 'jobs'; ?></span>
+                                <button type="button" class="expand-all-btn" id="expandAll" aria-pressed="false">
+                                    <i class="fas fa-chevron-down"></i> <span>Expand all</span>
+                                </button>
                                 <button type="button" class="remove-selected-btn">
                                     <i class="fas fa-trash"></i> Remove selected
                                 </button>
@@ -1842,23 +2233,55 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
                                     $has_image       = file_exists($image_path);
                                     $status          = strtolower((string)($row['pricing_status'] ?? ''));
                                     $status_class    = in_array($status, ['pending', 'approved', 'completed', 'cancelled'], true) ? $status : '';
+
+                                    // One-glance state shown on the collapsed card
+                                    if ($status === 'cancelled') {
+                                        $mini_class = 'is-cancelled';
+                                        $mini_text  = 'Quote cancelled';
+                                    } elseif ($has_admin_price) {
+                                        $mini_class = 'is-confirmed';
+                                        $mini_text  = 'Confirmed';
+                                    } elseif ($status === 'pending') {
+                                        $mini_class = 'is-pending';
+                                        $mini_text  = 'Quote in progress';
+                                    } else {
+                                        $mini_class = '';
+                                        $mini_text  = 'Estimate';
+                                    }
                                 ?>
                                     <article class="cart-item" data-ink="<?php echo $ink; ?>">
-                                        <div class="item-checkbox">
-                                            <input type="checkbox" class="cart-check" name="selected_items[]" value="<?php echo cart_h($row['item_id']); ?>"
-                                                <?php echo $is_selected ? 'checked' : ''; ?>
-                                                aria-label="Select <?php echo cart_h($row['product_name']); ?>"
-                                                onchange="updateCartTotal(); saveScrollPosition(); this.form.submit();">
+                                        <div class="cart-item-head">
+                                            <label class="item-checkbox">
+                                                <input type="checkbox" class="cart-check" name="selected_items[]" value="<?php echo cart_h($row['item_id']); ?>"
+                                                    <?php echo $is_selected ? 'checked' : ''; ?>
+                                                    aria-label="Select <?php echo cart_h($row['product_name']); ?>"
+                                                    onchange="updateCartTotal(); saveScrollPosition(); this.form.submit();">
+                                            </label>
+
+                                            <button type="button" class="item-toggle" aria-expanded="false" aria-controls="item-panel-<?php echo (int)$row['item_id']; ?>">
+                                                <span class="cart-item-image">
+                                                    <?php if ($has_image): ?>
+                                                        <img src="<?php echo cart_h($image_path); ?>" alt="" loading="lazy">
+                                                    <?php else: ?>
+                                                        <i class="fas fa-image" aria-hidden="true"></i>
+                                                    <?php endif; ?>
+                                                </span>
+                                                <span class="item-summary">
+                                                    <span class="item-group"><?php echo cart_h($row['product_group']); ?></span>
+                                                    <span class="item-name"><?php echo cart_h($row['product_name']); ?></span>
+                                                    <span class="item-line">
+                                                        <strong>₱<?php echo number_format($actual_price, 2); ?></strong>
+                                                        <span>&times; <span class="js-qty-mirror"><?php echo (int)$row['quantity']; ?></span></span>
+                                                        <span class="mini-tag <?php echo $mini_class; ?>"><?php echo $mini_text; ?></span>
+                                                    </span>
+                                                </span>
+                                                <span class="item-sub js-sub-mirror">₱<?php echo number_format($item_total, 2); ?></span>
+                                                <i class="fas fa-chevron-down item-chev" aria-hidden="true"></i>
+                                            </button>
                                         </div>
 
-                                        <div class="cart-item-image">
-                                            <?php if ($has_image): ?>
-                                                <img src="<?php echo cart_h($image_path); ?>" alt="<?php echo cart_h($row['product_name']); ?>" loading="lazy">
-                                            <?php else: ?>
-                                                <i class="fas fa-image" aria-hidden="true"></i>
-                                            <?php endif; ?>
-                                        </div>
-
+                                        <div class="cart-item-panel" id="item-panel-<?php echo (int)$row['item_id']; ?>">
+                                            <div class="cart-item-panel__inner">
                                         <div class="cart-item-info">
                                             <span class="item-group"><?php echo cart_h($row['product_group']); ?></span>
                                             <h3><a href="../pages/website/service_detail.php?id=<?php echo (int)$row['id']; ?>"><?php echo cart_h($row['product_name']); ?></a></h3>
@@ -2073,6 +2496,8 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
                                             </button>
                                             <input type="hidden" name="item_id" value="<?php echo cart_h($row['item_id']); ?>">
                                         </div>
+                                            </div>
+                                        </div>
                                     </article>
                                 <?php endforeach; ?>
                             </div>
@@ -2081,9 +2506,20 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
 
                     <!-- Order Summary -->
                     <aside class="cart-side" aria-label="Order summary">
-                        <div class="cart-summary">
+                        <div class="cart-summary" id="cartSummary">
                             <div class="summary-bar" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
                             <div class="summary-body">
+                                <button type="button" class="summary-handle" aria-expanded="false" aria-controls="summaryDetails">
+                                    <span class="summary-handle__text">
+                                        <strong>Order total &middot; <span id="dock-count"><?php echo $total_selected_items; ?></span> selected</strong>
+                                        <small id="dock-msg"><?php echo cart_h($checkout_message); ?></small>
+                                    </span>
+                                    <span class="summary-handle__total" id="dock-total">₱<?php echo number_format($selected_grand, 2); ?></span>
+                                    <i class="fas fa-chevron-up summary-handle__chev" aria-hidden="true"></i>
+                                </button>
+
+                                <div class="summary-details" id="summaryDetails">
+                                <div class="summary-details__inner">
                                 <h2 class="summary-title">Order summary</h2>
 
                                 <?php if ($total_selected_items === 0): ?>
@@ -2126,6 +2562,9 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
                                         <span>Total</span>
                                         <span id="total-amount">₱<?php echo number_format($selected_grand, 2); ?></span>
                                     </div>
+                                </div>
+
+                                </div>
                                 </div>
 
                                 <div class="cart-buttons">
@@ -2305,10 +2744,29 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
 
         function saveScrollPosition() {
             sessionStorage.setItem('scrollPosition', window.scrollY);
+            // Keep opened cards open after the page re-submits
+            const open = Array.from(document.querySelectorAll('.cart-item.is-open'))
+                .map(el => itemIdOf(el.querySelector('.cart-item-actions')));
+            sessionStorage.setItem('openCartItems', JSON.stringify(open));
         }
 
         // Restore scroll position instantly after a checkbox re-submit
         document.addEventListener('DOMContentLoaded', function() {
+            // Re-open the cards that were open before the re-submit (no animation)
+            try {
+                const openIds = JSON.parse(sessionStorage.getItem('openCartItems') || '[]');
+                const list = document.querySelector('.cart-items');
+                if (list && openIds.length) {
+                    list.classList.add('no-anim');
+                    openIds.forEach(id => {
+                        const el = findCartItem(id);
+                        if (el) setItemOpen(el, true);
+                    });
+                    requestAnimationFrame(() => requestAnimationFrame(() => list.classList.remove('no-anim')));
+                }
+                sessionStorage.removeItem('openCartItems');
+            } catch (e) {}
+
             const scrollPosition = sessionStorage.getItem('scrollPosition');
             if (scrollPosition) {
                 window.scrollTo(0, parseInt(scrollPosition, 10));
@@ -2352,10 +2810,70 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             setupQuantityControls();
             setupRemoveButtons();
             setupBulkRemove();
+            setupAccordions();
+            setupSummaryDock();
 
             updateSelectAll();
             updateCartTotal();
         });
+
+        /* ---------- dropdown cards ---------- */
+        function setItemOpen(item, open) {
+            item.classList.toggle('is-open', open);
+            const btn = item.querySelector('.item-toggle');
+            if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+
+        function setupAccordions() {
+            const items = document.querySelectorAll('.cart-item');
+            const expandBtn = document.getElementById('expandAll');
+
+            function syncExpandBtn() {
+                if (!expandBtn) return;
+                const all = Array.from(items).every(i => i.classList.contains('is-open'));
+                expandBtn.setAttribute('aria-pressed', all ? 'true' : 'false');
+                expandBtn.querySelector('span').textContent = all ? 'Collapse all' : 'Expand all';
+            }
+
+            items.forEach(item => {
+                const btn = item.querySelector('.item-toggle');
+                if (!btn) return;
+                btn.addEventListener('click', () => {
+                    setItemOpen(item, !item.classList.contains('is-open'));
+                    syncExpandBtn();
+                });
+            });
+
+            if (expandBtn) {
+                expandBtn.addEventListener('click', () => {
+                    const items = document.querySelectorAll('.cart-item');
+                    const openAll = expandBtn.getAttribute('aria-pressed') !== 'true';
+                    items.forEach(i => setItemOpen(i, openAll));
+                    syncExpandBtn();
+                });
+            }
+            syncExpandBtn();
+        }
+
+        /* ---------- bottom order-summary dock (tablet / phone) ---------- */
+        function setupSummaryDock() {
+            const summary = document.getElementById('cartSummary');
+            const handle = summary ? summary.querySelector('.summary-handle') : null;
+            if (!handle) return;
+
+            function setExpanded(on) {
+                summary.classList.toggle('is-expanded', on);
+                handle.setAttribute('aria-expanded', on ? 'true' : 'false');
+            }
+
+            handle.addEventListener('click', () => setExpanded(!summary.classList.contains('is-expanded')));
+            document.addEventListener('click', e => {
+                if (summary.classList.contains('is-expanded') && !summary.contains(e.target)) setExpanded(false);
+            });
+            document.addEventListener('keydown', e => {
+                if (e.key === 'Escape') setExpanded(false);
+            });
+        }
 
         function setupQuantityControls() {
             document.querySelectorAll('.quantity-btn').forEach(button => {
@@ -2556,6 +3074,11 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             if (amount && productData[itemId]) {
                 amount.textContent = peso(productData[itemId].subtotal);
             }
+            // Mirrors shown on the collapsed card
+            if (item && productData[itemId]) {
+                item.querySelectorAll('.js-sub-mirror').forEach(el => el.textContent = peso(productData[itemId].subtotal));
+                item.querySelectorAll('.js-qty-mirror').forEach(el => el.textContent = productData[itemId].quantity);
+            }
         }
 
         // Nav badge + the "N jobs / N confirmed" labels
@@ -2613,6 +3136,11 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             document.getElementById('tax-amount').textContent = peso(tax);
             document.getElementById('total-amount').textContent = peso(subtotal + tax);
 
+            const dockTotal = document.getElementById('dock-total');
+            const dockCount = document.getElementById('dock-count');
+            if (dockTotal) dockTotal.textContent = peso(subtotal + tax);
+            if (dockCount) dockCount.textContent = selectedItems.length;
+
             updateSelectAll();
             updateCheckoutState();
             saveSelectedItems();
@@ -2624,6 +3152,14 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             const selectedCount = selectedItems.length;
             const confirmedCount = selectedItems.filter(item => productData[item.value] && productData[item.value].hasAdminPrice).length;
             const canCheckout = selectedCount > 0 && confirmedCount === selectedCount;
+
+            const dockMsg = document.getElementById('dock-msg');
+            if (dockMsg) {
+                dockMsg.textContent = selectedCount === 0 ? 'Select the items you want to check out'
+                    : canCheckout ? 'All selected items have confirmed pricing'
+                    : confirmedCount > 0 ? `${confirmedCount} of ${selectedCount} selected items have confirmed pricing`
+                    : 'No selected items have confirmed pricing yet';
+            }
 
             const checkoutBtn = document.querySelector('.checkout-btn');
             const waitingBtn = document.querySelector('.waiting-btn');

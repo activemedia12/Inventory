@@ -2,77 +2,654 @@
 session_start();
 require_once '../../config/db.php';
 
-// Add some CSS for proper formatting
-echo '<style>
-.printing-details {
-    margin-top: 10px;
-    padding: 10px;
-    background: #f8f9fa;
-    border-radius: 5px;
-    font-size: 0.9em;
+/* ------------------------------------------------------------
+   Presentation helpers for the items list (display only)
+------------------------------------------------------------ */
+function oi_h($v)
+{
+    return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 }
 
-.details-row {
+function oi_str($v)
+{
+    return is_scalar($v) ? (string) $v : '';
+}
+
+// Same product-group -> brand-ink mapping the cart uses
+function oi_ink_for_category($category)
+{
+    $c = strtolower((string) $category);
+    if (strpos($c, 'offset') !== false)  return 'black';
+    if (strpos($c, 'digital') !== false) return 'cyan';
+    if (strpos($c, 'riso') !== false)    return 'magenta';
+    return 'yellow';
+}
+
+// design_image is JSON, "repaired" JSON, or (legacy) a bare filename
+function oi_parse_design($raw)
+{
+    $out = [
+        'upload_type'         => 'single',
+        'front_mockup'        => '',
+        'back_mockup'         => '',
+        'uploaded_file'       => '',
+        'front_uploaded_file' => '',
+        'back_uploaded_file'  => '',
+    ];
+
+    $arr = json_decode($raw, true);
+    if (!(json_last_error() === JSON_ERROR_NONE && is_array($arr))) {
+        if (preg_match('/\{.*\}/', $raw)) {
+            $fixed = stripslashes(str_replace('\\"', '"', $raw));
+            $arr = json_decode($fixed, true);
+            if (!(json_last_error() === JSON_ERROR_NONE && is_array($arr))) {
+                return $out;
+            }
+        } else {
+            $out['uploaded_file'] = $raw; // legacy: a bare filename
+            return $out;
+        }
+    }
+
+    $out['upload_type'] = oi_str($arr['upload_type'] ?? 'single') ?: 'single';
+    foreach (['front_mockup', 'back_mockup', 'uploaded_file', 'front_uploaded_file', 'back_uploaded_file'] as $k) {
+        $out[$k] = oi_str($arr[$k] ?? '');
+    }
+    return $out;
+}
+
+// [label, file, icon if the file is missing, alt text, kind, path, exists]
+function oi_design_tiles($d)
+{
+    $tiles = [];
+    if ($d['upload_type'] === 'single' && $d['uploaded_file'] !== '') {
+        $tiles[] = ['Original File', $d['uploaded_file'], 'fa-file-image', 'Original Design File', 'original'];
+    }
+    if ($d['front_uploaded_file'] !== '') {
+        $tiles[] = ['Front Original', $d['front_uploaded_file'], 'fa-file-image', 'Front Original Design', 'original'];
+    }
+    if ($d['back_uploaded_file'] !== '') {
+        $tiles[] = ['Back Original', $d['back_uploaded_file'], 'fa-file-image', 'Back Original Design', 'original'];
+    }
+    if ($d['front_mockup'] !== '') {
+        $tiles[] = ['Front Mockup', $d['front_mockup'], 'fa-image', 'Front Mockup', 'mockup'];
+    }
+    if ($d['back_mockup'] !== '') {
+        $tiles[] = ['Back Mockup', $d['back_mockup'], 'fa-image', 'Back Mockup', 'mockup'];
+    }
+    foreach ($tiles as &$t) {
+        $t[5] = '../../assets/uploads/' . $t[1];
+        $t[6] = file_exists($t[5]);
+    }
+    unset($t);
+    return $tiles;
+}
+
+// Image for the collapsed row: a mockup if there is one, else any design image that exists
+function oi_pick_thumb($tiles)
+{
+    foreach (['mockup', 'original'] as $kind) {
+        foreach ($tiles as $t) {
+            if ($t[4] === $kind && $t[6]) return $t;
+        }
+    }
+    return null;
+}
+
+// Layout files are saved with whatever relative prefix the service page used
+// (e.g. "../../assets/uploads/user_layouts/5/layout_xyz.jpg"); normalise it
+function oi_layout_file_url($stored)
+{
+    $pos = strpos($stored, 'assets/uploads/');
+    if ($pos === false) {
+        return null;
+    }
+    return '../../' . substr($stored, $pos);
+}
+
+function oi_layout_files($raw)
+{
+    $files = json_decode($raw, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($files)) {
+        return [];
+    }
+    return array_values(array_filter($files, 'is_string'));
+}
+
+// Styles for the items list. Mobile-first: on phones the dialog on profile.php is
+// a bottom sheet, so everything here is sized for a narrow, touch-only screen and
+// then relaxed for wider screens at the bottom.
+?>
+<style>
+/* Order items as tap-to-open cards (same pattern as the cart page).
+   Mobile-first: the dialog is a bottom sheet on phones. */
+.acct-page .order-items-list {
+    display: grid;
+    gap: 10px;
+}
+
+.order-items-list .oi-toolbar {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.order-items-list .oi-expand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 0 14px;
+    background: transparent;
+    border: 1.5px solid var(--ink);
+    border-radius: var(--r-sm);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.order-items-list .oi-expand:hover {
+    background: var(--ink);
+    color: var(--paper-white);
+}
+
+.order-items-list .oi-expand i {
+    font-size: 11px;
+    transition: transform 0.3s var(--ease);
+}
+
+.order-items-list .oi-expand[aria-pressed="true"] i {
+    transform: rotate(180deg);
+}
+
+.acct-page .order-items-list .order-item-detail {
+    --item-ink: var(--ink);
+    min-width: 0;
+    padding: 0;
+    border-left-color: var(--item-ink);
+    transition: var(--transition);
+}
+
+.acct-page .order-items-list .order-item-detail[data-ink="black"] {
+    --item-ink: var(--cmyk-black);
+}
+
+.acct-page .order-items-list .order-item-detail[data-ink="cyan"] {
+    --item-ink: var(--cmyk-cyan);
+}
+
+.acct-page .order-items-list .order-item-detail[data-ink="magenta"] {
+    --item-ink: var(--cmyk-magenta);
+}
+
+.acct-page .order-items-list .order-item-detail[data-ink="yellow"] {
+    --item-ink: var(--cmyk-yellow);
+}
+
+.acct-page .order-items-list .order-item-detail.is-open {
+    box-shadow: var(--shadow-sm);
+}
+
+/* Always-visible row */
+.order-items-list .oi-toggle {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 14px;
+    grid-template-areas:
+        "img sum chev"
+        "img sub chev";
+    align-items: center;
+    gap: 2px 12px;
+    width: 100%;
+    min-height: 64px;
+    padding: 10px 12px;
+    background: none;
+    border: 0;
+    border-radius: var(--r-md);
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.order-items-list .oi-toggle:focus-visible {
+    outline: 2px solid var(--riso-blue);
+    outline-offset: -2px;
+}
+
+.order-items-list .oi-thumb {
+    grid-area: img;
+    align-self: start;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: var(--paper-dim);
+    border-radius: var(--r-sm);
+    color: var(--ink-faint);
+    font-size: 17px;
+}
+
+.order-items-list .oi-thumb img {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    object-fit: cover;
+    border-radius: 0;
+}
+
+.order-items-list .oi-summary {
+    grid-area: sum;
+    min-width: 0;
+    display: block;
+}
+
+.order-items-list .order-item-cat {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+}
+
+.acct-page .order-items-list .order-item-name {
+    display: block;
+    flex: none;
+    margin: 1px 0 2px;
+    font-size: 0.95rem;
+    line-height: 1.25;
+}
+
+.order-items-list .order-item-calc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 6px;
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+}
+
+.order-items-list .order-item-calc strong {
+    color: var(--ink);
+}
+
+.order-items-list .oi-sub {
+    grid-area: sub;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--ink);
+}
+
+.order-items-list .oi-chev {
+    grid-area: chev;
+    font-size: 12px;
+    color: var(--ink-faint);
+    transition: transform 0.3s var(--ease);
+}
+
+.order-item-detail.is-open .oi-chev {
+    transform: rotate(180deg);
+}
+
+/* The dropdown (animates height without JS measuring) */
+.order-items-list .oi-panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.32s var(--ease);
+}
+
+.order-item-detail.is-open .oi-panel {
+    grid-template-rows: 1fr;
+}
+
+.order-items-list .oi-panel__inner {
+    min-height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    transition: visibility 0s linear 0.32s;
+}
+
+.order-item-detail.is-open .oi-panel__inner {
+    visibility: visible;
+    transition-delay: 0s;
+}
+
+.order-items-list .oi-body {
+    margin: 0 12px;
+    padding: 12px 0 14px;
+    border-top: 1px dashed var(--line);
+}
+
+.order-items-list .oi-block {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--line);
+}
+
+.order-items-list .oi-block__title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+    margin-bottom: 8px;
+    font-family: var(--font-display);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.order-items-list .oi-block__title i {
+    align-self: center;
+    color: var(--riso-red);
+}
+
+.order-items-list .oi-block__title small {
+    font-family: var(--font-body);
+    font-size: 11.5px;
+    font-weight: 400;
+    color: var(--ink-faint);
+}
+
+/* Price breakdown tiles */
+.order-items-list .oi-figures {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.order-items-list .oi-figure {
+    min-width: 0;
+    padding: 6px 10px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+}
+
+.order-items-list .oi-figure--sub {
+    grid-column: 1 / -1;
+}
+
+.order-items-list .oi-figure span {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+}
+
+.order-items-list .oi-figure strong {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+}
+
+/* Options as small chips, two per row on a phone */
+.order-items-list .printing-details {
+    margin: 0;
+    padding: 0;
+    background: none;
+    font-size: inherit;
+}
+
+.order-items-list .details-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.order-items-list .detail-item {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 1px;
+    min-width: 0;
+    padding: 6px 10px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
 }
 
-.detail-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 5px 0;
+.order-items-list .detail-item:has(small) {
+    grid-column: 1 / -1;
 }
 
-.detail-label {
+.order-items-list .detail-label {
+    min-width: 0;
+    font-size: 10.5px;
     font-weight: 600;
-    color: #2c3e50;
-    min-width: 120px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
 }
 
-.detail-value {
-    color: #495057;
-    flex: 1;
-}
-
-.design-previews {
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    margin-top: 10px;
-}
-
-.design-preview {
-    text-align: center;
-    flex: 0 0 auto;
-}
-
-.design-preview img {
-    width: 80px;
-    height: 80px;
-    object-fit: contain;
-    border-radius: 8px;
-    border: 2px solid #007bff;
-    padding: 5px;
-    background: white;
-}
-
-.design-label {
-    font-size: 0.7em;
-    color: #666;
-    margin-top: 5px;
+.order-items-list .detail-value {
+    flex: none;
+    font-size: 13px;
     font-weight: 500;
+    line-height: 1.3;
+    color: var(--ink);
+    overflow-wrap: anywhere;
 }
 
-.design-preview:has(img[alt*="Original"]) img {
-    border-color: #28a745;
+.order-items-list .detail-value small {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 400;
+    color: var(--ink-faint);
 }
 
-.design-preview:has(img[alt*="Mockup"]) img {
-    border-color: #007bff;
+/* Uploaded layout files */
+.order-items-list .oi-files {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
-</style>';
+
+.order-items-list .oi-file {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 6px 10px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    font-size: 13px;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+}
+
+.order-items-list a.oi-file {
+    color: var(--riso-blue);
+    font-weight: 600;
+}
+
+.order-items-list .oi-file i {
+    flex-shrink: 0;
+    color: var(--ink-faint);
+}
+
+.order-items-list .oi-file small {
+    margin-left: auto;
+    flex-shrink: 0;
+    color: var(--ink-faint);
+    font-weight: 400;
+}
+
+/* Artwork: one swipeable row of tappable thumbnails */
+.order-items-list .design-previews {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin: 0;
+    padding-bottom: 2px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+}
+
+.order-items-list .design-preview {
+    flex: 0 0 auto;
+    width: 68px;
+    margin: 0;
+    text-align: center;
+    scroll-snap-align: start;
+}
+
+.order-items-list .design-preview a {
+    display: block;
+}
+
+.order-items-list .design-preview img,
+.order-items-list .design-missing {
+    display: block;
+    width: 68px;
+    height: 68px;
+    border-radius: var(--r-sm);
+}
+
+.order-items-list .design-preview img {
+    padding: 3px;
+    object-fit: contain;
+    background: var(--paper-white);
+    border: 1.5px solid var(--line);
+}
+
+.order-items-list .design-preview--original img {
+    border-color: var(--ok);
+}
+
+.order-items-list .design-preview--mockup img {
+    border-color: var(--riso-blue);
+}
+
+.order-items-list .design-missing {
+    display: grid;
+    place-items: center;
+    border: 1.5px dashed var(--ink-faint);
+    color: var(--ink-faint);
+    font-size: 18px;
+}
+
+.order-items-list .design-label {
+    margin-top: 4px;
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--ink-soft);
+}
+
+.order-items-list .oi-meta {
+    margin: 10px 0 0;
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    overflow-wrap: anywhere;
+}
+
+.order-items-list .oi-meta strong {
+    font-weight: 600;
+    color: var(--ink-soft);
+}
+
+/* Price breakdown for the whole order */
+.acct-page .order-items-list .modal-order-summary {
+    margin-top: 2px;
+    padding: 4px 14px 12px;
+}
+
+.acct-page .order-items-list .summary-row {
+    padding: 7px 0;
+    font-size: 13.5px;
+}
+
+.acct-page .order-items-list .summary-row:last-child {
+    padding-top: 12px;
+    font-size: 1.1rem;
+}
+
+/* Larger screens: a little more room */
+@media (min-width: 641px) {
+    .acct-page .order-items-list {
+        gap: 12px;
+    }
+
+    .order-items-list .oi-toggle {
+        grid-template-columns: 52px minmax(0, 1fr) auto 14px;
+        grid-template-areas: "img sum sub chev";
+        gap: 16px;
+        padding: 12px 16px;
+    }
+
+    .order-items-list .oi-thumb {
+        align-self: center;
+        width: 52px;
+        height: 52px;
+    }
+
+    .acct-page .order-items-list .order-item-name {
+        font-size: 1.05rem;
+    }
+
+    .order-items-list .oi-sub {
+        font-size: 1.1rem;
+    }
+
+    .order-items-list .oi-body {
+        margin: 0 16px;
+        padding-bottom: 16px;
+    }
+
+    .order-items-list .oi-figures {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .order-items-list .oi-figure--sub {
+        grid-column: auto;
+    }
+
+    .order-items-list .details-row {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 8px;
+    }
+
+    .order-items-list .detail-item {
+        padding: 8px 12px;
+    }
+
+    .order-items-list .design-preview,
+    .order-items-list .design-preview img,
+    .order-items-list .design-missing {
+        width: 80px;
+    }
+
+    .order-items-list .design-preview img,
+    .order-items-list .design-missing {
+        height: 80px;
+    }
+
+    .order-items-list .design-previews {
+        flex-wrap: wrap;
+        overflow-x: visible;
+    }
+
+    .acct-page .order-items-list .summary-row {
+        padding: 8px 0;
+        font-size: 14.5px;
+    }
+}
+</style>
+<?php
 
 if (isset($_GET['order_id'])) {
     $order_id = $_GET['order_id'];
@@ -148,19 +725,60 @@ if (isset($_GET['order_id'])) {
         $stmt->execute();
         $result = $stmt->get_result();
         
+        $item_count = (int) $result->num_rows;
+
         echo '<div class="order-items-list">';
+        if ($item_count > 1) {
+            echo '<div class="oi-toolbar"><button type="button" class="oi-expand" aria-pressed="false"><i class="fas fa-chevron-down" aria-hidden="true"></i> <span>Expand all</span></button></div>';
+        }
+
         $total = 0;
+        $idx = 0;
         while ($item = $result->fetch_assoc()) {
+            $idx++;
             $item_total = $item['unit_price'] * $item['quantity'];
             $total += $item_total;
-            ?>
-            <div class="order-item-detail">
-                <h4><?php echo htmlspecialchars($item['product_name']); ?> (<?php echo htmlspecialchars($item['product_category']); ?>)</h4>
-                <p><strong>Quantity:</strong> <?php echo $item['quantity']; ?></p>
-                <p><strong>Unit Price:</strong> ₱<?php echo number_format($item['unit_price'], 2); ?></p>
-                <p><strong>Subtotal:</strong> ₱<?php echo number_format($item_total, 2); ?></p>
 
-                <!-- Display all customization options -->
+            $ink          = oi_ink_for_category($item['product_category']);
+            $design       = !empty($item['design_image']) ? oi_parse_design($item['design_image']) : null;
+            $design_tiles = $design ? oi_design_tiles($design) : [];
+            $layout_files = !empty($item['user_layout_files']) ? oi_layout_files($item['user_layout_files']) : [];
+            $thumb        = oi_pick_thumb($design_tiles);
+            $is_open      = false; // every item starts closed; tap a row to open it
+            ?>
+            <article class="order-item-detail<?php echo $is_open ? ' is-open' : ''; ?>" data-ink="<?php echo $ink; ?>">
+                <button type="button" class="oi-toggle" aria-expanded="<?php echo $is_open ? 'true' : 'false'; ?>" aria-controls="oi-panel-<?php echo $idx; ?>">
+                    <span class="oi-thumb">
+                        <?php if ($thumb): ?>
+                            <img src="<?php echo oi_h($thumb[5]); ?>" alt="" loading="lazy">
+                        <?php else: ?>
+                            <i class="fas fa-image" aria-hidden="true"></i>
+                        <?php endif; ?>
+                    </span>
+                    <span class="oi-summary">
+                        <span class="order-item-cat"><?php echo oi_h($item['product_category']); ?></span>
+                        <span class="order-item-name"><?php echo oi_h($item['product_name']); ?></span>
+                        <span class="order-item-calc">
+                            <span>Qty <strong><?php echo (int) $item['quantity']; ?></strong></span>
+                            <span>&times; &#8369;<?php echo number_format($item['unit_price'], 2); ?></span>
+                        </span>
+                    </span>
+                    <span class="oi-sub">&#8369;<?php echo number_format($item_total, 2); ?></span>
+                    <i class="fas fa-chevron-down oi-chev" aria-hidden="true"></i>
+                </button>
+
+                <div class="oi-panel" id="oi-panel-<?php echo $idx; ?>">
+                    <div class="oi-panel__inner">
+                        <div class="oi-body">
+
+                            <!-- Price for this line -->
+                            <div class="oi-figures">
+                                <div class="oi-figure"><span>Unit price</span><strong>&#8369;<?php echo number_format($item['unit_price'], 2); ?></strong></div>
+                                <div class="oi-figure"><span>Quantity</span><strong><?php echo (int) $item['quantity']; ?></strong></div>
+                                <div class="oi-figure oi-figure--sub"><span>Subtotal</span><strong>&#8369;<?php echo number_format($item_total, 2); ?></strong></div>
+                            </div>
+
+                            <!-- Display all customization options -->
                 <?php if (!empty($item['size_option']) || !empty($item['color_option']) || !empty($item['finish_option_name']) || !empty($item['paper_option_name']) || !empty($item['binding_option_name']) || !empty($item['layout_option_name']) || !empty($item['gsm_option'])): ?>
                     <div class="printing-details">
                         <div class="details-row">
@@ -178,15 +796,15 @@ if (isset($_GET['order_id'])) {
                                 <div class="detail-item">
                                     <span class="detail-label">
                                         <?php if ($isTshirt): ?>
-                                            T-Shirt Size:
+                                            T-Shirt Size
                                         <?php elseif ($isTote): ?>
-                                            Tote Bag Size:
+                                            Tote Bag Size
                                         <?php elseif ($isPaperBag): ?>
-                                            Paper Bag Size:
+                                            Paper Bag Size
                                         <?php elseif ($isMug): ?>
-                                            Mug Size:
+                                            Mug Size
                                         <?php else: ?>
-                                            Size:
+                                            Size
                                         <?php endif; ?>
                                     </span>
                                     <span class="detail-value">
@@ -215,13 +833,13 @@ if (isset($_GET['order_id'])) {
                                 <div class="detail-item">
                                     <span class="detail-label">
                                         <?php if ($isTshirt): ?>
-                                            T-Shirt Color:
+                                            T-Shirt Color
                                         <?php elseif ($isTote): ?>
-                                            Tote Bag Color:
+                                            Tote Bag Color
                                         <?php elseif ($isMug): ?>
-                                            Mug Color:
+                                            Mug Color
                                         <?php else: ?>
-                                            Color:
+                                            Color
                                         <?php endif; ?>
                                     </span>
                                     <span class="detail-value">
@@ -245,28 +863,28 @@ if (isset($_GET['order_id'])) {
                             <?php if (!$isTshirt && !$isTote && !$isPaperBag && !$isMug): ?>
                                 <?php if (!empty($item['finish_option_name'])): ?>
                                     <div class="detail-item">
-                                        <span class="detail-label">Finish:</span>
+                                        <span class="detail-label">Finish</span>
                                         <span class="detail-value"><?php echo htmlspecialchars($item['finish_option_name']); ?></span>
                                     </div>
                                 <?php endif; ?>
                                 
                                 <?php if (!empty($item['paper_option_name'])): ?>
                                     <div class="detail-item">
-                                        <span class="detail-label">Paper:</span>
+                                        <span class="detail-label">Paper</span>
                                         <span class="detail-value"><?php echo htmlspecialchars($item['paper_option_name']); ?></span>
                                     </div>
                                 <?php endif; ?>
                                 
                                 <?php if (!empty($item['binding_option_name'])): ?>
                                     <div class="detail-item">
-                                        <span class="detail-label">Binding:</span>
+                                        <span class="detail-label">Binding</span>
                                         <span class="detail-value"><?php echo htmlspecialchars($item['binding_option_name']); ?></span>
                                     </div>
                                 <?php endif; ?>
                                 
                                 <?php if (!empty($item['layout_option_name'])): ?>
                                     <div class="detail-item">
-                                        <span class="detail-label">Layout Type:</span>
+                                        <span class="detail-label">Layout Type</span>
                                         <span class="detail-value">
                                             <?php echo htmlspecialchars($item['layout_option_name']); ?>
                                             <?php if (!empty($item['layout_details'])): ?>
@@ -278,7 +896,7 @@ if (isset($_GET['order_id'])) {
                                 
                                 <?php if (!empty($item['gsm_option'])): ?>
                                     <div class="detail-item">
-                                        <span class="detail-label">GSM:</span>
+                                        <span class="detail-label">GSM</span>
                                         <span class="detail-value"><?php echo htmlspecialchars($item['gsm_option']); ?></span>
                                     </div>
                                 <?php endif; ?>
@@ -287,163 +905,80 @@ if (isset($_GET['order_id'])) {
                     </div>
                 <?php endif; ?>
 
-                <!-- Custom Design Previews -->
-                <?php
-                if (!empty($item['design_image'])) {
-                    $designData = $item['design_image'];
-                    $frontMockup = '';
-                    $backMockup = '';
-                    $uploadedFile = '';
-                    $frontUploadedFile = '';
-                    $backUploadedFile = '';
-                    $uploadType = '';
-                    
-                    // Check if it's JSON format
-                    $isJson = false;
-                    $designArray = json_decode($designData, true);
+                            <!-- Uploaded layout files -->
+                            <?php if (!empty($layout_files)): ?>
+                                <div class="oi-block">
+                                    <div class="oi-block__title">
+                                        <i class="fas fa-file-upload" aria-hidden="true"></i> Your uploaded layout file<?php echo count($layout_files) > 1 ? 's' : ''; ?>
+                                    </div>
+                                    <ul class="oi-files">
+                                        <?php foreach ($layout_files as $lf):
+                                            $lf_url  = oi_layout_file_url($lf);
+                                            $lf_name = basename($lf);
+                                            $lf_ext  = strtolower(pathinfo($lf_name, PATHINFO_EXTENSION));
+                                            $lf_icon = $lf_ext === 'pdf' ? 'fa-file-pdf' : 'fa-file-image';
+                                        ?>
+                                            <li>
+                                                <?php if ($lf_url && file_exists($lf_url)): ?>
+                                                    <a class="oi-file" href="<?php echo oi_h($lf_url); ?>" target="_blank" rel="noopener">
+                                                        <i class="fas <?php echo $lf_icon; ?>" aria-hidden="true"></i> <?php echo oi_h($lf_name); ?>
+                                                    </a>
+                                                <?php else: ?>
+                                                    <span class="oi-file">
+                                                        <i class="fas <?php echo $lf_icon; ?>" aria-hidden="true"></i> <?php echo oi_h($lf_name); ?>
+                                                        <small>(file not found)</small>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                </div>
+                            <?php endif; ?>
 
-                    if (json_last_error() === JSON_ERROR_NONE && is_array($designArray)) {
-                        $isJson = true;
-                        $uploadType = $designArray['upload_type'] ?? 'single';
-                        
-                        // Get ALL images - FIXED: Extract all file types
-                        $frontMockup = $designArray['front_mockup'] ?? '';
-                        $backMockup = $designArray['back_mockup'] ?? '';
-                        $uploadedFile = $designArray['uploaded_file'] ?? '';
-                        $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
-                        $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
-                        
-                    } else {
-                        // Try to fix JSON if it's malformed
-                        if (preg_match('/\{.*\}/', $designData)) {
-                            $fixedJson = str_replace('\"', '"', $designData);
-                            $fixedJson = stripslashes($fixedJson);
-                            
-                            $designArray = json_decode($fixedJson, true);
-                            if (json_last_error() === JSON_ERROR_NONE && is_array($designArray)) {
-                                $isJson = true;
-                                $uploadType = $designArray['upload_type'] ?? 'single';
-                                $frontMockup = $designArray['front_mockup'] ?? '';
-                                $backMockup = $designArray['back_mockup'] ?? '';
-                                $uploadedFile = $designArray['uploaded_file'] ?? '';
-                                $frontUploadedFile = $designArray['front_uploaded_file'] ?? '';
-                                $backUploadedFile = $designArray['back_uploaded_file'] ?? '';
-                            }
-                        } else {
-                            // Legacy format - single image
-                            $uploadedFile = $designData;
-                            $uploadType = 'single';
-                        }
-                    }
-                    
-                    // Display design previews if we have valid images
-                    $hasDesigns = !empty($frontMockup) || !empty($backMockup) || !empty($uploadedFile) || !empty($frontUploadedFile) || !empty($backUploadedFile);
-                    
-                    if ($hasDesigns): ?>
-                        <div style="margin-top: 15px; padding-top: 15px; border-top: 2px dashed #007bff;">
-                            <div style="font-weight: bold; margin-bottom: 10px; color: #007bff; font-size: 1em;">
-                                <i class="fas fa-palette"></i> Custom Design
-                            </div>
-                            <div class="design-previews">
-                                <?php 
-                                // Show uploaded original files
-                                if ($uploadType === 'single' && !empty($uploadedFile)): 
-                                    $uploadedFilePath = "../../assets/uploads/" . $uploadedFile;
-                                    $uploadedFileExists = file_exists($uploadedFilePath);
-                                    ?>
-                                    <div class="design-preview">
-                                        <?php if ($uploadedFileExists): ?>
-                                            <img src="<?php echo $uploadedFilePath; ?>" 
-                                                alt="Original Design File">
-                                        <?php else: ?>
-                                            <div style="width: 80px; height: 80px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 2px dashed #ccc;">
-                                                <i class="fas fa-file-image" style="font-size: 20px; color: #999;"></i>
-                                            </div>
-                                        <?php endif; ?>
-                                        <div class="design-label">Original File</div>
+                            <!-- Custom design previews (tap a thumbnail to open it full size) -->
+                            <?php if (!empty($design_tiles)):
+                                $upType = $design['upload_type'];
+                            ?>
+                                <div class="oi-block">
+                                    <div class="oi-block__title">
+                                        <i class="fas fa-palette" aria-hidden="true"></i> Your custom design
+                                        <small><?php echo $upType === 'single' ? 'Same design on both sides' : 'Different designs for front and back'; ?></small>
                                     </div>
-                                <?php endif; ?>
-                                
-                                <?php if (!empty($frontUploadedFile) || !empty($backUploadedFile)): ?>
-                                    <?php if (!empty($frontUploadedFile)): 
-                                        $frontUploadedFilePath = "../../assets/uploads/" . $frontUploadedFile;
-                                        $frontUploadedFileExists = file_exists($frontUploadedFilePath);
-                                        ?>
-                                        <div class="design-preview">
-                                            <?php if ($frontUploadedFileExists): ?>
-                                                <img src="<?php echo $frontUploadedFilePath; ?>" 
-                                                    alt="Front Original Design">
-                                            <?php else: ?>
-                                                <div style="width: 80px; height: 80px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 2px dashed #ccc;">
-                                                    <i class="fas fa-file-image" style="font-size: 20px; color: #999;"></i>
-                                                </div>
+                                    <div class="design-previews">
+                                        <?php foreach ($design_tiles as $tile): ?>
+                                            <figure class="design-preview design-preview--<?php echo $tile[4]; ?>">
+                                                <?php if ($tile[6]): ?>
+                                                    <a href="<?php echo oi_h($tile[5]); ?>" target="_blank" rel="noopener" aria-label="Open <?php echo oi_h($tile[0]); ?> full size">
+                                                        <img src="<?php echo oi_h($tile[5]); ?>" alt="<?php echo oi_h($tile[3]); ?>" loading="lazy">
+                                                    </a>
+                                                <?php else: ?>
+                                                    <div class="design-missing" title="Preview not available"><i class="fas <?php echo $tile[2]; ?>" aria-hidden="true"></i></div>
+                                                <?php endif; ?>
+                                                <figcaption class="design-label"><?php echo oi_h($tile[0]); ?></figcaption>
+                                            </figure>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <p class="oi-meta">
+                                        <strong>Upload type:</strong> <?php echo oi_h(ucfirst($upType)); ?>
+                                        <?php if ($upType === 'single' && $design['uploaded_file'] !== ''): ?>
+                                            &nbsp;&middot;&nbsp; <strong>File:</strong> <?php echo oi_h(basename($design['uploaded_file'])); ?>
+                                        <?php endif; ?>
+                                        <?php if ($upType === 'separate'): ?>
+                                            <?php if ($design['front_uploaded_file'] !== ''): ?>
+                                                &nbsp;&middot;&nbsp; <strong>Front:</strong> <?php echo oi_h(basename($design['front_uploaded_file'])); ?>
                                             <?php endif; ?>
-                                            <div class="design-label">Front Original</div>
-                                        </div>
-                                    <?php endif; ?>
-                                    
-                                    <?php if (!empty($backUploadedFile)): 
-                                        $backUploadedFilePath = "../../assets/uploads/" . $backUploadedFile;
-                                        $backUploadedFileExists = file_exists($backUploadedFilePath);
-                                        ?>
-                                        <div class="design-preview">
-                                            <?php if ($backUploadedFileExists): ?>
-                                                <img src="<?php echo $backUploadedFilePath; ?>" 
-                                                    alt="Back Original Design">
-                                            <?php else: ?>
-                                                <div style="width: 80px; height: 80px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 2px dashed #ccc;">
-                                                    <i class="fas fa-file-image" style="font-size: 20px; color: #999;"></i>
-                                                </div>
+                                            <?php if ($design['back_uploaded_file'] !== ''): ?>
+                                                &nbsp;&middot;&nbsp; <strong>Back:</strong> <?php echo oi_h(basename($design['back_uploaded_file'])); ?>
                                             <?php endif; ?>
-                                            <div class="design-label">Back Original</div>
-                                        </div>
-                                    <?php endif; ?>
-                                <?php endif; ?>
-                                
-                                <!-- Mockup Previews -->
-                                <?php 
-                                // Front mockup
-                                if (!empty($frontMockup)): 
-                                    $frontMockupPath = "../../assets/uploads/" . $frontMockup;
-                                    $frontMockupExists = file_exists($frontMockupPath);
-                                    ?>
-                                    <div class="design-preview">
-                                        <?php if ($frontMockupExists): ?>
-                                            <img src="<?php echo $frontMockupPath; ?>" 
-                                                alt="Front Mockup">
-                                        <?php else: ?>
-                                            <div style="width: 80px; height: 80px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 2px dashed #007bff;">
-                                                <i class="fas fa-image" style="font-size: 20px; color: #007bff;"></i>
-                                            </div>
                                         <?php endif; ?>
-                                        <div class="design-label">Front Mockup</div>
-                                    </div>
-                                <?php endif; ?>
-                                
-                                <?php 
-                                // Back mockup
-                                if (!empty($backMockup)): 
-                                    $backMockupPath = "../../assets/uploads/" . $backMockup;
-                                    $backMockupExists = file_exists($backMockupPath);
-                                    ?>
-                                    <div class="design-preview">
-                                        <?php if ($backMockupExists): ?>
-                                            <img src="<?php echo $backMockupPath; ?>" 
-                                                alt="Back Mockup">
-                                        <?php else: ?>
-                                            <div style="width: 80px; height: 80px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 2px dashed #007bff;">
-                                                <i class="fas fa-image" style="font-size: 20px; color: #007bff;"></i>
-                                            </div>
-                                        <?php endif; ?>
-                                        <div class="design-label">Back Mockup</div>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
+                                    </p>
+                                </div>
+                            <?php endif; ?>
+
                         </div>
-                    <?php endif;
-                }
-                ?>
-            </div>
+                    </div>
+                </div>
+            </article>
             <?php
         }
         // Build the same price breakdown shown at checkout (see checkout.php):
@@ -459,14 +994,14 @@ if (isset($_GET['order_id'])) {
         // disagree.
         $adjustment = round($order_total_amount - $expected_total, 2);
 
-        echo '<div class="order-total" style="margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px;">';
-        echo '<div class="summary-row" style="display:flex; justify-content:space-between; padding:4px 0;"><span>Subtotal:</span><span>₱' . number_format($subtotal, 2) . '</span></div>';
-        echo '<div class="summary-row" style="display:flex; justify-content:space-between; padding:4px 0;"><span>Tax (3%):</span><span>₱' . number_format($tax, 2) . '</span></div>';
+        echo '<div class="modal-order-summary order-total">';
+        echo '<div class="summary-row"><span>Subtotal</span><span>₱' . number_format($subtotal, 2) . '</span></div>';
+        echo '<div class="summary-row"><span>Tax (3%)</span><span>₱' . number_format($tax, 2) . '</span></div>';
         if (abs($adjustment) > 0.005) {
-            $adj_label = $adjustment > 0 ? 'Additional fee:' : 'Discount:';
-            echo '<div class="summary-row" style="display:flex; justify-content:space-between; padding:4px 0;"><span>' . $adj_label . '</span><span>₱' . number_format(abs($adjustment), 2) . '</span></div>';
+            $adj_label = $adjustment > 0 ? 'Additional fee' : 'Discount';
+            echo '<div class="summary-row"><span>' . $adj_label . '</span><span>₱' . number_format(abs($adjustment), 2) . '</span></div>';
         }
-        echo '<div class="summary-row total-row" style="display:flex; justify-content:space-between; padding:8px 0 0; margin-top:6px; border-top:1px solid #ced4da; font-weight:bold; font-size:1.2em;"><span>Total:</span><span>₱' . number_format($order_total_amount, 2) . '</span></div>';
+        echo '<div class="summary-row total-row"><span>Total</span><span>₱' . number_format($order_total_amount, 2) . '</span></div>';
         echo '</div>';
         echo '</div>';
     } else {

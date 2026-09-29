@@ -1458,6 +1458,13 @@ function autoResize(textarea) {
 
     if (saved && saved.open && typeof toggleChat === "function") {
       restoring = true;
+      // Already open when the page loads: skip the slide-in animation
+      widget.classList.add("no-anim");
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          widget.classList.remove("no-anim");
+        });
+      });
       toggleChat(); // opens the widget, starts loadConversations()/auto-refresh in the background
       if (saved.convId) {
         // Switch to the saved conversation in the same tick as opening the
@@ -1480,128 +1487,133 @@ function autoResize(textarea) {
   });
 })();
 
-// Checkout dock — on cart.php / checkout.php the order summary sits below
-// the whole item list once the layout stacks, so on a phone the action is a
-// long scroll away. This builds a slim bar pinned to the bottom of the
-// screen that mirrors the live total and the real action button, and slides
-// away whenever the real button (or the footer) is already on screen.
+// ============================================================================
+// Chat widget on phones: dim backdrop, scroll lock, on-screen keyboard
+// handling, swipe-down-to-close and Esc. Purely additive: it only toggles
+// classes/CSS variables and calls the page's own toggleChat().
+// ============================================================================
 (function () {
-  const isCheckout = document.body.classList.contains("co-page");
-  const cartForm = document.getElementById("cartForm");
-  if (!isCheckout && !cartForm) return;
+  function init() {
+    var widget = document.getElementById("chatWidget");
+    if (!widget) return;
 
-  const els = isCheckout
-    ? {
-        total: document.querySelector(".co-amount strong"),
-        submit: document.getElementById("confirm-order-btn"),
-        anchor: document.querySelector(".co-pay__foot"),
+    var mq = window.matchMedia(
+      "(max-width: 768px), (max-height: 500px) and (pointer: coarse)",
+    );
+    var root = document.documentElement;
+
+    function isOpen() {
+      return widget.classList.contains("open");
+    }
+    function closeChat() {
+      if (isOpen() && typeof window.toggleChat === "function") {
+        window.toggleChat();
       }
-    : {
-        total: document.getElementById("total-amount"),
-        count: document.getElementById("selected-count"),
-        checkout: document.querySelector(".checkout-btn"),
-        waiting: document.querySelector(".waiting-btn"),
-        request: document.querySelector(".request-btn"),
-        anchor: document.querySelector(".cart-buttons"),
-        watch: document.querySelector(".cart-summary"),
+    }
+
+    // ----- Backdrop + scroll lock -----
+    var backdrop = document.createElement("div");
+    backdrop.className = "chat-backdrop";
+    backdrop.setAttribute("aria-hidden", "true");
+    document.body.appendChild(backdrop);
+    backdrop.addEventListener("click", closeChat);
+
+    // NOTE: this runs from a MutationObserver watching widget's class
+    // attribute. classList.remove() rewrites the attribute even when nothing
+    // changes, which re-fires the observer forever and freezes the page. So
+    // only touch the widget's classes when there is really something to undo.
+    var wasOpen = null;
+    function sync() {
+      var open = isOpen();
+      if (open === wasOpen) return;
+      wasOpen = open;
+      backdrop.classList.toggle("is-visible", open);
+      root.classList.toggle("chat-open", open);
+      if (!open) {
+        widget.style.removeProperty("--chat-kb");
+        if (widget.classList.contains("kb-open")) {
+          widget.classList.remove("kb-open");
+        }
+      }
+    }
+    new MutationObserver(sync).observe(widget, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    sync();
+
+    // ----- Esc closes -----
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeChat();
+    });
+
+    // ----- Keep the sheet above the on-screen keyboard -----
+    var vv = window.visualViewport;
+    function onViewport() {
+      if (!vv || !mq.matches || !isOpen()) return;
+      var kb = Math.max(
+        0,
+        Math.round(window.innerHeight - vv.height - vv.offsetTop),
+      );
+      widget.style.setProperty("--chat-kb", kb + "px");
+      var up = kb > 80;
+      if (up !== widget.classList.contains("kb-open")) {
+        widget.classList.toggle("kb-open", up);
+      }
+      if (up) {
+        var list = document.getElementById("messagesList");
+        if (list) list.scrollTop = list.scrollHeight;
+      }
+    }
+    if (vv) {
+      vv.addEventListener("resize", onViewport);
+      vv.addEventListener("scroll", onViewport);
+    }
+
+    // ----- Swipe down on the header to close -----
+    var header = widget.querySelector(".chat-header");
+    if (header) {
+      var startY = null;
+      var dy = 0;
+
+      header.addEventListener(
+        "touchstart",
+        function (e) {
+          if (!mq.matches || e.target.closest("button")) return;
+          startY = e.touches[0].clientY;
+          dy = 0;
+          widget.classList.add("is-dragging");
+        },
+        { passive: true },
+      );
+
+      header.addEventListener(
+        "touchmove",
+        function (e) {
+          if (startY === null) return;
+          dy = Math.max(0, e.touches[0].clientY - startY);
+          widget.style.transform = "translateY(" + dy + "px)";
+        },
+        { passive: true },
+      );
+
+      var endDrag = function () {
+        if (startY === null) return;
+        var moved = dy;
+        startY = null;
+        dy = 0;
+        widget.classList.remove("is-dragging");
+        widget.style.transform = ""; // hands control back to the CSS (snap back or slide away)
+        if (moved > 90) closeChat();
       };
-  if (!els.total || !els.anchor) return;
-
-  document.body.classList.add(isCheckout ? "has-dock--co" : "has-dock--cart");
-
-  const dock = document.createElement("div");
-  dock.className = "m-dock is-away";
-  dock.setAttribute("role", "region");
-  dock.setAttribute("aria-label", isCheckout ? "Order total" : "Cart total");
-  dock.innerHTML =
-    '<div class="m-dock__sum"><span class="m-dock__label"></span>' +
-    '<strong class="m-dock__total"></strong></div>' +
-    '<button type="button" class="btn btn-primary m-dock__btn"></button>';
-  document.body.appendChild(dock);
-
-  const label = dock.querySelector(".m-dock__label");
-  const total = dock.querySelector(".m-dock__total");
-  const btn = dock.querySelector(".m-dock__btn");
-  let target = null; // the real button the dock forwards its tap to
-  let idle = false; // nothing to act on (e.g. no items ticked)
-
-  function sync() {
-    total.textContent = els.total.textContent.trim();
-
-    if (isCheckout) {
-      label.textContent = "Amount to pay";
-      btn.className = "btn btn-primary m-dock__btn";
-      btn.innerHTML = '<i class="fas fa-check"></i> Confirm order';
-      btn.disabled = !!(els.submit && els.submit.disabled);
-      target = els.submit;
-      idle = !els.submit;
-      return;
-    }
-
-    const n = els.count ? parseInt(els.count.textContent, 10) || 0 : 0;
-    label.textContent = n + (n === 1 ? " item selected" : " items selected");
-
-    if (els.checkout && !els.checkout.hidden) {
-      btn.className = "btn btn-primary m-dock__btn";
-      btn.innerHTML = '<i class="fas fa-check"></i> Checkout';
-      btn.disabled = false;
-      target = els.checkout;
-      idle = false;
-    } else if (n > 0 && els.request) {
-      btn.className = "btn btn-ink m-dock__btn";
-      btn.innerHTML = '<i class="fas fa-envelope"></i> Request price';
-      btn.disabled = els.request.disabled;
-      target = els.request;
-      idle = false;
-    } else {
-      target = null;
-      idle = true; // nothing ticked: no reason to show the bar
+      header.addEventListener("touchend", endDrag);
+      header.addEventListener("touchcancel", endDrag);
     }
   }
 
-  btn.addEventListener("click", function () {
-    if (target && !btn.disabled) target.click();
-  });
-
-  // Keep the mirror live as the cart script updates totals and buttons
-  sync();
-  if (els.watch && "MutationObserver" in window) {
-    new MutationObserver(sync).observe(els.watch, {
-      childList: true,
-      characterData: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["hidden", "disabled"],
-    });
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
   }
-  if (isCheckout && els.submit && "MutationObserver" in window) {
-    new MutationObserver(sync).observe(els.submit, {
-      attributes: true,
-      attributeFilter: ["disabled"],
-    });
-  }
-
-  // Slide away while the real button or the footer is visible
-  const seen = new Set();
-  function render() {
-    dock.classList.toggle("is-away", idle || seen.size > 0);
-  }
-  if ("IntersectionObserver" in window) {
-    const io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
-        if (e.isIntersecting) seen.add(e.target);
-        else seen.delete(e.target);
-      });
-      render();
-    });
-    io.observe(els.anchor);
-    const footer = document.querySelector(".footer");
-    if (footer) io.observe(footer);
-  }
-  // sync() can flip "idle" without an intersection change
-  new MutationObserver(render).observe(dock, {
-    childList: true,
-    subtree: true,
-  });
-  render();
 })();

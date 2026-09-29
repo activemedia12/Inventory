@@ -1289,14 +1289,46 @@ img {
   flex-direction: column;
   overflow: hidden;
   z-index: 900;
+
+  /* Closed: tucked toward the bottom-right corner, faded out.
+     visibility flips only AFTER the fade so the close animation is seen. */
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
+  transform: translateY(18px) scale(0.94);
+  transform-origin: bottom right;
+  transition:
+    opacity 0.22s ease,
+    transform 0.28s cubic-bezier(0.4, 0, 1, 1),
+    visibility 0s linear 0.28s;
+  will-change: transform, opacity;
 }
 
 .chat-widget.open {
   opacity: 1;
   visibility: visible;
+  pointer-events: auto;
   transform: translateY(0) scale(1);
+  transition:
+    opacity 0.28s ease,
+    transform 0.46s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s;
+}
+
+/* Restoring an open chat after a page load shouldn't replay the animation */
+.chat-widget.no-anim,
+.chat-widget.no-anim * {
+  transition: none !important;
+}
+
+/* Finger is dragging the sheet: follow it 1:1 */
+.chat-widget.is-dragging {
+  transition: none !important;
+}
+
+/* Dim layer behind the sheet (phones only, see the media query below) */
+.chat-backdrop {
+  display: none;
 }
 
 .chat-header {
@@ -9108,101 +9140,6 @@ body {
 }
 
 /* =========================================================
-   Checkout dock (cart + checkout, small screens)
-   The order summary sits under the whole item list once the
-   layout stacks, so the action is a long scroll away. main.js
-   builds this bar, mirrors the live total and action into it,
-   and hides it whenever the real button (or the footer) is
-   already on screen.
-   ========================================================= */
-.m-dock {
-  display: none;
-}
-
-@media (max-width: 1279px) {
-  body.has-dock--cart .m-dock {
-    display: flex;
-  }
-}
-
-@media (max-width: 1099px) {
-  body.has-dock--co .m-dock {
-    display: flex;
-  }
-}
-
-.m-dock {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 500;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
-  background-color: rgba(250, 247, 241, 0.94);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  backdrop-filter: blur(14px) saturate(1.4);
-  border-top: 1px solid var(--line);
-  box-shadow: 0 -10px 28px -14px rgba(23, 20, 15, 0.28);
-  transition:
-    transform 0.4s var(--ease),
-    visibility 0s linear 0s;
-}
-
-.m-dock.is-away {
-  transform: translateY(110%);
-  visibility: hidden;
-  transition:
-    transform 0.4s var(--ease),
-    visibility 0s linear 0.4s;
-}
-
-.m-dock__sum {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.2;
-}
-
-.m-dock__label {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--ink-soft);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.m-dock__total {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  white-space: nowrap;
-}
-
-.m-dock__btn {
-  flex-shrink: 0;
-  padding: 12px 22px;
-  font-size: 14px;
-}
-
-.m-dock__btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .m-dock,
-  .m-dock.is-away {
-    transition-duration: 0.01s !important;
-  }
-}
-
-/* =========================================================
    Products stay two-up on phones (main.php / sub-main.php)
    The grid used to fall to one column at 560px. Cards are now
    compacted so two fit comfortably down to ~320px wide.
@@ -9509,5 +9446,284 @@ body {
 
   .auth-social-btn {
     min-height: 44px;
+  }
+}
+
+/* =========================================================
+   Chat widget — phones
+   Full-height bottom sheet that slides up, dims the page,
+   scroll-locks the background, stays above the on-screen
+   keyboard (main.js sets --chat-kb), and closes with a swipe
+   down on the header, a tap on the dim area, or Esc.
+   ========================================================= */
+@media (max-width: 768px), (max-height: 500px) and (pointer: coarse) {
+  .chat-backdrop {
+    display: none; /* full screen: nothing left to dim */
+    position: fixed;
+    inset: 0;
+    z-index: 890;
+    background: rgba(20, 17, 12, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      opacity 0.28s ease,
+      visibility 0s linear 0.28s;
+  }
+
+  .chat-backdrop.is-visible {
+    opacity: 1;
+    visibility: visible;
+    transition:
+      opacity 0.32s ease,
+      visibility 0s;
+  }
+
+  html.chat-open,
+  html.chat-open body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  /* Full screen. --chat-kb (set by main.js) lifts the bottom edge above the
+     on-screen keyboard so the composer is never covered. */
+  .chat-widget {
+    top: 0;
+    right: 0;
+    left: 0;
+    bottom: var(--chat-kb, 0px);
+    width: auto;
+    height: auto;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    transform-origin: bottom center;
+    /* closed: parked below the screen */
+    opacity: 1;
+    transform: translateY(100%);
+    transition:
+      transform 0.32s cubic-bezier(0.4, 0, 1, 1),
+      opacity 0.2s ease 0.14s,
+      visibility 0s linear 0.34s;
+  }
+
+  .chat-widget.open {
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+      transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.2s ease,
+      visibility 0s;
+  }
+
+  /* header: clears the notch / status bar, thumb-sized buttons */
+  .chat-header {
+    gap: 8px;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 8px 10px 16px;
+    touch-action: none;
+  }
+
+  .chat-title {
+    font-size: 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chat-back-btn,
+  .chat-close {
+    width: 44px;
+    height: 44px;
+    font-size: 17px;
+  }
+
+  /* lists */
+  .chat-conversations,
+  .messages-list {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .chat-conversations {
+    padding: 12px;
+  }
+
+  .chat-new-btn {
+    min-height: 48px;
+    font-size: 15px;
+  }
+
+  .chat-conversation-item {
+    padding: 14px;
+  }
+
+  .conversation-name {
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .conversation-last-message {
+    font-size: 13.5px;
+  }
+
+  .delete-conversation-btn {
+    width: 40px;
+    height: 40px;
+    margin: -8px -8px -8px 0;
+    font-size: 15px;
+  }
+
+  /* messages */
+  .messages-list {
+    padding: 14px 12px;
+  }
+
+  .message-item {
+    max-width: 88%;
+  }
+
+  .message-bubble {
+    font-size: 15px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  /* composer: 16px stops iOS zooming on focus */
+  /* composer clears the home indicator; with the keyboard up it sits on it */
+  .chat-input-area {
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .chat-widget.kb-open .chat-input-area {
+    padding-bottom: 10px;
+  }
+
+  .chat-input-wrapper {
+    align-items: center;
+    padding: 4px 4px 4px 14px;
+    border-radius: 24px;
+  }
+
+  .chat-input {
+    font-size: 16px;
+    line-height: 1.35;
+    padding: 10px 0;
+  }
+
+  .chat-send-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 16px;
+  }
+
+  /* staff picker (its styles are injected by main.js) */
+  .chat-widget .staff-picker__head {
+    padding: 8px 8px 8px 16px;
+  }
+
+  .chat-widget .staff-picker__close {
+    width: 44px;
+    height: 44px;
+    font-size: 26px;
+  }
+
+  .chat-widget .staff-picker__item {
+    min-height: 60px;
+    padding: 12px 14px;
+  }
+
+  .chat-widget .staff-picker__open {
+    min-height: 40px;
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+}
+
+/* Landscape phones: short viewport, so tighten the header */
+@media (max-height: 500px) and (pointer: coarse) {
+  .chat-header {
+    padding-top: calc(4px + env(safe-area-inset-top, 0px));
+    padding-bottom: 4px;
+  }
+
+  .chat-back-btn,
+  .chat-close {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* =========================================================
+   Search services / filters — phones
+   The filter card used to stack search, Category and Sort as
+   three full-width rows inside a 22px-padded card with 22px
+   gaps, which ate most of a screen before any service showed.
+   Now: slim card, search on top, Category + Sort side by side.
+   ========================================================= */
+@media (max-width: 560px) {
+  .all-services-section .section-header {
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+  }
+
+  .browse-layout {
+    gap: 16px;
+  }
+
+  .filter-sidebar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    align-items: end;
+    padding: 12px;
+    border-radius: var(--r-md);
+    box-shadow: none;
+  }
+
+  .filter-sidebar .search-box {
+    grid-column: 1 / -1;
+  }
+
+  .filter-sidebar .filter-group {
+    flex: none;
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .filter-group label {
+    font-size: 11.5px;
+  }
+
+  .filter-sidebar .search-input-wrapper {
+    background-color: var(--paper-white);
+  }
+
+  /* 16px stops iOS zooming when a field is focused; 44px is a thumb-sized row */
+  .filter-sidebar .search-input {
+    padding: 10px 4px 10px 16px;
+    font-size: 16px;
+  }
+
+  .filter-sidebar .search-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .filter-sidebar .filter-select {
+    min-height: 44px;
+    padding: 8px 30px 8px 12px;
+    font-size: 16px;
+    background-position: right 10px center;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Very narrow phones: two selects side by side get tight, stack them */
+@media (max-width: 340px) {
+  .filter-sidebar {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
