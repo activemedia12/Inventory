@@ -339,7 +339,7 @@ body {
 
 /* Search form (redesigned, auto-applies without a Filter button) */
 .search-card {
-  padding: 18px 20px;
+  padding: 18px;
   position: sticky;
   top: 12px;
   z-index: 50;
@@ -396,7 +396,7 @@ body {
    while collapsed so the retained bar doesn't look like it's floating in
    too much empty space. */
 .search-card.jo-scroll-collapsed {
-  padding-bottom: 14px;
+  padding: 12px 18px 0 18px;
 }
 
 /* Quick search — the single box most people need. Big, obvious, first.

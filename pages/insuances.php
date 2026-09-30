@@ -100,6 +100,7 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <link rel="stylesheet" href="../assets/css/pages/insuances.css">
+    <link rel="stylesheet" href="../assets/css/pages/products_fx.css">
   <style>
     .nav-menu li a[href="website_admin.php"] {
       display: flex;
@@ -365,6 +366,7 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
         </div>
     </div>
     <script src="../assets/js/pages/insuances.js"></script>
+    <script src="../assets/js/pages/products_fx.js"></script>
   <script>
     // Badge on the sidebar's "Website" link: same counts (unread chats,
     // pending orders, pending price-consultation requests) that drive the

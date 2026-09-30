@@ -1,0 +1,1202 @@
+/* =====================================================================
+   Delivery — motion & interaction layer (delivery_fx.css)
+   Ported 1:1 from manage_users.css. Load AFTER delivery.css.
+   Same easing curves, durations, hover lifts, springs, toasts, modals,
+   chips and search box — mapped onto the delivery page's own elements.
+   ===================================================================== */
+
+:root {
+  --mu-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --mu-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --mu-on: #16a34a;
+  --mu-on-light: #22c55e;
+  --mu-track-off: #cbd5e1;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------------
+   Page entrance
+   --------------------------------------------------------------------- */
+@keyframes mu-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mu-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.main-content > .header,
+.main-content > .alert,
+.main-content > .delivery-form,
+.main-content > .table-card {
+  animation: mu-fade-up 0.5s var(--mu-ease-out) backwards;
+}
+
+.main-content > .delivery-form {
+  animation-delay: 0.2s;
+}
+.main-content > .table-card {
+  animation-delay: 0.26s;
+}
+
+/* Form sections that swap via display:none <-> block re-run this on show
+   (.fx-ready is added by delivery_fx.js once the page entrance is done) */
+.delivery-form.fx-ready #paper-form,
+.delivery-form.fx-ready #insuance-form {
+  animation: mu-fade-up 0.4s var(--mu-ease-out) backwards;
+}
+
+/* ---------------------------------------------------------------------
+   Alerts (flash messages) — dismissible
+   --------------------------------------------------------------------- */
+.alert-dismissible {
+  overflow: hidden;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    max-height 0.35s ease,
+    margin 0.35s ease,
+    padding 0.35s ease;
+}
+
+.alert-dismissible > span {
+  flex: 1;
+}
+
+.alert-dismissible.dismissing {
+  opacity: 0;
+  transform: translateY(-8px);
+  max-height: 0 !important;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.alert-close {
+  margin-left: auto;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.alert-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.alert .alert-close i {
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------------
+   Buttons (primary / outline / form actions / reports toggle)
+   --------------------------------------------------------------------- */
+.btn {
+  transition:
+    background-color 0.15s ease,
+    transform 0.2s var(--mu-ease-out),
+    box-shadow 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px -6px rgba(79, 94, 255, 0.55);
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.btn.btn-outline:hover {
+  box-shadow: 0 8px 18px -6px rgba(20, 23, 31, 0.25);
+}
+
+.btn i {
+  transition: transform 0.3s var(--mu-ease-spring);
+}
+
+.btn:hover i {
+  transform: scale(1.2) rotate(-8deg);
+}
+
+/* chevron on the Reports button flips instead of wiggling */
+.reports-menu-toggle .fa-chevron-down {
+  transition: transform 0.3s var(--mu-ease-spring);
+}
+
+.reports-menu-toggle:hover .fa-chevron-down {
+  transform: none;
+}
+
+.reports-menu-toggle.menu-open .fa-chevron-down {
+  transform: rotate(180deg);
+}
+
+.btn.loading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.btn.loading i {
+  display: none;
+}
+
+.btn.loading::before {
+  content: "";
+  width: 13px;
+  height: 13px;
+  margin-right: 8px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  animation: mu-spin 0.6s linear infinite;
+}
+
+@keyframes mu-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Reports dropdown */
+.reports-menu-dropdown.open {
+  animation: mu-row-in 0.3s var(--mu-ease-out);
+}
+
+.reports-menu-dropdown button {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.reports-menu-dropdown button i {
+  transition: transform 0.3s var(--mu-ease-spring);
+}
+
+.reports-menu-dropdown button:hover {
+  background: #fafbff;
+  color: var(--primary);
+}
+
+.reports-menu-dropdown button:hover i {
+  transform: scale(1.2) rotate(-8deg);
+}
+
+/* ---------------------------------------------------------------------
+   Form fields — same focus ring as the search box
+   --------------------------------------------------------------------- */
+.form-group label {
+  transition: color 0.2s ease;
+}
+
+.form-group:focus-within > label {
+  color: var(--primary);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea,
+.selected-item-qty,
+.selected-item-price,
+.export-form-input {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus,
+.selected-item-qty:focus,
+.selected-item-price:focus,
+.export-form-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(79, 94, 255, 0.14);
+}
+
+/* ---------------------------------------------------------------------
+   Paper picker tree + selected rows
+   --------------------------------------------------------------------- */
+.type-header,
+.group-header {
+  transition: background-color 0.2s ease;
+}
+
+.type-groups,
+.group-items {
+  animation: mu-row-in 0.35s var(--mu-ease-out);
+}
+
+.toggle-icon {
+  transition: color 0.2s ease;
+}
+
+.type-header:hover .toggle-icon,
+.group-header:hover .toggle-icon {
+  color: var(--primary);
+}
+
+.toggle-icon.bump {
+  animation: mu-bump 0.4s var(--mu-ease-spring);
+}
+
+.product-item {
+  transition: background-color 0.2s ease;
+}
+
+.product-item:hover {
+  background-color: #fff;
+}
+
+.product-item.selected:hover {
+  background-color: var(--primary-bg);
+}
+
+.product-item.saved {
+  animation: mu-saved 0.9s ease-out;
+}
+
+@keyframes mu-bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.5);
+    color: var(--mu-on);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes mu-saved {
+  0% {
+    background-color: rgba(34, 197, 94, 0.28);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.product-item.selected.saved {
+  animation-name: mu-saved-selected;
+}
+
+@keyframes mu-saved-selected {
+  0% {
+    background-color: rgba(34, 197, 94, 0.28);
+  }
+  100% {
+    background-color: var(--primary-bg);
+  }
+}
+
+.selected-item-row {
+  animation: mu-row-in 0.45s var(--mu-ease-out) backwards;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s var(--mu-ease-out);
+}
+
+.selected-item-row:hover {
+  border-color: #d3d7ff;
+  box-shadow: 0 10px 24px -10px rgba(79, 94, 255, 0.35);
+}
+
+.remove-item-btn {
+  transition:
+    background-color 0.15s ease,
+    transform 0.25s var(--mu-ease-spring);
+}
+
+.remove-item-btn:hover {
+  transform: rotate(90deg);
+}
+
+.remove-item-btn:active {
+  transform: rotate(90deg) scale(0.9);
+}
+
+/* ---------------------------------------------------------------------
+   Toolbar: filter chips + live search
+   --------------------------------------------------------------------- */
+.users-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.filter-chips,
+.history-range.filter-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+.chip,
+.history-range a.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--light-gray);
+  background: #fff;
+  color: var(--gray);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: none;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s var(--mu-ease-spring);
+}
+
+.chip:hover,
+.history-range a.chip:hover {
+  border-color: #c7cbff;
+  color: var(--primary);
+}
+
+.chip:active,
+.history-range a.chip:active {
+  transform: scale(0.94);
+}
+
+.chip.active,
+.history-range a.chip.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 4px 12px -4px rgba(79, 94, 255, 0.6);
+}
+
+.search-form {
+  margin: 0;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 260px;
+  max-width: 100%;
+  transition: width 0.3s var(--mu-ease-out);
+}
+
+.search-box:focus-within {
+  width: 320px;
+}
+
+.search-box .search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--gray);
+  font-size: 13px;
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.search-box:focus-within .search-icon {
+  color: var(--primary);
+}
+
+.search-box input {
+  width: 100%;
+  padding: 9px 58px 9px 34px;
+  border: 1px solid var(--light-gray);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  background: #fff;
+  color: var(--dark);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.search-box input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(79, 94, 255, 0.14);
+}
+
+.search-box kbd {
+  position: absolute;
+  right: 10px;
+  min-width: 20px;
+  padding: 1px 6px;
+  border: 1px solid var(--light-gray);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--light);
+  color: var(--gray);
+  font-size: 11px;
+  font-family: inherit;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.search-box.has-value kbd {
+  opacity: 0;
+}
+
+.search-clear {
+  position: absolute;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--light);
+  color: var(--gray);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.6);
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.3s var(--mu-ease-spring),
+    background-color 0.15s ease;
+}
+
+.search-box.has-value .search-clear {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.search-clear:hover {
+  background: var(--light-gray);
+  color: var(--dark);
+}
+
+/* ---------------------------------------------------------------------
+   Delivery groups (date accordions) + tables
+   --------------------------------------------------------------------- */
+.delivery-group.fx-in {
+  animation: mu-row-in 0.45s var(--mu-ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.2s ease,
+    transform 0.15s var(--mu-ease-out),
+    box-shadow 0.2s ease;
+}
+
+.toggle-btn:hover {
+  background: #fff;
+  border-color: #c7cbff;
+  color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -4px rgba(20, 23, 31, 0.2);
+}
+
+.toggle-btn:active {
+  transform: scale(0.99);
+  box-shadow: none;
+}
+
+.toggle-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.toggle-btn > i:first-child {
+  margin-right: 8px;
+  transition: transform 0.3s var(--mu-ease-spring);
+}
+
+.toggle-btn:hover > i:first-child {
+  transform: scale(1.2) rotate(-10deg);
+}
+
+.toggle-btn.is-open {
+  background: var(--primary-bg);
+  border-color: #c7cbff;
+  color: var(--primary);
+}
+
+.group-chevron {
+  margin-left: auto;
+  transition: transform 0.3s var(--mu-ease-spring);
+}
+
+.toggle-btn.is-open .group-chevron {
+  transform: rotate(180deg);
+}
+
+.group-content.fx-open tbody tr {
+  animation: mu-row-in 0.45s var(--mu-ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms + 0.12s);
+}
+
+.group-content tbody tr > td {
+  transition: background-color 0.2s ease;
+}
+
+.group-content tbody tr:hover > td {
+  background: #fafbff;
+}
+
+.clickable-row:active > td {
+  background: var(--primary-bg);
+}
+
+/* Edit / delete — same treatment as the .btn-sm row actions */
+.action-cell {
+  white-space: nowrap;
+}
+
+.action-cell a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  margin-right: 6px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: var(--dark);
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s var(--mu-ease-out),
+    box-shadow 0.2s ease;
+}
+
+.action-cell a:last-child {
+  margin-right: 0;
+}
+
+.action-cell a:hover {
+  color: var(--dark);
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -4px rgba(20, 23, 31, 0.2);
+}
+
+.action-cell a:active {
+  transform: scale(0.94);
+  box-shadow: none;
+}
+
+.action-cell a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.action-cell a i {
+  transition: transform 0.3s var(--mu-ease-spring);
+}
+
+.action-cell a:hover i {
+  transform: scale(1.2) rotate(-10deg);
+}
+
+.action-cell a[href^="delete_delivery"] {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.action-cell a[href^="delete_delivery"]:hover {
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+/* Load more dates */
+.show-more-btn {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s var(--mu-ease-out),
+    box-shadow 0.2s ease;
+}
+
+.show-more-btn:hover {
+  border-color: #c7cbff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -4px rgba(20, 23, 31, 0.2);
+}
+
+.show-more-btn:active {
+  transform: scale(0.97);
+  box-shadow: none;
+}
+
+.show-more-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.show-more-btn i {
+  transition: transform 0.3s var(--mu-ease-spring);
+}
+
+.show-more-btn:hover:not(:disabled) i.fa-chevron-down {
+  transform: translateY(2px) scale(1.2);
+}
+
+/* Empty state */
+.empty-message .empty-icon {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 26px;
+  opacity: 0.5;
+}
+
+.fx-empty {
+  animation: mu-row-in 0.45s var(--mu-ease-out);
+}
+
+/* ---------------------------------------------------------------------
+   Toasts
+   --------------------------------------------------------------------- */
+.toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 11000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+  max-width: 360px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--dark);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 12px 30px -8px rgba(20, 23, 31, 0.45);
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(28px) scale(0.95);
+  transition:
+    transform 0.45s var(--mu-ease-spring),
+    opacity 0.25s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: none;
+}
+
+.toast.leaving {
+  opacity: 0;
+  transform: translateX(28px) scale(0.95);
+}
+
+.toast-success {
+  background: #14532d;
+}
+.toast-error {
+  background: #991b1b;
+}
+.toast-info {
+  background: #1e3a8a;
+}
+
+.toast i {
+  font-size: 16px;
+}
+
+.toast-success i {
+  color: #86efac;
+}
+.toast-error i {
+  color: #fecaca;
+}
+.toast-info i {
+  color: #bfdbfe;
+}
+
+@keyframes mu-bar {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.toast-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.4);
+  transform-origin: left;
+  animation: mu-bar linear forwards;
+}
+
+/* ---------------------------------------------------------------------
+   Confirm modal (Clear Form) — the .mu-modal from Manage Users
+   --------------------------------------------------------------------- */
+.mu-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(20, 23, 31, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.25s ease,
+    visibility 0s 0.25s;
+}
+
+.mu-modal.open {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.25s ease;
+}
+
+.mu-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  padding: 28px 26px 22px;
+  border-radius: 14px;
+  background: #fff;
+  text-align: center;
+  box-shadow: 0 24px 60px -12px rgba(20, 23, 31, 0.35);
+  opacity: 0;
+  transform: translateY(18px) scale(0.93);
+  transition:
+    transform 0.45s var(--mu-ease-spring),
+    opacity 0.25s ease;
+}
+
+.mu-modal.open .mu-modal-card {
+  opacity: 1;
+  transform: none;
+}
+
+.mu-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--gray);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    transform 0.25s var(--mu-ease-spring);
+}
+
+.mu-modal-close:hover {
+  background: var(--light);
+  transform: rotate(90deg);
+}
+
+.mu-modal-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: var(--primary-bg);
+  color: var(--primary);
+  transform: scale(0.5);
+  transition: transform 0.5s var(--mu-ease-spring) 0.1s;
+}
+
+.mu-modal.open .mu-modal-icon {
+  transform: none;
+}
+
+.mu-modal-icon.danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.mu-modal-card h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.mu-modal-sub {
+  margin-bottom: 18px;
+  color: var(--gray);
+  font-size: 13.5px;
+}
+
+.mu-modal-sub strong {
+  color: var(--dark);
+}
+
+.mu-modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.mu-modal-actions .mu-btn {
+  flex: 1;
+}
+
+.mu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s var(--mu-ease-out),
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.mu-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.mu-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.mu-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.mu-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mu-btn-ghost {
+  background: #fff;
+  border-color: var(--light-gray);
+  color: var(--dark);
+}
+
+.mu-btn-ghost:hover:not(:disabled) {
+  background: var(--light);
+}
+
+.mu-btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.mu-btn-primary:hover:not(:disabled) {
+  background: var(--secondary);
+  box-shadow: 0 8px 18px -6px rgba(79, 94, 255, 0.6);
+}
+
+.mu-btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.mu-btn-danger:hover:not(:disabled) {
+  background: #b93a31;
+  box-shadow: 0 8px 18px -6px rgba(217, 70, 60, 0.6);
+}
+
+.mu-btn.loading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.mu-btn.loading i {
+  display: none;
+}
+
+.mu-btn.loading::before {
+  content: "";
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  animation: mu-spin 0.6s linear infinite;
+}
+
+/* ---------------------------------------------------------------------
+   Existing modals (Export report + Product info) — same backdrop blur,
+   spring pop-in, icon/close rotate and button lifts as .mu-modal
+   --------------------------------------------------------------------- */
+@keyframes fx-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fx-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.93);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fx-card-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(18px) scale(0.93);
+  }
+}
+
+@keyframes fx-window-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(18px) scale(0.93);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+@keyframes fx-window-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(18px) scale(0.93);
+  }
+}
+
+.export-modal-overlay,
+.overlay {
+  background: rgba(20, 23, 31, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: fx-backdrop-in 0.25s ease;
+}
+
+.export-modal-overlay.closing,
+.overlay.closing {
+  animation: modalBackdropFadeOut 0.16s ease forwards;
+}
+
+.export-modal-container {
+  box-shadow: 0 24px 60px -12px rgba(20, 23, 31, 0.35);
+  animation: fx-card-in 0.45s var(--mu-ease-spring) backwards;
+}
+
+.export-modal-overlay.closing .export-modal-container {
+  animation: fx-card-out 0.16s ease forwards;
+}
+
+.floating-window {
+  box-shadow: 0 24px 60px -12px rgba(20, 23, 31, 0.35);
+  animation: fx-window-in 0.45s var(--mu-ease-spring) forwards;
+}
+
+.floating-window.closing {
+  animation: fx-window-out 0.16s ease-in forwards;
+}
+
+.export-modal-close,
+.close-btn {
+  transition:
+    opacity 0.15s ease,
+    transform 0.25s var(--mu-ease-spring);
+}
+
+.export-modal-close:hover,
+.close-btn:hover {
+  transform: rotate(90deg);
+}
+
+.window-title i {
+  transition: transform 0.3s var(--mu-ease-spring);
+}
+
+.floating-window:hover .window-title i {
+  transform: scale(1.15) rotate(-6deg);
+}
+
+.export-btn {
+  transition:
+    opacity 0.2s ease,
+    background-color 0.15s ease,
+    transform 0.15s var(--mu-ease-out),
+    box-shadow 0.2s ease;
+}
+
+.export-btn:hover {
+  transform: translateY(-1px);
+}
+
+.export-btn:active {
+  transform: scale(0.96);
+}
+
+.export-btn-primary:hover {
+  box-shadow: 0 8px 18px -6px rgba(26, 156, 107, 0.5);
+}
+
+.export-btn-secondary:hover {
+  box-shadow: 0 8px 18px -6px rgba(217, 70, 60, 0.45);
+}
+
+.export-btn:focus-visible,
+.export-modal-close:focus-visible,
+.close-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.modal-spinner {
+  animation-timing-function: linear;
+}
+
+/* ---------------------------------------------------------------------
+   Responsive
+   --------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .users-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-box,
+  .search-box:focus-within {
+    width: 100%;
+  }
+
+  .search-box kbd {
+    display: none;
+  }
+
+  .toast-stack {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
+
+  .toast {
+    max-width: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Respect reduced-motion preferences
+   --------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .main-content *,
+  .mu-modal,
+  .mu-modal *,
+  .toast-stack *,
+  .overlay,
+  .overlay *,
+  .export-modal-overlay,
+  .export-modal-overlay * {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+}

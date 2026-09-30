@@ -1,0 +1,744 @@
+/* =====================================================================
+   Products (Papers + Consumables) — motion & polish layer
+   Copied from Manage Users. Loaded AFTER papers.css / insuances.css by
+   BOTH papers.php and insuances.php. Purely additive: it never changes
+   layout, colours or positions, only adds transitions / animations.
+   (papers.css is shared with Manage Users, so nothing here touches it.)
+   ===================================================================== */
+
+:root {
+  --jx-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --jx-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------------
+   Page entrance (header -> alerts -> stat cards + add form -> cards)
+   --------------------------------------------------------------------- */
+@keyframes jx-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.main-content > .header,
+.main-content > .alert,
+.stats-grid > *,
+.main-content > .form-card,
+.main-content > .table-card {
+  animation: jx-fade-up 0.5s var(--jx-ease-out) backwards;
+}
+.main-content > .alert {
+  animation-delay: 0.04s;
+}
+/* the add form is shown first (order:-1), then the two stat cards */
+.stats-grid > .stat-row-form {
+  animation-delay: 0.04s;
+}
+.stats-grid > .stat-card:nth-child(1) {
+  animation-delay: 0.08s;
+}
+.stats-grid > .stat-card:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.main-content > .form-card {
+  animation-delay: 0.2s;
+}
+.main-content > .table-card {
+  animation-delay: 0.26s;
+}
+
+/* ---------------------------------------------------------------------
+   Stat cards: lift, border tint, icon springs + fills with the accent
+   --------------------------------------------------------------------- */
+.stats-grid .stat-card {
+  transition:
+    transform 0.25s var(--jx-ease-out),
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+.stats-grid .stat-card:hover {
+  transform: translateY(-3px);
+  border-color: #d3d7ff;
+  box-shadow: 0 10px 24px -10px rgba(79, 94, 255, 0.35);
+}
+.stat-card .card-icon {
+  transition:
+    transform 0.4s var(--jx-ease-spring),
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+.stat-card:hover .card-icon {
+  transform: scale(1.12) rotate(-6deg);
+  background-color: var(--primary);
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------------
+   Alerts (flash messages): close button + animated dismiss
+   --------------------------------------------------------------------- */
+.alert.jx-dismissible {
+  overflow: hidden;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    max-height 0.35s ease,
+    margin 0.35s ease,
+    padding 0.35s ease;
+}
+.alert.jx-dismissible.dismissing {
+  opacity: 0;
+  transform: translateY(-8px);
+  max-height: 0 !important;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.jx-alert-close {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
+}
+.jx-alert-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.07);
+}
+.alert .jx-alert-close i {
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------------
+   Buttons
+   --------------------------------------------------------------------- */
+.btn {
+  transition:
+    background-color 0.15s ease,
+    transform 0.2s var(--jx-ease-out),
+    box-shadow 0.2s ease;
+}
+.btn:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px -6px rgba(79, 94, 255, 0.55);
+}
+.btn:not(:disabled):active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: none;
+}
+.btn:focus-visible,
+.show-more-btn:focus-visible,
+.close-btn:focus-visible,
+.collapsible-header:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.btn i,
+.show-more-btn i {
+  display: inline-block;
+  transition: transform 0.3s var(--jx-ease-spring);
+}
+.btn:hover i {
+  transform: scale(1.2) rotate(-8deg);
+}
+
+/* "Show more" behaves like Manage Users' small buttons */
+.show-more-btn {
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s var(--jx-ease-out),
+    box-shadow 0.2s ease;
+}
+.show-more-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -4px rgba(20, 23, 31, 0.2);
+}
+.show-more-btn:active {
+  transform: scale(0.94);
+  box-shadow: none;
+}
+.show-more-btn:hover i {
+  transform: scale(1.2) rotate(-10deg);
+}
+
+/* Loading spinner on submit buttons */
+@keyframes jx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.btn.loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+.btn.loading > * {
+  visibility: hidden;
+}
+.btn.loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: jx-spin 0.6s linear infinite;
+}
+
+/* ---------------------------------------------------------------------
+   Inputs + search: soft focus ring, clear button pops in, "/" hint
+   --------------------------------------------------------------------- */
+.form-group input,
+.form-group select,
+.inline-add-form input,
+.search {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.form-group input:focus,
+.form-group select:focus,
+.inline-add-form input:focus,
+.search:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(79, 94, 255, 0.14);
+}
+.stock-toggle {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.stock-toggle:hover {
+  border-color: #c7cbff;
+}
+.stock-toggle:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(79, 94, 255, 0.14);
+}
+
+.jx-field {
+  position: relative;
+  display: block;
+}
+.jx-field > input {
+  padding-right: 58px;
+}
+.jx-field kbd {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  min-width: 20px;
+  padding: 1px 6px;
+  border: 1px solid var(--light-gray);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--light);
+  color: var(--gray);
+  font-size: 11px;
+  font-family: inherit;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.jx-field.has-value kbd {
+  opacity: 0;
+}
+.jx-clear {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  margin-top: -12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--light);
+  color: var(--gray);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.6);
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.3s var(--jx-ease-spring),
+    background-color 0.15s ease;
+}
+.jx-field.has-value .jx-clear {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.jx-clear:hover {
+  background: var(--light-gray);
+  color: var(--dark);
+}
+@media (max-width: 768px) {
+  .jx-field kbd {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Tables: rows drop in on first load, soft hover, springy icons & pills
+   --------------------------------------------------------------------- */
+@keyframes jx-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+#insuanceTable.jx-animate tbody tr,
+.product-content.jx-rows-in tbody tr {
+  animation: jx-row-in 0.45s var(--jx-ease-out) backwards;
+  animation-delay: calc(var(--jx-i, 0) * 45ms + 0.3s);
+}
+.product-content.jx-rows-in tbody tr {
+  animation-delay: calc(var(--jx-i, 0) * 40ms + 0.12s);
+}
+#insuanceTable.jx-animate tbody tr:nth-child(1) {
+  --jx-i: 0;
+}
+#insuanceTable.jx-animate tbody tr:nth-child(2) {
+  --jx-i: 1;
+}
+#insuanceTable.jx-animate tbody tr:nth-child(3) {
+  --jx-i: 2;
+}
+#insuanceTable.jx-animate tbody tr:nth-child(4) {
+  --jx-i: 3;
+}
+#insuanceTable.jx-animate tbody tr:nth-child(5) {
+  --jx-i: 4;
+}
+#insuanceTable.jx-animate tbody tr:nth-child(6) {
+  --jx-i: 5;
+}
+#insuanceTable.jx-animate tbody tr:nth-child(7) {
+  --jx-i: 6;
+}
+#insuanceTable.jx-animate tbody tr:nth-child(8) {
+  --jx-i: 7;
+}
+#insuanceTable.jx-animate tbody tr:nth-child(9) {
+  --jx-i: 8;
+}
+#insuanceTable.jx-animate tbody tr:nth-child(10) {
+  --jx-i: 9;
+}
+#insuanceTable.jx-animate tbody tr:nth-child(11) {
+  --jx-i: 10;
+}
+#insuanceTable.jx-animate tbody tr:nth-child(12) {
+  --jx-i: 11;
+}
+.product-content.jx-rows-in tbody tr:nth-child(1) {
+  --jx-i: 0;
+}
+.product-content.jx-rows-in tbody tr:nth-child(2) {
+  --jx-i: 1;
+}
+.product-content.jx-rows-in tbody tr:nth-child(3) {
+  --jx-i: 2;
+}
+.product-content.jx-rows-in tbody tr:nth-child(4) {
+  --jx-i: 3;
+}
+.product-content.jx-rows-in tbody tr:nth-child(5) {
+  --jx-i: 4;
+}
+.product-content.jx-rows-in tbody tr:nth-child(6) {
+  --jx-i: 5;
+}
+.product-content.jx-rows-in tbody tr:nth-child(7) {
+  --jx-i: 6;
+}
+.product-content.jx-rows-in tbody tr:nth-child(8) {
+  --jx-i: 7;
+}
+.product-content.jx-rows-in tbody tr:nth-child(9) {
+  --jx-i: 8;
+}
+.product-content.jx-rows-in tbody tr:nth-child(10) {
+  --jx-i: 9;
+}
+.product-content.jx-rows-in tbody tr:nth-child(11) {
+  --jx-i: 10;
+}
+.product-content.jx-rows-in tbody tr:nth-child(12) {
+  --jx-i: 11;
+}
+
+tr td {
+  transition: background-color 0.2s ease;
+}
+tr:hover td {
+  background-color: #fafbff;
+}
+.action-cell a i {
+  display: inline-block;
+  transition: transform 0.3s var(--jx-ease-spring);
+}
+.action-cell a:hover i {
+  transform: scale(1.2) rotate(-10deg);
+}
+.stock-pill {
+  transition: transform 0.35s var(--jx-ease-spring);
+}
+.clickable-row:hover .stock-pill {
+  transform: scale(1.08);
+}
+
+/* Live search results ease in / dim while loading (papers) */
+.papers-table-loading {
+  opacity: 0.55;
+  pointer-events: none;
+}
+#papers-table-content {
+  transition: opacity 0.2s ease;
+}
+@keyframes jx-swap-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+#papers-table-content.jx-swap {
+  animation: jx-swap-in 0.35s var(--jx-ease-out);
+}
+
+/* ---------------------------------------------------------------------
+   Collapsible paper-type groups (papers): press feedback, chevron pop,
+   the open / close height animation itself is driven by the JS
+   --------------------------------------------------------------------- */
+.product-type-block {
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+.product-type-block:hover {
+  box-shadow: 0 6px 16px -10px rgba(79, 94, 255, 0.3);
+}
+.collapsible-header {
+  transition:
+    background-color 0.15s ease,
+    transform 0.2s var(--jx-ease-out);
+}
+.collapsible-header:active {
+  transform: scale(0.995);
+}
+@keyframes jx-chev-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.collapsible-header i.jx-pop {
+  animation: jx-chev-pop 0.4s var(--jx-ease-spring);
+}
+
+/* ---------------------------------------------------------------------
+   Modals: blurred backdrop, springy pop-in, icon pop, spinning close X
+   --------------------------------------------------------------------- */
+#productModal,
+.overlay {
+  background: rgba(20, 23, 31, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+@keyframes jx-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+#productModal {
+  animation: jx-fade-in 0.25s ease;
+}
+/* (#productModal.closing / .overlay.closing fade-outs keep winning) */
+
+@keyframes jx-modal-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 18px)) scale(0.93);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+.floating-window {
+  animation: jx-modal-in 0.45s var(--jx-ease-spring) both;
+}
+/* (.floating-window.closing zoom-out keeps winning: higher specificity) */
+
+@keyframes jx-icon-pop {
+  from {
+    transform: scale(0.5);
+  }
+  to {
+    transform: none;
+  }
+}
+.window-title > i {
+  display: inline-block;
+  animation: jx-icon-pop 0.5s var(--jx-ease-spring) 0.1s backwards;
+}
+.close-btn {
+  border-radius: 50%;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.25s var(--jx-ease-spring);
+}
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  transform: rotate(90deg);
+}
+
+/* modal content cascades in */
+.stock-card-compact {
+  animation: jx-fade-up 0.45s var(--jx-ease-out) backwards;
+}
+.stock-card-compact:nth-child(1) {
+  animation-delay: 0.1s;
+}
+.stock-card-compact:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.stock-card-compact:nth-child(3) {
+  animation-delay: 0.22s;
+}
+.stock-card-compact:nth-child(4) {
+  animation-delay: 0.28s;
+}
+.compact-table tbody tr {
+  animation: jx-row-in 0.4s var(--jx-ease-out) backwards;
+  animation-delay: calc(var(--jx-i, 0) * 40ms + 0.15s);
+}
+.compact-table tbody tr:nth-child(1) {
+  --jx-i: 0;
+}
+.compact-table tbody tr:nth-child(2) {
+  --jx-i: 1;
+}
+.compact-table tbody tr:nth-child(3) {
+  --jx-i: 2;
+}
+.compact-table tbody tr:nth-child(4) {
+  --jx-i: 3;
+}
+.compact-table tbody tr:nth-child(5) {
+  --jx-i: 4;
+}
+.compact-table tbody tr:nth-child(6) {
+  --jx-i: 5;
+}
+.compact-table tbody tr:nth-child(7) {
+  --jx-i: 6;
+}
+.compact-table tbody tr:nth-child(8) {
+  --jx-i: 7;
+}
+.compact-table tbody tr:nth-child(9) {
+  --jx-i: 8;
+}
+.compact-table tbody tr:nth-child(10) {
+  --jx-i: 9;
+}
+.compact-table tbody tr:nth-child(11) {
+  --jx-i: 10;
+}
+.compact-table tbody tr:nth-child(12) {
+  --jx-i: 11;
+}
+
+@keyframes jx-bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.stock-value-compact.jx-bump {
+  animation: jx-bump 0.4s var(--jx-ease-spring);
+}
+
+/* ---------------------------------------------------------------------
+   Toasts  (window.showToast(message, 'success' | 'error' | 'info'))
+   --------------------------------------------------------------------- */
+.jx-toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 11000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+.jx-toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+  max-width: 360px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--dark);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 12px 30px -8px rgba(20, 23, 31, 0.45);
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(28px) scale(0.95);
+  transition:
+    transform 0.45s var(--jx-ease-spring),
+    opacity 0.25s ease;
+}
+.jx-toast.show {
+  opacity: 1;
+  transform: none;
+}
+.jx-toast.hide {
+  opacity: 0;
+  transform: translateX(28px) scale(0.95);
+}
+.jx-toast-success {
+  background: #14532d;
+}
+.jx-toast-error {
+  background: #991b1b;
+}
+.jx-toast-info {
+  background: #1e3a8a;
+}
+.jx-toast i {
+  font-size: 16px;
+}
+.jx-toast-success i {
+  color: #86efac;
+}
+.jx-toast-error i {
+  color: #fecaca;
+}
+.jx-toast-info i {
+  color: #bfdbfe;
+}
+@keyframes jx-bar {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+.jx-toast-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.4);
+  transform-origin: left;
+  animation: jx-bar linear forwards;
+}
+@media (max-width: 768px) {
+  .jx-toast-stack {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
+  .jx-toast {
+    max-width: none;
+  }
+}
+
+/* The "permission required" notice (permissions.php) gets the same look */
+#permToast {
+  background: #991b1b !important;
+  color: #fff !important;
+  border-left: 0 !important;
+  border-radius: 10px !important;
+  top: auto !important;
+  bottom: 20px !important;
+  z-index: 11000 !important;
+  box-shadow: 0 12px 30px -8px rgba(20, 23, 31, 0.45) !important;
+  animation: jx-toast-in 0.45s var(--jx-ease-spring);
+}
+#permToast strong i {
+  color: #fecaca !important;
+}
+@keyframes jx-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Respect reduced-motion preferences
+   --------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+}

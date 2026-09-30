@@ -99,15 +99,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 
-// Display messages from session
+// Display messages from session (dismissible alerts, same as Manage Users)
+function flash_html($cls, $icon, $text, $timeout)
+{
+  return "<div id='fx-flash' class='alert alert-dismissible $cls' role='alert' data-timeout='$timeout'>"
+    . "<i class='fas $icon'></i><span>" . htmlspecialchars($text) . "</span>"
+    . "<button type='button' class='alert-close' aria-label='Dismiss'><i class='fas fa-times'></i></button></div>";
+}
+
 if (isset($_SESSION['success_message'])) {
-  $message = "<div id='flash-message' class='alert alert-success'><i class='fas fa-check-circle'></i> " . $_SESSION['success_message'] . "</div>";
+  $message = flash_html('alert-success', 'fa-check-circle', $_SESSION['success_message'], 4000);
   unset($_SESSION['success_message']);
 } elseif (isset($_SESSION['error_message'])) {
-  $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle'></i> " . $_SESSION['error_message'] . "</div>";
+  $message = flash_html('alert-danger', 'fa-exclamation-circle', $_SESSION['error_message'], 0);
   unset($_SESSION['error_message']);
 } elseif (isset($_SESSION['warning_message'])) {
-  $message = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle'></i> " . $_SESSION['warning_message'] . "</div>";
+  $message = flash_html('alert-warning', 'fa-exclamation-triangle', $_SESSION['warning_message'], 0);
   unset($_SESSION['warning_message']);
 }
 
@@ -156,6 +163,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <link rel="stylesheet" href="../assets/css/pages/delivery.css">
+  <link rel="stylesheet" href="../assets/css/pages/delivery_fx.css">
   <style>
     .nav-menu li a[href="website_admin.php"] {
       display: flex;
@@ -402,12 +410,24 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     <div class="table-card">
       <div class="delivery-summary">
         <h3><i class="fas fa-history"></i> Delivery History</h3>
-        <div class="history-range">
-          <a href="?history=60" class="<?= (!$history_is_all && $history_days == 60) ? 'active' : '' ?>">60 days</a>
-          <a href="?history=180" class="<?= (!$history_is_all && $history_days == 180) ? 'active' : '' ?>">6 months</a>
-          <a href="?history=365" class="<?= (!$history_is_all && $history_days == 365) ? 'active' : '' ?>">1 year</a>
-          <a href="?history=all" class="<?= $history_is_all ? 'active' : '' ?>">All</a>
+      </div>
+
+      <div class="users-toolbar">
+        <div class="history-range filter-chips" role="group" aria-label="History range">
+          <a href="?history=60" class="chip <?= (!$history_is_all && $history_days == 60) ? 'active' : '' ?>">60 days</a>
+          <a href="?history=180" class="chip <?= (!$history_is_all && $history_days == 180) ? 'active' : '' ?>">6 months</a>
+          <a href="?history=365" class="chip <?= (!$history_is_all && $history_days == 365) ? 'active' : '' ?>">1 year</a>
+          <a href="?history=all" class="chip <?= $history_is_all ? 'active' : '' ?>">All</a>
         </div>
+
+        <form class="search-form" id="fxSearchForm" role="search" onsubmit="return false;">
+          <div class="search-box" id="searchBox">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" id="searchInput" placeholder="Search loaded deliveries…" autocomplete="off" aria-label="Search loaded deliveries">
+            <kbd>/</kbd>
+            <button type="button" class="search-clear" id="searchClear" aria-label="Clear search"><i class="fas fa-times"></i></button>
+          </div>
+        </form>
       </div>
 
       <?php if (!empty($page_dates)): ?>
@@ -423,6 +443,11 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
               can('delete')
             ) ?>
           <?php endforeach; ?>
+        </div>
+
+        <div class="empty-message fx-empty is-hidden" id="fxEmpty">
+          <i class="fas fa-search empty-icon"></i>
+          <p>No loaded deliveries match your search<?= $history_has_more ? ' — try loading more dates.' : '.' ?></p>
         </div>
 
         <?php if ($history_has_more): ?>
@@ -484,6 +509,22 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     </div>
   </div>
 
+  <!-- Clear form confirmation (replaces window.confirm) -->
+  <div class="mu-modal" id="clearModal" role="dialog" aria-modal="true" aria-labelledby="clearTitle" aria-hidden="true">
+    <div class="mu-modal-card">
+      <button type="button" class="mu-modal-close" data-close aria-label="Close"><i class="fas fa-times"></i></button>
+      <div class="mu-modal-icon danger"><i class="fas fa-eraser"></i></div>
+      <h3 id="clearTitle">Clear form?</h3>
+      <p class="mu-modal-sub">This will erase everything you've entered in the delivery form, including any selected items.</p>
+      <div class="mu-modal-actions">
+        <button type="button" class="mu-btn mu-btn-ghost" id="clearCancel" data-close>Cancel</button>
+        <button type="button" class="mu-btn mu-btn-danger" id="clearConfirm"><i class="fas fa-eraser"></i> Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
   <script>
     window.JO_DATA = {
       deliveryHistoryOffset: <?= count($page_dates) ?>,
@@ -491,6 +532,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     }
   </script>
   <script src="../assets/js/pages/delivery.js"></script>
+  <script src="../assets/js/pages/delivery_fx.js"></script>
   <script>
     // Badge on the sidebar's "Website" link: same counts (unread chats,
     // pending orders, pending price-consultation requests) that drive the

@@ -1,0 +1,751 @@
+/* =====================================================================
+   Job Orders — motion & polish layer
+   Loaded AFTER job_orders.css. Purely additive: it never changes layout,
+   colours or positions, only adds transitions / animations on top.
+   Same feel as Manage Users (spring easing, staggered entrances,
+   press feedback, toasts, animated alerts, loading buttons).
+   ===================================================================== */
+
+:root {
+  --jx-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --jx-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---------------------------------------------------------------------
+   Page entrance (header → alerts → cards → the four status columns)
+   --------------------------------------------------------------------- */
+@keyframes jx-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.main-content > .header,
+.main-content > .alert,
+.main-content > .card,
+.status-sections-2x2-grid .status-column {
+  animation: jx-fade-up 0.5s var(--jx-ease-out) backwards;
+}
+.main-content > .alert {
+  animation-delay: 0.04s;
+}
+.main-content > .card:nth-of-type(1) {
+  animation-delay: 0.08s;
+}
+.main-content > .card:nth-of-type(2) {
+  animation-delay: 0.14s;
+}
+.status-sections-2x2-grid .status-column:nth-child(1) {
+  animation-delay: 0.2s;
+}
+.status-sections-2x2-grid .status-column:nth-child(2) {
+  animation-delay: 0.26s;
+}
+.status-sections-2x2-grid .status-column:nth-child(3) {
+  animation-delay: 0.32s;
+}
+.status-sections-2x2-grid .status-column:nth-child(4) {
+  animation-delay: 0.38s;
+}
+
+/* Cards lift slightly on hover, like the stat cards on Manage Users */
+.status-card {
+  transition:
+    transform 0.25s var(--jx-ease-out),
+    box-shadow 0.25s ease;
+}
+/* Same hover as the Manage Users stat cards (the coloured left accent stays) */
+.status-card {
+  transition:
+    transform 0.25s var(--jx-ease-out),
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+.status-card:hover {
+  box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.35);
+}
+.status-card h3 > i:first-child {
+  transition: transform 0.4s var(--jx-ease-spring);
+}
+.status-card:hover h3 > i:first-child {
+  transform: scale(1.12) rotate(-6deg);
+}
+
+/* ---------------------------------------------------------------------
+   Folders: client → project → date → order table
+   These are opened by the page's own JS (display:none → block), and a CSS
+   animation replays every time an element becomes visible again, so they
+   ease open with no JS changes.
+   --------------------------------------------------------------------- */
+@keyframes jx-open {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.compact-project-group,
+.compact-date-group,
+.compact-order-item {
+  animation: jx-open 0.35s var(--jx-ease-out);
+}
+.compact-client-header,
+.compact-project-header,
+.compact-date-header {
+  transition: transform 0.2s var(--jx-ease-out);
+}
+.compact-client-header:active,
+.compact-project-header:active,
+.compact-date-header:active {
+  transform: scale(0.99);
+}
+
+/* Order rows drop in one after another each time a folder opens */
+@keyframes jx-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.order-details-table tbody tr {
+  animation: jx-row-in 0.4s var(--jx-ease-out) backwards;
+  animation-delay: calc(var(--jx-i, 0) * 40ms + 0.12s);
+}
+.order-details-table tbody tr:nth-child(1) {
+  --jx-i: 0;
+}
+.order-details-table tbody tr:nth-child(2) {
+  --jx-i: 1;
+}
+.order-details-table tbody tr:nth-child(3) {
+  --jx-i: 2;
+}
+.order-details-table tbody tr:nth-child(4) {
+  --jx-i: 3;
+}
+.order-details-table tbody tr:nth-child(5) {
+  --jx-i: 4;
+}
+.order-details-table tbody tr:nth-child(6) {
+  --jx-i: 5;
+}
+.order-details-table tbody tr:nth-child(7) {
+  --jx-i: 6;
+}
+.order-details-table tbody tr:nth-child(8) {
+  --jx-i: 7;
+}
+.order-details-table tbody tr:nth-child(9) {
+  --jx-i: 8;
+}
+.order-details-table tbody tr:nth-child(10) {
+  --jx-i: 9;
+}
+.order-details-table tbody tr:nth-child(11) {
+  --jx-i: 10;
+}
+.order-details-table tbody tr:nth-child(12) {
+  --jx-i: 11;
+}
+.order-details-table tbody tr > td {
+  transition: background-color 0.2s ease;
+}
+.order-details-table tbody tr.clickable-row:hover > td {
+  background: #fafbff;
+}
+.order-details-table .action-cell a i,
+.order-details-table .edit-icon-btn i {
+  transition: transform 0.3s var(--jx-ease-spring);
+}
+.order-details-table .action-cell a:hover i,
+.order-details-table .edit-icon-btn:hover i {
+  transform: scale(1.2) rotate(-10deg);
+}
+
+/* ---------------------------------------------------------------------
+   Buttons, chips & search: hover lift, press squish, loading spinner
+   --------------------------------------------------------------------- */
+.btn,
+.filter-chip,
+.quick-search-btn {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s var(--jx-ease-out),
+    box-shadow 0.2s ease;
+}
+.btn:not(:disabled):hover,
+.filter-chip:hover,
+.quick-search-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px -6px rgba(20, 23, 31, 0.28);
+}
+.btn:not(:disabled):active,
+.filter-chip:active,
+.quick-search-btn:active {
+  transform: scale(0.95);
+  box-shadow: none;
+}
+.btn:focus-visible,
+.filter-chip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.filter-chip i {
+  transition: transform 0.25s var(--jx-ease-spring);
+}
+.filter-chip:hover i {
+  transform: rotate(90deg) scale(1.15);
+}
+.quick-search-box {
+  transition:
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+.quick-search-box:focus-within {
+  box-shadow: 0 0 0 4px rgba(79, 94, 255, 0.14);
+}
+
+@keyframes jx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.btn.loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+.btn.loading > * {
+  visibility: hidden;
+}
+.btn.loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: jx-spin 0.6s linear infinite;
+}
+
+/* Advanced filters: content eases in when the drawer opens */
+.advanced-filters[open] > *:not(summary) {
+  animation: jx-open 0.35s var(--jx-ease-out);
+}
+
+/* ---------------------------------------------------------------------
+   Alerts (flash messages): close button + animated dismiss
+   --------------------------------------------------------------------- */
+.alert.jx-dismissible {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    max-height 0.35s ease,
+    margin 0.35s ease,
+    padding 0.35s ease;
+}
+.alert.jx-dismissible.dismissing {
+  opacity: 0;
+  transform: translateY(-8px);
+  max-height: 0 !important;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.jx-alert-close {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
+}
+.jx-alert-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.07);
+}
+.alert .jx-alert-close i {
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------------
+   Toasts  (window.showToast(message, 'success' | 'error' | 'info'))
+   --------------------------------------------------------------------- */
+.toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 11000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+.toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+  max-width: 360px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--dark);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 12px 30px -8px rgba(20, 23, 31, 0.45);
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(28px) scale(0.95);
+  transition:
+    transform 0.45s var(--jx-ease-spring),
+    opacity 0.25s ease;
+}
+.toast.show {
+  opacity: 1;
+  transform: none;
+}
+.toast.hide {
+  opacity: 0;
+  transform: translateX(28px) scale(0.95);
+}
+.toast-success {
+  background: #14532d;
+}
+.toast-error {
+  background: #991b1b;
+}
+.toast-info {
+  background: #1e3a8a;
+}
+.toast i {
+  font-size: 16px;
+}
+.toast-success i {
+  color: #86efac;
+}
+.toast-error i {
+  color: #fecaca;
+}
+.toast-info i {
+  color: #bfdbfe;
+}
+@keyframes jx-bar {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+.toast-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.4);
+  transform-origin: left;
+  animation: jx-bar linear forwards;
+}
+
+/* The "permission required" notice (permissions.php) gets the same look */
+#permToast {
+  background: #991b1b !important;
+  color: #fff !important;
+  border-left: 0 !important;
+  border-radius: 10px !important;
+  top: auto !important;
+  bottom: 20px !important;
+  z-index: 11000 !important;
+  box-shadow: 0 12px 30px -8px rgba(20, 23, 31, 0.45) !important;
+  animation: jx-toast-in 0.45s var(--jx-ease-spring);
+}
+#permToast strong i {
+  color: #fecaca !important;
+}
+@keyframes jx-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Respect reduced-motion preferences
+   --------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Dropdowns (the parts CSS can animate)
+   --------------------------------------------------------------------- */
+
+/* Reports menu: fades/scales in AND out, items cascade, arrow flips */
+.reports-menu-dropdown {
+  display: flex; /* was display:none → nothing could transition */
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-8px) scale(0.96);
+  transform-origin: top right;
+  transition:
+    opacity 0.2s ease,
+    transform 0.3s var(--jx-ease-spring),
+    visibility 0s linear 0.3s;
+}
+.reports-menu-dropdown.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  transition-delay: 0s;
+}
+.reports-menu-dropdown button {
+  opacity: 0;
+  transform: translateX(-8px);
+  transition:
+    background-color 0.15s ease,
+    opacity 0.2s ease,
+    transform 0.25s var(--jx-ease-out);
+}
+.reports-menu-dropdown.open button {
+  opacity: 1;
+  transform: none;
+}
+.reports-menu-dropdown.open button:nth-child(1) {
+  transition-delay: 0s, 0.06s, 0.06s;
+}
+.reports-menu-dropdown.open button:nth-child(2) {
+  transition-delay: 0s, 0.12s, 0.12s;
+}
+.reports-menu-dropdown.open button:nth-child(3) {
+  transition-delay: 0s, 0.18s, 0.18s;
+}
+.reports-menu-dropdown button:hover {
+  padding-left: 20px;
+}
+.reports-menu-dropdown button {
+  transition-property: background-color, opacity, transform, padding-left;
+}
+.reports-menu-toggle > i:last-child {
+  transition: transform 0.3s var(--jx-ease-spring);
+}
+.reports-menu:has(.reports-menu-dropdown.open)
+  .reports-menu-toggle
+  > i:last-child {
+  transform: rotate(180deg);
+}
+
+/* "Create New Job Order" dropdown: header feedback + chevron pop
+   (the open/close height animation itself is driven by job_orders_fx.js) */
+.collapsible-form-header {
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s var(--jx-ease-out);
+}
+.collapsible-form-header:active {
+  transform: scale(0.995);
+}
+@keyframes jx-chev-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+#form-chevron.jx-pop {
+  animation: jx-chev-pop 0.4s var(--jx-ease-spring);
+}
+
+/* Advanced Filters drawer: springier arrow (height animation is in the JS) */
+.advanced-chevron {
+  transition: transform 0.35s var(--jx-ease-spring);
+}
+.advanced-filters.jx-closing .advanced-chevron {
+  transform: none;
+}
+.advanced-filters summary {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+/* =====================================================================
+   Manage Users parity — buttons, chips, search, modals
+   (same values as manage_users.css)
+   ===================================================================== */
+
+/* Primary buttons: lift 2px with a coloured glow, press to 0.97, icon spins */
+.btn:not(:disabled):hover,
+.quick-search-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px -6px rgba(79, 94, 255, 0.55);
+}
+.btn:not(:disabled):active,
+.quick-search-btn:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: none;
+}
+.btn i,
+.quick-search-btn i {
+  transition: transform 0.3s var(--jx-ease-spring);
+}
+.btn:not(:disabled):hover i,
+.quick-search-btn:hover i {
+  transform: scale(1.2) rotate(-8deg);
+}
+
+/* Small / outline / icon buttons behave like Manage Users' .btn-sm */
+.btn-outline,
+.btn-edit,
+.btn-delete,
+.btn-status,
+.edit-icon-btn,
+.close-all-folders-fab {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s var(--jx-ease-out),
+    box-shadow 0.2s ease;
+}
+.btn-outline:not(:disabled):hover,
+.btn-edit:hover,
+.btn-delete:hover,
+.btn-status:hover,
+.edit-icon-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -4px rgba(20, 23, 31, 0.2);
+}
+.btn-outline:not(:disabled):active,
+.btn-edit:active,
+.btn-delete:active,
+.btn-status:active,
+.edit-icon-btn:active,
+.close-all-folders-fab:active {
+  transform: scale(0.94);
+  box-shadow: none;
+}
+.btn-outline:focus-visible,
+.btn-edit:focus-visible,
+.btn-delete:focus-visible,
+.btn-status:focus-visible,
+.edit-icon-btn:focus-visible,
+.close-all-folders-fab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.btn-edit i,
+.btn-delete i,
+.btn-status i {
+  transition: transform 0.3s var(--jx-ease-spring);
+}
+.btn-edit:hover i,
+.btn-delete:hover i,
+.btn-status:hover i {
+  transform: scale(1.2) rotate(-10deg);
+}
+
+/* Filter chips: like Manage Users' chips (colour shift + springy press, no lift) */
+.filter-chip {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s var(--jx-ease-spring);
+}
+.filter-chip:hover {
+  border-color: #c7cbff;
+  transform: none;
+  box-shadow: none;
+}
+.filter-chip:active {
+  transform: scale(0.94);
+}
+.filter-chip:hover i {
+  transform: none;
+}
+.filter-chip-clear-all:hover {
+  border-color: var(--danger-bg);
+}
+
+/* Search: icon turns primary on focus, clear button pops in, "/" hint */
+.quick-search-box > i.fa-search {
+  transition: color 0.2s ease;
+}
+.quick-search-box:focus-within > i.fa-search {
+  color: var(--primary);
+}
+@keyframes jx-clear-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.quick-search-clear {
+  animation: jx-clear-pop 0.3s var(--jx-ease-spring);
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.quick-search-box kbd {
+  align-self: center;
+  min-width: 20px;
+  margin-right: 8px;
+  padding: 1px 6px;
+  border: 1px solid var(--light-gray);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--card-bg);
+  color: var(--gray);
+  font-size: 11px;
+  font-family: inherit;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.quick-search-box.has-value kbd {
+  opacity: 0;
+}
+@media (max-width: 768px) {
+  .quick-search-box kbd {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Modals: blurred backdrop, springy pop-in, icon pop, spinning close X
+   (job-order window, export / report modals, and any .modal)
+   --------------------------------------------------------------------- */
+body.modal-open {
+  overflow: hidden;
+}
+#jobModal,
+.modal,
+.export-modal-overlay {
+  background: rgba(20, 23, 31, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.export-modal-overlay {
+  animation-duration: 0.25s;
+}
+
+@keyframes jx-modal-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 18px)) scale(0.93);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+.floating-window {
+  animation: jx-modal-in 0.45s var(--jx-ease-spring) both;
+}
+/* .floating-window.closing (zoom-out) keeps winning: higher specificity */
+
+@keyframes jx-modal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.93);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes jx-modal-pop-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+.export-modal-container {
+  animation: jx-modal-pop 0.45s var(--jx-ease-spring) both;
+}
+.export-modal-overlay.closing .export-modal-container {
+  animation: jx-modal-pop-out 0.16s ease-in forwards;
+}
+
+@keyframes jx-icon-pop {
+  from {
+    transform: scale(0.5);
+  }
+  to {
+    transform: none;
+  }
+}
+.window-title > i,
+.export-modal-title > i {
+  display: inline-block;
+  animation: jx-icon-pop 0.5s var(--jx-ease-spring) 0.1s backwards;
+}
+
+.close-btn,
+.export-modal-close {
+  border-radius: 50%;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.25s var(--jx-ease-spring);
+}
+.close-btn:hover,
+.export-modal-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+  transform: rotate(90deg);
+}

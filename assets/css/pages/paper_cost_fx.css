@@ -1,0 +1,641 @@
+/* =====================================================================
+   Paper Cost — motion & polish layer (copied from Manage Users)
+   Loaded AFTER paper_cost.css. Purely additive: it never changes layout,
+   colours or positions, only adds transitions / animations on top.
+   Same feel as Manage Users and Job Orders (spring easing, staggered
+   entrances, press feedback, ON/OFF switches, toasts, loading buttons).
+   ===================================================================== */
+
+:root {
+  --jx-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --jx-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --jx-on: #16a34a;
+  --jx-on-light: #22c55e;
+  --jx-track-off: #cbd5e1;
+}
+
+/* ---------------------------------------------------------------------
+   Page entrance (header -> banner -> summary cards -> both columns)
+   --------------------------------------------------------------------- */
+@keyframes jx-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.container > .page-header,
+.container > .info-banner,
+.summary-bar .summary-stat,
+.container > .row > .col-lg-4 > *,
+.container > .row > .col-lg-8 > * {
+  animation: jx-fade-up 0.5s var(--jx-ease-out) backwards;
+}
+.container > .info-banner {
+  animation-delay: 0.04s;
+}
+.summary-bar .summary-stat:nth-child(1) {
+  animation-delay: 0.08s;
+}
+.summary-bar .summary-stat:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.summary-bar .summary-stat:nth-child(3) {
+  animation-delay: 0.16s;
+}
+.summary-bar .summary-stat:nth-child(4) {
+  animation-delay: 0.2s;
+}
+.container > .row > .col-lg-4 > *:nth-child(1),
+.container > .row > .col-lg-8 > *:nth-child(1) {
+  animation-delay: 0.24s;
+}
+.container > .row > .col-lg-4 > *:nth-child(2),
+.container > .row > .col-lg-8 > *:nth-child(2) {
+  animation-delay: 0.3s;
+}
+.container > .row > .col-lg-4 > *:nth-child(3),
+.container > .row > .col-lg-8 > *:nth-child(3) {
+  animation-delay: 0.36s;
+}
+.container > .row > .col-lg-4 > *:nth-child(4),
+.container > .row > .col-lg-8 > *:nth-child(4) {
+  animation-delay: 0.42s;
+}
+.container > .row > .col-lg-4 > *:nth-child(5),
+.container > .row > .col-lg-8 > *:nth-child(5) {
+  animation-delay: 0.48s;
+}
+
+/* ---------------------------------------------------------------------
+   Summary cards + card headers (the "stat card" hover from Manage Users:
+   icon springs, tilts and fills with the accent colour)
+   --------------------------------------------------------------------- */
+.summary-stat {
+  transition: background-color 0.25s ease;
+}
+.summary-stat:hover {
+  background: #fafbff;
+}
+.summary-stat.total:hover {
+  background: #1b1f2b;
+}
+
+.card {
+  transition:
+    transform 0.25s var(--jx-ease-out),
+    box-shadow 0.25s ease;
+}
+.summary-stat .ss-icon,
+.card-header .header-icon,
+.info-banner .icon {
+  transition:
+    transform 0.4s var(--jx-ease-spring),
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+.summary-stat:hover .ss-icon,
+.card:hover > .card-header .header-icon {
+  transform: scale(1.12) rotate(-6deg);
+  background-color: var(--primary);
+  color: #fff;
+}
+
+.card:hover {
+  box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.35);
+}
+
+.info-banner:hover .icon {
+  transform: scale(1.1) rotate(-4deg);
+}
+
+/* value bump when a summary number changes (like the permission counter) */
+@keyframes jx-bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.summary-stat .ss-value {
+  transform-origin: left center;
+}
+.summary-stat .ss-value.jx-bump {
+  animation: jx-bump 0.4s var(--jx-ease-spring);
+}
+
+/* ---------------------------------------------------------------------
+   Tables: rows drop in on first render, soft hover
+   (rows are rebuilt on every recalculation, so the entrance is only
+   switched on for the first second - see paper_cost_fx.js)
+   --------------------------------------------------------------------- */
+@keyframes jx-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.data-table.jx-animate tbody tr {
+  animation: jx-row-in 0.45s var(--jx-ease-out) backwards;
+  animation-delay: calc(var(--jx-i, 0) * 45ms + 0.3s);
+}
+.data-table.jx-animate tbody tr:nth-child(1) {
+  --jx-i: 0;
+}
+.data-table.jx-animate tbody tr:nth-child(2) {
+  --jx-i: 1;
+}
+.data-table.jx-animate tbody tr:nth-child(3) {
+  --jx-i: 2;
+}
+.data-table.jx-animate tbody tr:nth-child(4) {
+  --jx-i: 3;
+}
+.data-table.jx-animate tbody tr:nth-child(5) {
+  --jx-i: 4;
+}
+.data-table.jx-animate tbody tr:nth-child(6) {
+  --jx-i: 5;
+}
+.data-table.jx-animate tbody tr:nth-child(7) {
+  --jx-i: 6;
+}
+.data-table.jx-animate tbody tr:nth-child(8) {
+  --jx-i: 7;
+}
+.data-table.jx-animate tbody tr:nth-child(9) {
+  --jx-i: 8;
+}
+.data-table.jx-animate tbody tr:nth-child(10) {
+  --jx-i: 9;
+}
+.data-table.jx-animate tbody tr:nth-child(11) {
+  --jx-i: 10;
+}
+.data-table.jx-animate tbody tr:nth-child(12) {
+  --jx-i: 11;
+}
+.data-table tbody tr > td {
+  transition: background-color 0.2s ease;
+}
+.data-table tbody tr:not(.total-row):not(.grand-row):hover > td {
+  background: #fafbff;
+}
+
+/* Session rows slide in when added */
+.session-row {
+  animation: jx-row-in 0.45s var(--jx-ease-out) backwards;
+}
+
+/* Tab panes ease in when you switch tabs */
+@keyframes jx-open {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.tab-pane.active {
+  animation: jx-open 0.35s var(--jx-ease-out);
+}
+
+/* ---------------------------------------------------------------------
+   Buttons
+   --------------------------------------------------------------------- */
+
+/* Primary buttons: lift 2px with a coloured glow, press to 0.97, icon spins */
+.btn-primary-solid,
+.btn-outline-primary-custom {
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.2s var(--jx-ease-out),
+    box-shadow 0.2s ease;
+}
+.btn-primary-solid:not(:disabled):hover,
+.btn-outline-primary-custom:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px -6px rgba(79, 94, 255, 0.55);
+}
+.btn-primary-solid:not(:disabled):active,
+.btn-outline-primary-custom:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: none;
+}
+
+/* Small buttons: lift 1px, press to 0.94, keyboard focus ring, icon spins */
+.btn,
+.btn-back,
+.btn-add-session,
+.btn-recalc,
+.btn-danger-sm {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s var(--jx-ease-out),
+    box-shadow 0.2s ease;
+}
+.btn:not(:disabled):hover,
+.btn-back:hover,
+.btn-add-session:hover,
+.btn-recalc:hover,
+.btn-danger-sm:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -4px rgba(20, 23, 31, 0.2);
+}
+.btn:not(:disabled):active,
+.btn-back:active,
+.btn-add-session:active,
+.btn-recalc:active,
+.btn-danger-sm:active {
+  transform: scale(0.94);
+  box-shadow: none;
+}
+.btn:focus-visible,
+.btn-back:focus-visible,
+.btn-add-session:focus-visible,
+.btn-recalc:focus-visible,
+.btn-danger-sm:focus-visible,
+.btn-primary-solid:focus-visible,
+.btn-outline-primary-custom:focus-visible,
+.task-tabs .nav-link:focus-visible,
+.paper-type-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.btn i,
+.btn-back i,
+.btn-add-session i,
+.btn-recalc i,
+.btn-danger-sm i,
+.btn-primary-solid i,
+.btn-outline-primary-custom i {
+  display: inline-block;
+  transition: transform 0.3s var(--jx-ease-spring);
+}
+.btn:hover i,
+.btn-back:hover i,
+.btn-add-session:hover i,
+.btn-recalc:hover i,
+.btn-danger-sm:hover i {
+  transform: scale(1.2) rotate(-10deg);
+}
+.btn-primary-solid:hover i,
+.btn-outline-primary-custom:hover i {
+  transform: scale(1.2) rotate(-8deg);
+}
+
+/* Tabs & paper-type buttons behave like Manage Users' filter chips */
+.task-tabs .nav-link,
+.paper-type-btn {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s var(--jx-ease-spring),
+    box-shadow 0.2s ease;
+}
+.task-tabs .nav-link:active,
+.paper-type-btn:active {
+  transform: scale(0.94);
+}
+.task-tabs .nav-link.active,
+.paper-type-btn.active {
+  box-shadow: 0 4px 12px -4px rgba(79, 94, 255, 0.6);
+}
+
+/* Loading spinner on the Save Expenses button */
+@keyframes jx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.btn-primary-solid.loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+.btn-primary-solid.loading > * {
+  visibility: hidden;
+}
+.btn-primary-solid.loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: jx-spin 0.6s linear infinite;
+}
+
+/* ---------------------------------------------------------------------
+   Inputs: the same focus ring as the Manage Users search box
+   --------------------------------------------------------------------- */
+.form-control,
+.form-select,
+.option-price-input,
+.riso-price-input {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+.form-control:focus,
+.form-select:focus,
+.option-price-input:focus-within,
+.riso-price-input:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(79, 94, 255, 0.14);
+}
+
+/* ---------------------------------------------------------------------
+   Price options: the row you pick flashes green, radio springs
+   --------------------------------------------------------------------- */
+.price-option-row,
+.riso-option-row {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+.option-radio,
+.riso-radio {
+  display: inline-block;
+  transition:
+    color 0.2s ease,
+    transform 0.35s var(--jx-ease-spring);
+}
+.price-option-row.selected .option-radio,
+.riso-option-row.selected .riso-radio {
+  transform: scale(1.18);
+}
+@keyframes jx-saved {
+  0% {
+    box-shadow: inset 0 0 0 999px rgba(34, 197, 94, 0.28);
+  }
+  100% {
+    box-shadow: inset 0 0 0 999px rgba(34, 197, 94, 0);
+  }
+}
+.jx-saved {
+  animation: jx-saved 0.9s ease-out;
+}
+
+/* ---------------------------------------------------------------------
+   The satisfying ON / OFF switch (every checkbox on the page)
+   --------------------------------------------------------------------- */
+input.form-check-input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  flex-shrink: 0;
+  width: 50px;
+  height: 28px;
+  margin: 0;
+  float: none;
+  border: 0 !important;
+  border-radius: 999px;
+  background: var(--jx-track-off) !important;
+  background-image: none !important;
+  box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.2);
+  cursor: pointer;
+  transition:
+    background 0.3s ease,
+    box-shadow 0.35s ease;
+}
+input.form-check-input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow:
+    0 2px 5px rgba(15, 23, 42, 0.32),
+    0 0 0 1px rgba(15, 23, 42, 0.04);
+  transition:
+    transform 0.45s var(--jx-ease-spring),
+    width 0.2s ease,
+    box-shadow 0.25s ease;
+}
+input.form-check-input[type="checkbox"]:checked {
+  background: linear-gradient(
+    135deg,
+    var(--jx-on-light),
+    var(--jx-on)
+  ) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.15),
+    0 4px 12px -3px rgba(22, 163, 74, 0.55);
+}
+input.form-check-input[type="checkbox"]:checked::after {
+  transform: translateX(22px);
+}
+/* squish the thumb while pressed, like a real toggle */
+input.form-check-input[type="checkbox"]:not(:disabled):active::after {
+  width: 29px;
+}
+input.form-check-input[type="checkbox"]:checked:not(:disabled):active::after {
+  transform: translateX(15px);
+}
+input.form-check-input[type="checkbox"]:not(:disabled):hover::after {
+  box-shadow:
+    0 3px 8px rgba(15, 23, 42, 0.38),
+    0 0 0 1px rgba(15, 23, 42, 0.04);
+}
+input.form-check-input[type="checkbox"]:focus {
+  border: 0;
+}
+input.form-check-input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+/* expanding ring pulse fired on every toggle */
+@keyframes jx-ring-on {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 11px rgba(34, 197, 94, 0);
+  }
+}
+@keyframes jx-ring-off {
+  0% {
+    box-shadow: 0 0 0 0 rgba(100, 116, 139, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 9px rgba(100, 116, 139, 0);
+  }
+}
+input.form-check-input[type="checkbox"].jx-pop-on {
+  animation: jx-ring-on 0.55s ease-out;
+}
+input.form-check-input[type="checkbox"].jx-pop-off {
+  animation: jx-ring-off 0.45s ease-out;
+}
+
+/* rows that hold a switch highlight on hover, like the permission items */
+label:has(> input.form-check-input[type="checkbox"]),
+.back-to-back-row,
+.riso-back-to-back {
+  transition: background-color 0.2s ease;
+}
+label:has(> input.form-check-input[type="checkbox"]):hover {
+  background: #fff !important;
+}
+
+/* ---------------------------------------------------------------------
+   Toasts  (window.showToast(message, 'success' | 'error' | 'info'))
+   Prefixed jx- so they don't clash with Bootstrap's own .toast
+   --------------------------------------------------------------------- */
+.jx-toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 11000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+.jx-toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+  max-width: 360px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--dark);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 12px 30px -8px rgba(20, 23, 31, 0.45);
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(28px) scale(0.95);
+  transition:
+    transform 0.45s var(--jx-ease-spring),
+    opacity 0.25s ease;
+}
+.jx-toast.show {
+  opacity: 1;
+  transform: none;
+}
+.jx-toast.hide {
+  opacity: 0;
+  transform: translateX(28px) scale(0.95);
+}
+.jx-toast-success {
+  background: #14532d;
+}
+.jx-toast-error {
+  background: #991b1b;
+}
+.jx-toast-info {
+  background: #1e3a8a;
+}
+.jx-toast i {
+  font-size: 16px;
+}
+.jx-toast-success i {
+  color: #86efac;
+}
+.jx-toast-error i {
+  color: #fecaca;
+}
+.jx-toast-info i {
+  color: #bfdbfe;
+}
+@keyframes jx-bar {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+.jx-toast-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.4);
+  transform-origin: left;
+  animation: jx-bar linear forwards;
+}
+@media (max-width: 768px) {
+  .jx-toast-stack {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
+  .jx-toast {
+    max-width: none;
+  }
+}
+
+/* The "permission required" notice (permissions.php) gets the same look */
+#permToast {
+  background: #991b1b !important;
+  color: #fff !important;
+  border-left: 0 !important;
+  border-radius: 10px !important;
+  top: auto !important;
+  bottom: 20px !important;
+  z-index: 11000 !important;
+  box-shadow: 0 12px 30px -8px rgba(20, 23, 31, 0.45) !important;
+  animation: jx-toast-in 0.45s var(--jx-ease-spring);
+}
+#permToast strong i {
+  color: #fecaca !important;
+}
+@keyframes jx-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Respect reduced-motion preferences
+   --------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+}

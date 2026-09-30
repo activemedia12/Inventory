@@ -268,6 +268,35 @@ while ($row = $stock_data->fetch_assoc()) {
     $grouped[$type][$name][$group] = $reams;
 }
 
+// Stock Summary: status per entry (out = 0 reams, low = under 20, ok = 20+) and totals
+function stockStatus($reams)
+{
+    if ($reams <= 0) return 'out';
+    return $reams < 20 ? 'low' : 'ok';
+}
+
+$ss = ['reams' => 0, 'products' => 0, 'ok' => 0, 'low' => 0, 'out' => 0, 'entries' => 0];
+$ss_cats = [];
+foreach ($grouped as $type => $products) {
+    $c = ['ok' => 0, 'low' => 0, 'out' => 0, 'reams' => 0];
+    foreach ($products as $groupStocks) {
+        foreach ($groupStocks as $reams) {
+            $c[stockStatus($reams)]++;
+            $c['reams'] += $reams;
+        }
+    }
+    $ss_cats[$type] = $c;
+    $ss['reams'] += $c['reams'];
+    $ss['products'] += count($products);
+    foreach (['ok', 'low', 'out'] as $k) $ss[$k] += $c[$k];
+}
+$ss['entries'] = $ss['ok'] + $ss['low'] + $ss['out'];
+
+function stockPct($n, $total)
+{
+    return $total > 0 ? round(($n / $total) * 100, 2) : 0;
+}
+
 $sql = "SELECT 
             jo.*, 
             u.username,
@@ -304,6 +333,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
     <link rel="stylesheet" href="../assets/css/pages/dashboard.css" />
+    <link rel="stylesheet" href="../assets/css/pages/dashboard_fx.css" />
   <style>
     .nav-menu li a[href="website_admin.php"] {
       display: flex;
@@ -621,115 +651,90 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
 
         <div class="flex">
             <div class="stock-cards">
-                <!-- Stock Summary Card -->
-                <div class="stat-card ss" style="margin-right: 20px;">
-                    <div class="card-header">
+                <!-- Stock Summary -->
+                <div class="stat-card ss ssum">
+                    <div class="ssum-top">
                         <div>
-                            <h3>Stock Summary</h3>
+                            <h3 class="ssum-title">Stock Summary</h3>
+                            <p class="ssum-sub"><strong><?= number_format($ss['reams'], 1) ?></strong> reams on hand across <?= number_format($ss['products']) ?> product<?= $ss['products'] == 1 ? '' : 's' ?></p>
                         </div>
                         <div class="card-icon"><i class="fas fa-boxes"></i></div>
                     </div>
 
-                    <div class="stock-summary">
-                        <?php foreach ($grouped as $type => $products): ?>
-                            <div class="product-category">
-                                <div class="category-header" onclick="toggleStockTable('<?= md5($type) ?>')">
-                                    <div class="category-title">
-                                        <i class="fas fa-chevron-down toggle-icon"></i>
-                                        <h4><?= htmlspecialchars($type) ?></h4>
-                                        <span class="badge"><?= count($products) ?> items</span>
-                                    </div>
-                                    <div class="category-summary">
-                                        <?php
-                                        // Calculate summary stats for this category
-                                        $totalReams = 0;
-                                        $totalItems = 0;
-                                        foreach ($products as $groupStocks) {
-                                            foreach ($groupStocks as $reams) {
-                                                if ($reams !== null) {
-                                                    $totalReams += $reams;
-                                                    $totalItems++;
-                                                }
-                                            }
-                                        }
-                                        ?>
-                                        <div class="summary-item">
-                                            <span>Total:</span>
-                                            <strong><?= number_format($totalReams, 1) ?> reams</strong>
-                                        </div>
-                                        <?php
-                                        // Check if any items in this category are low
-                                        $has_low = false;
-                                        foreach ($products as $groupStocks) {
-                                            foreach ($groupStocks as $reams) {
-                                                if ($reams !== null && $reams < 20) {
-                                                    $has_low = true;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                        ?>
-                                        <?php if ($has_low): ?>
-                                            <span class="badge" style="background: var(--warning-bg); color: var(--warning);">⚠️ Low stock</span>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
+                    <?php if ($ss['entries'] > 0): ?>
+                        <div class="ssum-health" role="img" aria-label="<?= $ss['ok'] ?> healthy, <?= $ss['low'] ?> low, <?= $ss['out'] ?> out of stock">
+                            <span class="ok" style="width: <?= stockPct($ss['ok'], $ss['entries']) ?>%"></span>
+                            <span class="low" style="width: <?= stockPct($ss['low'], $ss['entries']) ?>%"></span>
+                            <span class="out" style="width: <?= stockPct($ss['out'], $ss['entries']) ?>%"></span>
+                        </div>
 
-                                <div class="stock-table-container" id="table-<?= md5($type) ?>">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th class="product-name">Product</th>
-                                                <?php
-                                                $all_groups = [];
-                                                foreach ($products as $pname => $groupStocks) {
-                                                    foreach ($groupStocks as $grp => $_) $all_groups[$grp] = true;
-                                                }
-                                                $columns = array_keys($all_groups);
-                                                foreach ($columns as $grp):
-                                                ?>
-                                                    <th class="text-center"><?= htmlspecialchars($grp) ?></th>
-                                                <?php endforeach; ?>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php foreach ($products as $pname => $groupStocks): ?>
-                                                <tr>
-                                                    <td class="product-name"><?= htmlspecialchars($pname) ?></td>
-                                                    <?php foreach ($columns as $grp): ?>
-                                                        <?php
-                                                        $reams = $groupStocks[$grp] ?? null;
-                                                        if ($reams !== null) {
-                                                            $class = 'low';
-                                                            if ($reams >= 80) $class = 'high';
-                                                            else if ($reams >= 20) $class = 'mid';
-                                                            $percentage = min(100, ($reams / 100) * 100);
-                                                        }
-                                                        ?>
-                                                        <td class="text-center">
-                                                            <?php if ($reams !== null): ?>
-                                                                <div class="stock-indicator <?= $class ?>">
-                                                                    <div class="stock-value <?= $reams < 20 ? 'text-danger fw-bold' : '' ?>">
-                                                                        <?= number_format($reams, 1) ?>
-                                                                    </div>
-                                                                    <div class="stock-bar">
-                                                                        <div class="bar-fill" style="width: <?= $percentage ?>%"></div>
-                                                                    </div>
-                                                                    <div class="stock-label">reams</div>
-                                                                </div>
-                                                            <?php else: ?>
-                                                                <span class="na">-</span>
-                                                            <?php endif; ?>
-                                                        </td>
+                        <div class="ssum-filters" role="group" aria-label="Filter stock by level">
+                            <button type="button" class="ssum-chip active" data-filter="all" aria-pressed="true">All <b><?= $ss['entries'] ?></b></button>
+                            <button type="button" class="ssum-chip" data-filter="ok" aria-pressed="false"><i class="ssum-dot ok"></i>Healthy <b><?= $ss['ok'] ?></b></button>
+                            <button type="button" class="ssum-chip" data-filter="low" aria-pressed="false"><i class="ssum-dot low"></i>Low <b><?= $ss['low'] ?></b></button>
+                            <button type="button" class="ssum-chip" data-filter="out" aria-pressed="false"><i class="ssum-dot out"></i>Out <b><?= $ss['out'] ?></b></button>
+                        </div>
+
+                        <div class="ssum-list" id="ssumList">
+                            <?php foreach ($grouped as $type => $products):
+                                $c = $ss_cats[$type];
+                                $cid = md5($type);
+                                $cEntries = $c['ok'] + $c['low'] + $c['out'];
+                            ?>
+                                <div class="ssum-cat">
+                                    <button type="button" class="ssum-cat-head" onclick="toggleStockTable('<?= $cid ?>')" aria-expanded="false" aria-controls="table-<?= $cid ?>">
+                                        <span class="ssum-cat-main">
+                                            <span class="ssum-cat-line">
+                                                <span class="ssum-cat-name"><?= htmlspecialchars($type) ?></span>
+                                                <span class="ssum-cat-meta"><?= count($products) ?> item<?= count($products) == 1 ? '' : 's' ?></span>
+                                                <?php if ($c['out'] > 0): ?><span class="ssum-pill out"><?= $c['out'] ?> out</span><?php endif; ?>
+                                                <?php if ($c['low'] > 0): ?><span class="ssum-pill low"><?= $c['low'] ?> low</span><?php endif; ?>
+                                                <?php if ($c['out'] == 0 && $c['low'] == 0): ?><span class="ssum-pill ok">Healthy</span><?php endif; ?>
+                                            </span>
+                                            <span class="ssum-mini" aria-hidden="true">
+                                                <span class="ok" style="width: <?= stockPct($c['ok'], $cEntries) ?>%"></span>
+                                                <span class="low" style="width: <?= stockPct($c['low'], $cEntries) ?>%"></span>
+                                                <span class="out" style="width: <?= stockPct($c['out'], $cEntries) ?>%"></span>
+                                            </span>
+                                        </span>
+                                        <span class="ssum-cat-total"><strong><?= number_format($c['reams'], 1) ?></strong><small>reams</small></span>
+                                        <i class="fas fa-chevron-down ssum-chevron"></i>
+                                    </button>
+
+                                    <div class="ssum-body" id="table-<?= $cid ?>">
+                                        <?php foreach ($products as $pname => $groupStocks): ?>
+                                            <div class="ssum-prod">
+                                                <div class="ssum-prod-name"><?= htmlspecialchars($pname) ?></div>
+                                                <div class="ssum-cells">
+                                                    <?php foreach ($groupStocks as $grp => $reams):
+                                                        $st = stockStatus($reams);
+                                                        $pct = min(100, $reams);
+                                                    ?>
+                                                        <div class="ssum-cell st-<?= $st ?>" data-st="<?= $st ?>" title="<?= htmlspecialchars($grp) ?>: <?= number_format($reams, 1) ?> reams">
+                                                            <span class="ssum-cell-group"><?= htmlspecialchars($grp) ?></span>
+                                                            <span class="ssum-cell-val"><?= number_format($reams, 1) ?> <small>reams</small></span>
+                                                            <span class="ssum-cell-bar"><i style="width: <?= $pct ?>%"></i></span>
+                                                        </div>
                                                     <?php endforeach; ?>
-                                                </tr>
-                                            <?php endforeach; ?>
-                                        </tbody>
-                                    </table>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
                                 </div>
+                            <?php endforeach; ?>
+
+                            <div class="ssum-empty" id="ssumEmpty" hidden>
+                                <i class="fas fa-check-circle"></i>
+                                <p>Nothing to show for this filter</p>
                             </div>
-                        <?php endforeach; ?>
-                    </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="empty-message">
+                            <i class="fas fa-boxes" style="font-size: 40px; margin-bottom: 10px; opacity: 0.5;"></i>
+                            <p>No stock recorded yet</p>
+                            <a href="delivery.php" style="color: var(--primary); text-decoration: none;">Record a delivery →</a>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -872,7 +877,24 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         <!-- Content will be populated by JavaScript -->
     </div>
 
+    <!-- Delete confirmation (replaces window.confirm) -->
+    <div class="mu-modal" id="deleteModal" role="dialog" aria-modal="true" aria-labelledby="deleteTitle" aria-hidden="true">
+        <div class="mu-modal-card">
+            <button type="button" class="mu-modal-close" data-close aria-label="Close"><i class="fas fa-times"></i></button>
+            <div class="mu-modal-icon danger"><i class="fas fa-trash"></i></div>
+            <h3 id="deleteTitle">Delete job order?</h3>
+            <p class="mu-modal-sub">This will permanently delete <strong id="deleteName"></strong>. This can't be undone.</p>
+            <div class="mu-modal-actions">
+                <button type="button" class="mu-btn mu-btn-ghost" id="deleteCancel" data-close>Cancel</button>
+                <button type="button" class="mu-btn mu-btn-danger" id="deleteConfirm"><i class="fas fa-trash"></i> Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
     <script src="../assets/js/pages/dashboard.js"></script>
+    <script src="../assets/js/pages/dashboard_fx.js"></script>
   <script>
     // Badge on the sidebar's "Website" link: same counts (unread chats,
     // pending orders, pending price-consultation requests) that drive the

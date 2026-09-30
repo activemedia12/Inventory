@@ -140,6 +140,7 @@ $is_admin = in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'], true);
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
   <link rel="stylesheet" href="../assets/css/pages/papers.css">
+  <link rel="stylesheet" href="../assets/css/pages/products_fx.css">
   <style>
     /* Dim the table briefly while a live search request is in flight.
        Move this into papers.css if/when convenient. */
@@ -319,6 +320,7 @@ $is_admin = in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'], true);
   </div>
 
   <script src=../assets/js/pages/papers.js></script>
+  <script src="../assets/js/pages/products_fx.js"></script>
   <script>
     // Badge on the sidebar's "Website" link: same counts (unread chats,
     // pending orders, pending price-consultation requests) that drive the

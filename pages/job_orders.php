@@ -1114,6 +1114,7 @@ if (!empty($displayed_job_ids)) {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
   <link rel="stylesheet" href="../assets/css/pages/job_orders.css">
+  <link rel="stylesheet" href="../assets/css/pages/job_orders_fx.css">
   <style>
     .nav-menu li a[href="website_admin.php"] {
       display: flex;
@@ -2145,6 +2146,7 @@ if (!empty($displayed_job_ids)) {
   </script>
 
   <script src="../assets/js/pages/job_orders.js"></script>
+  <script src="../assets/js/pages/job_orders_fx.js"></script>
   <script src="../assets/js/print.js"></script>
   <script>
     // Badge on the sidebar's "Website" link: same counts (unread chats,

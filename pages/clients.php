@@ -93,6 +93,7 @@ while ($row = $result->fetch_assoc()) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <link rel="stylesheet" href="../assets/css/pages/clients.css">
+    <link rel="stylesheet" href="../assets/css/pages/clients_fx.css">
   <style>
     .nav-menu li a[href="website_admin.php"] {
       display: flex;
@@ -161,7 +162,7 @@ while ($row = $result->fetch_assoc()) {
             </header>
 
             <div class="card">
-                <div class="card-toggle" id="addClientToggle" onclick="toggleAddClientForm()">
+                <div class="card-toggle" id="addClientToggle" onclick="toggleAddClientForm()" role="button" tabindex="0" aria-expanded="false" aria-controls="addClientBody">
                     <h3><i class="fa-solid fa-user-plus"></i> Add Client</h3>
                     <i class="fas fa-chevron-down chevron" id="addClientChevron"></i>
                 </div>
@@ -412,7 +413,12 @@ while ($row = $result->fetch_assoc()) {
                 </div>
                 <div class="card-body">
                     <div class="search">
-                        <input type="text" id="clientSearchInput" placeholder="Search clients..." class="form-control" value="<?= htmlspecialchars($search) ?>">
+                        <div class="search-box<?= $search !== '' ? ' has-value' : '' ?>" id="searchBox">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" id="clientSearchInput" placeholder="Search clients..." class="form-control" value="<?= htmlspecialchars($search) ?>" autocomplete="off" aria-label="Search clients">
+                            <kbd>/</kbd>
+                            <button type="button" class="search-clear" id="searchClear" aria-label="Clear search"><i class="fas fa-times"></i></button>
+                        </div>
                     </div>
                     <div class="letter-nav">
                         <a class="letter-btn<?= $letter === '' && $search === '' ? ' active' : '' ?>" href="?letter=&page=1">All</a>
@@ -429,6 +435,7 @@ while ($row = $result->fetch_assoc()) {
                         <?php foreach ($clients as $client): ?>
                             <li class="client-item" data-id="<?= (int) $client['id'] ?>">
                                 <div class="client-info">
+                                    <span class="avatar" style="--h:<?= crc32($client['client_name']) % 360 ?>"><?= htmlspecialchars(mb_strtoupper(mb_substr($client['client_name'], 0, 2))) ?></span>
                                     <span class="client-name"><?= htmlspecialchars($client['client_name']) ?></span>
                                 </div>
                                 <a href="job_orders.php?client_id=<?= $client['id'] ?>" class="btn cjo" onclick="event.stopPropagation()">
@@ -464,7 +471,7 @@ while ($row = $result->fetch_assoc()) {
                 </div>
             </div>
 
-            <div id="clientModal" class="modal" style="display: none;">
+            <div id="clientModal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modalClientName">
                 <div class="modal-overlay"></div>
                 <div class="modal-container animate__animated animate__fadeInUp">
                     <div class="modal-header">
@@ -542,7 +549,25 @@ while ($row = $result->fetch_assoc()) {
                         </div>
                 </div>
             </div>
+
+            <!-- Delete confirmation (replaces window.confirm) -->
+            <div class="mu-modal" id="deleteModal" role="dialog" aria-modal="true" aria-labelledby="deleteTitle" aria-hidden="true">
+                <div class="mu-modal-card">
+                    <button type="button" class="mu-modal-close" data-close aria-label="Close"><i class="fas fa-times"></i></button>
+                    <div class="mu-modal-icon danger"><i class="fas fa-trash"></i></div>
+                    <h3 id="deleteTitle">Delete client?</h3>
+                    <p class="mu-modal-sub">This will permanently delete <strong id="deleteName"></strong>. This can't be undone.</p>
+                    <div class="mu-modal-actions">
+                        <button type="button" class="mu-btn mu-btn-ghost" id="deleteCancel" data-close>Cancel</button>
+                        <button type="button" class="mu-btn mu-btn-danger" id="deleteConfirm"><i class="fas fa-trash"></i> Delete</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
             <script src="../assets/js/pages/clients.js"></script>
+            <script src="../assets/js/pages/clients_fx.js"></script>
         </div>
       <script>
     // Badge on the sidebar's "Website" link: same counts (unread chats,

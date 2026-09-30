@@ -20,8 +20,9 @@ if (!function_exists('render_delivery_group')) {
         $groupClass = $reveal ? 'delivery-group hide' : 'delivery-group';
         ?>
         <div class="<?= $groupClass ?>">
-          <button class="toggle-btn" onclick="toggleGroup(this)">
+          <button type="button" class="toggle-btn" onclick="toggleGroup(this)" aria-expanded="false">
             <i class="fas fa-calendar-alt"></i> <?= date("F j, Y", strtotime($date)) ?>
+            <i class="fas fa-chevron-down group-chevron" aria-hidden="true"></i>
           </button>
 
           <div class="group-content" style="display: none;">

@@ -1,0 +1,1349 @@
+/* =====================================================================
+   Dashboard — motion & interaction layer (dashboard_fx.css)
+   Ported 1:1 from clients_fx.css. Load AFTER dashboard.css.
+   Same easing curves, durations, hover lifts, springs, toasts and
+   modals — mapped onto the dashboard's own elements:
+
+     clients page                →  dashboard page
+     ─────────────────────────────────────────────────────────────
+     .card / .client-card        →  .stats-grid, .finance-card, .month-card,
+                                    .monthly-breakdown, .table-card
+     .stat-card + .stat-icon     →  .stat-card + .card-icon
+     .card-toggle (Add Client)   →  .ssum-cat-head (Stock Summary)
+     .client-item (rows)         →  tr.clickable-row
+     .btn / .btn-edit / -delete  →  .btn-status / .btn-edit / .btn-delete
+     #clientModal .modal-*       →  #productModal / #jobModal .floating-window
+     .mu-modal (delete confirm)  →  .mu-modal (delete job order)
+   ===================================================================== */
+
+:root {
+  --mu-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --mu-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --mu-on: #16a34a;
+  --mu-on-light: #22c55e;
+  /* dashboard.css names this token --primary-bg; clients.css calls it --primary-light */
+  --primary-light: var(--primary-bg);
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------------
+   Keyframes
+   --------------------------------------------------------------------- */
+@keyframes mu-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mu-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mu-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes mu-bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.5);
+    color: var(--mu-on);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* same bump without the green flash — for red / amber numbers */
+@keyframes dx-bump-plain {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.5);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes mu-bar {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes fx-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fx-window-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(18px) scale(0.93);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+@keyframes fx-window-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(18px) scale(0.93);
+  }
+}
+
+@keyframes fx-icon-pop {
+  from {
+    transform: scale(0.5);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Page entrance — every top-level block fades up in sequence
+   --------------------------------------------------------------------- */
+.main-content > * {
+  animation: mu-fade-up 0.5s var(--mu-ease-out) backwards;
+}
+
+.main-content > :nth-child(2) {
+  animation-delay: 0.12s;
+}
+.main-content > :nth-child(3) {
+  animation-delay: 0.18s;
+}
+.main-content > :nth-child(4) {
+  animation-delay: 0.24s;
+}
+.main-content > :nth-child(5) {
+  animation-delay: 0.3s;
+}
+.main-content > :nth-child(6) {
+  animation-delay: 0.36s;
+}
+.main-content > :nth-child(7) {
+  animation-delay: 0.42s;
+}
+.main-content > :nth-child(8) {
+  animation-delay: 0.48s;
+}
+.main-content > :nth-child(n + 9) {
+  animation-delay: 0.54s;
+}
+
+/* ---------------------------------------------------------------------
+   Buttons — same lift, colored shadow, icon tilt and press as .btn
+   (Update / Edit / Delete inside the job-order modal)
+   --------------------------------------------------------------------- */
+.btn-status,
+.btn-edit,
+.btn-delete {
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.2s var(--mu-ease-out),
+    box-shadow 0.2s ease;
+}
+
+.btn-status:hover,
+.btn-edit:hover,
+.btn-delete:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+}
+
+.btn-status:hover {
+  background-color: var(--success);
+  color: #fff;
+  box-shadow: 0 8px 18px -6px rgba(26, 156, 107, 0.55);
+}
+
+.btn-edit:hover {
+  background-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 8px 18px -6px rgba(79, 94, 255, 0.55);
+}
+
+.btn-delete:hover {
+  background-color: var(--danger);
+  color: #fff;
+  box-shadow: 0 8px 18px -6px rgba(217, 70, 60, 0.6);
+}
+
+.btn-status:active,
+.btn-edit:active,
+.btn-delete:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.btn-status:focus-visible,
+.btn-edit:focus-visible,
+.btn-delete:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.btn-status i,
+.btn-edit i,
+.btn-delete i,
+.view-all i {
+  display: inline-block;
+  transition: transform 0.3s var(--mu-ease-spring);
+}
+
+.btn-status:hover i,
+.btn-edit:hover i,
+.btn-delete:hover i,
+.view-all:hover i {
+  transform: scale(1.2) rotate(-8deg);
+}
+
+/* spinner while the status update posts */
+.btn-status.loading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.btn-status.loading i {
+  display: none;
+}
+
+.btn-status.loading::before {
+  content: "";
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid rgba(26, 156, 107, 0.35);
+  border-top-color: currentColor;
+  animation: mu-spin 0.6s linear infinite;
+}
+
+.view-all {
+  transition: color 0.15s ease;
+}
+
+.show-more-btn {
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s var(--mu-ease-out),
+    box-shadow 0.2s ease;
+}
+
+.show-more-btn:hover {
+  background: var(--primary-light);
+  transform: translateY(-1px);
+}
+
+.show-more-btn:active {
+  transform: scale(0.96);
+}
+
+.show-more-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------
+   Cards — the modal stat-card hover: lift, blue ring, icon flips to solid
+   --------------------------------------------------------------------- */
+.stats-grid .stat-card,
+.finance-card,
+.month-card {
+  transition:
+    transform 0.25s var(--mu-ease-out),
+    box-shadow 0.25s ease;
+}
+
+.stats-grid .stat-card:hover,
+.finance-card:hover,
+.month-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 10px 24px -10px rgba(79, 94, 255, 0.35),
+    0 0 0 1px #d3d7ff;
+}
+
+.stat-card .card-icon {
+  transition:
+    transform 0.4s var(--mu-ease-spring),
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.stat-card:hover .card-icon {
+  transform: scale(1.12) rotate(-6deg);
+  background-color: var(--primary);
+  color: #fff;
+}
+
+/* count-up numbers (see dashboard_fx.js) */
+.stats-grid .stat-card h3 {
+  display: block;
+  width: fit-content;
+  transform-origin: left center;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s ease;
+}
+
+.stats-grid .stat-card h3.bump {
+  animation: mu-bump 0.4s var(--mu-ease-spring);
+}
+
+.stats-grid .stat-card h3.text-danger.bump,
+.stats-grid .stat-card h3.text-warning.bump {
+  animation-name: dx-bump-plain;
+}
+
+/* header icons: same tilt + tint as the modal .detail-label icons */
+.finance-title i,
+.section-title i,
+.table-card h3 i,
+.window-content .section-header i {
+  display: inline-block;
+  transition:
+    transform 0.3s var(--mu-ease-spring),
+    color 0.2s ease;
+}
+
+.finance-card:hover .finance-title i,
+.monthly-breakdown:hover .section-title i,
+.table-card:hover h3 i,
+.window-content .section-header:hover i {
+  transform: scale(1.2) rotate(-8deg);
+  color: var(--primary);
+}
+
+/* ---------------------------------------------------------------------
+   Stock Summary — redesigned
+   Overview (totals + health bar + level filters) on top, then one
+   expandable row per category. Products list their groups as small
+   tiles instead of a wide matrix table, so nothing scrolls sideways.
+   Levels: out = 0 reams · low = under 20 · healthy = 20+
+   --------------------------------------------------------------------- */
+/* space between Stock Summary and Recent Deliveries */
+.flex {
+  gap: 20px;
+}
+
+.flex > .stock-cards {
+  flex: 1.15 1 0;
+  min-width: 0;
+}
+
+.flex > .table-card {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+}
+
+.stock-cards .ss.ssum {
+  flex: 1 1 auto;
+  max-width: none;
+  margin: 0;
+  padding: 20px;
+}
+
+@media (max-width: 1200px) {
+  .flex > .stock-cards,
+  .flex > .table-card {
+    flex: none;
+    width: 100%;
+  }
+}
+
+@keyframes ssum-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.ssum-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ssum .ssum-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 2px;
+}
+
+.ssum .ssum-sub {
+  font-size: 13px;
+  color: var(--gray);
+}
+
+.ssum .ssum-sub strong {
+  color: var(--dark);
+  font-weight: 700;
+}
+
+/* segmented health bar (overall + per category) */
+.ssum-health,
+.ssum-mini {
+  display: flex;
+  gap: 2px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--light-gray);
+}
+
+.ssum-health {
+  height: 8px;
+  margin-bottom: 14px;
+}
+
+.ssum-mini {
+  height: 4px;
+  margin-top: 8px;
+}
+
+.ssum-health span,
+.ssum-mini span {
+  height: 100%;
+  transform-origin: left;
+  animation: ssum-grow 0.7s var(--mu-ease-out) 0.35s backwards;
+}
+
+.ssum-health .ok,
+.ssum-mini .ok,
+.ssum-dot.ok {
+  background: var(--success);
+}
+.ssum-health .low,
+.ssum-mini .low,
+.ssum-dot.low {
+  background: #e0a030;
+}
+.ssum-health .out,
+.ssum-mini .out,
+.ssum-dot.out {
+  background: var(--danger);
+}
+
+/* level filter chips — same behaviour as the letter filter */
+.ssum-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.ssum-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--light-gray);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--gray);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s var(--mu-ease-spring);
+}
+
+.ssum-chip b {
+  font-weight: 700;
+  color: var(--dark);
+  transition: color 0.2s ease;
+}
+
+.ssum-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.ssum-chip:hover {
+  background-color: var(--primary-light);
+  border-color: var(--primary-light);
+  color: var(--primary);
+}
+
+.ssum-chip:active {
+  transform: scale(0.94);
+}
+
+.ssum-chip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.ssum-chip.active,
+.ssum-chip.active:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 4px 12px -4px rgba(79, 94, 255, 0.6);
+}
+
+.ssum-chip.active b {
+  color: #fff;
+}
+
+/* category rows */
+.ssum-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ssum-cat {
+  border: 1px solid var(--light-gray);
+  border-radius: 10px;
+  background: var(--card-bg);
+  overflow: hidden;
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.ssum-cat:hover,
+.ssum-cat.is-open {
+  border-color: #d3d7ff;
+}
+
+.ssum-cat.is-open {
+  box-shadow: 0 10px 24px -14px rgba(79, 94, 255, 0.35);
+}
+
+.ssum-cat-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: background-color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ssum-cat-head:hover {
+  background: var(--light);
+}
+
+.ssum-cat-head.is-open {
+  background: var(--primary-light);
+}
+
+.ssum-cat-head:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.ssum-cat-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.ssum-cat-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.ssum-cat-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dark);
+}
+
+.ssum-cat-meta {
+  font-size: 12px;
+  color: var(--gray);
+}
+
+.ssum-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ssum-pill.ok {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.ssum-pill.low {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.ssum-pill.out {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.ssum-cat-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+  flex-shrink: 0;
+}
+
+.ssum-cat-total strong {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ssum-cat-total small {
+  font-size: 10px;
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ssum-chevron {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--gray);
+  transition:
+    transform 0.3s var(--mu-ease-spring),
+    color 0.2s ease;
+}
+
+.ssum-cat-head:hover .ssum-chevron,
+.ssum-cat-head.is-open .ssum-chevron {
+  color: var(--primary);
+}
+
+/* expandable body (height animation is driven by dashboard_fx.js) */
+.ssum-body {
+  display: none;
+  max-height: 340px;
+  overflow: auto;
+  padding: 4px 14px 14px;
+  border-top: 1px solid var(--light-gray);
+}
+
+.ssum-body.fx-open .ssum-prod {
+  animation: mu-row-in 0.45s var(--mu-ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms + 0.12s);
+}
+
+.ssum-body.fx-open .ssum-cell-bar i {
+  animation: ssum-grow 0.6s var(--mu-ease-out) 0.25s backwards;
+}
+
+.ssum-prod {
+  padding-top: 12px;
+}
+
+.ssum-prod + .ssum-prod {
+  margin-top: 12px;
+  border-top: 1px dashed var(--light-gray);
+}
+
+.ssum-prod-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 8px;
+}
+
+.ssum-cells {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+}
+
+.ssum-cell {
+  min-width: 0;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: var(--light);
+  transition:
+    transform 0.25s var(--mu-ease-out),
+    box-shadow 0.25s ease;
+}
+
+.ssum-cell:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 10px 24px -10px rgba(79, 94, 255, 0.35),
+    0 0 0 1px #d3d7ff;
+}
+
+.ssum-cell-group {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ssum-cell-val {
+  display: block;
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--dark);
+}
+
+.ssum-cell-val small {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--gray);
+}
+
+.ssum-cell-bar {
+  display: block;
+  height: 4px;
+  margin-top: 6px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--light-gray);
+}
+
+.ssum-cell-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  transform-origin: left;
+  background: var(--success);
+}
+
+.ssum-cell.st-low .ssum-cell-bar i {
+  background: #e0a030;
+}
+.ssum-cell.st-low .ssum-cell-val {
+  color: var(--warning);
+}
+.ssum-cell.st-out .ssum-cell-bar i {
+  background: var(--danger);
+}
+.ssum-cell.st-out .ssum-cell-val {
+  color: var(--danger);
+}
+
+.ssum-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 26px 16px;
+  border-radius: 10px;
+  background: var(--light);
+  color: var(--gray);
+  font-size: 13px;
+  text-align: center;
+  animation: mu-row-in 0.45s var(--mu-ease-out);
+}
+
+.ssum-empty[hidden] {
+  display: none;
+}
+
+.ssum-empty i {
+  font-size: 22px;
+  color: var(--success);
+}
+
+@media (max-width: 576px) {
+  .stock-cards .ss.ssum {
+    padding: 16px;
+  }
+
+  .ssum-cells {
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Table rows — same behaviour as the client list rows
+   --------------------------------------------------------------------- */
+tr.clickable-row {
+  animation: mu-row-in 0.45s var(--mu-ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms + 0.45s);
+}
+
+tr td {
+  transition: background-color 0.2s ease;
+}
+
+/* non-clickable tables get the same soft tint the modal order rows use */
+tr:hover td {
+  background-color: #fafbff;
+}
+
+thead tr:hover td,
+thead tr:hover th {
+  background-color: transparent;
+}
+
+tr.clickable-row:hover td {
+  background-color: var(--primary-light);
+}
+
+tr.clickable-row:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+/* rows appended by "Show more" fade in like the order-list items */
+#usage-table-body tr,
+#delivery-table-body tr {
+  animation: mu-row-in 0.45s var(--mu-ease-out) backwards;
+}
+
+.compact-table td {
+  transition: background-color 0.2s ease;
+}
+
+.compact-table tbody tr:hover td {
+  background-color: #fafbff;
+}
+
+/* status badges: same press feel as the buttons */
+.status-badge {
+  transition:
+    opacity 0.15s ease,
+    transform 0.2s var(--mu-ease-out);
+}
+
+.status-badge:active {
+  transform: scale(0.96);
+}
+
+/* ---------------------------------------------------------------------
+   Form fields — same focus ring as the search box
+   --------------------------------------------------------------------- */
+.status-select {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.status-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(79, 94, 255, 0.14);
+}
+
+/* ---------------------------------------------------------------------
+   Empty states
+   --------------------------------------------------------------------- */
+.empty-state,
+.empty-message {
+  animation: mu-row-in 0.45s var(--mu-ease-out);
+}
+
+/* ---------------------------------------------------------------------
+   Toasts
+   --------------------------------------------------------------------- */
+.toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 11000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+  max-width: 360px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--dark);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 12px 30px -8px rgba(20, 23, 31, 0.45);
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(28px) scale(0.95);
+  transition:
+    transform 0.45s var(--mu-ease-spring),
+    opacity 0.25s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: none;
+}
+
+.toast.leaving {
+  opacity: 0;
+  transform: translateX(28px) scale(0.95);
+}
+
+.toast-success {
+  background: #14532d;
+}
+.toast-error {
+  background: #991b1b;
+}
+.toast-info {
+  background: #1e3a8a;
+}
+
+.toast i {
+  font-size: 16px;
+}
+
+.toast-success i {
+  color: #86efac;
+}
+.toast-error i {
+  color: #fecaca;
+}
+.toast-info i {
+  color: #bfdbfe;
+}
+
+.toast-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.4);
+  transform-origin: left;
+  animation: mu-bar linear forwards;
+}
+
+/* ---------------------------------------------------------------------
+   Product / job-order modals — same backdrop blur, spring pop-in, icon
+   pop, rotating close button and staggered content as #clientModal
+   --------------------------------------------------------------------- */
+.modal,
+#jobModal {
+  background: rgba(20, 23, 31, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  animation: fx-backdrop-in 0.25s ease;
+}
+
+/* (dashboard.css already defines .modal.closing for the backdrop fade-out) */
+
+.floating-window {
+  box-shadow: 0 24px 60px -12px rgba(20, 23, 31, 0.35);
+  animation: fx-window-in 0.45s var(--mu-ease-spring) both;
+}
+
+.floating-window.closing {
+  animation: fx-window-out 0.16s ease-in forwards;
+}
+
+.window-title > i {
+  animation: fx-icon-pop 0.5s var(--mu-ease-spring) 0.1s backwards;
+  transition: transform 0.3s var(--mu-ease-spring);
+}
+
+.floating-window:hover .window-title > i {
+  transform: scale(1.15) rotate(-6deg);
+}
+
+.close-btn {
+  border-radius: 50%;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.25s var(--mu-ease-spring);
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: rotate(90deg);
+}
+
+.close-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* staggered content — same rhythm as .detail-item */
+.floating-window .window-content > * {
+  animation: mu-row-in 0.45s var(--mu-ease-out) backwards;
+  animation-delay: calc(var(--d, 0) * 45ms + 0.15s);
+}
+
+.window-content > :nth-child(1) {
+  --d: 0;
+}
+.window-content > :nth-child(2) {
+  --d: 1;
+}
+.window-content > :nth-child(3) {
+  --d: 2;
+}
+.window-content > :nth-child(4) {
+  --d: 3;
+}
+.window-content > :nth-child(5) {
+  --d: 4;
+}
+.window-content > :nth-child(6) {
+  --d: 5;
+}
+.window-content > :nth-child(7) {
+  --d: 6;
+}
+.window-content > :nth-child(8) {
+  --d: 7;
+}
+.window-content > :nth-child(9) {
+  --d: 8;
+}
+.window-content > :nth-child(10) {
+  --d: 9;
+}
+.window-content > :nth-child(11) {
+  --d: 10;
+}
+.window-content > :nth-child(12) {
+  --d: 11;
+}
+.window-content > :nth-child(n + 13) {
+  --d: 12;
+}
+
+/* small stat tiles inside the modal: same hover as the modal stat-card */
+.stock-card-compact {
+  transition:
+    transform 0.25s var(--mu-ease-out),
+    box-shadow 0.25s ease;
+}
+
+.stock-card-compact:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 10px 24px -10px rgba(79, 94, 255, 0.35),
+    0 0 0 1px #d3d7ff;
+}
+
+/* ---------------------------------------------------------------------
+   Delete confirmation — the .mu-modal from Manage Users / Clients
+   --------------------------------------------------------------------- */
+.mu-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(20, 23, 31, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.25s ease,
+    visibility 0s 0.25s;
+}
+
+.mu-modal.open {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.25s ease;
+}
+
+.mu-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  padding: 28px 26px 22px;
+  border-radius: 14px;
+  background: #fff;
+  text-align: center;
+  box-shadow: 0 24px 60px -12px rgba(20, 23, 31, 0.35);
+  opacity: 0;
+  transform: translateY(18px) scale(0.93);
+  transition:
+    transform 0.45s var(--mu-ease-spring),
+    opacity 0.25s ease;
+}
+
+.mu-modal.open .mu-modal-card {
+  opacity: 1;
+  transform: none;
+}
+
+.mu-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--gray);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    transform 0.25s var(--mu-ease-spring);
+}
+
+.mu-modal-close:hover {
+  background: var(--light);
+  transform: rotate(90deg);
+}
+
+.mu-modal-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: var(--primary-light);
+  color: var(--primary);
+  transform: scale(0.5);
+  transition: transform 0.5s var(--mu-ease-spring) 0.1s;
+}
+
+.mu-modal.open .mu-modal-icon {
+  transform: none;
+}
+
+.mu-modal-icon.danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.mu-modal-card h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.mu-modal-sub {
+  margin-bottom: 18px;
+  color: var(--gray);
+  font-size: 13.5px;
+}
+
+.mu-modal-sub strong {
+  color: var(--dark);
+}
+
+.mu-modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.mu-modal-actions .mu-btn {
+  flex: 1;
+}
+
+.mu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s var(--mu-ease-out),
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.mu-btn i {
+  margin: 0;
+}
+
+.mu-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.mu-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.mu-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.mu-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mu-btn-ghost {
+  background: #fff;
+  border-color: var(--light-gray);
+  color: var(--dark);
+}
+
+.mu-btn-ghost:hover:not(:disabled) {
+  background: var(--light);
+}
+
+.mu-btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.mu-btn-danger:hover:not(:disabled) {
+  background: #b93a31;
+  box-shadow: 0 8px 18px -6px rgba(217, 70, 60, 0.6);
+}
+
+.mu-btn.loading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.mu-btn.loading i {
+  display: none;
+}
+
+.mu-btn.loading::before {
+  content: "";
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  animation: mu-spin 0.6s linear infinite;
+}
+
+/* ---------------------------------------------------------------------
+   Responsive
+   --------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .toast-stack {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
+
+  .toast {
+    max-width: none;
+  }
+}
+
+/* The "permission required" notice (permissions.php) gets the same look */
+#permToast {
+  background: #991b1b !important;
+  color: #fff !important;
+  border-left: 0 !important;
+  border-radius: 10px !important;
+  top: auto !important;
+  bottom: 20px !important;
+  z-index: 11000 !important;
+  box-shadow: 0 12px 30px -8px rgba(20, 23, 31, 0.45) !important;
+  animation: jx-toast-in 0.45s var(--mu-ease-spring);
+}
+#permToast strong i {
+  color: #fecaca !important;
+}
+
+@keyframes jx-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Respect reduced-motion preferences
+   --------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .main-content *,
+  .modal,
+  .modal *,
+  .floating-window,
+  .floating-window *,
+  .mu-modal,
+  .mu-modal *,
+  .toast-stack * {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+}

@@ -1,0 +1,1010 @@
+/* =====================================================================
+   Clients — motion & interaction layer (clients_fx.css)
+   Ported 1:1 from manage_users.css. Load AFTER clients.css.
+   Same easing curves, durations, hover lifts, springs, avatars, search
+   box, toasts and modals — mapped onto the clients page's own elements.
+   ===================================================================== */
+
+:root {
+  --mu-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --mu-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --mu-on: #16a34a;
+  --mu-on-light: #22c55e;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------------
+   Keyframes
+   --------------------------------------------------------------------- */
+@keyframes mu-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mu-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mu-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes mu-bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.5);
+    color: var(--mu-on);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes mu-bar {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes fx-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fx-window-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(18px) scale(0.93);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+@keyframes fx-window-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(18px) scale(0.93);
+  }
+}
+
+@keyframes fx-icon-pop {
+  from {
+    transform: scale(0.5);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes fx-radio-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Page entrance
+   --------------------------------------------------------------------- */
+.main-content > .header,
+.main-content > .card,
+.main-content > .client-card {
+  animation: mu-fade-up 0.5s var(--mu-ease-out) backwards;
+}
+
+.main-content > .card {
+  animation-delay: 0.2s;
+}
+.main-content > .client-card {
+  animation-delay: 0.26s;
+}
+
+/* ---------------------------------------------------------------------
+   Buttons
+   --------------------------------------------------------------------- */
+.btn {
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.2s var(--mu-ease-out),
+    box-shadow 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px -6px rgba(79, 94, 255, 0.55);
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.btn.btn-outline:hover {
+  box-shadow: 0 8px 18px -6px rgba(20, 23, 31, 0.25);
+}
+
+.btn.btn-delete:hover {
+  box-shadow: 0 8px 18px -6px rgba(217, 70, 60, 0.6);
+}
+
+.btn i {
+  transition: transform 0.3s var(--mu-ease-spring);
+}
+
+.btn:hover i {
+  transform: scale(1.2) rotate(-8deg);
+}
+
+.btn.loading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.btn.loading i {
+  display: none;
+}
+
+.btn.loading::before {
+  content: "";
+  width: 13px;
+  height: 13px;
+  margin-right: 8px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  animation: mu-spin 0.6s linear infinite;
+}
+
+/* ---------------------------------------------------------------------
+   Add Client card (animated expand / collapse)
+   --------------------------------------------------------------------- */
+.card-toggle {
+  transition: background-color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card-toggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.card-toggle h3 i {
+  transition:
+    transform 0.4s var(--mu-ease-spring),
+    color 0.25s ease;
+}
+
+.card-toggle:hover h3 i.fa-user-plus {
+  transform: scale(1.2) rotate(-8deg);
+  color: var(--primary);
+}
+
+.card-toggle .chevron {
+  transition:
+    transform 0.3s var(--mu-ease-spring),
+    color 0.2s ease;
+}
+
+.card-toggle:hover .chevron,
+.card-toggle.is-open .chevron {
+  color: var(--primary);
+}
+
+.card-toggle.is-open {
+  background: var(--primary-light);
+}
+
+.card-body-inner.fx-open .form-section {
+  animation: mu-row-in 0.45s var(--mu-ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms + 0.12s);
+}
+
+/* section headers: icon does the same hover as the stat-card icon */
+.form-section legend i {
+  transition:
+    transform 0.4s var(--mu-ease-spring),
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.form-section:hover legend i {
+  transform: scale(1.12) rotate(-6deg);
+  background-color: var(--primary);
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------------
+   Form fields — same focus ring as the search box
+   --------------------------------------------------------------------- */
+.form-group label,
+.vat-group > label {
+  transition: color 0.2s ease;
+}
+
+.form-group:focus-within > label,
+.vat-group:focus-within > label {
+  color: var(--primary);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea,
+.form-control {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus,
+.form-control:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(79, 94, 255, 0.14);
+}
+
+.vatlabels {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.vatlabels:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(79, 94, 255, 0.14);
+}
+
+.vatlabels label {
+  transition: color 0.2s ease;
+}
+
+.vatlabels label:hover {
+  color: var(--primary);
+}
+
+.vatlabels input[type="radio"]:checked {
+  animation: fx-radio-pop 0.35s var(--mu-ease-spring);
+}
+
+.vatlabels input[type="radio"]:active {
+  transform: scale(0.9);
+}
+
+/* ---------------------------------------------------------------------
+   Search box (icon + "/" hint + clear button)
+   --------------------------------------------------------------------- */
+.search {
+  margin-bottom: 14px;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 260px;
+  max-width: 100%;
+  transition: width 0.3s var(--mu-ease-out);
+}
+
+.search-box:focus-within {
+  width: 320px;
+}
+
+.search-box .search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--gray);
+  font-size: 13px;
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.search-box:focus-within .search-icon {
+  color: var(--primary);
+}
+
+.search .search-box input {
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  margin: 0;
+  padding: 9px 58px 9px 34px;
+  border: 1px solid var(--light-gray);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  background: #fff;
+  color: var(--dark);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.search .search-box input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(79, 94, 255, 0.14);
+}
+
+.search-box kbd {
+  position: absolute;
+  right: 10px;
+  min-width: 20px;
+  padding: 1px 6px;
+  border: 1px solid var(--light-gray);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--light);
+  color: var(--gray);
+  font-size: 11px;
+  font-family: inherit;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.search-box.has-value kbd {
+  opacity: 0;
+}
+
+.search-clear {
+  position: absolute;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--light);
+  color: var(--gray);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.6);
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.3s var(--mu-ease-spring),
+    background-color 0.15s ease;
+}
+
+.search-box.has-value .search-clear {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.search-clear:hover {
+  background: var(--light-gray);
+  color: var(--dark);
+}
+
+/* ---------------------------------------------------------------------
+   Letter filter — chip behaviour
+   --------------------------------------------------------------------- */
+.letter-btn {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s var(--mu-ease-spring);
+}
+
+a.letter-btn:hover {
+  background-color: var(--primary-light);
+  color: var(--primary);
+}
+
+a.letter-btn:active {
+  transform: scale(0.94);
+}
+
+a.letter-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.letter-btn.active,
+a.letter-btn.active:hover {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 4px 12px -4px rgba(79, 94, 255, 0.6);
+}
+
+/* ---------------------------------------------------------------------
+   Client rows (same behaviour as the Manage Users rows)
+   --------------------------------------------------------------------- */
+.client-item {
+  animation: mu-row-in 0.45s var(--mu-ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms + 0.3s);
+  transition: background-color 0.2s ease;
+}
+
+.client-item:hover {
+  background: var(--primary-light);
+}
+
+.client-item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.client-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: hsl(var(--h, 230), 45%, 30%);
+  background: hsl(var(--h, 230), 80%, 92%);
+  box-shadow: inset 0 0 0 1px hsl(var(--h, 230), 60%, 84%);
+  transition: transform 0.35s var(--mu-ease-spring);
+}
+
+.client-item:hover .avatar {
+  transform: scale(1.1) rotate(-4deg);
+}
+
+/* ---------------------------------------------------------------------
+   Pagination
+   --------------------------------------------------------------------- */
+.pagination-status {
+  transition: opacity 0.2s ease;
+}
+
+/* ---------------------------------------------------------------------
+   Empty state
+   --------------------------------------------------------------------- */
+.empty-state {
+  animation: mu-row-in 0.45s var(--mu-ease-out);
+}
+
+/* ---------------------------------------------------------------------
+   Toasts
+   --------------------------------------------------------------------- */
+.toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 11000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+  max-width: 360px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--dark);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 12px 30px -8px rgba(20, 23, 31, 0.45);
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(28px) scale(0.95);
+  transition:
+    transform 0.45s var(--mu-ease-spring),
+    opacity 0.25s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: none;
+}
+
+.toast.leaving {
+  opacity: 0;
+  transform: translateX(28px) scale(0.95);
+}
+
+.toast-success {
+  background: #14532d;
+}
+.toast-error {
+  background: #991b1b;
+}
+.toast-info {
+  background: #1e3a8a;
+}
+
+.toast i {
+  font-size: 16px;
+}
+
+.toast-success i {
+  color: #86efac;
+}
+.toast-error i {
+  color: #fecaca;
+}
+.toast-info i {
+  color: #bfdbfe;
+}
+
+.toast-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.4);
+  transform-origin: left;
+  animation: mu-bar linear forwards;
+}
+
+/* ---------------------------------------------------------------------
+   Client details modal — same backdrop blur, spring pop-in, icon pop,
+   rotating close button and staggered content as .mu-modal
+   --------------------------------------------------------------------- */
+.modal-overlay {
+  background: rgba(20, 23, 31, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: fx-backdrop-in 0.25s ease;
+}
+
+#clientModal .modal-container {
+  box-shadow: 0 24px 60px -12px rgba(20, 23, 31, 0.35);
+  animation: fx-window-in 0.45s var(--mu-ease-spring) both;
+}
+
+#clientModal.closing .modal-container {
+  animation: fx-window-out 0.16s ease-in forwards;
+}
+
+.modal-header h3 > i {
+  animation: fx-icon-pop 0.5s var(--mu-ease-spring) 0.1s backwards;
+  transition: transform 0.3s var(--mu-ease-spring);
+}
+
+.modal-container:hover .modal-header h3 > i {
+  transform: scale(1.15) rotate(-6deg);
+}
+
+.close-btn {
+  border-radius: 50%;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.25s var(--mu-ease-spring);
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: rotate(90deg);
+}
+
+.close-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.detail-item {
+  animation: mu-row-in 0.45s var(--mu-ease-out) backwards;
+  animation-delay: calc(var(--d, 0) * 45ms + 0.15s);
+}
+
+.detail-item:nth-child(1) {
+  --d: 0;
+}
+.detail-item:nth-child(2) {
+  --d: 1;
+}
+.detail-item:nth-child(3) {
+  --d: 2;
+}
+
+.detail-value.fx-swap,
+#modalClientName.fx-swap {
+  animation: mu-row-in 0.35s var(--mu-ease-out);
+}
+
+.detail-item .detail-label i {
+  transition:
+    transform 0.3s var(--mu-ease-spring),
+    color 0.2s ease;
+}
+
+.detail-item:hover .detail-label i {
+  transform: scale(1.2) rotate(-8deg);
+  color: var(--primary);
+}
+
+/* stat card */
+.modal .stats-section .stat-card {
+  animation: mu-row-in 0.45s var(--mu-ease-out) 0.3s backwards;
+  transition:
+    transform 0.25s var(--mu-ease-out),
+    box-shadow 0.25s ease;
+}
+
+.modal .stats-section .stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 10px 24px -10px rgba(79, 94, 255, 0.35),
+    0 0 0 1px #d3d7ff;
+}
+
+.stat-card .stat-icon {
+  transition:
+    transform 0.4s var(--mu-ease-spring),
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.stat-card:hover .stat-icon {
+  transform: scale(1.12) rotate(-6deg);
+  background-color: var(--primary);
+  color: #fff;
+}
+
+.stat-value {
+  display: inline-block;
+  transition: color 0.2s ease;
+}
+
+.stat-value.bump {
+  animation: mu-bump 0.4s var(--mu-ease-spring);
+}
+
+/* recent orders */
+.modal .recent-orders {
+  animation: mu-row-in 0.45s var(--mu-ease-out) 0.36s backwards;
+}
+
+.order-list li {
+  animation: mu-row-in 0.45s var(--mu-ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+  transition: background-color 0.2s ease;
+}
+
+.order-list li:hover {
+  background: #fafbff;
+}
+
+.order-list .no-orders:hover,
+.order-list .error:hover {
+  background: transparent;
+}
+
+.modal-footer .btn {
+  animation: mu-row-in 0.45s var(--mu-ease-out) 0.4s backwards;
+}
+
+/* ---------------------------------------------------------------------
+   Delete confirmation — the .mu-modal from Manage Users
+   --------------------------------------------------------------------- */
+.mu-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(20, 23, 31, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.25s ease,
+    visibility 0s 0.25s;
+}
+
+.mu-modal.open {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.25s ease;
+}
+
+.mu-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  padding: 28px 26px 22px;
+  border-radius: 14px;
+  background: #fff;
+  text-align: center;
+  box-shadow: 0 24px 60px -12px rgba(20, 23, 31, 0.35);
+  opacity: 0;
+  transform: translateY(18px) scale(0.93);
+  transition:
+    transform 0.45s var(--mu-ease-spring),
+    opacity 0.25s ease;
+}
+
+.mu-modal.open .mu-modal-card {
+  opacity: 1;
+  transform: none;
+}
+
+.mu-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--gray);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    transform 0.25s var(--mu-ease-spring);
+}
+
+.mu-modal-close:hover {
+  background: var(--light);
+  transform: rotate(90deg);
+}
+
+.mu-modal-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: var(--primary-light);
+  color: var(--primary);
+  transform: scale(0.5);
+  transition: transform 0.5s var(--mu-ease-spring) 0.1s;
+}
+
+.mu-modal.open .mu-modal-icon {
+  transform: none;
+}
+
+.mu-modal-icon.danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.mu-modal-card h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.mu-modal-sub {
+  margin-bottom: 18px;
+  color: var(--gray);
+  font-size: 13.5px;
+}
+
+.mu-modal-sub strong {
+  color: var(--dark);
+}
+
+.mu-modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.mu-modal-actions .mu-btn {
+  flex: 1;
+}
+
+.mu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s var(--mu-ease-out),
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.mu-btn i {
+  margin: 0;
+}
+
+.mu-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.mu-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.mu-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.mu-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mu-btn-ghost {
+  background: #fff;
+  border-color: var(--light-gray);
+  color: var(--dark);
+}
+
+.mu-btn-ghost:hover:not(:disabled) {
+  background: var(--light);
+}
+
+.mu-btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.mu-btn-danger:hover:not(:disabled) {
+  background: #b93a31;
+  box-shadow: 0 8px 18px -6px rgba(217, 70, 60, 0.6);
+}
+
+.mu-btn.loading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.mu-btn.loading i {
+  display: none;
+}
+
+.mu-btn.loading::before {
+  content: "";
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  animation: mu-spin 0.6s linear infinite;
+}
+
+/* ---------------------------------------------------------------------
+   Responsive
+   --------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .search-box,
+  .search-box:focus-within {
+    width: 100%;
+  }
+
+  .search-box kbd {
+    display: none;
+  }
+
+  .toast-stack {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
+
+  .toast {
+    max-width: none;
+  }
+}
+
+/* The "permission required" notice (permissions.php) gets the same look */
+#permToast {
+  background: #991b1b !important;
+  color: #fff !important;
+  border-left: 0 !important;
+  border-radius: 10px !important;
+  top: auto !important;
+  bottom: 20px !important;
+  z-index: 11000 !important;
+  box-shadow: 0 12px 30px -8px rgba(20, 23, 31, 0.45) !important;
+  animation: jx-toast-in 0.45s var(--mu-ease-spring);
+}
+#permToast strong i {
+  color: #fecaca !important;
+}
+
+@keyframes jx-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Respect reduced-motion preferences
+   --------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .main-content *,
+  .modal,
+  .modal *,
+  .mu-modal,
+  .mu-modal *,
+  .toast-stack * {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+}
