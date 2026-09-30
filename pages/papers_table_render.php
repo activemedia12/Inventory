@@ -29,9 +29,11 @@ if (!function_exists('render_papers_table')) {
      * @param array  $products   Flat product rows: id, product_type, paper_size,
      *                           product_name, unit_price, available_sheets, username
      * @param string $stock_unit 'reams' or 'sheets'
-     * @param bool   $is_admin   Whether to show the "Recorded By" / "Actions" columns
+     * @param bool   $is_admin   Whether to show the "Recorded By" column (admin / super admin)
+     * @param bool   $can_edit   Edit link works (otherwise it shows a permission notice)
+     * @param bool   $can_delete Delete link works (otherwise it shows a permission notice)
      */
-    function render_papers_table(array $products, string $stock_unit, bool $is_admin): string
+    function render_papers_table(array $products, string $stock_unit, bool $is_admin, bool $can_edit = false, bool $can_delete = false): string
     {
         $grouped_products = [];
         foreach ($products as $prod) {
@@ -87,8 +89,8 @@ if (!function_exists('render_papers_table')) {
                           <th>Stock</th>
                           <?php if ($is_admin): ?>
                             <th>Recorded By</th>
-                            <th>Actions</th>
                           <?php endif; ?>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -103,11 +105,11 @@ if (!function_exists('render_papers_table')) {
                             </td>
                             <?php if ($is_admin): ?>
                               <td><?= htmlspecialchars($prod['username'] ?? 'Unknown') ?></td>
-                              <td class="action-cell">
-                                <a href="edit_product.php?id=<?= $prod['id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>
-                                <a href="delete_product.php?id=<?= $prod['id'] ?>" onclick="return confirm('Are you sure you want to delete this product?')" title="Delete"><i class="fas fa-trash"></i></a>
-                              </td>
                             <?php endif; ?>
+                            <td class="action-cell">
+                              <a href="edit_product.php?id=<?= $prod['id'] ?>" title="Edit"<?= $can_edit ? '' : ' data-denied="edit"' ?>><i class="fas fa-edit"></i></a>
+                              <a href="delete_product.php?id=<?= $prod['id'] ?>" onclick="return confirm('Are you sure you want to delete this product?')" title="Delete"<?= $can_delete ? '' : ' data-denied="delete"' ?>><i class="fas fa-trash"></i></a>
+                            </td>
                           </tr>
                         <?php endforeach; ?>
                       </tbody>

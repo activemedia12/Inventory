@@ -2,9 +2,10 @@
 session_start();
 require_once '../../config/db.php';
 require_once '../../config/security.php';
+require_once '../permissions.php';
 
 // Check if user is logged in and is admin
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee', 'super_admin'])) {
     header("Location: ../../accounts/login.php");
     exit;
 }
@@ -17,6 +18,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Handle customer actions
 if (isset($_POST['action'])) {
     $action = $_POST['action'];
+
+    // Permission gate (buttons stay visible; the page's own banner shows the notice)
+    $needs = ['update_customer' => 'web_customers', 'delete_customer' => 'web_delete'];
+    if (isset($needs[$action]) && !can($needs[$action])) {
+        $_SESSION['error'] = permission_denied_message($needs[$action]);
+        header("Location: admin_customers.php");
+        exit;
+    }
 
     switch ($action) {
         case 'update_customer':
@@ -395,766 +404,15 @@ $stats = $stats_result->fetch_assoc();
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        :root {
-            --primary: #4f5eff;
-            --secondary: #4048e0;
-            --primary-bg: #eef1ff;
-            --light: #f6f6f7;
-            --dark: #14171f;
-            --gray: #6b7280;
-            --light-gray: #e2e4e7;
-            --card-bg: #ffffff;
-            --success: #1a9c6b;
-            --success-bg: #e3f6ee;
-            --danger: #d9463c;
-            --danger-bg: #fbe9e7;
-            --warning: #b6790a;
-            --warning-bg: #fdf2df;
-            --info: #2a7ade;
-            --info-bg: #e8f1fc;
-        }
-
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #cbced3;
-            border-radius: 8px;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-
-        body {
-            background-color: var(--light);
-            color: var(--dark);
-            line-height: 1.5;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        .admin-container {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            padding: 28px 32px;
-            background: var(--light);
-            padding-bottom: 90px;
-        }
-
-        .header {
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            padding: 18px 20px;
-            border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 {
-            color: var(--dark);
-            font-size: 22px;
-            margin: 0;
-            font-weight: 600;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .logout-btn {
-            background: var(--danger-bg);
-            color: var(--danger);
-            padding: 8px 14px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 600;
-            transition: opacity 0.15s ease;
-        }
-
-        .logout-btn:hover {
-            opacity: 0.8;
-        }
-
-        /* Messages */
-        .message {
-            padding: 12px 15px;
-            background: var(--success-bg);
-            color: var(--success);
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        .error {
-            padding: 12px 15px;
-            background: var(--danger-bg);
-            color: var(--danger);
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        /* Stats Cards */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-
-        .stat-card {
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            padding: 18px;
-            border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
-            text-align: center;
-            transition: box-shadow 0.15s ease;
-        }
-
-        .stat-card:hover {
-            box-shadow: 0 4px 12px rgba(20, 23, 31, 0.08);
-        }
-
-        .stat-card i {
-            font-size: 22px;
-            margin-bottom: 10px;
-        }
-
-        .stat-card.customers i {
-            color: var(--primary);
-        }
-
-        .stat-card.active i {
-            color: var(--success);
-        }
-
-        .stat-card.inactive i {
-            color: var(--danger);
-        }
-
-        .stat-card.orders i {
-            color: var(--warning);
-        }
-
-        .stat-number {
-            font-size: 22px;
-            font-weight: 700;
-            margin: 6px 0;
-        }
-
-        .stat-label {
-            color: var(--gray);
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            font-weight: 600;
-        }
-
-        /* Search and Filter */
-        .search-filter {
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            padding: 16px 18px;
-            border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
-            margin-bottom: 20px;
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .search-filter input,
-        .search-filter select {
-            padding: 9px 12px;
-            border: 1px solid var(--light-gray);
-            border-radius: 6px;
-            font-size: 13px;
-            color: var(--dark);
-            background: var(--card-bg);
-        }
-
-        .search-filter input:focus,
-        .search-filter select:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-
-        .search-btn {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 9px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-            transition: background-color 0.15s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .search-btn:hover {
-            background: var(--secondary);
-        }
-
-        /* Customers Table */
-        .customers-table {
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
-        }
-
-        .pagination {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 12px;
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin-top: 20px;
-        }
-
-        .pagination-summary {
-            color: var(--gray);
-            font-size: 0.9rem;
-        }
-
-        .pagination-controls {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-
-        .pagination-controls .btn {
-            padding: 6px 12px;
-            font-size: 0.9rem;
-            background: var(--light);
-            color: var(--dark);
-            border: 1px solid var(--light-gray);
-            text-decoration: none;
-            border-radius: 6px;
-        }
-
-        .pagination-controls .btn:hover {
-            background: var(--light-gray);
-        }
-
-        .pagination-controls .btn.active {
-            background: var(--primary);
-            color: #fff;
-            border-color: var(--primary);
-        }
-
-        .pagination-controls .btn.btn-disabled {
-            opacity: 0.4;
-            pointer-events: none;
-        }
-
-        .pagination-ellipsis {
-            color: var(--gray);
-            padding: 0 4px;
-        }
-
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .table th,
-        .table td {
-            padding: 10px 14px;
-            text-align: left;
-            border-bottom: 1px solid var(--light-gray);
-            font-size: 13px;
-        }
-
-        .table th {
-            background: var(--light);
-            font-weight: 600;
-            color: var(--gray);
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-
-        .status-badge {
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .status-active {
-            background: var(--success-bg);
-            color: var(--success);
-        }
-
-        .status-inactive {
-            background: var(--danger-bg);
-            color: var(--danger);
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 6px;
-        }
-
-        .btn {
-            padding: 7px 12px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            transition: opacity 0.15s ease;
-            text-decoration: none;
-        }
-
-        .btn-primary {
-            background: var(--primary-bg);
-            color: var(--secondary);
-        }
-
-        .btn-primary:hover {
-            opacity: 0.8;
-        }
-
-        .btn-warning {
-            background: var(--warning-bg);
-            color: var(--warning);
-        }
-
-        .btn-warning:hover {
-            opacity: 0.8;
-        }
-
-        .btn-danger {
-            background: var(--danger-bg);
-            color: var(--danger);
-        }
-
-        .btn-danger:hover {
-            opacity: 0.8;
-        }
-
-        .btn-info {
-            background: var(--info-bg);
-            color: var(--info);
-        }
-
-        .btn-info:hover {
-            opacity: 0.8;
-        }
-
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            backdrop-filter: blur(2px);
-            animation: fadeIn 0.2s ease-out;
-        }
-
-        .modal-content {
-            background-color: var(--card-bg);
-            margin: 4% auto;
-            padding: 0;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 700px;
-            max-height: 88vh;
-            overflow: hidden;
-            box-shadow: 0 12px 32px rgba(20, 23, 31, 0.18);
-            animation: slideUp 0.2s ease-out;
-            position: relative;
-        }
-
-        .modal-header {
-            padding: 18px 20px;
-            border-bottom: 1px solid var(--light-gray);
-            background: var(--dark);
-            position: relative;
-        }
-
-        .modal-header h2 {
-            color: white;
-            font-size: 15px;
-            font-weight: 600;
-            margin: 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .modal-header h2 i {
-            color: white;
-            font-size: 14px;
-        }
-
-        .modal-body {
-            padding: 20px;
-            max-height: calc(88vh - 130px);
-            overflow-y: auto;
-        }
-
-        .modal-footer {
-            padding: 16px 20px;
-            border-top: 1px solid var(--light-gray);
-            background: var(--light);
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-        }
-
-        .close {
-            position: absolute;
-            right: 14px;
-            top: 14px;
-            color: white;
-            font-size: 18px;
-            font-weight: 400;
-            cursor: pointer;
-            width: 30px;
-            height: 30px;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: opacity 0.15s ease;
-            background: transparent;
-            border: none;
-            opacity: 0.85;
-        }
-
-        .close:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            opacity: 1;
-        }
-
-        /* Modal Animations */
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(16px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Form Styles (shared, inside and outside modal) */
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .modal .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-group label,
-        .modal .form-group label {
-            display: block;
-            margin-bottom: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--gray);
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-
-        .form-control,
-        .modal .form-control {
-            width: 100%;
-            padding: 9px 12px;
-            border: 1px solid var(--light-gray);
-            border-radius: 6px;
-            font-size: 13px;
-            color: var(--dark);
-            background: var(--card-bg);
-            transition: border-color 0.15s ease;
-        }
-
-        .form-control:focus,
-        .modal .form-control:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px var(--primary-bg);
-        }
-
-        /* Buttons inside modal */
-        .modal .btn {
-            padding: 9px 18px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: opacity 0.15s ease;
-            text-decoration: none;
-            min-width: 100px;
-            justify-content: center;
-        }
-
-        .modal .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-
-        .modal .btn-primary:hover {
-            background: var(--secondary);
-        }
-
-        .modal .btn-secondary {
-            background: var(--light);
-            color: var(--dark);
-            border: 1px solid var(--light-gray);
-        }
-
-        .modal .btn-secondary:hover {
-            background: var(--light-gray);
-        }
-
-        .modal .btn-success {
-            background: var(--success);
-            color: white;
-        }
-
-        .modal .btn-success:hover {
-            opacity: 0.85;
-        }
-
-        /* Customer Stats in Modal */
-        .customer-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 12px;
-            margin: 18px 0;
-            padding: 16px;
-            background: var(--light);
-            border-radius: 8px;
-            border: 1px solid var(--light-gray);
-        }
-
-        .stat-box {
-            text-align: center;
-            padding: 14px;
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            border-radius: 8px;
-        }
-
-        .stat-value {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--dark);
-            margin-bottom: 4px;
-        }
-
-        .stat-box .stat-label {
-            font-size: 11px;
-            color: var(--gray);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-
-        /* Table in Modal */
-        .modal .table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 16px 0;
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .modal .table th {
-            background: var(--light);
-            padding: 10px 14px;
-            font-weight: 600;
-            color: var(--gray);
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-
-        .modal .table td {
-            padding: 10px 14px;
-            border-bottom: 1px solid var(--light-gray);
-            color: var(--dark);
-            font-size: 13px;
-        }
-
-        .modal .table tr:last-child td {
-            border-bottom: none;
-        }
-
-        /* Customer Info Section */
-        .customer-info {
-            background: var(--light);
-            padding: 18px;
-            border-radius: 8px;
-            border: 1px solid var(--light-gray);
-            margin-bottom: 18px;
-        }
-
-        .customer-info h3 {
-            color: var(--dark);
-            margin-bottom: 12px;
-            font-size: 15px;
-            font-weight: 600;
-        }
-
-        .customer-info p {
-            margin-bottom: 8px;
-            color: var(--gray);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-        }
-
-        .customer-info strong {
-            color: var(--dark);
-            min-width: 120px;
-            display: inline-block;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .main-content {
-                padding: 20px;
-            }
-
-            .modal-content {
-                margin: 6% auto;
-                width: 95%;
-                max-height: 92vh;
-            }
-
-            .search-filter {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .action-buttons {
-                flex-direction: column;
-            }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .customer-stats {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="../../assets/css/website_admin.css">
 </head>
 
-<body>
+<body class="page-customers" data-page="customers">
     <div class="admin-container">
         <div class="main-content">
             <div class="header">
                 <h1>Customer Management</h1>
             </div>
-
-            <?php if (isset($_SESSION['message'])): ?>
-                <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Success!',
-                            text: <?php echo esc_js($_SESSION['message']); ?>,
-                            toast: true,
-                            position: 'top-end',
-                            showConfirmButton: false,
-                            timer: 3000,
-                            timerProgressBar: true,
-                            background: 'var(--success-bg)',
-                            iconColor: 'var(--success)',
-                            color: 'var(--success)'
-                        });
-                        <?php unset($_SESSION['message']); ?>
-                    });
-                </script>
-            <?php endif; ?>
-
-            <?php if (isset($_SESSION['error'])): ?>
-                <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error!',
-                            text: <?php echo esc_js($_SESSION['error']); ?>,
-                            toast: true,
-                            position: 'top-end',
-                            showConfirmButton: false,
-                            timer: 4000,
-                            timerProgressBar: true,
-                            background: 'var(--danger-bg)',
-                            iconColor: 'var(--danger)',
-                            color: 'var(--danger)'
-                        });
-                        <?php unset($_SESSION['error']); ?>
-                    });
-                </script>
-            <?php endif; ?>
 
             <!-- Statistics Cards -->
             <div class="stats-grid">
@@ -1224,12 +482,12 @@ $stats = $stats_result->fetch_assoc();
                                         ?>
                                     </strong>
                                     <br>
-                                    <small style="color: var(--gray);">
+                                    <small class="text-muted">
                                         <i class="fas fa-envelope"></i> <?php echo htmlspecialchars($customer['username']); ?>
                                     </small>
                                     <?php if (!empty($customer['middle_name'])): ?>
                                         <br>
-                                        <small style="color: var(--gray);">Middle: <?php echo htmlspecialchars($customer['middle_name']); ?></small>
+                                        <small class="text-muted">Middle: <?php echo htmlspecialchars($customer['middle_name']); ?></small>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -1243,7 +501,7 @@ $stats = $stats_result->fetch_assoc();
                                         <i class="fas fa-map-marker-alt"></i>
                                         <?php echo htmlspecialchars($customer['city'] ?: $customer['company_city']); ?>
                                     <?php else: ?>
-                                        <span style="color: var(--gray);">No location info</span>
+                                        <span class="text-muted">No location info</span>
                                     <?php endif; ?>
                                 </td>
 
@@ -1257,7 +515,7 @@ $stats = $stats_result->fetch_assoc();
                                     <?php if ($customer['last_order_date']): ?>
                                         <?php echo date('M j, Y', strtotime($customer['last_order_date'])); ?>
                                     <?php else: ?>
-                                        <span style="color: var(--gray);">No orders yet</span>
+                                        <span class="text-muted">No orders yet</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -1330,10 +588,10 @@ $stats = $stats_result->fetch_assoc();
 
     <!-- Customer Details Modal -->
     <div id="customerModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2><i class="fas fa-user-circle"></i> Customer Details</h2>
-                <button class="close" onclick="closeModal('customerModal')">&times;</button>
+                <button type="button" class="modal-close" onclick="closeModal(\'customerModal\')" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
                 <div id="customerDetails">
@@ -1345,10 +603,10 @@ $stats = $stats_result->fetch_assoc();
 
     <!-- Edit Customer Modal -->
     <div id="editCustomerModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2><i class="fas fa-edit"></i> Edit Customer</h2>
-                <button class="close" onclick="closeModal('editCustomerModal')">&times;</button>
+                <button type="button" class="modal-close" onclick="closeModal(\'editCustomerModal\')" aria-label="Close">&times;</button>
             </div>
             <form id="editCustomerForm" method="post">
 <?php echo csrf_field(); ?>
@@ -1356,7 +614,7 @@ $stats = $stats_result->fetch_assoc();
                     <input type="hidden" name="action" value="update_customer">
                     <input type="hidden" name="user_id" id="editUserId">
 
-                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-row">
                         <div class="form-group">
                             <label><i class="fas fa-envelope"></i> Username/Email</label>
                             <input type="email" name="username" id="editUsername" class="form-control" required>
@@ -1370,7 +628,7 @@ $stats = $stats_result->fetch_assoc();
 
                     <!-- Personal customer fields -->
                     <div id="personalFields">
-                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-row">
                             <div class="form-group">
                                 <label><i class="fas fa-user"></i> First Name</label>
                                 <input type="text" name="first_name" id="editFirstName" class="form-control">
@@ -1395,7 +653,7 @@ $stats = $stats_result->fetch_assoc();
 
                     <!-- Company customer fields -->
                     <div id="companyFields" style="display: none;">
-                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-row">
                             <div class="form-group">
                                 <label><i class="fas fa-building"></i> Company Name</label>
                                 <input type="text" name="company_name" id="editCompanyName" class="form-control">
@@ -1407,7 +665,7 @@ $stats = $stats_result->fetch_assoc();
                             </div>
                         </div>
 
-                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-row">
                             <div class="form-group">
                                 <label><i class="fas fa-user"></i> Contact Person</label>
                                 <input type="text" name="contact_person" id="editContactPerson" class="form-control">
@@ -1419,7 +677,7 @@ $stats = $stats_result->fetch_assoc();
                             </div>
                         </div>
 
-                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-row">
                             <div class="form-group">
                                 <label>Building/Block</label>
                                 <input type="text" name="building_or_block" id="editBuildingOrBlock" class="form-control">
@@ -1430,7 +688,7 @@ $stats = $stats_result->fetch_assoc();
                             </div>
                         </div>
 
-                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-row">
                             <div class="form-group">
                                 <label>Subdivision/Street</label>
                                 <input type="text" name="subd_or_street" id="editSubdOrStreet" class="form-control">
@@ -1441,7 +699,7 @@ $stats = $stats_result->fetch_assoc();
                             </div>
                         </div>
 
-                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                        <div class="form-row cols-3">
                             <div class="form-group">
                                 <label><i class="fas fa-city"></i> City</label>
                                 <input type="text" name="company_city" id="editCompanyCity" class="form-control">
@@ -1469,262 +727,20 @@ $stats = $stats_result->fetch_assoc();
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <?php
+    ?>
     <script>
-        // Escapes text so customer-supplied values can never run as HTML/JS
-        function esc(value) {
-            return String(value === null || value === undefined ? '' : value)
-                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-        }
-
-        // Shared non-blocking toast (same pattern as the session-flash
-        // Swal toasts above) so every alert() on this page looks and
-        // behaves the same way.
-        function showToast(icon, text) {
-            const palette = {
-                success: { background: 'var(--success-bg)', iconColor: 'var(--success)', color: 'var(--success)' },
-                error: { background: 'var(--danger-bg)', iconColor: 'var(--danger)', color: 'var(--danger)' },
-                warning: { background: 'var(--warning-bg)', iconColor: 'var(--warning)', color: 'var(--warning)' }
-            };
-            const theme = palette[icon] || palette.error;
-            Swal.fire({
-                icon: icon,
-                title: icon === 'success' ? 'Success!' : icon === 'error' ? 'Error!' : 'Warning',
-                text: text,
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: icon === 'error' ? 4000 : 3000,
-                timerProgressBar: true,
-                background: theme.background,
-                iconColor: theme.iconColor,
-                color: theme.color
-            });
-        }
-
-        function viewCustomerDetails(userId) {
-            fetch(`admin_customers.php?ajax=get_customer_stats&user_id=${userId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        showToast('error', 'Error: ' + data.error);
-                        return;
-                    }
-
-                    // Fetch customer basic info
-                    fetch(`admin_customers.php?ajax=get_customer&user_id=${userId}`)
-                        .then(response => response.json())
-                        .then(customer => {
-                            const stats = data.order_stats;
-                            const recentOrders = data.recent_orders;
-
-                            let ordersHtml = '';
-                            if (recentOrders.length > 0) {
-                                ordersHtml = recentOrders.map(order => `
-                            <tr>
-                                <td>#${esc(order.order_id)}</td>
-                                <td>₱${esc(parseFloat(order.total_amount).toFixed(2))}</td>
-                                <td><span class="status-badge status-${esc(order.status)}">${esc(order.status)}</span></td>
-                                <td>${esc(new Date(order.created_at).toLocaleDateString())}</td>
-                            </tr>
-                        `).join('');
-                            } else {
-                                ordersHtml = '<tr><td colspan="4" style="text-align: center; color: var(--gray);">No orders found</td></tr>';
-                            }
-
-                            // --- Build Customer Info depending on type ---
-                            let customerInfoHtml = '';
-
-                            if (customer.customer_type === 'personal') {
-                                customerInfoHtml = `
-                            <h3>${esc(customer.first_name)} ${esc(customer.last_name)}</h3>
-                            <p><strong>Email:</strong> ${esc(customer.username)}</p>
-                            <p><strong>Full Name:</strong> ${esc(customer.first_name)} ${esc(customer.middle_name || '')} ${esc(customer.last_name)}</p>
-                            <p><strong>Phone:</strong> ${esc(customer.contact_number || 'Not provided')}</p>
-                            <p><strong>Address:</strong> ${esc(customer.address_line1 || 'Not provided')} ${esc(customer.city ? ', ' + customer.city : '')} ${esc(customer.province ? ', ' + customer.province : '')} ${esc(customer.zip_code ? ' ' + customer.zip_code : '')}</p>
-                            <p><strong>Age/Gender:</strong> ${esc(customer.age || 'Not provided')} / ${esc(customer.gender || 'Not provided')}</p>
-                            <p><strong>Birthdate:</strong> ${esc(customer.birthdate ? new Date(customer.birthdate).toLocaleDateString() : 'Not provided')}</p>
-                        `;
-                            } else if (customer.customer_type === 'company') {
-                                customerInfoHtml = `
-                            <h3>${esc(customer.company_name)}</h3>
-                            <p><strong>Email:</strong> ${esc(customer.username)}</p>
-                            <p><strong>Taxpayer:</strong> ${esc(customer.taxpayer_name || 'Not provided')}</p>
-                            <p><strong>Person:</strong> ${esc(customer.contact_person || 'Not provided')}</p>
-                            <p><strong>Phone:</strong> ${esc(customer.company_contact || 'Not provided')}</p>
-                            <p><strong>Address:</strong> ${esc(customer.building_or_block || '')} ${esc(customer.lot_or_room_no || '')} ${esc(customer.subd_or_street || '')} ${esc(customer.barangay || '')} ${esc(customer.city || '')} ${esc(customer.province || '')} ${esc(customer.zip_code || '')}</p>
-                        `;
-                            }
-
-                            document.getElementById('customerDetails').innerHTML = `
-                        <div class="customer-info">
-                            ${customerInfoHtml}
-                        </div>
-                        
-                        <div class="customer-stats">
-                            <div class="stat-box">
-                                <div class="stat-value">${stats.total_orders || 0}</div>
-                                <div class="stat-label">Total Orders</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value">₱${parseFloat(stats.total_spent || 0).toFixed(2)}</div>
-                                <div class="stat-label">Total Spent</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value">₱${parseFloat(stats.avg_order_value || 0).toFixed(2)}</div>
-                                <div class="stat-label">Avg Order Value</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value">${stats.last_order_date ? new Date(stats.last_order_date).toLocaleDateString() : 'Never'}</div>
-                                <div class="stat-label">Last Order</div>
-                            </div>
-                        </div>
-                        
-                        <h4>Recent Orders</h4>
-                        <table class="table" style="width: 100%; margin-top: 15px;">
-                            <thead>
-                                <tr>
-                                    <th>Order ID</th>
-                                    <th>Amount</th>
-                                    <th>Status</th>
-                                    <th>Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>${ordersHtml}</tbody>
-                        </table>
-                    `;
-
-                            document.getElementById('customerModal').style.display = 'block';
-                        });
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showToast('error', 'Error loading customer details');
-                });
-        }
-
-
-        function editCustomer(userId) {
-            fetch(`admin_customers.php?ajax=get_customer&user_id=${userId}`)
-                .then(response => response.json())
-                .then(customer => {
-                    if (customer.error) {
-                        showToast('error', 'Error: ' + customer.error);
-                        return;
-                    }
-
-                    document.getElementById('editUserId').value = customer.id;
-                    document.getElementById('editUsername').value = customer.username;
-
-                    const isCompany = customer.customer_type === 'company';
-                    document.getElementById('personalFields').style.display = isCompany ? 'none' : 'block';
-                    document.getElementById('companyFields').style.display = isCompany ? 'block' : 'none';
-                    // The plain "Phone Number" field up top is the personal
-                    // one; company has its own phone field further down.
-                    document.getElementById('personalContactGroup').style.display = isCompany ? 'none' : 'block';
-
-                    if (isCompany) {
-                        document.getElementById('editCompanyName').value = customer.company_name || '';
-                        document.getElementById('editTaxpayerName').value = customer.taxpayer_name || '';
-                        document.getElementById('editContactPerson').value = customer.contact_person || '';
-                        document.getElementById('editCompanyContactNumber').value = customer.company_contact || '';
-                        document.getElementById('editBuildingOrBlock').value = customer.building_or_block || '';
-                        document.getElementById('editLotOrRoomNo').value = customer.lot_or_room_no || '';
-                        document.getElementById('editSubdOrStreet').value = customer.subd_or_street || '';
-                        document.getElementById('editBarangay').value = customer.barangay || '';
-                        document.getElementById('editCompanyCity').value = customer.company_city || '';
-                        document.getElementById('editCompanyProvince').value = customer.company_province || '';
-                        document.getElementById('editCompanyZipCode').value = customer.company_zip || '';
-                    } else {
-                        document.getElementById('editFirstName').value = customer.first_name || '';
-                        document.getElementById('editLastName').value = customer.last_name || '';
-                        document.getElementById('editContactNumber').value = customer.contact_number || '';
-                        document.getElementById('editAddressLine1').value = customer.address_line1 || '';
-                        document.getElementById('editCity').value = customer.city || '';
-                    }
-
-                    document.getElementById('editCustomerModal').style.display = 'block';
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showToast('error', 'Error loading customer data');
-                });
-        }
-
-        function confirmDelete(userId, username) {
-            Swal.fire({
-                title: 'Are you sure?',
-                text: `You are about to delete customer "${username}". This action cannot be undone!`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: 'var(--danger)',
-                cancelButtonColor: 'var(--secondary)',
-                confirmButtonText: 'Yes, delete it!',
-                cancelButtonText: 'Cancel'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    const form = document.createElement('form');
-                    form.method = 'POST';
-                    form.appendChild(csrfInput());
-                    form.action = 'admin_customers.php';
-
-                    const actionInput = document.createElement('input');
-                    actionInput.type = 'hidden';
-                    actionInput.name = 'action';
-                    actionInput.value = 'delete_customer';
-                    form.appendChild(actionInput);
-
-                    const userIdInput = document.createElement('input');
-                    userIdInput.type = 'hidden';
-                    userIdInput.name = 'user_id';
-                    userIdInput.value = userId;
-                    form.appendChild(userIdInput);
-
-                    document.body.appendChild(form);
-                    form.submit();
-                }
-            });
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-        }
-
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modals = document.getElementsByClassName('modal');
-            for (let modal of modals) {
-                if (event.target == modal) {
-                    modal.style.display = 'none';
-                }
+        window.WA_CONFIG = {
+            csrfToken: <?php echo esc_js(csrf_token()); ?>,
+            flash: {
+                message: <?php echo isset($_SESSION['message']) ? esc_js($_SESSION['message']) : 'null'; ?>,
+                error: <?php echo isset($_SESSION['error']) ? esc_js($_SESSION['error']) : 'null'; ?>
             }
-        }
+        };
+        <?php unset($_SESSION['message'], $_SESSION['error']); ?>
+    </script>
+    <script src="../../assets/js/website_admin.js"></script>
 
-        // Auto-hide messages after 3 seconds
-        document.addEventListener('DOMContentLoaded', function() {
-            const messages = document.querySelectorAll('.message');
-            messages.forEach(message => {
-                setTimeout(() => {
-                    message.style.transition = 'opacity 0.5s ease';
-                    message.style.opacity = '0';
-                    setTimeout(() => {
-                        message.remove();
-                    }, 500);
-                }, 3000);
-            });
-        });
-    </script>
-    <script>
-        // Adds the CSRF token to forms that are built in JavaScript
-        function csrfInput() {
-            var input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'csrf_token';
-            input.value = <?php echo esc_js(csrf_token()); ?>;
-            return input;
-        }
-    </script>
 </body>
 
 </html>

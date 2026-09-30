@@ -3,9 +3,9 @@ session_start();
 require_once '../config/db.php';
 
 // SECURITY: this page creates employee/admin accounts, so only an already
-// logged-in admin may use it. Without this check, anyone who finds this
+// logged-in super admin may use it. Without this check, anyone who finds this
 // URL could POST role=admin and grant themselves full access.
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'super_admin') {
   header("Location: login.php");
   exit;
 }
@@ -48,7 +48,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $stmt->bind_param("sss", $username, $hashed, $role);
 
         if ($stmt->execute()) {
-          $message = "Account created successfully. Redirecting to login...";
+          $message = "Account created successfully. Redirecting to Manage Users...";
           $success = true;
         } else {
           $message = "Error: " . $stmt->error;
@@ -77,7 +77,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <link rel="stylesheet" href="../assets/css/main.css">
   <?php if ($success): ?>
-    <meta http-equiv="refresh" content="3;url=login.php">
+    <meta http-equiv="refresh" content="3;url=../pages/manage_users.php">
   <?php endif; ?>
 </head>
 
@@ -91,14 +91,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <img src="../assets/images/plainlogo.png" alt="Active Media Designs Logo">
             AMDP Website
           </a>
-          <a href="../pages/dashboard.php" class="auth-backlink"><i class="fas fa-arrow-left"></i> Back to dashboard</a>
+          <a href="../pages/manage_users.php" class="auth-backlink"><i class="fas fa-arrow-left"></i> Back to Manage Users</a>
         </div>
         <div class="auth-form-panel">
           <div class="auth-icon-badge">
             <i class="fas fa-user-shield"></i>
           </div>
           <h1>Create Staff Account</h1>
-          <p class="auth-subtitle">Admin-only tool. Set up login credentials for a new employee or admin.</p>
+          <p class="auth-subtitle">Super admin only. Set up login credentials for a new employee or admin.</p>
 
           <?php if (!empty($message)): ?>
             <div class="auth-notice <?php echo $success ? 'auth-notice--success' : 'auth-notice--error'; ?>">
@@ -144,7 +144,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             </button>
           </form>
 
-          <p class="auth-footer-note">Already have an account? <a href="login.php">Log in</a></p>
+          <p class="auth-footer-note"><a href="../pages/manage_users.php">Manage existing accounts &amp; permissions</a></p>
         </div>
       </div>
     </div>

@@ -6,11 +6,13 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../config/db.php';
+require_once 'permissions.php';
 
 $message = "";
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  require_permission('add');
   $delivery_type = $_POST['delivery_type'] ?? 'paper';
   $created_by = $_SESSION['user_id'];
 
@@ -136,7 +138,7 @@ $date_filter_sql_ins = $history_is_all ? '' : "AND idl.delivery_date >= DATE_SUB
 $grouped_product_logs = get_product_logs_for_dates($inventory, $page_dates);
 $grouped_insuance_logs = get_insuance_logs_for_dates($inventory, $page_dates);
 
-$is_admin = ($_SESSION['role'] ?? '') === 'admin';
+$is_admin = in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'], true);
 
 $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances ORDER BY item_name ASC")->fetch_all(MYSQLI_ASSOC);
 ?>
@@ -190,6 +192,9 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
         <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
         <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
         <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span><span class="website-nav-badge" id="websiteNavBadge"></span></a></li>
+        <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
+          <li><a href="manage_users.php"><i class="fas fa-user-shield"></i> <span>Manage Users</span></a></li>
+        <?php endif; ?>
         <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
       </ul>
     </div>
@@ -383,7 +388,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
         </div>
 
         <div class="form-actions">
-          <button type="submit" class="btn">
+          <button type="submit" class="btn"<?= deny_attr('add') ?>>
             <i class="fas fa-save"></i> Save Delivery
           </button>
           <button type="button" class="btn btn-outline" onclick="clearDeliveryForm()">
@@ -413,7 +418,9 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
               $grouped_product_logs[$date] ?? [],
               $grouped_insuance_logs[$date] ?? [],
               $is_admin,
-              true // initial batch keeps the scroll-reveal animation
+              true, // initial batch keeps the scroll-reveal animation
+              can('edit'),
+              can('delete')
             ) ?>
           <?php endforeach; ?>
         </div>
@@ -518,6 +525,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       });
     })();
   </script>
+<?php permission_notice(); ?>
 </body>
 
 </html>

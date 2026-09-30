@@ -2,10 +2,13 @@
 session_start();
 require_once '../config/db.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id'])) {
     header("Location: ../accounts/login.php");
     exit;
 }
+
+require_once 'permissions.php';
+require_permission('edit');
 
 $product_id = intval($_GET['id'] ?? 0);
 $message = "";

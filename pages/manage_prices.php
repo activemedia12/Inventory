@@ -1,11 +1,13 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id'])) {
   header("Location: ../accounts/login.php");
   exit;
 }
 
 require_once '../config/db.php';
+require_once 'permissions.php';
+require_permission('manage_prices');
 
 $job_id = intval($_GET['id'] ?? 0);
 
@@ -237,6 +239,9 @@ $active = $_GET['tab'] ?? 'manpower-rates';
         <li class="active"><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
         <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
         <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
+        <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
+          <li><a href="manage_users.php"><i class="fas fa-user-shield"></i> <span>Manage Users</span></a></li>
+        <?php endif; ?>
         <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
       </ul>
     </div>

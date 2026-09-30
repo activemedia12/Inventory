@@ -5,6 +5,7 @@ if (!isset($_SESSION['user_id'])) {
   exit;
 }
 require_once '../config/db.php';
+require_once 'permissions.php';
 
 // Cut-size options used across the form: paper flow "Cut Size" field, and
 // the non-paper "Paper Stock Used" cut size field. Piece count cut from one sheet.
@@ -202,6 +203,7 @@ $search_expenses_max = is_numeric($search_expenses_max) ? $search_expenses_max :
 
 // Handle POST submission (PRG pattern)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  require_permission('add_job');
   $client_name = $_POST['client_name'] ?? '';
   $client_address = $_POST['client_address'] ?? '';
   $contact_person = $_POST['contact_person'] ?? '';
@@ -1148,6 +1150,9 @@ if (!empty($displayed_job_ids)) {
         <li><a href="job_orders.php" class="active"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
         <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
         <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span><span class="website-nav-badge" id="websiteNavBadge"></span></a></li>
+        <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
+          <li><a href="manage_users.php"><i class="fas fa-user-shield"></i> <span>Manage Users</span></a></li>
+        <?php endif; ?>
         <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
       </ul>
     </div>
@@ -1469,11 +1474,9 @@ if (!empty($displayed_job_ids)) {
                       </div>
                     </label>
                   <?php endforeach; ?>
-                  <?php if ($_SESSION['role'] === 'admin'): ?>
-                    <a href="product_types.php" class="btn" style="text-decoration:none; align-self:center;">
-                      <i class="fas fa-tags"></i> Manage
-                    </a>
-                  <?php endif; ?>
+                  <a href="product_types.php" class="btn" style="text-decoration:none; align-self:center;"<?= deny_attr('manage_types') ?>>
+                    <i class="fas fa-tags"></i> Manage
+                  </a>
                 </div>
                 <input type="hidden" name="product_type_id" id="selected_product_type_id" value="">
               </div>
@@ -1588,7 +1591,7 @@ if (!empty($displayed_job_ids)) {
             </div>
           </fieldset>
 
-          <button id="mainsubBtn" type="submit" class="btn"><i class="fas fa-save"></i>Submit Job Order</button>
+          <button id="mainsubBtn" type="submit" class="btn"<?= deny_attr('add_job') ?>><i class="fas fa-save"></i>Submit Job Order</button>
           <button type="button" id="clearFormBtn" class="btn btn-outline" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger);margin-left:8px;"><i class="fas fa-eraser"></i> Clear Form</button>
         </form>
       </div>
@@ -2177,6 +2180,7 @@ if (!empty($displayed_job_ids)) {
       });
     })();
   </script>
+<?php permission_notice(); ?>
 </body>
 
 </html>

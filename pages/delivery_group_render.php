@@ -6,13 +6,15 @@ if (!function_exists('render_delivery_group')) {
      * @param string $date           Y-m-d
      * @param array  $product_logs   Rows for this date from delivery_logs (delivery-date-desc, id-desc order as fetched)
      * @param array  $insuance_logs  Rows for this date from insuance_delivery_logs
-     * @param bool   $is_admin       Whether to show the "Recorded By" / "Actions" columns
+     * @param bool   $is_admin       Whether to show the "Recorded By" column (admin / super admin)
      * @param bool   $reveal         Apply the scroll-reveal ".hide" class — only used for the batch
      *                               rendered on initial page load, since that's the only batch the
      *                               page's IntersectionObserver is set up to watch. Groups appended
      *                               later via AJAX render already-visible (no reveal animation).
+     * @param bool   $can_edit       Edit link works (otherwise clicking it shows a permission notice)
+     * @param bool   $can_delete     Delete link works (otherwise clicking it shows a permission notice)
      */
-    function render_delivery_group(string $date, array $product_logs, array $insuance_logs, bool $is_admin, bool $reveal = false): string
+    function render_delivery_group(string $date, array $product_logs, array $insuance_logs, bool $is_admin, bool $reveal = false, bool $can_edit = false, bool $can_delete = false): string
     {
         ob_start();
         $groupClass = $reveal ? 'delivery-group hide' : 'delivery-group';
@@ -37,8 +39,8 @@ if (!function_exists('render_delivery_group')) {
                     <th>Note</th>
                     <?php if ($is_admin): ?>
                       <th>Recorded By</th>
-                      <th>Actions</th>
                     <?php endif; ?>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -52,11 +54,11 @@ if (!function_exists('render_delivery_group')) {
                       <td><?= htmlspecialchars($log['delivery_note']) ?></td>
                       <?php if ($is_admin): ?>
                         <td><?= htmlspecialchars($log['username'] ?? 'Unknown') ?></td>
-                        <td class="action-cell">
-                          <a href="edit_delivery.php?id=<?= $log['id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>
-                          <a href="delete_delivery.php?id=<?= $log['id'] ?>" title="Delete"><i class="fas fa-trash"></i></a>
-                        </td>
                       <?php endif; ?>
+                      <td class="action-cell">
+                        <a href="edit_delivery.php?id=<?= $log['id'] ?>" title="Edit"<?= $can_edit ? '' : ' data-denied="edit"' ?>><i class="fas fa-edit"></i></a>
+                        <a href="delete_delivery.php?id=<?= $log['id'] ?>" title="Delete"<?= $can_delete ? '' : ' data-denied="delete"' ?>><i class="fas fa-trash"></i></a>
+                      </td>
                     </tr>
                   <?php endforeach; ?>
                 </tbody>

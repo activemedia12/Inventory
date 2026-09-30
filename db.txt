@@ -1,1 +1,8 @@
-ALTER TABLE orders ADD COLUMN cancellation_reason TEXT NULL AFTER status;
+  ALTER TABLE users MODIFY role ENUM('super_admin','admin','employee','customer') NOT NULL DEFAULT 'employee';
+  UPDATE users SET role='super_admin' WHERE username='Wizermina';
+
+  UPDATE user_permissions p JOIN users u ON u.id = p.user_id
+    SET p.can_add=1, p.can_edit=1, p.can_update=1, p.can_delete=1 WHERE u.role='admin';
+
+INSERT IGNORE INTO user_permissions (user_id, can_add, can_edit, can_update, can_delete)
+SELECT id,1,1,1,1 FROM users WHERE role='admin';

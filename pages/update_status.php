@@ -7,6 +7,8 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../config/db.php';
+require_once 'permissions.php';
+require_permission('update');
 
 $job_id = intval($_POST['job_id'] ?? 0);
 $new_status = $_POST['new_status'] ?? '';

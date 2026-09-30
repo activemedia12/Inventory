@@ -2,10 +2,11 @@
 session_start();
 require_once '../../config/db.php';
 require_once '../../config/security.php';
+require_once '../permissions.php';
 
 // Check if user is logged in and is admin
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
-    header("Location: ../accounts/login.php");
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee', 'super_admin'])) {
+    header("Location: ../../accounts/login.php");
     exit;
 }
 
@@ -400,6 +401,10 @@ if (isset($_GET['ajax']) && $_SERVER['REQUEST_METHOD'] === 'GET' && $_GET['ajax'
 
 if (isset($_POST['ajax']) && $_POST['ajax'] === 'update_status' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: application/json; charset=utf-8');
+    if (!can('web_orders')) {
+        echo json_encode(['success' => false, 'message' => permission_denied_message('web_orders')]);
+        exit;
+    }
     $order_id = (int) ($_POST['order_id'] ?? 0);
     $new_status = $_POST['status'] ?? '';
     $cancel_reason = trim($_POST['cancel_reason'] ?? '');
@@ -521,364 +526,10 @@ $open_id = isset($_GET['open']) ? (int) $_GET['open'] : 0;
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary: #4f5eff;
-            --secondary: #4048e0;
-            --primary-bg: #eef1ff;
-            --light: #f6f6f7;
-            --dark: #14171f;
-            --gray: #6b7280;
-            --light-gray: #e2e4e7;
-            --card-bg: #ffffff;
-            --success: #1a9c6b;
-            --success-bg: #e3f6ee;
-            --danger: #d9463c;
-            --danger-bg: #fbe9e7;
-            --warning: #b6790a;
-            --warning-bg: #fdf2df;
-            --info: #2a7ade;
-            --info-bg: #e8f1fc;
-        }
-
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-thumb { background: #cbced3; border-radius: 8px; }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-
-        body { background-color: var(--light); color: var(--dark); line-height: 1.5; -webkit-font-smoothing: antialiased; }
-
-        .admin-container { display: flex; min-height: 100vh; }
-
-        .main-content { flex: 1; padding: 28px 32px; background: var(--light); padding-bottom: 90px; }
-
-        .header {
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            padding: 18px 20px;
-            border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 { color: var(--dark); font-size: 22px; margin: 0; font-weight: 600; }
-
-        /* Status tabs */
-        .tab-bar {
-            display: flex;
-            gap: 4px;
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            border-radius: 8px;
-            padding: 6px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
-            flex-wrap: wrap;
-        }
-
-        .tab-link {
-            padding: 8px 16px;
-            border-radius: 6px;
-            text-decoration: none;
-            color: var(--gray);
-            font-size: 13px;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: background-color 0.15s ease, color 0.15s ease;
-        }
-
-        .tab-link:hover { background: var(--light); color: var(--dark); }
-
-        .tab-link.active { background: var(--primary); color: #fff; }
-
-        .tab-count {
-            font-size: 11px;
-            font-weight: 700;
-            background: rgba(0, 0, 0, 0.08);
-            border-radius: 20px;
-            padding: 1px 7px;
-        }
-
-        .tab-link.active .tab-count { background: rgba(255, 255, 255, 0.25); }
-
-        /* Search and Filter */
-        .search-filter {
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            padding: 16px 18px;
-            border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
-            margin-bottom: 20px;
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .search-filter input, .search-filter select {
-            padding: 9px 12px;
-            border: 1px solid var(--light-gray);
-            border-radius: 6px;
-            font-size: 13px;
-            color: var(--dark);
-            background: var(--card-bg);
-        }
-
-        .search-filter input:focus, .search-filter select:focus { outline: none; border-color: var(--primary); }
-
-        .search-btn {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 9px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-            transition: background-color 0.15s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-        }
-
-        .search-btn:hover { background: var(--secondary); }
-        .search-btn.secondary { background: var(--gray); }
-
-        /* Orders Table */
-        .order-table {
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
-        }
-
-        .table { width: 100%; border-collapse: collapse; }
-        .table th, .table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--light-gray); font-size: 13px; }
-        .table th { background: var(--light); font-weight: 600; color: var(--gray); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
-        .table tbody tr:last-child td { border-bottom: none; }
-
-        .order-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-
-        .status-select {
-            padding: 7px 10px;
-            border-radius: 6px;
-            border: 1px solid var(--light-gray);
-            background: var(--card-bg);
-            font-size: 12px;
-            color: var(--dark);
-        }
-
-        .status-select:focus { outline: none; border-color: var(--primary); }
-
-        .update-btn {
-            background: var(--primary-bg);
-            color: var(--secondary);
-            border: none;
-            padding: 7px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            transition: opacity 0.15s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .update-btn:hover { opacity: 0.8; }
-        .update-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .view-details {
-            background: var(--success-bg);
-            color: var(--success);
-            padding: 7px 12px;
-            border: none;
-            border-radius: 6px;
-            text-decoration: none;
-            font-size: 12px;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            transition: opacity 0.15s ease;
-            cursor: pointer;
-        }
-
-        .view-details:hover { opacity: 0.8; }
-
-        .proof-image {
-            width: 44px; height: 44px; object-fit: cover; border-radius: 6px;
-            border: 1px solid var(--light-gray); cursor: pointer; transition: transform 0.15s ease;
-        }
-        .proof-image:hover { transform: scale(2); }
-
-        .status-badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-        .status-pending { background: var(--warning-bg); color: var(--warning); }
-        .status-paid { background: var(--info-bg); color: var(--info); }
-        .status-processing { background: var(--success-bg); color: var(--success); }
-        .status-ready_for_pickup { background: var(--primary-bg); color: var(--secondary); }
-        .status-completed { background: var(--success-bg); color: var(--success); }
-        .status-cancelled { background: var(--danger-bg); color: var(--danger); }
-
-        .cancel-reason-input {
-            padding: 7px 10px; border-radius: 6px; border: 1px solid var(--light-gray);
-            background: var(--card-bg); font-size: 12px; color: var(--dark); min-width: 160px;
-        }
-        .cancel-reason-input:focus { outline: none; border-color: var(--danger); }
-
-        /* Pagination */
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 6px;
-            margin-top: 18px;
-            flex-wrap: wrap;
-        }
-
-        .page-link {
-            min-width: 34px;
-            text-align: center;
-            padding: 7px 10px;
-            border-radius: 6px;
-            border: 1px solid var(--light-gray);
-            background: var(--card-bg);
-            color: var(--dark);
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .page-link:hover { background: var(--light); }
-        .page-link.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-        .page-link.disabled { opacity: 0.4; pointer-events: none; }
-        .page-info { font-size: 12px; color: var(--gray); margin-top: 10px; text-align: center; }
-
-        /* Slide-over panel */
-        .panel-overlay {
-            position: fixed; inset: 0; background: rgba(20, 23, 31, 0.45);
-            opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 100;
-        }
-        .panel-overlay.open { opacity: 1; pointer-events: auto; }
-
-        .slide-panel {
-            position: fixed; top: 0; right: 0; height: 100%;
-            width: min(560px, 100%);
-            background: var(--card-bg);
-            box-shadow: -4px 0 24px rgba(20, 23, 31, 0.15);
-            transform: translateX(100%);
-            transition: transform 0.25s ease;
-            z-index: 101;
-            display: flex;
-            flex-direction: column;
-        }
-        .slide-panel.open { transform: translateX(0); }
-
-        .panel-header {
-            padding: 18px 22px;
-            border-bottom: 1px solid var(--light-gray);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-shrink: 0;
-        }
-        .panel-header h2 { font-size: 17px; font-weight: 600; }
-        .panel-close {
-            background: var(--light); border: none; width: 32px; height: 32px; border-radius: 6px;
-            cursor: pointer; color: var(--gray); font-size: 14px;
-        }
-        .panel-close:hover { background: var(--light-gray); }
-
-        .panel-status-bar {
-            padding: 14px 22px;
-            border-bottom: 1px solid var(--light-gray);
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            flex-wrap: wrap;
-            flex-shrink: 0;
-            background: var(--light);
-        }
-
-        .panel-body { padding: 22px; overflow-y: auto; flex: 1; }
-        .panel-body .panel-section { margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--light-gray); }
-        .panel-body .panel-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-        .panel-body .panel-section h3 { font-size: 14px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-        .panel-body .panel-section h3 i { color: var(--gray); }
-
-        .detail-row { display: flex; margin-bottom: 10px; align-items: flex-start; font-size: 13px; }
-        .detail-label { font-weight: 600; color: var(--gray); min-width: 140px; flex-shrink: 0; }
-        .detail-value { color: var(--dark); flex: 1; }
-
-        .item-details { background: var(--light); padding: 16px; border-radius: 8px; margin-bottom: 14px; }
-
-        .design-previews { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
-        .design-preview { text-align: center; flex: 0 0 auto; }
-        .design-preview img {
-            width: 64px; height: 64px; object-fit: contain; border-radius: 6px;
-            border: 1px solid var(--light-gray); padding: 4px; background: var(--card-bg);
-        }
-        .design-label { font-size: 10px; color: var(--gray); margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
-        .design-preview small { display: block; margin-top: 2px; color: var(--gray); font-size: 10px; max-width: 72px; word-break: break-all; }
-
-        .user-layout-file {
-            background: var(--warning-bg); padding: 10px 12px; border-radius: 6px; margin-bottom: 8px;
-            display: flex; justify-content: space-between; align-items: center; font-size: 12px; gap: 10px;
-        }
-        .user-layout-file a { color: var(--primary); text-decoration: none; font-weight: 600; }
-        .user-layout-file a:hover { text-decoration: underline; }
-        .file-path { font-family: monospace; font-size: 11px; color: var(--gray); background: var(--light); padding: 3px 7px; border-radius: 4px; border: 1px solid var(--light-gray); }
-
-        .panel-loading { display: flex; align-items: center; justify-content: center; height: 200px; color: var(--gray); font-size: 13px; gap: 10px; }
-        .panel-loading i { animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* Toasts */
-        .toast-stack {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 200;
-        }
-        .toast {
-            min-width: 260px;
-            max-width: 360px;
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 500;
-            box-shadow: 0 6px 20px rgba(20, 23, 31, 0.15);
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            opacity: 0;
-            transform: translateY(8px);
-            transition: opacity 0.2s ease, transform 0.2s ease;
-        }
-        .toast.show { opacity: 1; transform: translateY(0); }
-        .toast.success { background: var(--success-bg); color: var(--success); }
-        .toast.error { background: var(--danger-bg); color: var(--danger); }
-
-        @media (max-width: 768px) {
-            .main-content { padding: 20px; }
-            .search-filter { flex-direction: column; align-items: stretch; }
-            .order-actions { flex-direction: column; align-items: stretch; }
-            .slide-panel { width: 100%; }
-        }
-    </style>
+    <link rel="stylesheet" href="../../assets/css/website_admin.css">
 </head>
 
-<body>
+<body class="page-orders" data-page="orders">
     <div class="admin-container">
         <div class="main-content">
             <div class="header">
@@ -931,7 +582,7 @@ $open_id = isset($_GET['open']) ? (int) $_GET['open'] : 0;
                     <tbody id="ordersTable">
                         <?php if (empty($orders)): ?>
                             <tr>
-                                <td colspan="7" style="text-align:center;color:var(--gray);padding:30px;">No orders match this view.</td>
+                                <td colspan="7" class="empty-cell">No orders match this view.</td>
                             </tr>
                         <?php endif; ?>
                         <?php foreach ($orders as $order): ?>
@@ -940,7 +591,7 @@ $open_id = isset($_GET['open']) ? (int) $_GET['open'] : 0;
                                 <td>
                                     <div>
                                         <strong><?php echo htmlspecialchars($order['username']); ?></strong>
-                                        <br><small style="color: var(--gray);">User ID: <?php echo $order['user_id']; ?></small>
+                                        <br><small class="text-muted">User ID: <?php echo $order['user_id']; ?></small>
                                     </div>
                                 </td>
                                 <td><strong>&#8369;<?php echo number_format($order['total_amount'], 2); ?></strong></td>
@@ -960,15 +611,15 @@ $open_id = isset($_GET['open']) ? (int) $_GET['open'] : 0;
                                                 <img src="<?php echo esc_html($proof_path); ?>" alt="Payment Proof" class="proof-image">
                                             </a>
                                         <?php else: ?>
-                                            <span style="color: var(--gray);">File not found</span>
+                                            <span class="text-muted">File not found</span>
                                         <?php endif; ?>
                                     <?php else: ?>
-                                        <span style="color: var(--gray);">No proof</span>
+                                        <span class="text-muted">No proof</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
                                     <?php echo date('M j, Y', strtotime($order['created_at'])); ?>
-                                    <br><small style="color: var(--gray);"><?php echo date('g:i A', strtotime($order['created_at'])); ?></small>
+                                    <br><small class="text-muted"><?php echo date('g:i A', strtotime($order['created_at'])); ?></small>
                                 </td>
                                 <td>
                                     <div class="order-actions" data-order-id="<?php echo $order['order_id']; ?>">
@@ -996,16 +647,18 @@ $open_id = isset($_GET['open']) ? (int) $_GET['open'] : 0;
             </div>
 
             <!-- Pagination -->
-            <?php if ($total_pages > 1): ?>
-                <div class="pagination">
-                    <a class="page-link <?php echo $page <= 1 ? 'disabled' : ''; ?>" href="<?php echo build_query_url(['page' => $page - 1]); ?>">&laquo; Prev</a>
-                    <?php for ($p = 1; $p <= $total_pages; $p++): ?>
-                        <a class="page-link <?php echo $p === $page ? 'active' : ''; ?>" href="<?php echo build_query_url(['page' => $p]); ?>"><?php echo $p; ?></a>
-                    <?php endfor; ?>
-                    <a class="page-link <?php echo $page >= $total_pages ? 'disabled' : ''; ?>" href="<?php echo build_query_url(['page' => $page + 1]); ?>">Next &raquo;</a>
-                </div>
-            <?php endif; ?>
-            <div class="page-info">Showing <?php echo count($orders); ?> of <?php echo $total_orders; ?> orders</div>
+            <div class="pagination">
+                <span class="pagination-summary">Showing <?php echo count($orders); ?> of <?php echo $total_orders; ?> orders</span>
+                <?php if ($total_pages > 1): ?>
+                    <div class="pagination-controls">
+                        <a class="page-link <?php echo $page <= 1 ? 'disabled' : ''; ?>" href="<?php echo build_query_url(['page' => $page - 1]); ?>"><i class="fas fa-chevron-left"></i> Prev</a>
+                        <?php for ($p = 1; $p <= $total_pages; $p++): ?>
+                            <a class="page-link <?php echo $p === $page ? 'active' : ''; ?>" href="<?php echo build_query_url(['page' => $p]); ?>"><?php echo $p; ?></a>
+                        <?php endfor; ?>
+                        <a class="page-link <?php echo $page >= $total_pages ? 'disabled' : ''; ?>" href="<?php echo build_query_url(['page' => $page + 1]); ?>">Next <i class="fas fa-chevron-right"></i></a>
+                    </div>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 
@@ -1014,7 +667,7 @@ $open_id = isset($_GET['open']) ? (int) $_GET['open'] : 0;
     <div class="slide-panel" id="slidePanel">
         <div class="panel-header">
             <h2 id="panelTitle">Order Details</h2>
-            <button class="panel-close" onclick="closeOrderPanel()"><i class="fas fa-times"></i></button>
+            <button type="button" class="panel-close" onclick="closeOrderPanel()" aria-label="Close"><i class="fas fa-times"></i></button>
         </div>
         <div class="panel-status-bar" id="panelStatusBar"></div>
         <div class="panel-body" id="panelBody">
@@ -1022,209 +675,22 @@ $open_id = isset($_GET['open']) ? (int) $_GET['open'] : 0;
         </div>
     </div>
 
-    <div class="toast-stack" id="toastStack"></div>
+    <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
+    <?php
+    $wa_data = [
+        'statusLabels' => $STATUS_LABELS,
+        'openId' => (int) $open_id,
+    ];
+    ?>
     <script>
-        const CSRF_TOKEN = <?php echo esc_js(csrf_token()); ?>;
-        const STATUS_LABELS = <?php echo json_encode($STATUS_LABELS); ?>;
-
-        // ---------- Toasts ----------
-        function showToast(message, type) {
-            const stack = document.getElementById('toastStack');
-            const toast = document.createElement('div');
-            toast.className = 'toast ' + (type === 'error' ? 'error' : 'success');
-            const icon = type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle';
-            toast.innerHTML = '<i class="fas ' + icon + '"></i><span></span>';
-            toast.querySelector('span').textContent = message;
-            stack.appendChild(toast);
-            requestAnimationFrame(() => toast.classList.add('show'));
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 250);
-            }, 4000);
-        }
-
-        // ---------- Inline status update (row controls) ----------
-        function onStatusSelectChange(select) {
-            const container = select.closest('.order-actions');
-            const reasonInput = container.querySelector('[data-role="cancel-reason"]');
-            if (select.value === 'cancelled') {
-                reasonInput.style.display = 'inline-block';
-                reasonInput.focus();
-            } else {
-                reasonInput.style.display = 'none';
-            }
-        }
-
-        async function submitStatusUpdate(orderId, btn) {
-            const container = btn.closest('.order-actions');
-            const status = container.querySelector('[data-role="status-select"]').value;
-            const reasonInput = container.querySelector('[data-role="cancel-reason"]');
-            const reason = reasonInput.value.trim();
-
-            if (status === 'cancelled' && reason === '') {
-                showToast('Please enter a reason for cancelling this order.', 'error');
-                reasonInput.focus();
-                return;
-            }
-
-            btn.disabled = true;
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Updating...';
-
-            try {
-                const body = new URLSearchParams({
-                    ajax: 'update_status',
-                    csrf_token: CSRF_TOKEN,
-                    order_id: orderId,
-                    status: status,
-                    cancel_reason: reason
-                });
-                const res = await fetch('admin_orders.php', { method: 'POST', body });
-                const data = await res.json();
-
-                if (data.success) {
-                    showToast(data.message, 'success');
-                    applyStatusToRow(orderId, data.status, data.status_label, data.cancellation_reason);
-                    if (panelOrderId === orderId) applyStatusToPanel(data.status, data.status_label, data.cancellation_reason);
-                } else {
-                    showToast(data.message || 'Failed to update order status.', 'error');
-                }
-            } catch (e) {
-                showToast('Network error while updating the order.', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = originalHtml;
-            }
-        }
-
-        function applyStatusToRow(orderId, status, statusLabel, cancellationReason) {
-            const row = document.getElementById('order-row-' + orderId);
-            if (!row) return;
-            row.dataset.status = status;
-            const badge = row.querySelector('[data-role="status-badge"]');
-            badge.className = 'status-badge status-' + status;
-            badge.textContent = statusLabel;
-            if (status === 'cancelled' && cancellationReason) {
-                badge.title = 'Reason: ' + cancellationReason;
-            } else {
-                badge.removeAttribute('title');
-            }
-        }
-
-        // ---------- Slide-over panel ----------
-        let panelOrderId = null;
-
-        function openOrderPanel(orderId) {
-            panelOrderId = orderId;
-            document.getElementById('panelOverlay').classList.add('open');
-            document.getElementById('slidePanel').classList.add('open');
-            document.getElementById('panelTitle').textContent = 'Order #' + orderId;
-            document.getElementById('panelBody').innerHTML = '<div class="panel-loading"><i class="fas fa-circle-notch"></i> Loading order...</div>';
-            document.getElementById('panelStatusBar').innerHTML = '';
-
-            const url = new URL(window.location);
-            url.searchParams.set('open', orderId);
-            history.replaceState(null, '', url);
-
-            fetch('admin_orders.php?ajax=get_order_details&id=' + orderId)
-                .then(res => res.json())
-                .then(data => {
-                    if (panelOrderId !== orderId) return; // stale response, user moved on
-                    if (!data.success) {
-                        document.getElementById('panelBody').innerHTML = '<div class="panel-loading">' + (data.message || 'Order not found.') + '</div>';
-                        return;
-                    }
-                    document.getElementById('panelBody').innerHTML = data.html;
-                    renderPanelStatusBar(orderId, data.status, data.cancellation_reason);
-                })
-                .catch(() => {
-                    document.getElementById('panelBody').innerHTML = '<div class="panel-loading">Couldn\'t load this order. Please try again.</div>';
-                });
-        }
-
-        function closeOrderPanel() {
-            panelOrderId = null;
-            document.getElementById('panelOverlay').classList.remove('open');
-            document.getElementById('slidePanel').classList.remove('open');
-            const url = new URL(window.location);
-            url.searchParams.delete('open');
-            history.replaceState(null, '', url);
-        }
-
-        function renderPanelStatusBar(orderId, status, cancellationReason) {
-            const bar = document.getElementById('panelStatusBar');
-            let options = '';
-            for (const [val, label] of Object.entries(STATUS_LABELS)) {
-                options += '<option value="' + val + '"' + (val === status ? ' selected' : '') + '>' + label + '</option>';
-            }
-            bar.innerHTML =
-                '<select class="status-select" data-role="panel-status-select" onchange="onPanelStatusChange(this)">' + options + '</select>' +
-                '<input type="text" class="cancel-reason-input" data-role="panel-cancel-reason" placeholder="Reason for cancellation" ' +
-                    'value="' + (status === 'cancelled' && cancellationReason ? cancellationReason.replace(/"/g, '&quot;') : '') + '" ' +
-                    'style="display:' + (status === 'cancelled' ? 'inline-block' : 'none') + ';">' +
-                '<button type="button" class="update-btn" onclick="submitPanelStatusUpdate(' + orderId + ', this)"><i class="fas fa-sync"></i> Update</button>';
-        }
-
-        function onPanelStatusChange(select) {
-            const reasonInput = document.querySelector('[data-role="panel-cancel-reason"]');
-            reasonInput.style.display = select.value === 'cancelled' ? 'inline-block' : 'none';
-        }
-
-        async function submitPanelStatusUpdate(orderId, btn) {
-            const status = document.querySelector('[data-role="panel-status-select"]').value;
-            const reasonInput = document.querySelector('[data-role="panel-cancel-reason"]');
-            const reason = reasonInput.value.trim();
-
-            if (status === 'cancelled' && reason === '') {
-                showToast('Please enter a reason for cancelling this order.', 'error');
-                reasonInput.focus();
-                return;
-            }
-
-            btn.disabled = true;
-            try {
-                const body = new URLSearchParams({
-                    ajax: 'update_status',
-                    csrf_token: CSRF_TOKEN,
-                    order_id: orderId,
-                    status: status,
-                    cancel_reason: reason
-                });
-                const res = await fetch('admin_orders.php', { method: 'POST', body });
-                const data = await res.json();
-
-                if (data.success) {
-                    showToast(data.message, 'success');
-                    applyStatusToRow(orderId, data.status, data.status_label, data.cancellation_reason);
-                    applyStatusToPanel(data.status, data.status_label, data.cancellation_reason);
-                } else {
-                    showToast(data.message || 'Failed to update order status.', 'error');
-                }
-            } catch (e) {
-                showToast('Network error while updating the order.', 'error');
-            } finally {
-                btn.disabled = false;
-            }
-        }
-
-        function applyStatusToPanel(status, statusLabel, cancellationReason) {
-            const select = document.querySelector('[data-role="panel-status-select"]');
-            if (select) select.value = status;
-            const reasonInput = document.querySelector('[data-role="panel-cancel-reason"]');
-            if (reasonInput) {
-                reasonInput.style.display = status === 'cancelled' ? 'inline-block' : 'none';
-                if (cancellationReason) reasonInput.value = cancellationReason;
-            }
-        }
-
-        // Auto-open panel if URL already has ?open=ID (e.g. deep link from the dashboard, or an old order-details bookmark).
-        document.addEventListener('DOMContentLoaded', function() {
-            <?php if ($open_id > 0): ?>
-                openOrderPanel(<?php echo $open_id; ?>);
-            <?php endif; ?>
-        });
+        window.WA_CONFIG = {
+            csrfToken: <?php echo esc_js(csrf_token()); ?>,
+            data: <?php echo json_encode($wa_data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>
+        };
     </script>
+    <script src="../../assets/js/website_admin.js"></script>
+
 </body>
 
 </html>

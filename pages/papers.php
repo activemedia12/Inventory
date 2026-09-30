@@ -8,6 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 require_once '../config/db.php';
 require_once 'papers_data.php';
 require_once 'papers_table_render.php';
+require_once 'permissions.php';
 
 // Quick Stats
 $total_products = $inventory->query("SELECT COUNT(*) AS total FROM products")->fetch_assoc()['total'];
@@ -26,6 +27,7 @@ $out_of_stock = $inventory->query("
 
 // Handle Add Product
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_type'], $_POST['product_group'], $_POST['product_name'], $_POST['unit_price'])) {
+  require_permission('add');
   $type = ucwords(strtolower(trim($_POST['product_type'])));
   $group = strtoupper(trim($_POST['product_group']));
   $name = ucwords(strtolower(trim($_POST['product_name'])));
@@ -121,7 +123,7 @@ $size_filter = trim($_GET['product_group'] ?? '');
 $name_filter = trim($_GET['product_name'] ?? '');
 
 $products = get_filtered_papers($inventory, $type_filter, $size_filter, $name_filter);
-$is_admin = ($_SESSION['role'] ?? '') === 'admin';
+$is_admin = in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'], true);
 ?>
 
 <!DOCTYPE html>
@@ -196,6 +198,9 @@ $is_admin = ($_SESSION['role'] ?? '') === 'admin';
         <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
         <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
         <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span><span class="website-nav-badge" id="websiteNavBadge"></span></a></li>
+        <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
+          <li><a href="manage_users.php"><i class="fas fa-user-shield"></i> <span>Manage Users</span></a></li>
+        <?php endif; ?>
         <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
       </ul>
     </div>
@@ -260,7 +265,7 @@ $is_admin = ($_SESSION['role'] ?? '') === 'admin';
           <input type="text" name="product_group" placeholder="Size (e.g. A4)" title="Paper Size" required>
           <input type="text" name="product_name" placeholder="Name (e.g. White)" title="Paper Name" required>
           <input type="number" step="0.01" name="unit_price" placeholder="₱0.00" title="Unit Price" required>
-          <button type="submit" class="btn" title="Add Paper"><i class="fas fa-save"></i> Add</button>
+          <button type="submit" class="btn" title="Add Paper"<?= deny_attr('add') ?>><i class="fas fa-save"></i> Add</button>
         </form>
       </div>
     </div>
@@ -302,7 +307,7 @@ $is_admin = ($_SESSION['role'] ?? '') === 'admin';
       </h3>
 
       <div id="papers-table-content">
-        <?= render_papers_table($products, $stock_unit, $is_admin) ?>
+        <?= render_papers_table($products, $stock_unit, $is_admin, can('edit'), can('delete')) ?>
       </div>
     </div>
 
@@ -348,6 +353,7 @@ $is_admin = ($_SESSION['role'] ?? '') === 'admin';
       });
     })();
   </script>
+<?php permission_notice(); ?>
 </body>
 
 </html>

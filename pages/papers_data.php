@@ -1,4 +1,4 @@
-    <?php
+<?php
 if (!function_exists('like_escape')) {
     // Escapes % and _ (LIKE wildcards) and backslash (the default LIKE
     // escape character) so a search like "50%" or "a_b" is matched

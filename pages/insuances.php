@@ -6,9 +6,13 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../config/db.php';
+require_once 'permissions.php';
+
+$is_admin = in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'], true);
 
 // Handle form submission: add a usage record (issuance)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_permission('add');
     $item_name = trim($_POST['item_name']);
     $description = trim($_POST['description']);
     $issued_by = $_SESSION['user_id'];
@@ -152,6 +156,9 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                 <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
                 <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
                 <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span><span class="website-nav-badge" id="websiteNavBadge"></span></a></li>
+                <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
+                    <li><a href="manage_users.php"><i class="fas fa-user-shield"></i> <span>Manage Users</span></a></li>
+                <?php endif; ?>
                 <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
             </ul>
         </div>
@@ -209,7 +216,7 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                 <form method="POST" class="inline-add-form">
                     <input type="text" name="item_name" required placeholder="Item name (e.g., Staples - 10.65mm)" title="Item Name">
                     <input type="text" name="description" placeholder="Description (optional)" title="Description — don't use this to specify the item type">
-                    <button type="submit" class="btn" title="Add Consumable"><i class="fas fa-save"></i> Add</button>
+                    <button type="submit" class="btn" title="Add Consumable"<?= deny_attr('add') ?>><i class="fas fa-save"></i> Add</button>
                 </form>
             </div>
         </div>
@@ -232,10 +239,10 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                             <th>Current Stock</th>
                             <th>Latest Amount (₱)</th>
                             <th>Last Issued</th>
-                            <?php if ($_SESSION['role'] === 'admin'): ?>
+                            <?php if ($is_admin): ?>
                                 <th>Issued To</th>
-                                <th>Actions</th>
                             <?php endif; ?>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -256,13 +263,13 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                                     </td>
                                     <td>₱<?= number_format(floatval($item['latest_amount']), 2) ?></td>
                                     <td><?= $item['latest_used_date'] ? date('M j, Y', strtotime($item['latest_used_date'])) : '-' ?></td>
-                                    <?php if ($_SESSION['role'] === 'admin'): ?>
+                                    <?php if ($is_admin): ?>
                                         <td><?= htmlspecialchars($item['latest_used_to'] ?? '-') ?></td>
-                                        <td class="action-cell">
-                                            <a href="edit_insuance.php?id=<?= $item['item_id'] ?>" title="Edit"><i class="fas fa-edit"></i></a>
-                                            <a href="delete_insuance.php?id=<?= $item['item_id'] ?>" onclick="return confirm('Are you sure you want to delete this item?');" title="Delete"><i class="fas fa-trash"></i></a>
-                                        </td>
                                     <?php endif; ?>
+                                    <td class="action-cell">
+                                        <a href="edit_insuance.php?id=<?= $item['item_id'] ?>" title="Edit" onclick="event.stopPropagation()"<?= deny_attr('edit') ?>><i class="fas fa-edit"></i></a>
+                                        <a href="delete_insuance.php?id=<?= $item['item_id'] ?>" onclick="event.stopPropagation(); return confirm('Are you sure you want to delete this item?');" title="Delete"<?= deny_attr('delete') ?>><i class="fas fa-trash"></i></a>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -311,7 +318,7 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                             <input name="description" id="description" placeholder="Optional notes...">
                         </div>
                     </div>
-                    <button type="submit" class="btn" style="margin: 20px 0;">
+                    <button type="submit" class="btn" style="margin: 20px 0;"<?= deny_attr('update') ?>>
                         <i class="fas fa-save"></i> Submit Usage
                     </button>
                 </form>
@@ -392,6 +399,7 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
       });
     })();
   </script>
+<?php permission_notice(); ?>
 </body>
 
 </html>

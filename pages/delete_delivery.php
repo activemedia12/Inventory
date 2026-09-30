@@ -6,6 +6,8 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../config/db.php';
+require_once 'permissions.php';
+require_permission('delete');
 
 $delivery_id = intval($_GET['id'] ?? 0);
 

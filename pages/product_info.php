@@ -6,10 +6,13 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../config/db.php';
+require_once 'permissions.php';
 
 const HISTORY_PAGE_SIZE = 5;
 
-$is_admin = ($_SESSION['role'] ?? '') === 'admin';
+// Edit links are shown to everyone; without the 'edit' permission a click shows a notice instead.
+$can_edit = can('edit');          // delivery edit link
+$can_edit_job = can('edit_job');  // job order edit link
 
 $product_id = intval($_GET['id'] ?? 0);
 if ($product_id <= 0) {
@@ -100,7 +103,7 @@ function fetch_delivery_page(mysqli $inventory, int $product_id, int $page): arr
     return [$rows, $has_more];
 }
 
-function render_usage_row(array $row, bool $is_admin = false): string
+function render_usage_row(array $row, bool $can_edit = false): string
 {
     ob_start();
     ?>
@@ -122,23 +125,21 @@ function render_usage_row(array $row, bool $is_admin = false): string
         </td>
         <td><?= number_format($row['used_sheets']) ?></td>
         <td><?= number_format($row['used_sheets'] / 500, 2) ?></td>
-        <?php if ($is_admin): ?>
-            <td>
-                <?php if (!empty($row['job_order_id'])): ?>
-                    <a href="edit_job.php?id=<?= (int)$row['job_order_id'] ?>" class="row-action-btn" title="Edit this job order">
-                        <i class="fas fa-pen"></i> Edit Job
-                    </a>
-                <?php else: ?>
-                    <span class="text-muted">—</span>
-                <?php endif; ?>
-            </td>
-        <?php endif; ?>
+        <td>
+            <?php if (!empty($row['job_order_id'])): ?>
+                <a href="edit_job.php?id=<?= (int)$row['job_order_id'] ?>" class="row-action-btn" title="Edit this job order"<?= $can_edit ? '' : ' data-denied="edit_job"' ?>>
+                    <i class="fas fa-pen"></i> Edit Job
+                </a>
+            <?php else: ?>
+                <span class="text-muted">—</span>
+            <?php endif; ?>
+        </td>
     </tr>
     <?php
     return ob_get_clean();
 }
 
-function render_delivery_row(array $row, bool $is_admin = false): string
+function render_delivery_row(array $row, bool $can_edit = false): string
 {
     ob_start();
     ?>
@@ -148,13 +149,11 @@ function render_delivery_row(array $row, bool $is_admin = false): string
         <td><?= number_format($row['delivered_reams'], 2) ?></td>
         <td>₱<?= number_format($row['amount_per_ream'], 2) ?></td>
         <td><?= number_format($row['delivered_reams'] * 500) ?></td>
-        <?php if ($is_admin): ?>
-            <td>
-                <a href="edit_delivery.php?id=<?= (int)$row['id'] ?>" class="row-action-btn" title="Edit this delivery record">
-                    <i class="fas fa-pen"></i> Edit Delivery
-                </a>
-            </td>
-        <?php endif; ?>
+        <td>
+            <a href="edit_delivery.php?id=<?= (int)$row['id'] ?>" class="row-action-btn" title="Edit this delivery record"<?= $can_edit ? '' : ' data-denied="edit"' ?>>
+                <i class="fas fa-pen"></i> Edit Delivery
+            </a>
+        </td>
     </tr>
     <?php
     return ob_get_clean();
@@ -165,7 +164,7 @@ if ($mode === 'usage') {
     $usage_page = max(1, intval($_GET['usage_page'] ?? 1));
     [$rows, $has_more] = fetch_usage_page($inventory, $product_id, $usage_page);
 
-    $rows_html = implode('', array_map(fn($row) => render_usage_row($row, $is_admin), $rows));
+    $rows_html = implode('', array_map(fn($row) => render_usage_row($row, $can_edit_job), $rows));
 
     header('Content-Type: application/json');
     echo json_encode(['rows_html' => $rows_html, 'has_more' => $has_more]);
@@ -177,7 +176,7 @@ if ($mode === 'delivery') {
     $delivery_page = max(1, intval($_GET['delivery_page'] ?? 1));
     [$rows, $has_more] = fetch_delivery_page($inventory, $product_id, $delivery_page);
 
-    $rows_html = implode('', array_map(fn($row) => render_delivery_row($row, $is_admin), $rows));
+    $rows_html = implode('', array_map(fn($row) => render_delivery_row($row, $can_edit), $rows));
 
     header('Content-Type: application/json');
     echo json_encode(['rows_html' => $rows_html, 'has_more' => $has_more]);
@@ -324,12 +323,12 @@ if (!$product) {
                         <th>Print Type</th>
                         <th>Sheets</th>
                         <th>Reams</th>
-                        <?php if ($is_admin): ?><th>Actions</th><?php endif; ?>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="usage-table-body">
                     <?php foreach ($usage_rows as $row): ?>
-                        <?= render_usage_row($row, $is_admin) ?>
+                        <?= render_usage_row($row, $can_edit_job) ?>
                     <?php endforeach; ?>
                 </tbody>
             </table>
@@ -361,12 +360,12 @@ if (!$product) {
                         <th>Reams</th>
                         <th>Price/Ream</th>
                         <th>Sheets</th>
-                        <?php if ($is_admin): ?><th>Actions</th><?php endif; ?>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="delivery-table-body">
                     <?php foreach ($delivery_rows as $row): ?>
-                        <?= render_delivery_row($row, $is_admin) ?>
+                        <?= render_delivery_row($row, $can_edit) ?>
                     <?php endforeach; ?>
                 </tbody>
             </table>

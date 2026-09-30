@@ -5,6 +5,7 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 require_once '../config/db.php';
+require_once 'permissions.php';
 
 $search = trim($_GET['search_client'] ?? '');
 $letterParam = strtoupper(trim($_GET['letter'] ?? ''));
@@ -134,6 +135,9 @@ while ($row = $result->fetch_assoc()) {
                     <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
                     <li class="active"><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
                     <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span><span class="website-nav-badge" id="websiteNavBadge"></span></a></li>
+                    <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
+                        <li><a href="manage_users.php"><i class="fas fa-user-shield"></i> <span>Manage Users</span></a></li>
+                    <?php endif; ?>
                     <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
                 </ul>
             </div>
@@ -397,7 +401,7 @@ while ($row = $result->fetch_assoc()) {
                                 </div>
                             </div>
                         </fieldset>
-                        <button type="submit" class="btn"><i class="fas fa-save"></i>Save Client</button>
+                        <button type="submit" class="btn"<?= deny_attr('add') ?>><i class="fas fa-save"></i>Save Client</button>
                     </form>
                 </div>
             </div>
@@ -528,16 +532,14 @@ while ($row = $result->fetch_assoc()) {
                         </div>
                     </div>
 
-                    <?php if ($_SESSION['role'] === 'admin'): ?>
-                        <div class="modal-footer">
-                            <button id="editClientBtn" class="btn btn-edit">
+                    <div class="modal-footer">
+                            <button id="editClientBtn" class="btn btn-edit"<?= deny_attr('edit') ?>>
                                 <i class="fas fa-edit"></i> Edit Client
                             </button>
-                            <button id="deleteClientBtn" class="btn btn-delete">
+                            <button id="deleteClientBtn" class="btn btn-delete"<?= deny_attr('delete') ?>>
                                 <i class="fas fa-trash-alt"></i> Delete
                             </button>
                         </div>
-                    <?php endif; ?>
                 </div>
             </div>
             <script src="../assets/js/pages/clients.js"></script>
@@ -576,6 +578,7 @@ while ($row = $result->fetch_assoc()) {
       });
     })();
   </script>
+<?php permission_notice(); ?>
 </body>
     
 </html>

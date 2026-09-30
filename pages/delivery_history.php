@@ -10,6 +10,7 @@ if (!isset($_SESSION['user_id'])) {
 require_once '../config/db.php';
 require_once 'delivery_group_render.php';
 require_once 'delivery_data.php';
+require_once 'permissions.php';
 
 const DELIVERY_GROUPS_PER_PAGE = 15;
 
@@ -21,7 +22,9 @@ $date_filter_sql = $history_is_all ? '' : "AND dl.delivery_date >= DATE_SUB(CURD
 $date_filter_sql_ins = $history_is_all ? '' : "AND idl.delivery_date >= DATE_SUB(CURDATE(), INTERVAL {$history_days} DAY)";
 
 $offset = max(0, intval($_GET['offset'] ?? 0));
-$is_admin = ($_SESSION['role'] ?? '') === 'admin';
+$is_admin = in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'], true);
+$can_edit = can('edit');
+$can_delete = can('delete');
 
 [$page_dates, $has_more] = get_delivery_date_page($inventory, $date_filter_sql, $date_filter_sql_ins, DELIVERY_GROUPS_PER_PAGE, $offset);
 
@@ -36,7 +39,9 @@ if (!empty($page_dates)) {
             $grouped_product_logs[$date] ?? [],
             $grouped_insuance_logs[$date] ?? [],
             $is_admin,
-            false // dynamically-loaded groups render already-visible, no scroll-reveal
+            false, // dynamically-loaded groups render already-visible, no scroll-reveal
+            $can_edit,
+            $can_delete
         );
     }
 }

@@ -6,6 +6,8 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../config/db.php';
+require_once 'permissions.php';
+require_permission('enter_expenses');
 
 $job_id = intval($_GET['id'] ?? 0);
 if (!$job_id) {
@@ -569,6 +571,9 @@ $js_reams        = $reams;
                 <li class="active"><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
                 <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
                 <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
+                <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
+                  <li><a href="manage_users.php"><i class="fas fa-user-shield"></i> <span>Manage Users</span></a></li>
+                <?php endif; ?>
                 <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
             </ul>
         </div>
@@ -970,7 +975,7 @@ $js_reams        = $reams;
                     <button type="submit" form="costForm" class="btn-primary-solid">
                         <i class="bi bi-check-circle-fill"></i> Save Expenses
                     </button>
-                    <a href="manage_prices.php?id=<?= $job_id ?>" class="btn-outline-primary-custom">
+                    <a href="manage_prices.php?id=<?= $job_id ?>" class="btn-outline-primary-custom"<?= deny_attr('manage_prices') ?>>
                         <i class="bi bi-gear-fill"></i> Manage Price Lists
                     </a>
                 </div>
@@ -1227,6 +1232,7 @@ $js_reams        = $reams;
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/pages/paper_cost.js"></script>
+<?php permission_notice(); ?>
 </body>
 
 </html>

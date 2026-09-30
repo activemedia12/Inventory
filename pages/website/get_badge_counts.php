@@ -26,7 +26,7 @@ require_once '../../config/ChatController.php';
 
 header('Content-Type: application/json');
 
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee', 'super_admin'])) {
     http_response_code(401);
     echo json_encode(['error' => 'Not authenticated']);
     exit;

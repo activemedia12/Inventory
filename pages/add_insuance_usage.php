@@ -6,6 +6,8 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../config/db.php';
+require_once 'permissions.php';
+require_permission('update');
 
 $item_id = intval($_POST['item_id'] ?? 0);
 $quantity_used = floatval($_POST['quantity_used'] ?? 0);

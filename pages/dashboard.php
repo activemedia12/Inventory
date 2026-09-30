@@ -6,6 +6,14 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../config/db.php';
+require_once 'permissions.php';
+
+// Financial Performance is visible only to users the super admin has switched on
+$can_view_finance = can('view_finance');
+
+// Job-order modal buttons: always shown, but clicking one without permission shows a notice
+$perms_js = json_encode(['edit' => can('edit_job'), 'update' => can('update'), 'delete' => can('delete_job')]);
+$is_admin = in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'], true);
 
 // Function to fetch data from database
 function fetchData($inventory, $query)
@@ -195,11 +203,13 @@ function getYearlySummary($inventory)
 }
 
 // Get financial summaries
-$weekly_finance = getFinancialSummary($inventory, 'week');
-$monthly_finance = getFinancialSummary($inventory, 'month');
-$yearly_finance = getFinancialSummary($inventory, 'year');
-$monthly_breakdown = getMonthlyBreakdown($inventory);
-$yearly_summary = getYearlySummary($inventory);
+if ($can_view_finance) {
+    $weekly_finance = getFinancialSummary($inventory, 'week');
+    $monthly_finance = getFinancialSummary($inventory, 'month');
+    $yearly_finance = getFinancialSummary($inventory, 'year');
+    $monthly_breakdown = getMonthlyBreakdown($inventory);
+    $yearly_summary = getYearlySummary($inventory);
+}
 
 // Calculate total profit for the year
 
@@ -331,6 +341,9 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
                 <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
                 <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
                 <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span><span class="website-nav-badge" id="websiteNavBadge"></span></a></li>
+                <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
+                    <li><a href="manage_users.php"><i class="fas fa-user-shield"></i> <span>Manage Users</span></a></li>
+                <?php endif; ?>
                 <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
             </ul>
         </div>
@@ -406,6 +419,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
             </div>
         </div>
 
+        <?php if ($can_view_finance): ?>
         <?php
         // Scope to current month only
         $missing_costs = (int)($inventory->query("
@@ -603,6 +617,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
                 </table>
             </div>
         <?php endif; ?>
+        <?php endif; /* can_view_finance */ ?>
 
         <div class="flex">
             <div class="stock-cards">
@@ -793,12 +808,13 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
                             ?>
                                 <tr class="clickable-row"
                                     data-order='<?= htmlspecialchars(json_encode($order), ENT_QUOTES, "UTF-8") ?>'
-                                    data-role="<?= htmlspecialchars($_SESSION['role']) ?>">
+                                    data-role="<?= htmlspecialchars($_SESSION['role']) ?>"
+                                    data-perms="<?= htmlspecialchars($perms_js, ENT_QUOTES) ?>">
                                     <td><?= htmlspecialchars($order['client_name']) ?></td>
                                     <td><?= htmlspecialchars($order['project_name']) ?></td>
                                     <td>
-                                        <?php if ($_SESSION['role'] === 'admin'): ?>
-                                            <span class="badge <?= $status_class ?> status-badge" style="cursor: pointer; padding: 5px 10px; border-radius: 20px;" onclick="event.stopPropagation(); openModal(<?= htmlspecialchars(json_encode($order), ENT_QUOTES, "UTF-8") ?>, '<?= $_SESSION['role'] ?>')">
+                                        <?php if ($is_admin): ?>
+                                            <span class="badge <?= $status_class ?> status-badge" style="cursor: pointer; padding: 5px 10px; border-radius: 20px;" onclick="event.stopPropagation(); openModal(<?= htmlspecialchars(json_encode($order), ENT_QUOTES, "UTF-8") ?>, '<?= $_SESSION['role'] ?>', <?= htmlspecialchars($perms_js, ENT_QUOTES) ?>)">
                                                 <?= ucfirst(str_replace('_', ' ', $order['status'])) ?>
                                             </span>
                                         <?php else: ?>
@@ -891,6 +907,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
       });
     })();
   </script>
+<?php permission_notice(); ?>
 </body>
 
 </html>

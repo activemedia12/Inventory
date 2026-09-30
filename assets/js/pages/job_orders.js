@@ -1095,11 +1095,12 @@ document.querySelectorAll(".clickable-row").forEach((row) => {
     }
     const orderData = JSON.parse(this.dataset.order);
     const userRole = this.dataset.role;
-    openModal(orderData, userRole);
+    const perms = JSON.parse(this.dataset.perms || "{}");
+    openModal(orderData, userRole, perms);
   });
 });
 
-function openModal(order, userRole) {
+function openModal(order, userRole, perms = {}) {
   const modal = document.getElementById("jobModal");
   const modalBody = document.getElementById("modal-body");
 
@@ -1245,7 +1246,9 @@ function openModal(order, userRole) {
         </div>
   `;
 
-  if (userRole === "admin") {
+  // Actions are shown to everyone; users without the permission get a
+  // "you need permission" notice on click (see permission_notice() in permissions.php).
+  {
     const statuses = ["pending", "unpaid", "for_delivery", "completed"];
     const currentStatus = order.status;
     const options = statuses
@@ -1268,14 +1271,14 @@ function openModal(order, userRole) {
               <select name="new_status" class="status-select">
                 ${options}
               </select>
-              <button type="submit" class="btn-status">
+              <button type="submit" class="btn-status"${perms.update ? "" : ' data-denied="update"'}>
                 <i class="fas fa-sync-alt"></i> Update Status
               </button>
             </form>
-            <a href="edit_job.php?id=${order.id}" class="btn-edit">
+            <a href="edit_job.php?id=${order.id}" class="btn-edit"${perms.edit_job ? "" : ' data-denied="edit_job"'}>
               <i class="fas fa-edit"></i> Edit
             </a>
-            <a href="delete_job.php?id=${order.id}" class="btn-delete" onclick="return confirm('Delete this job order?')">
+            <a href="delete_job.php?id=${order.id}" class="btn-delete" onclick="return confirm('Delete this job order?')"${perms.delete_job ? "" : ' data-denied="delete_job"'}>
               <i class="fas fa-trash-alt"></i> Delete
             </a>
           </div>

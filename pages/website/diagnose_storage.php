@@ -8,7 +8,7 @@
 session_start();
 require_once '../../config/db.php';
 
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'] ?? '', ['admin', 'employee'], true)) {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'] ?? '', ['admin', 'employee', 'super_admin'], true)) {
     die('Log in as admin first, then reload this page.');
 }
 

@@ -4,8 +4,8 @@ require_once '../../config/db.php';
 require_once '../../config/security.php';
 
 // Check if user is logged in and is admin
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
-    header("Location: ../accounts/login.php");
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee', 'super_admin'])) {
+    header("Location: ../../accounts/login.php");
     exit;
 }
 

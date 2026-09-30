@@ -7,6 +7,8 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../config/db.php';
+require_once 'permissions.php';
+require_permission_json('job_total_cost', 'enter a job total cost');
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     echo json_encode(['success' => false, 'message' => 'Invalid request method']);

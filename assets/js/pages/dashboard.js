@@ -260,11 +260,12 @@ document.querySelectorAll(".clickable-row[data-order]").forEach((row) => {
     if (e.target.closest(".status-badge")) return;
     const orderData = JSON.parse(this.dataset.order);
     const userRole = this.dataset.role;
-    openModal(orderData, userRole);
+    const perms = JSON.parse(this.dataset.perms || "{}");
+    openModal(orderData, userRole, perms);
   });
 });
 
-function openModal(order, userRole) {
+function openModal(order, userRole, perms = {}) {
   function applyStatusColor(selectEl) {
     const status = selectEl.value;
     selectEl.classList.remove(
@@ -417,7 +418,9 @@ function openModal(order, userRole) {
         </div>
   `;
 
-  if (userRole === "admin") {
+  // Actions are shown to everyone; users without the permission get a
+  // "you need permission" notice on click (see permission_notice() in permissions.php).
+  {
     const statuses = ["pending", "unpaid", "for_delivery", "completed"];
     const currentStatus = order.status;
     const options = statuses
@@ -440,14 +443,14 @@ function openModal(order, userRole) {
               <select name="new_status" class="status-select" style="padding: 8px 12px;">
                 ${options}
               </select>
-              <button type="submit" class="btn-status" style="padding: 8px 15px;">
+              <button type="submit" class="btn-status" style="padding: 8px 15px;"${perms.update ? "" : ' data-denied="update"'}>
                 <i class="fas fa-sync-alt"></i> Update
               </button>
             </form>
-            <a href="edit_job.php?id=${order.id}" class="btn-edit" style="padding: 8px 15px;">
+            <a href="edit_job.php?id=${order.id}" class="btn-edit" style="padding: 8px 15px;"${perms.edit ? "" : ' data-denied="edit_job"'}>
               <i class="fas fa-edit"></i> Edit
             </a>
-            <a href="delete_job.php?id=${order.id}" class="btn-delete" style="padding: 8px 15px;" onclick="return confirm('Are you sure you want to delete this job order? This action cannot be undone.')">
+            <a href="delete_job.php?id=${order.id}" class="btn-delete" style="padding: 8px 15px;" onclick="return confirm('Are you sure you want to delete this job order? This action cannot be undone.')"${perms.delete ? "" : ' data-denied="delete_job"'}>
               <i class="fas fa-trash-alt"></i> Delete
             </a>
           </div>

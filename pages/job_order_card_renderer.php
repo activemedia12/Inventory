@@ -1,3 +1,8 @@
+<?php
+require_once __DIR__ . '/permissions.php';
+$__is_admin  = in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'], true);
+$__row_perms = json_encode(['edit_job' => can('edit_job'), 'delete_job' => can('delete_job'), 'update' => can('update')]);
+?>
 <?php if ($status_title === 'Completed' && isset($completed_available_letters)): ?>
   <?php
     $letter_qp = $_GET;
@@ -117,7 +122,7 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                             <th>Total Expenses</th>
                             <th>Total Cost (₱)</th>
                             <th>Profit (₱)</th>
-                            <?php if ($_SESSION['role'] === 'admin'): ?>
+                            <?php if ($__is_admin): ?>
                               <th>Recorded By</th>
                             <?php endif; ?>
                             <?php if ($status_title === 'Completed'): ?>
@@ -146,7 +151,8 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                             <tr class="clickable-row"
                               id="job-order-row-<?= $order['id'] ?>"
                               data-order='<?= htmlspecialchars(json_encode($order_with_date), ENT_QUOTES, 'UTF-8') ?>'
-                              data-role="<?= htmlspecialchars($_SESSION['role']) ?>">
+                              data-role="<?= htmlspecialchars($_SESSION['role']) ?>"
+                              data-perms="<?= htmlspecialchars($__row_perms, ENT_QUOTES) ?>">
                               <td>
                                 <button class="quick-fill-btn" data-order='<?= htmlspecialchars(json_encode($order), ENT_QUOTES, "UTF-8") ?>'>
                                   Load to Form
@@ -316,18 +322,18 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                                 if (empty($order['grand_total']) || $order['grand_total'] == 0.00) {
                                   if ($is_non_paper) {
                                     echo '<span class="text-muted">Not Set</span>';
-                                    echo '<br><button class="quick-fill-btn set-expenses-btn" style="justify-self: center;" onclick="setManualExpenses(this)" data-id="' . $order['id'] . '" data-client="' . htmlspecialchars($order['client_name'], ENT_QUOTES) . '" data-project="' . htmlspecialchars($order['project_name'], ENT_QUOTES) . '">Set Expenses</button>';
+                                    echo '<br><button class="quick-fill-btn set-expenses-btn" style="justify-self: center;"' . deny_attr('enter_expenses') . ' onclick="setManualExpenses(this)" data-id="' . $order['id'] . '" data-client="' . htmlspecialchars($order['client_name'], ENT_QUOTES) . '" data-project="' . htmlspecialchars($order['project_name'], ENT_QUOTES) . '">Set Expenses</button>';
                                   } else {
                                     echo "Not Computed";
-                                    echo '<br><a href="paper_cost.php?id=' . $order['id'] . '" class="btn">Compute Now</a>';
+                                    echo '<br><a href="paper_cost.php?id=' . $order['id'] . '" class="btn"' . deny_attr('enter_expenses') . '>Compute Now</a>';
                                   }
                                 } else {
                                   echo "₱ " . number_format($order['grand_total'], 2);
-                                  if ($_SESSION['role'] === 'admin') {
+                                  {
                                     if ($is_non_paper) {
-                                      echo ' <button type="button" class="edit-icon-btn" onclick="setManualExpenses(this)" data-id="' . $order['id'] . '" data-client="' . htmlspecialchars($order['client_name'], ENT_QUOTES) . '" data-project="' . htmlspecialchars($order['project_name'], ENT_QUOTES) . '" title="Edit expenses"><i class="fas fa-pencil-alt"></i></button>';
+                                      echo ' <button type="button" class="edit-icon-btn"' . deny_attr('enter_expenses') . ' onclick="setManualExpenses(this)" data-id="' . $order['id'] . '" data-client="' . htmlspecialchars($order['client_name'], ENT_QUOTES) . '" data-project="' . htmlspecialchars($order['project_name'], ENT_QUOTES) . '" title="Edit expenses"><i class="fas fa-pencil-alt"></i></button>';
                                     } else {
-                                      echo ' <a href="paper_cost.php?id=' . $order['id'] . '" class="edit-icon-btn" title="Recompute expenses"><i class="fas fa-pencil-alt"></i></a>';
+                                      echo ' <a href="paper_cost.php?id=' . $order['id'] . '" class="edit-icon-btn" title="Recompute expenses"' . deny_attr('enter_expenses') . '><i class="fas fa-pencil-alt"></i></a>';
                                     }
                                   }
                                 }
@@ -337,14 +343,14 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                                 <span class="cost-amount-wrap" id="cost-amount-<?= $order['id'] ?>">
                                 <?php if ($total_cost > 0): ?>
                                   ₱ <?= number_format($final_amount, 2) ?>
-                                  <?php if ($_SESSION['role'] === 'admin'): ?>
+                                  <?php if (true): ?>
                                     <button type="button" class="edit-icon-btn"
                                       onclick="setTotalCost(this)"
                                       data-id="<?= $order['id'] ?>"
                                       data-client="<?= htmlspecialchars($order['client_name'], ENT_QUOTES) ?>"
                                       data-project="<?= htmlspecialchars($order['project_name'], ENT_QUOTES) ?>"
                                       data-quantity="<?= (int) $order['quantity'] ?>"
-                                      title="Edit total cost">
+                                      title="Edit total cost"<?= deny_attr('job_total_cost') ?>>
                                       <i class="fas fa-pencil-alt"></i>
                                     </button>
                                   <?php endif; ?>
@@ -363,7 +369,7 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                                     data-client="<?= htmlspecialchars($order['client_name'], ENT_QUOTES) ?>"
                                     data-project="<?= htmlspecialchars($order['project_name'], ENT_QUOTES) ?>"
                                     data-quantity="<?= (int) $order['quantity'] ?>"
-                                    title="Set Total Cost">
+                                    title="Set Total Cost"<?= deny_attr('job_total_cost') ?>>
                                     Set Total Cost
                                   </button>
                                 <?php endif; ?>
@@ -388,7 +394,7 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                                     data-project="<?= htmlspecialchars($order['project_name'], ENT_QUOTES) ?>"
                                     data-billing="<?= htmlspecialchars($billing_number, ENT_QUOTES) ?>"
                                     data-invoice="<?= htmlspecialchars($invoice_number, ENT_QUOTES) ?>"
-                                    title="Set Billing Statement # / Service Invoice #">
+                                    title="Set Billing Statement # / Service Invoice #"<?= deny_attr('billing_info') ?>>
                                     <i class="fas fa-file-invoice"></i>
                                   </button>
                                 </div>
@@ -408,7 +414,7 @@ if ($status_title === 'Completed' && isset($completed_per_page)) {
                                   <span class="text-muted" title="Total cost not set">-</span>
                                 <?php endif; ?>
                               </td>
-                              <?php if ($_SESSION['role'] === 'admin'): ?>
+                              <?php if ($__is_admin): ?>
                                 <td><?= htmlspecialchars($order['username'] ?? 'Unknown') ?></td>
                               <?php endif; ?>
                               <?php if ($status_title === 'Completed'): ?>

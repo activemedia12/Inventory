@@ -33,7 +33,7 @@ $stmt->bind_param("i", $order_id);
 $stmt->execute();
 $order = $stmt->get_result()->fetch_assoc();
 
-$is_staff = in_array($_SESSION['role'] ?? '', ['admin', 'employee'], true);
+$is_staff = in_array($_SESSION['role'] ?? '', ['admin', 'employee', 'super_admin'], true);
 
 // 404 (not 403) for other people's orders so order numbers can't be probed.
 if (!$order || $order['payment_proof'] === '' || $order['payment_proof'] === null) {

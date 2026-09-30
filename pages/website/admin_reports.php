@@ -2,9 +2,10 @@
 session_start();
 require_once '../../config/db.php';
 require_once '../../config/security.php';
+require_once '../permissions.php';
 
 // Check if user is logged in and is admin
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee'])) {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee', 'super_admin'])) {
     header("Location: ../../accounts/login.php");
     exit;
 }
@@ -12,6 +13,40 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'empl
 // CSRF protection: every POST on this page must carry this session's token.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_require();
+}
+
+// Reports are all revenue / sales figures: only for users the super admin switched on.
+if (!can('web_finance')) {
+    http_response_code(403);
+    ?>
+    <!DOCTYPE html>
+    <html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Reports - Active Media</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <link rel="stylesheet" href="../../assets/css/website_admin.css">
+    </head>
+
+    <body class="page-reports" data-page="reports">
+        <div class="admin-container">
+            <div class="main-content" style="display:flex;align-items:center;justify-content:center;min-height:60vh;">
+                <div style="text-align:center;max-width:420px;">
+                    <i class="fas fa-lock" style="font-size:42px;color:#ff4d4f;margin-bottom:16px;"></i>
+                    <h2 style="margin-bottom:8px;">Permission required</h2>
+                    <p style="color:#65676b;line-height:1.6;"><?php echo htmlspecialchars(permission_denied_message('web_finance')); ?></p>
+                </div>
+            </div>
+        </div>
+    </body>
+
+    </html>
+    <?php
+    exit;
 }
 
 // Get date range filters
@@ -316,430 +351,10 @@ if ($report_type === 'sales') {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <style>
-        :root {
-            --primary: #4f5eff;
-            --secondary: #4048e0;
-            --primary-bg: #eef1ff;
-            --light: #f6f6f7;
-            --dark: #14171f;
-            --gray: #6b7280;
-            --light-gray: #e2e4e7;
-            --card-bg: #ffffff;
-            --success: #1a9c6b;
-            --success-bg: #e3f6ee;
-            --danger: #d9463c;
-            --danger-bg: #fbe9e7;
-            --warning: #b6790a;
-            --warning-bg: #fdf2df;
-            --info: #2a7ade;
-            --info-bg: #e8f1fc;
-        }
-
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #cbced3;
-            border-radius: 8px;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-
-        body {
-            background-color: var(--light);
-            color: var(--dark);
-            line-height: 1.5;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        .admin-container {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            padding: 28px 32px;
-            background: var(--light);
-            padding-bottom: 90px;
-        }
-
-        .header {
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            padding: 18px 20px;
-            border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 {
-            color: var(--dark);
-            font-size: 22px;
-            margin: 0;
-            font-weight: 600;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .logout-btn {
-            background: var(--danger-bg);
-            color: var(--danger);
-            padding: 8px 14px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 600;
-            transition: opacity 0.15s ease;
-        }
-
-        .logout-btn:hover {
-            opacity: 0.8;
-        }
-
-        /* Report Tabs */
-        .report-tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
-        .tab-btn {
-            padding: 9px 16px;
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 13px;
-            color: var(--gray);
-            transition: background-color 0.15s ease, color 0.15s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .tab-btn.active {
-            background: var(--primary);
-            border-color: var(--primary);
-            color: white;
-        }
-
-        .tab-btn:hover:not(.active) {
-            background: var(--light);
-            color: var(--dark);
-        }
-
-        /* Report Filters */
-        .report-filters {
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            padding: 18px;
-            border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
-            margin-bottom: 20px;
-        }
-
-        .filter-row {
-            display: flex;
-            gap: 16px;
-            align-items: end;
-            flex-wrap: wrap;
-        }
-
-        .form-group {
-            margin-bottom: 0;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--gray);
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-
-        .form-control {
-            padding: 9px 12px;
-            border: 1px solid var(--light-gray);
-            border-radius: 6px;
-            font-size: 13px;
-            color: var(--dark);
-            background: var(--card-bg);
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px var(--primary-bg);
-        }
-
-        .btn {
-            padding: 9px 16px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-            transition: background-color 0.15s ease, opacity 0.15s ease;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: var(--secondary);
-        }
-
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-
-        .btn-success:hover {
-            opacity: 0.85;
-        }
-
-        .btn-secondary {
-            background: var(--light);
-            color: var(--dark);
-            border: 1px solid var(--light-gray);
-        }
-
-        .btn-secondary:hover {
-            background: var(--light-gray);
-        }
-
-        /* Stats Grid */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-
-        .stat-card {
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            padding: 18px;
-            border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
-            text-align: center;
-            transition: box-shadow 0.15s ease;
-        }
-
-        .stat-card:hover {
-            box-shadow: 0 4px 12px rgba(20, 23, 31, 0.08);
-        }
-
-        .stat-card i {
-            font-size: 22px;
-            margin-bottom: 10px;
-        }
-
-        .stat-card.orders i {
-            color: var(--primary);
-        }
-
-        .stat-card.revenue i {
-            color: var(--success);
-        }
-
-        .stat-card.avg-order i {
-            color: var(--warning);
-        }
-
-        .stat-card.customers i {
-            color: var(--secondary);
-        }
-
-        .stat-number {
-            font-size: 22px;
-            font-weight: 700;
-            margin: 6px 0;
-        }
-
-        .stat-label {
-            color: var(--gray);
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            font-weight: 600;
-        }
-
-        /* Charts Section */
-        .charts-section {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-
-        .chart-container {
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            padding: 18px;
-            border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
-        }
-
-        .chart-title {
-            margin-bottom: 16px;
-            color: var(--dark);
-            font-size: 15px;
-            font-weight: 600;
-        }
-
-        /* Tables */
-        .data-table {
-            background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
-            margin-bottom: 20px;
-        }
-
-        .detail-toggle-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .detail-toggle-btn i {
-            transition: transform 0.15s ease;
-        }
-
-        .detail-tables.collapsed {
-            display: none;
-        }
-
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .table th,
-        .table td {
-            padding: 10px 14px;
-            text-align: left;
-            border-bottom: 1px solid var(--light-gray);
-            font-size: 13px;
-        }
-
-        .table th {
-            background: var(--light);
-            font-weight: 600;
-            color: var(--gray);
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-
-        .category-badge {
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .category-offset {
-            background: var(--primary-bg);
-            color: var(--secondary);
-        }
-
-        .category-digital {
-            background: var(--success-bg);
-            color: var(--success);
-        }
-
-        .category-riso {
-            background: var(--warning-bg);
-            color: var(--warning);
-        }
-
-        .category-other {
-            background: var(--danger-bg);
-            color: var(--danger);
-        }
-
-        /* Messages */
-        .message {
-            padding: 12px 15px;
-            background: var(--success-bg);
-            color: var(--success);
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        .error {
-            padding: 12px 15px;
-            background: var(--danger-bg);
-            color: var(--danger);
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .main-content {
-                padding: 20px;
-            }
-
-            .charts-section {
-                grid-template-columns: 1fr;
-            }
-
-            .filter-row {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .report-tabs {
-                flex-direction: column;
-            }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="../../assets/css/website_admin.css">
 </head>
 
-<body>
+<body class="page-reports" data-page="reports">
     <div class="admin-container">
         <div class="main-content">
             <div class="header">
@@ -910,7 +525,7 @@ if ($report_type === 'sales') {
                                         <td>
                                             <?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>
                                             <br>
-                                            <small style="color: var(--gray);"><?php echo htmlspecialchars($customer['username']); ?></small>
+                                            <small class="text-muted"><?php echo htmlspecialchars($customer['username']); ?></small>
                                         </td>
                                         <td><?php echo $customer['order_count']; ?></td>
                                         <td>₱<?php echo number_format($customer['total_spent'], 2); ?></td>
@@ -1017,249 +632,35 @@ if ($report_type === 'sales') {
         </div>
     </div>
 
-    <script>
-        // Auto-hide messages after 3 seconds
-        document.addEventListener('DOMContentLoaded', function() {
-            const messages = document.querySelectorAll('.message');
-            messages.forEach(message => {
-                setTimeout(() => {
-                    message.style.transition = 'opacity 0.5s ease';
-                    message.style.opacity = '0';
-                    setTimeout(() => {
-                        message.remove();
-                    }, 500);
-                }, 3000);
-            });
-        });
-
-        // Change report type
-        function changeReportType(type) {
-            document.getElementById('reportType').value = type;
-            document.getElementById('reportForm').submit();
-        }
-
-        // Reset filters
-        function resetFilters() {
-            const today = new Date();
-            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-            const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-
-            document.getElementById('start_date').value = formatDate(firstDay);
-            document.getElementById('end_date').value = formatDate(lastDay);
-            document.getElementById('reportForm').submit();
-        }
-
-        function formatDate(date) {
-            return date.toISOString().split('T')[0];
-        }
-
-        // The full data behind the current report — summary stats plus every
-        // detail-table row — embedded once at page load so export works
-        // instantly and matches what was actually queried, regardless of
-        // whether the detail table below is expanded or collapsed.
-        const REPORT_EXPORT_DATA = <?php echo json_encode($export_payload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
-
-        // Turns one field into a safe CSV cell: wraps in quotes and escapes
-        // embedded quotes whenever the value contains a comma, quote or
-        // newline (the standard RFC 4180 rule), left alone otherwise.
-        function csvCell(value) {
-            const str = value === null || value === undefined ? '' : String(value);
-            if (/[",\n]/.test(str)) {
-                return '"' + str.replace(/"/g, '""') + '"';
-            }
-            return str;
-        }
-
-        function csvRow(cells) {
-            return cells.map(csvCell).join(',') + '\r\n';
-        }
-
-        // Export report: builds a real CSV from REPORT_EXPORT_DATA and
-        // downloads it immediately — no server round-trip, no screenshot.
-        function exportReport() {
-            const data = REPORT_EXPORT_DATA;
-            const titles = { sales: 'Sales Report', customers: 'Customer Report', products: 'Product Report' };
-
-            let csv = '';
-            csv += csvRow([titles[data.report_type] || 'Report']);
-            csv += csvRow(['Date Range', data.date_range]);
-            csv += '\r\n';
-
-            const summaryKeys = Object.keys(data.summary || {});
-            if (summaryKeys.length) {
-                csv += csvRow(['Summary']);
-                summaryKeys.forEach(key => {
-                    csv += csvRow([key, data.summary[key]]);
-                });
-                csv += '\r\n';
-            }
-
-            (data.sections || []).forEach(section => {
-                csv += csvRow([section.title]);
-                csv += csvRow(section.headers);
-                section.rows.forEach(row => {
-                    csv += csvRow(row);
-                });
-                csv += '\r\n';
-            });
-
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            const filename = `${data.report_type}_report_${data.date_range.replace(/ /g, '')}.csv`;
-            link.href = url;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-
-            showToast('success', 'Report exported as CSV');
-        }
-
-        // Detailed-table toggle: the summary (stats + charts) is what most
-        // visits need, so the full row-by-row table stays collapsed until
-        // asked for.
-        function toggleDetailTable() {
-            const wrapper = document.getElementById('detailTables');
-            const label = document.getElementById('toggleDetailLabel');
-            const icon = document.getElementById('toggleDetailIcon');
-            if (!wrapper) return;
-            const isHidden = wrapper.classList.toggle('collapsed');
-            if (label) label.textContent = isHidden ? 'Show Detailed Table' : 'Hide Detailed Table';
-            if (icon) icon.className = isHidden ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
-        }
-
-        // Same shared toast pattern used on the other admin pages
-        function showToast(icon, text) {
-            const palette = {
-                success: { background: 'var(--success-bg)', iconColor: 'var(--success)', color: 'var(--success)' },
-                error: { background: 'var(--danger-bg)', iconColor: 'var(--danger)', color: 'var(--danger)' },
-                info: { background: 'var(--info-bg)', iconColor: 'var(--info)', color: 'var(--info)' }
-            };
-            const theme = palette[icon] || palette.info;
-            Swal.fire({
-                icon: icon,
-                title: icon === 'success' ? 'Success!' : icon === 'error' ? 'Error!' : text,
-                text: icon === 'info' ? undefined : text,
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: icon === 'error' ? 4000 : 3000,
-                timerProgressBar: true,
-                background: theme.background,
-                iconColor: theme.iconColor,
-                color: theme.color
-            });
-        }
-
-        // Charts
-        document.addEventListener('DOMContentLoaded', function() {
-            <?php if ($report_type === 'sales' && !empty($daily_sales)): ?>
-                // Sales Trend Chart
-                const salesTrendCtx = document.getElementById('salesTrendChart').getContext('2d');
-                const salesTrendChart = new Chart(salesTrendCtx, {
-                    type: 'line',
-                    data: {
-                        labels: <?php echo json_encode(array_column($daily_sales, 'date')); ?>,
-                        datasets: [{
-                            label: 'Daily Revenue (₱)',
-                            data: <?php echo json_encode(array_column($daily_sales, 'daily_revenue')); ?>,
-                            borderColor: '#4f5eff',
-                            backgroundColor: 'rgba(79, 94, 255, 0.1)',
-                            borderWidth: 2,
-                            fill: true
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        scales: {
-                            y: {
-                                beginAtZero: true
-                            }
-                        }
-                    }
-                });
-
-                // Status Distribution Chart
-                const statusCtx = document.getElementById('statusChart').getContext('2d');
-                const statusChart = new Chart(statusCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: <?php echo json_encode(array_map(function ($status) {
-                                    return ucfirst(str_replace('_', ' ', $status['status']));
-                                }, $status_distribution)); ?>,
-                        datasets: [{
-                            data: <?php echo json_encode(array_column($status_distribution, 'order_count')); ?>,
-                            backgroundColor: [
-                                '#fdf2df', // pending
-                                '#e8f1fc', // paid
-                                '#f6f3e3', // processing
-                                '#eef1ff', // ready_for_pickup
-                                '#e3f6ee', // completed
-                                '#f6e3e3', // cancelled
-                            ],
-                            borderColor: [
-                                '#b6790a',
-                                '#2a7ade',
-                                '#9c841a',
-                                '#4048e0',
-                                '#1a9c6b',
-                                '#fc3737'
-                            ],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true
-                    }
-                });
-            <?php endif; ?>
-        });
-    </script>
 
     <!-- SweetAlert Messages -->
-    <?php if (isset($_SESSION['message'])): ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Success!',
-                    text: <?php echo esc_js($_SESSION['message']); ?>,
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 3000,
-                    timerProgressBar: true,
-                    background: 'var(--success-bg)',
-                    iconColor: 'var(--success)',
-                    color: 'var(--success)'
-                });
-                <?php unset($_SESSION['message']); ?>
-            });
-        </script>
-    <?php endif; ?>
+    <?php
+    $wa_charts = ($report_type === 'sales' && !empty($daily_sales)) ? [
+        'salesLabels' => array_column($daily_sales, 'date'),
+        'salesValues' => array_column($daily_sales, 'daily_revenue'),
+        'statusLabels' => array_map(function ($status) {
+            return ucfirst(str_replace('_', ' ', $status['status']));
+        }, $status_distribution),
+        'statusValues' => array_column($status_distribution, 'order_count'),
+    ] : null;
+    $wa_data = [
+        'exportData' => $export_payload,
+        'charts' => $wa_charts,
+    ];
+    ?>
+    <script>
+        window.WA_CONFIG = {
+            csrfToken: <?php echo esc_js(csrf_token()); ?>,
+            flash: {
+                message: <?php echo isset($_SESSION['message']) ? esc_js($_SESSION['message']) : 'null'; ?>,
+                error: <?php echo isset($_SESSION['error']) ? esc_js($_SESSION['error']) : 'null'; ?>
+            },
+            data: <?php echo json_encode($wa_data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>
+        };
+        <?php unset($_SESSION['message'], $_SESSION['error']); ?>
+    </script>
+    <script src="../../assets/js/website_admin.js"></script>
 
-    <?php if (isset($_SESSION['error'])): ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error!',
-                    text: <?php echo esc_js($_SESSION['error']); ?>,
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 4000,
-                    timerProgressBar: true,
-                    background: 'var(--danger-bg)',
-                    iconColor: 'var(--danger)',
-                    color: 'var(--danger)'
-                });
-                <?php unset($_SESSION['error']); ?>
-            });
-        </script>
-    <?php endif; ?>
 </body>
 
 </html>

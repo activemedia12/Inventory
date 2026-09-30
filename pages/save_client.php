@@ -7,6 +7,8 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../config/db.php';
+require_once 'permissions.php';
+require_permission('add');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $inventory->prepare("INSERT INTO clients (
