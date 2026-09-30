@@ -95,7 +95,6 @@ body.modal-open {
 }
 
 .stat-card:hover .card-icon {
-  transform: scale(1.12) rotate(-6deg);
   background-color: var(--primary);
   color: #fff;
 }
@@ -188,10 +187,6 @@ body.modal-open {
 
 .create-card .btn i {
   transition: transform 0.3s var(--mu-ease-spring);
-}
-
-.create-card .btn:hover i {
-  transform: scale(1.2) rotate(-8deg);
 }
 
 /* ---------------------------------------------------------------------
@@ -461,10 +456,6 @@ body.modal-open {
   transition: transform 0.35s var(--mu-ease-spring);
 }
 
-.user-row:hover .avatar {
-  transform: scale(1.1) rotate(-4deg);
-}
-
 .you-tag {
   margin-left: 6px;
   padding: 1px 7px;
@@ -584,10 +575,6 @@ body.modal-open {
 
 .row-actions .btn-sm i {
   transition: transform 0.3s var(--mu-ease-spring);
-}
-
-.row-actions .btn-sm:hover i {
-  transform: scale(1.2) rotate(-10deg);
 }
 
 /* permissions button + meter */
@@ -1175,7 +1162,6 @@ body.modal-open {
 
 .mu-modal-close:hover {
   background: var(--light);
-  transform: rotate(90deg);
 }
 
 .mu-modal-icon {

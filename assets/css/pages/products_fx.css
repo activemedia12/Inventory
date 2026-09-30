@@ -76,7 +76,6 @@ body.modal-open {
     color 0.25s ease;
 }
 .stat-card:hover .card-icon {
-  transform: scale(1.12) rotate(-6deg);
   background-color: var(--primary);
   color: #fff;
 }
@@ -156,10 +155,6 @@ body.modal-open {
   display: inline-block;
   transition: transform 0.3s var(--jx-ease-spring);
 }
-.btn:hover i {
-  transform: scale(1.2) rotate(-8deg);
-}
-
 /* "Show more" behaves like Manage Users' small buttons */
 .show-more-btn {
   transition:
@@ -174,9 +169,6 @@ body.modal-open {
 .show-more-btn:active {
   transform: scale(0.94);
   box-shadow: none;
-}
-.show-more-btn:hover i {
-  transform: scale(1.2) rotate(-10deg);
 }
 
 /* Loading spinner on submit buttons */
@@ -409,9 +401,7 @@ tr:hover td {
   display: inline-block;
   transition: transform 0.3s var(--jx-ease-spring);
 }
-.action-cell a:hover i {
-  transform: scale(1.2) rotate(-10deg);
-}
+
 .stock-pill {
   transition: transform 0.35s var(--jx-ease-spring);
 }
@@ -529,10 +519,6 @@ tr:hover td {
     opacity 0.15s ease,
     background-color 0.15s ease,
     transform 0.25s var(--jx-ease-spring);
-}
-.close-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
-  transform: rotate(90deg);
 }
 
 /* modal content cascades in */

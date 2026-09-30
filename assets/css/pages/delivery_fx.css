@@ -152,10 +152,6 @@ body.modal-open {
   transition: transform 0.3s var(--mu-ease-spring);
 }
 
-.btn:hover i {
-  transform: scale(1.2) rotate(-8deg);
-}
-
 /* chevron on the Reports button flips instead of wiggling */
 .reports-menu-toggle .fa-chevron-down {
   transition: transform 0.3s var(--mu-ease-spring);
@@ -213,10 +209,6 @@ body.modal-open {
 .reports-menu-dropdown button:hover {
   background: #fafbff;
   color: var(--primary);
-}
-
-.reports-menu-dropdown button:hover i {
-  transform: scale(1.2) rotate(-8deg);
 }
 
 /* ---------------------------------------------------------------------
@@ -346,10 +338,6 @@ body.modal-open {
   transition:
     background-color 0.15s ease,
     transform 0.25s var(--mu-ease-spring);
-}
-
-.remove-item-btn:hover {
-  transform: rotate(90deg);
 }
 
 .remove-item-btn:active {
@@ -566,10 +554,6 @@ body.modal-open {
   transition: transform 0.3s var(--mu-ease-spring);
 }
 
-.toggle-btn:hover > i:first-child {
-  transform: scale(1.2) rotate(-10deg);
-}
-
 .toggle-btn.is-open {
   background: var(--primary-bg);
   border-color: #c7cbff;
@@ -650,10 +634,6 @@ body.modal-open {
 
 .action-cell a i {
   transition: transform 0.3s var(--mu-ease-spring);
-}
-
-.action-cell a:hover i {
-  transform: scale(1.2) rotate(-10deg);
 }
 
 .action-cell a[href^="delete_delivery"] {
@@ -870,7 +850,6 @@ body.modal-open {
 
 .mu-modal-close:hover {
   background: var(--light);
-  transform: rotate(90deg);
 }
 
 .mu-modal-icon {
@@ -1101,17 +1080,8 @@ body.modal-open {
     transform 0.25s var(--mu-ease-spring);
 }
 
-.export-modal-close:hover,
-.close-btn:hover {
-  transform: rotate(90deg);
-}
-
 .window-title i {
   transition: transform 0.3s var(--mu-ease-spring);
-}
-
-.floating-window:hover .window-title i {
-  transform: scale(1.15) rotate(-6deg);
 }
 
 .export-btn {

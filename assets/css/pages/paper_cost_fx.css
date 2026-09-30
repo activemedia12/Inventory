@@ -99,17 +99,12 @@
 }
 .summary-stat:hover .ss-icon,
 .card:hover > .card-header .header-icon {
-  transform: scale(1.12) rotate(-6deg);
   background-color: var(--primary);
   color: #fff;
 }
 
 .card:hover {
   box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.35);
-}
-
-.info-banner:hover .icon {
-  transform: scale(1.1) rotate(-4deg);
 }
 
 /* value bump when a summary number changes (like the permission counter) */
@@ -287,17 +282,6 @@
 .btn-outline-primary-custom i {
   display: inline-block;
   transition: transform 0.3s var(--jx-ease-spring);
-}
-.btn:hover i,
-.btn-back:hover i,
-.btn-add-session:hover i,
-.btn-recalc:hover i,
-.btn-danger-sm:hover i {
-  transform: scale(1.2) rotate(-10deg);
-}
-.btn-primary-solid:hover i,
-.btn-outline-primary-custom:hover i {
-  transform: scale(1.2) rotate(-8deg);
 }
 
 /* Tabs & paper-type buttons behave like Manage Users' filter chips */

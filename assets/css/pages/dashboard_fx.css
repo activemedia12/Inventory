@@ -231,13 +231,6 @@ body.modal-open {
   transition: transform 0.3s var(--mu-ease-spring);
 }
 
-.btn-status:hover i,
-.btn-edit:hover i,
-.btn-delete:hover i,
-.view-all:hover i {
-  transform: scale(1.2) rotate(-8deg);
-}
-
 /* spinner while the status update posts */
 .btn-status.loading {
   pointer-events: none;
@@ -311,7 +304,6 @@ body.modal-open {
 }
 
 .stat-card:hover .card-icon {
-  transform: scale(1.12) rotate(-6deg);
   background-color: var(--primary);
   color: #fff;
 }
@@ -349,7 +341,6 @@ body.modal-open {
 .monthly-breakdown:hover .section-title i,
 .table-card:hover h3 i,
 .window-content .section-header:hover i {
-  transform: scale(1.2) rotate(-8deg);
   color: var(--primary);
 }
 
@@ -1005,10 +996,6 @@ tr.clickable-row:focus-visible {
   transition: transform 0.3s var(--mu-ease-spring);
 }
 
-.floating-window:hover .window-title > i {
-  transform: scale(1.15) rotate(-6deg);
-}
-
 .close-btn {
   border-radius: 50%;
   transition:
@@ -1019,7 +1006,6 @@ tr.clickable-row:focus-visible {
 
 .close-btn:hover {
   background: rgba(255, 255, 255, 0.12);
-  transform: rotate(90deg);
 }
 
 .close-btn:focus-visible {
@@ -1151,7 +1137,6 @@ tr.clickable-row:focus-visible {
 
 .mu-modal-close:hover {
   background: var(--light);
-  transform: rotate(90deg);
 }
 
 .mu-modal-icon {

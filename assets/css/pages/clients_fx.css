@@ -178,10 +178,6 @@ body.modal-open {
   transition: transform 0.3s var(--mu-ease-spring);
 }
 
-.btn:hover i {
-  transform: scale(1.2) rotate(-8deg);
-}
-
 .btn.loading {
   pointer-events: none;
   opacity: 0.8;
@@ -222,7 +218,6 @@ body.modal-open {
 }
 
 .card-toggle:hover h3 i.fa-user-plus {
-  transform: scale(1.2) rotate(-8deg);
   color: var(--primary);
 }
 
@@ -255,7 +250,6 @@ body.modal-open {
 }
 
 .form-section:hover legend i {
-  transform: scale(1.12) rotate(-6deg);
   background-color: var(--primary);
   color: #fff;
 }
@@ -503,10 +497,6 @@ a.letter-btn.active:hover {
   transition: transform 0.35s var(--mu-ease-spring);
 }
 
-.client-item:hover .avatar {
-  transform: scale(1.1) rotate(-4deg);
-}
-
 /* ---------------------------------------------------------------------
    Pagination
    --------------------------------------------------------------------- */
@@ -627,10 +617,6 @@ a.letter-btn.active:hover {
   transition: transform 0.3s var(--mu-ease-spring);
 }
 
-.modal-container:hover .modal-header h3 > i {
-  transform: scale(1.15) rotate(-6deg);
-}
-
 .close-btn {
   border-radius: 50%;
   transition:
@@ -641,7 +627,6 @@ a.letter-btn.active:hover {
 
 .close-btn:hover {
   background: rgba(255, 255, 255, 0.12);
-  transform: rotate(90deg);
 }
 
 .close-btn:focus-visible {
@@ -676,7 +661,6 @@ a.letter-btn.active:hover {
 }
 
 .detail-item:hover .detail-label i {
-  transform: scale(1.2) rotate(-8deg);
   color: var(--primary);
 }
 
@@ -703,7 +687,6 @@ a.letter-btn.active:hover {
 }
 
 .stat-card:hover .stat-icon {
-  transform: scale(1.12) rotate(-6deg);
   background-color: var(--primary);
   color: #fff;
 }
@@ -805,7 +788,6 @@ a.letter-btn.active:hover {
 
 .mu-modal-close:hover {
   background: var(--light);
-  transform: rotate(90deg);
 }
 
 .mu-modal-icon {

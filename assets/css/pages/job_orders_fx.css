@@ -71,9 +71,6 @@
 .status-card h3 > i:first-child {
   transition: transform 0.4s var(--jx-ease-spring);
 }
-.status-card:hover h3 > i:first-child {
-  transform: scale(1.12) rotate(-6deg);
-}
 
 /* ---------------------------------------------------------------------
    Folders: client → project → date → order table
@@ -168,10 +165,6 @@
 .order-details-table .edit-icon-btn i {
   transition: transform 0.3s var(--jx-ease-spring);
 }
-.order-details-table .action-cell a:hover i,
-.order-details-table .edit-icon-btn:hover i {
-  transform: scale(1.2) rotate(-10deg);
-}
 
 /* ---------------------------------------------------------------------
    Buttons, chips & search: hover lift, press squish, loading spinner
@@ -206,9 +199,7 @@
 .filter-chip i {
   transition: transform 0.25s var(--jx-ease-spring);
 }
-.filter-chip:hover i {
-  transform: rotate(90deg) scale(1.15);
-}
+
 .quick-search-box {
   transition:
     box-shadow 0.25s ease,
@@ -539,10 +530,6 @@
 .quick-search-btn i {
   transition: transform 0.3s var(--jx-ease-spring);
 }
-.btn:not(:disabled):hover i,
-.quick-search-btn:hover i {
-  transform: scale(1.2) rotate(-8deg);
-}
 
 /* Small / outline / icon buttons behave like Manage Users' .btn-sm */
 .btn-outline,
@@ -588,11 +575,6 @@
 .btn-delete i,
 .btn-status i {
   transition: transform 0.3s var(--jx-ease-spring);
-}
-.btn-edit:hover i,
-.btn-delete:hover i,
-.btn-status:hover i {
-  transform: scale(1.2) rotate(-10deg);
 }
 
 /* Filter chips: like Manage Users' chips (colour shift + springy press, no lift) */
@@ -745,5 +727,4 @@ body.modal-open {
 .close-btn:hover,
 .export-modal-close:hover {
   background: rgba(255, 255, 255, 0.14);
-  transform: rotate(90deg);
 }
