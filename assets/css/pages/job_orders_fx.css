@@ -677,8 +677,6 @@ body.modal-open {
 .modal,
 .export-modal-overlay {
   background: rgba(20, 23, 31, 0.45);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
 }
 .export-modal-overlay {
   animation-duration: 0.25s;

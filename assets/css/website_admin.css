@@ -940,7 +940,6 @@ a.stat-card:hover {
   justify-content: center;
   padding: 24px;
   background: var(--overlay);
-  backdrop-filter: blur(2px);
   overflow-y: auto;
 }
 
@@ -1223,7 +1222,6 @@ a.stat-card:hover {
   position: fixed;
   inset: 0;
   background: var(--overlay);
-  backdrop-filter: blur(2px);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
