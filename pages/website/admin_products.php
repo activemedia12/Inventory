@@ -112,6 +112,74 @@ function handleProductImageUpload($product_id, $file_input_name, $directory, $pr
     return false;
 }
 
+// Maximum product images per product (slots 0-4 => service-{id}.jpg, service-{id}-1.jpg ...)
+const MAX_PRODUCT_IMAGES = 5;
+
+function productImagePath($product_id, $index)
+{
+    $suffix = $index > 0 ? '-' . $index : '';
+    return "../../assets/images/services/service-{$product_id}{$suffix}.jpg";
+}
+
+// URL (relative, same as the path) with a cache-buster so replaced files show immediately
+function imageUrlWithVersion($path)
+{
+    return file_exists($path) ? $path . '?v=' . filemtime($path) : null;
+}
+
+// Returns [slotIndex => url] for every product image that exists
+function getProductImageUrls($product_id)
+{
+    $urls = [];
+    for ($i = 0; $i < MAX_PRODUCT_IMAGES; $i++) {
+        $url = imageUrlWithVersion(productImagePath($product_id, $i));
+        if ($url) {
+            $urls[$i] = $url;
+        }
+    }
+    return $urls;
+}
+
+// Saves newly chosen product images into the FREE slots only, so existing
+// images are kept (previously file #1 always overwrote slot 0).
+function saveUploadedProductImages($product_id)
+{
+    if (!isset($_FILES['product_images']) || empty($_FILES['product_images']['name'][0])) {
+        return 0;
+    }
+
+    $free = [];
+    for ($i = 0; $i < MAX_PRODUCT_IMAGES; $i++) {
+        if (!file_exists(productImagePath($product_id, $i))) {
+            $free[] = $i;
+        }
+    }
+
+    $uploaded = 0;
+    $skipped = 0;
+    $count = count($_FILES['product_images']['name']);
+    for ($f = 0; $f < $count; $f++) {
+        if ($_FILES['product_images']['error'][$f] !== UPLOAD_ERR_OK) {
+            continue;
+        }
+        if (empty($free)) {
+            $skipped++;
+            continue;
+        }
+        $slot = $free[0];
+        $suffix = $slot > 0 ? '-' . $slot : '';
+        if (handleProductImageUpload($product_id, 'product_images', 'services', 'service', $suffix, $f)) {
+            array_shift($free);
+            $uploaded++;
+        }
+    }
+
+    if ($skipped > 0) {
+        $_SESSION['error'] = "A product can have at most " . MAX_PRODUCT_IMAGES . " images. {$skipped} image(s) were not added - delete an existing image first.";
+    }
+    return $uploaded;
+}
+
 // Function to delete product images
 function deleteProductImages($product_id, $image_type)
 {
@@ -201,20 +269,8 @@ if (isset($_POST['action'])) {
                     $product_id = $inventory->insert_id;
                     $_SESSION['message'] = "Product '$product_name' added successfully!";
 
-                    // Handle image uploads
-                    if (isset($_FILES['product_images']) && !empty($_FILES['product_images']['name'][0])) {
-                        $uploaded_count = 0;
-                        $file_count = min(count($_FILES['product_images']['name']), 5); // Limit to 5 files
-
-                        for ($i = 0; $i < $file_count; $i++) {
-                            if ($_FILES['product_images']['error'][$i] === 0) {
-                                $suffix = $i > 0 ? '-' . $i : '';
-                                if (handleProductImageUpload($product_id, 'product_images', 'services', 'service', $suffix, $i)) {
-                                    $uploaded_count++;
-                                }
-                            }
-                        }
-                    }
+                    // Handle image uploads (fills free slots, keeps existing images)
+                    saveUploadedProductImages($product_id);
 
                     // Handle base template uploads for Other Services
                     if ($category === 'Other Services') {
@@ -264,20 +320,8 @@ if (isset($_POST['action'])) {
                 if ($stmt->execute()) {
                     $_SESSION['message'] = "Product updated successfully!";
 
-                    // Handle image uploads for updates
-                    if (isset($_FILES['product_images']) && !empty($_FILES['product_images']['name'][0])) {
-                        $uploaded_count = 0;
-                        $file_count = min(count($_FILES['product_images']['name']), 5); // Limit to 5 files
-
-                        for ($i = 0; $i < $file_count; $i++) {
-                            if ($_FILES['product_images']['error'][$i] === 0) {
-                                $suffix = $i > 0 ? '-' . $i : '';
-                                if (handleProductImageUpload($product_id, 'product_images', 'services', 'service', $suffix, $i)) {
-                                    $uploaded_count++;
-                                }
-                            }
-                        }
-                    }
+                    // Handle image uploads (fills free slots, keeps existing images)
+                    saveUploadedProductImages($product_id);
 
                     // Handle base template uploads for Other Services
                     if ($category === 'Other Services') {
@@ -295,7 +339,7 @@ if (isset($_POST['action'])) {
             break;
 
         case 'delete_product':
-            $product_id = $_POST['product_id'];
+            $product_id = (int) $_POST['product_id'];
 
             // Check if product has orders
             $check_query = "SELECT COUNT(*) as order_count FROM order_items WHERE product_id = ?";
@@ -374,16 +418,23 @@ if (isset($_POST['action'])) {
                     deleteProductImages($product_id, 'all_images');
 
                     $_SESSION['message'] = "Product deleted successfully!";
-                } catch (Exception $e) {
+                } catch (Throwable $e) {
+                    // Throwable (not Exception) so PHP Errors, e.g. bind_param() on a
+                    // failed prepare(), also roll back instead of leaving the page dead.
                     $inventory->rollback();
+                    // The log line names the table/constraint that blocked the delete.
                     error_log("Failed to delete product {$product_id}: " . $e->getMessage());
-                    $_SESSION['error'] = "Failed to delete product!";
+                    if ($e instanceof mysqli_sql_exception && (int) $e->getCode() === 1451) {
+                        $_SESSION['error'] = "Cannot delete product - it is still linked to other records. Check the PHP error log for the table name.";
+                    } else {
+                        $_SESSION['error'] = "Failed to delete product! (see PHP error log)";
+                    }
                 }
             }
             break;
 
         case 'delete_product_images':
-            $product_id = $_POST['product_id'];
+            $product_id = (int) $_POST['product_id'];
             $image_type = $_POST['image_type'];
 
             if (deleteProductImages($product_id, $image_type)) {
@@ -394,7 +445,7 @@ if (isset($_POST['action'])) {
             break;
 
         case 'delete_single_image':
-            $product_id = $_POST['product_id'];
+            $product_id = (int) $_POST['product_id'];
             $image_index = $_POST['image_index'];
 
             $success = false;
@@ -413,8 +464,11 @@ if (isset($_POST['action'])) {
                 }
             } else {
                 // Delete product image (0-4 index)
-                $suffix = $image_index > 0 ? '-' . $image_index : '';
-                $file = "../../assets/images/services/service-{$product_id}{$suffix}.jpg";
+                $idx = (int) $image_index;
+                if ($idx < 0 || $idx >= MAX_PRODUCT_IMAGES) {
+                    $idx = 0;
+                }
+                $file = productImagePath($product_id, $idx);
                 if (file_exists($file)) {
                     $success = unlink($file);
                 }
@@ -513,7 +567,7 @@ function updateProductOptions($tshirtprint, $product_id, $has_paper, $has_finish
 if (isset($_GET['ajax'])) {
     switch ($_GET['ajax']) {
         case 'get_product':
-            $product_id = $_GET['product_id'];
+            $product_id = (int) $_GET['product_id'];
             $query = "SELECT * FROM products_offered WHERE id = ?";
             $stmt = $inventory->prepare($query);
             $stmt->bind_param("i", $product_id);
@@ -536,6 +590,13 @@ if (isset($_GET['ajax'])) {
 
                 $product['base_image_exists'] = file_exists($base_image_path);
                 $product['base_back_image_exists'] = file_exists($base_back_image_path);
+
+                // URLs (with cache-buster) so the edit modal can show the actual images
+                for ($i = 0; $i < MAX_PRODUCT_IMAGES; $i++) {
+                    $product['product_image_url_' . $i] = imageUrlWithVersion(productImagePath($product_id, $i));
+                }
+                $product['base_image_url'] = imageUrlWithVersion($base_image_path);
+                $product['base_back_image_url'] = imageUrlWithVersion($base_back_image_path);
 
                 echo json_encode($product);
             } else {
@@ -561,54 +622,167 @@ if (isset($_GET['ajax'])) {
     }
 }
 
-// Pagination: the catalog is small today but this listing has no LIMIT at
-// all, so every product ever added gets rendered into the DOM on every
-// load. Page it server-side now, before that becomes a real cost.
-$per_page = 30;
-$page = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
+// ---------------------------------------------------------------------
+// Normal page load: filters, pagination, listing query.
+// (Mirrors the orders page: search + category filter, summary counts,
+// server-side paging. The listing is still read-only here; every write
+// goes through the POST actions above.)
+// ---------------------------------------------------------------------
 
-$total_products_result = $inventory->query("SELECT COUNT(*) as total FROM products_offered");
-$total_products = (int) $total_products_result->fetch_assoc()['total'];
+/**
+ * Bind a dynamic list of params to a mysqli statement (bind_param needs refs).
+ */
+if (!function_exists('bind_dynamic')) {
+    function bind_dynamic(mysqli_stmt $stmt, string $types, array $params): void
+    {
+        $refs = [];
+        foreach ($params as $key => $value) {
+            $refs[$key] = &$params[$key];
+        }
+        array_unshift($refs, $types);
+        call_user_func_array([$stmt, 'bind_param'], $refs);
+    }
+}
+
+/**
+ * Small presentation helpers (UI only - no business logic).
+ */
+function pr_category_tone(string $category): string
+{
+    // Stable colour per category name, drawn from the same tone palette the
+    // orders page uses for statuses, so badges look identical on both pages.
+    $tones = ['tone-paid', 'tone-processing', 'tone-ready_for_pickup', 'tone-completed', 'tone-pending'];
+    return $tones[abs(crc32(strtolower($category))) % count($tones)];
+}
+
+function pr_has_any_image(int $product_id): bool
+{
+    for ($i = 0; $i < MAX_PRODUCT_IMAGES; $i++) {
+        if (file_exists(productImagePath($product_id, $i))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+$PRODUCT_OPTION_LABELS = [
+    'has_paper_option' => 'Paper',
+    'has_size_option' => 'Size',
+    'has_finish_option' => 'Finish',
+    'has_layout_option' => 'Layout',
+    'has_binding_option' => 'Binding',
+    'has_gsm_option' => 'GSM',
+];
+
+// Categories (dropdown, tabs and filter validation)
+$categories_result = $inventory->query("SELECT DISTINCT category FROM products_offered ORDER BY category");
+$categories = [];
+while ($row = $categories_result->fetch_assoc()) {
+    $categories[] = $row['category'];
+}
+
+$search = trim($_GET['search'] ?? '');
+$category_filter = (string) ($_GET['category'] ?? '');
+if (!in_array($category_filter, $categories, true)) {
+    $category_filter = '';
+}
+
+$per_page = 30;
+$page = max(1, (int) ($_GET['page'] ?? 1));
+
+$where = [];
+$params = [];
+$types = '';
+
+if ($category_filter !== '') {
+    $where[] = "p.category = ?";
+    $params[] = $category_filter;
+    $types .= 's';
+}
+if ($search !== '') {
+    $where[] = "(p.product_name LIKE ? OR p.id LIKE ?)";
+    $like = "%$search%";
+    $params[] = $like;
+    $params[] = $like;
+    $types .= 'ss';
+}
+$where_sql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+// Pagination: page the catalog server-side so every product ever added
+// isn't rendered into the DOM on each load.
+$count_stmt = $inventory->prepare("SELECT COUNT(*) AS total FROM products_offered p $where_sql");
+if ($types !== '') bind_dynamic($count_stmt, $types, $params);
+$count_stmt->execute();
+$total_products = (int) $count_stmt->get_result()->fetch_assoc()['total'];
 $total_pages = max(1, (int) ceil($total_products / $per_page));
 $page = min($page, $total_pages); // clamp so a stale/typed-in page= doesn't return an empty page
 $offset = ($page - 1) * $per_page;
 
 // Get products with customization settings, one page at a time
-$query = "SELECT p.*, 
+$query = "SELECT p.*,
                  pc.has_paper_option, pc.has_size_option, pc.has_finish_option,
                  pc.has_layout_option, pc.has_binding_option, pc.has_gsm_option
           FROM products_offered p
           LEFT JOIN product_customization pc ON p.id = pc.product_id
+          $where_sql
           ORDER BY p.category, p.product_name
           LIMIT ? OFFSET ?";
+$list_params = $params;
+$list_types = $types . 'ii';
+$list_params[] = $per_page;
+$list_params[] = $offset;
 $products_stmt = $inventory->prepare($query);
-$products_stmt->bind_param('ii', $per_page, $offset);
+bind_dynamic($products_stmt, $list_types, $list_params);
 $products_stmt->execute();
 $products_result = $products_stmt->get_result();
 $products = [];
 while ($row = $products_result->fetch_assoc()) {
-    // Check image existence for each product
     $product_id = $row['id'];
-    $product_image_path = "../../assets/images/services/service-" . $product_id . ".jpg";
-    $product_back_image_path = "../../assets/images/services/service-" . $product_id . "-1.jpg";
     $base_image_path = "../../assets/images/base/base-" . $product_id . ".jpg";
     $base_back_image_path = "../../assets/images/base/base-" . $product_id . "-1.jpg";
 
-    $row['product_image_exists'] = file_exists($product_image_path);
-    $row['product_back_image_exists'] = file_exists($product_back_image_path);
-    $row['base_image_exists'] = file_exists($base_image_path);
-    $row['base_back_image_exists'] = file_exists($base_back_image_path);
+    // Every existing image, for the thumbnails in the table
+    $row['image_urls'] = getProductImageUrls($product_id);
+    $row['base_url'] = imageUrlWithVersion($base_image_path);
+    $row['base_back_url'] = imageUrlWithVersion($base_back_image_path);
 
     $products[] = $row;
 }
 
-// Get unique categories for dropdown
-$categories_query = "SELECT DISTINCT category FROM products_offered ORDER BY category";
-$categories_result = $inventory->query($categories_query);
-$categories = [];
-while ($row = $categories_result->fetch_assoc()) {
-    $categories[] = $row['category'];
+// Category tab counts (unfiltered by search, so counts stay stable while typing).
+$tab_counts = ['all' => 0];
+$count_by_category = $inventory->query("SELECT category, COUNT(*) AS c FROM products_offered GROUP BY category");
+while ($row = $count_by_category->fetch_assoc()) {
+    $tab_counts['all'] += (int) $row['c'];
+    $tab_counts[$row['category']] = (int) $row['c'];
 }
+
+// Display-only summary values
+$customizable_total = (int) $inventory->query(
+    "SELECT COUNT(*) AS c FROM product_customization
+     WHERE has_paper_option = 1 OR has_size_option = 1 OR has_finish_option = 1
+        OR has_layout_option = 1 OR has_binding_option = 1 OR has_gsm_option = 1"
+)->fetch_assoc()['c'];
+
+$missing_images_total = 0;
+$all_ids = $inventory->query("SELECT id FROM products_offered");
+while ($row = $all_ids->fetch_assoc()) {
+    if (!pr_has_any_image((int) $row['id'])) {
+        $missing_images_total++;
+    }
+}
+
+function build_query_url(array $overrides = []): string
+{
+    $current = ['category' => $_GET['category'] ?? '', 'search' => $_GET['search'] ?? '', 'page' => $_GET['page'] ?? ''];
+    $merged = array_merge($current, $overrides);
+    $merged = array_filter($merged, fn($v) => $v !== '' && $v !== null);
+    return 'admin_products.php' . ($merged ? ('?' . http_build_query($merged)) : '');
+}
+
+$range_from = $total_products > 0 ? $offset + 1 : 0;
+$range_to = $offset + count($products);
+$has_filters = ($category_filter !== '' || $search !== '');
 ?>
 
 <!DOCTYPE html>
@@ -627,285 +801,422 @@ while ($row = $categories_result->fetch_assoc()) {
 
 <body class="page-products" data-page="products">
     <div class="admin-container">
-        <div class="main-content">
-            <div class="header">
-                <h1>Product Management</h1>
-            </div>
+        <main class="main-content">
+            <div class="wa-page">
 
-            <!-- Action Buttons -->
-            <div class="action-buttons">
-                <button class="btn btn-primary" onclick="openAddModal()">
-                    <i class="fas fa-plus"></i> Add New Product
-                </button>
-                <button class="btn btn-success" onclick="exportProducts()">
-                    <i class="fas fa-file-export"></i> Export Products
-                </button>
-            </div>
-
-            <!-- Products Table -->
-            <div class="products-table">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Product Name</th>
-                            <th>Category</th>
-                            <th>Price</th>
-                            <th>Customization</th>
-                            <th>Images</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($products as $product):
-                            $category_class = 'category-' . strtolower(str_replace(' ', '-', $product['category']));
-
-                            // Check if product images exist
-                            $product_image_path = "../../assets/images/services/service-" . $product['id'] . ".jpg";
-                            $product_image_exists = file_exists($product_image_path);
-                            $base_image_path = "../../assets/images/base/base-" . $product['id'] . ".jpg";
-                            $base_image_exists = file_exists($base_image_path);
-                        ?>
-                            <tr>
-                                <td><?php echo $product['id']; ?></td>
-                                <td>
-                                    <strong><?php echo htmlspecialchars($product['product_name']); ?></strong>
-                                </td>
-                                <td>
-                                    <span class="category-badge <?php echo $category_class; ?>">
-                                        <?php echo htmlspecialchars($product['category']); ?>
-                                    </span>
-                                </td>
-                                <td><strong>₱<?php echo number_format($product['price'], 2); ?></strong></td>
-                                <td>
-                                    <div class="customization-badges">
-                                        <?php if ($product['has_paper_option']): ?>
-                                            <span class="customization-badge active">Paper</span>
-                                        <?php endif; ?>
-                                        <?php if ($product['has_size_option']): ?>
-                                            <span class="customization-badge active">Size</span>
-                                        <?php endif; ?>
-                                        <?php if ($product['has_finish_option']): ?>
-                                            <span class="customization-badge active">Finish</span>
-                                        <?php endif; ?>
-                                        <?php if ($product['has_layout_option']): ?>
-                                            <span class="customization-badge active">Layout</span>
-                                        <?php endif; ?>
-                                        <?php if ($product['has_binding_option']): ?>
-                                            <span class="customization-badge active">Binding</span>
-                                        <?php endif; ?>
-                                        <?php if ($product['has_gsm_option']): ?>
-                                            <span class="customization-badge active">GSM</span>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="customization-badges">
-                                        <?php if ($product_image_exists): ?>
-                                            <span class="customization-badge active" title="Product Image Exists">
-                                                <i class="fas fa-image"></i> Product
-                                            </span>
-                                        <?php else: ?>
-                                            <span class="customization-badge" style="background: var(--danger-bg); color: var(--danger);" title="Product Image Missing">
-                                                <i class="fas fa-exclamation-triangle"></i> Product
-                                            </span>
-                                        <?php endif; ?>
-
-                                        <?php
-                                        // Only show base badge for products that need base templates
-                                        $needs_base = ($product['category'] === 'Other Services');
-                                        if ($needs_base):
-                                        ?>
-                                            <?php if ($base_image_exists): ?>
-                                                <span class="customization-badge active" title="Base Template Exists">
-                                                    <i class="fas fa-vector-square"></i> Base
-                                                </span>
-                                            <?php else: ?>
-                                                <span class="customization-badge" style="background: var(--warning-bg); color: var(--warning);" title="Base Template Missing">
-                                                    <i class="fas fa-exclamation-circle"></i> Base
-                                                </span>
-                                            <?php endif; ?>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                        <button class="btn btn-warning" onclick="openEditModal(<?php echo $product['id']; ?>)">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </button>
-                                        <button class="btn btn-primary" onclick="openCustomizationModal(<?php echo $product['id']; ?>)">
-                                            <i class="fas fa-cog"></i> Options
-                                        </button>
-                                        <button class="btn btn-danger" onclick="confirmDelete(<?php echo (int) $product['id']; ?>, <?php echo esc_attr_js($product['product_name']); ?>)">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-
-            <?php if ($total_pages > 1): ?>
-                <div class="pagination">
-                    <span class="pagination-summary">
-                        Showing <?php echo $offset + 1; ?>–<?php echo min($offset + $per_page, $total_products); ?>
-                        of <?php echo $total_products; ?> products
-                    </span>
-                    <div class="pagination-controls">
-                        <a href="?page=<?php echo max(1, $page - 1); ?>"
-                           class="btn <?php echo $page <= 1 ? 'btn-disabled' : ''; ?>"
-                           <?php echo $page <= 1 ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>
-                            <i class="fas fa-chevron-left"></i> Prev
-                        </a>
-                        <?php
-                        // A small window of page links around the current page, plus
-                        // first/last, so this stays compact even with many pages.
-                        $window = 2;
-                        for ($p = 1; $p <= $total_pages; $p++) {
-                            $show = $p === 1 || $p === $total_pages || abs($p - $page) <= $window;
-                            if (!$show) {
-                                if ($p === 2 || $p === $total_pages - 1) {
-                                    echo '<span class="pagination-ellipsis">&hellip;</span>';
-                                }
-                                continue;
-                            }
-                            $active = $p === $page ? 'active' : '';
-                            echo '<a href="?page=' . $p . '" class="btn ' . $active . '">' . $p . '</a>';
-                        }
-                        ?>
-                        <a href="?page=<?php echo min($total_pages, $page + 1); ?>"
-                           class="btn <?php echo $page >= $total_pages ? 'btn-disabled' : ''; ?>"
-                           <?php echo $page >= $total_pages ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>
-                            Next <i class="fas fa-chevron-right"></i>
-                        </a>
+                <!-- 1. Page header -->
+                <header class="wa-page-head">
+                    <div>
+                        <h1 class="wa-page-title">Product Management</h1>
+                        <p class="wa-page-desc">Manage the products customers can order, their prices, customization options and images.</p>
                     </div>
-                </div>
-            <?php endif; ?>
-        </div>
+                    <div class="wa-page-actions">
+                        <button type="button" class="btn btn-secondary" onclick="exportProducts()">
+                            <i class="fas fa-file-export" aria-hidden="true"></i> Export
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="openAddModal()">
+                            <i class="fas fa-plus" aria-hidden="true"></i> Add new product
+                        </button>
+                    </div>
+                </header>
+
+                <!-- 2. Summary -->
+                <section class="wa-stats" aria-label="Product summary">
+                    <a class="wa-stat tone-total <?php echo !$has_filters ? 'is-active' : ''; ?>" href="admin_products.php">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-box"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Total products</span>
+                            <span class="wa-stat-value"><?php echo $tab_counts['all']; ?></span>
+                            <span class="wa-stat-sub">Across all categories</span>
+                        </span>
+                    </a>
+                    <div class="wa-stat tone-processing">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-layer-group"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Categories</span>
+                            <span class="wa-stat-value"><?php echo count($categories); ?></span>
+                            <span class="wa-stat-sub">Product groupings</span>
+                        </span>
+                    </div>
+                    <div class="wa-stat tone-completed">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-sliders"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Customizable</span>
+                            <span class="wa-stat-value"><?php echo $customizable_total; ?></span>
+                            <span class="wa-stat-sub">With at least one option</span>
+                        </span>
+                    </div>
+                    <div class="wa-stat <?php echo $missing_images_total > 0 ? 'tone-pending' : 'tone-completed'; ?>">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas <?php echo $missing_images_total > 0 ? 'fa-image' : 'fa-images'; ?>"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Missing images</span>
+                            <span class="wa-stat-value"><?php echo $missing_images_total; ?></span>
+                            <span class="wa-stat-sub"><?php echo $missing_images_total > 0 ? 'Products with no image' : 'Every product has an image'; ?></span>
+                        </span>
+                    </div>
+                </section>
+
+                <!-- 3 + 4. Search, filter and category navigation (one control) -->
+                <section class="wa-filterbar" aria-label="Search and filter products">
+                    <form class="wa-filterbar-form" method="get" action="admin_products.php" role="search">
+                        <div class="wa-search">
+                            <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                            <input type="search" name="search" id="productSearch" value="<?php echo htmlspecialchars($search); ?>"
+                                placeholder="Search by product name or ID" aria-label="Search products by name or ID" autocomplete="off">
+                            <?php if ($search !== ''): ?>
+                                <a class="wa-search-clear" href="<?php echo build_query_url(['search' => '', 'page' => '']); ?>" aria-label="Clear search" title="Clear search">
+                                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                        <div class="wa-select">
+                            <label class="sr-only" for="productCategoryFilter">Filter by category</label>
+                            <select name="category" id="productCategoryFilter">
+                                <option value="">All categories</option>
+                                <?php foreach ($categories as $cat): ?>
+                                    <option value="<?php echo htmlspecialchars($cat); ?>" <?php echo $category_filter === $cat ? 'selected' : ''; ?>><?php echo htmlspecialchars($cat); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-filter" aria-hidden="true"></i> Apply</button>
+                        <?php if ($has_filters): ?>
+                            <a href="admin_products.php" class="btn btn-ghost"><i class="fas fa-rotate-left" aria-hidden="true"></i> Reset</a>
+                        <?php endif; ?>
+                    </form>
+
+                    <nav class="wa-tabs" aria-label="Filter products by category">
+                        <?php
+                        $tab_items = [['', 'All']];
+                        foreach ($categories as $cat_name) {
+                            $tab_items[] = [$cat_name, $cat_name];
+                        }
+                        foreach ($tab_items as [$val, $label]):
+                            $val = (string) $val;
+                            $count_key = $val === '' ? 'all' : $val;
+                            $is_active = $category_filter === $val;
+                        ?>
+                            <a class="wa-tab <?php echo $is_active ? 'is-active' : ''; ?>"
+                                href="<?php echo build_query_url(['category' => $val, 'page' => '']); ?>"
+                                <?php echo $is_active ? 'aria-current="page"' : ''; ?>>
+                                <?php if ($val !== ''): ?><span class="wa-dot <?php echo pr_category_tone($val); ?>" aria-hidden="true"></span><?php endif; ?>
+                                <?php echo htmlspecialchars($label); ?>
+                                <span class="wa-tab-count"><?php echo $tab_counts[$count_key] ?? 0; ?></span>
+                            </a>
+                        <?php endforeach; ?>
+                    </nav>
+                </section>
+
+                <!-- 5 + 6. Products data and pagination -->
+                <section class="wa-datacard" aria-labelledby="productsHeading">
+                    <div class="wa-datacard-head">
+                        <div>
+                            <h2 class="wa-datacard-title" id="productsHeading"><?php echo $category_filter !== '' ? htmlspecialchars($category_filter) . ' products' : 'All products'; ?></h2>
+                            <p class="wa-datacard-sub">
+                                <?php if ($total_products > 0): ?>
+                                    Showing <?php echo $range_from; ?>&ndash;<?php echo $range_to; ?> of <?php echo $total_products; ?> &middot; grouped by category
+                                <?php else: ?>
+                                    Nothing to show
+                                <?php endif; ?>
+                            </p>
+                        </div>
+                        <?php if ($has_filters): ?>
+                            <div class="wa-filter-chips" aria-label="Active filters">
+                                <?php if ($category_filter !== ''): ?>
+                                    <span class="wa-filter-chip">
+                                        <span>Category: <?php echo htmlspecialchars($category_filter); ?></span>
+                                        <a href="<?php echo build_query_url(['category' => '', 'page' => '']); ?>" aria-label="Remove category filter" title="Remove category filter"><i class="fas fa-xmark" aria-hidden="true"></i></a>
+                                    </span>
+                                <?php endif; ?>
+                                <?php if ($search !== ''): ?>
+                                    <span class="wa-filter-chip">
+                                        <span>Search: &ldquo;<?php echo htmlspecialchars($search); ?>&rdquo;</span>
+                                        <a href="<?php echo build_query_url(['search' => '', 'page' => '']); ?>" aria-label="Remove search filter" title="Remove search filter"><i class="fas fa-xmark" aria-hidden="true"></i></a>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="wa-table-wrap">
+                        <table class="prd-table">
+                            <caption class="sr-only">Products offered</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Product</th>
+                                    <th scope="col">Category</th>
+                                    <th scope="col" class="is-num">Price</th>
+                                    <th scope="col">Customization</th>
+                                    <th scope="col">Images</th>
+                                    <th scope="col"><span class="sr-only">Actions</span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsTable">
+                                <?php if (empty($products)): ?>
+                                    <tr>
+                                        <td colspan="6" class="empty-row">
+                                            <div class="wa-empty">
+                                                <span class="wa-empty-icon" aria-hidden="true"><i class="fas fa-box-open"></i></span>
+                                                <div class="wa-empty-title">No products found</div>
+                                                <p class="wa-empty-text">
+                                                    <?php echo $has_filters ? 'Nothing matches the current search or category. Try a different term or clear the filters.' : 'Products will appear here once you add them.'; ?>
+                                                </p>
+                                                <?php if ($has_filters): ?>
+                                                    <a href="admin_products.php" class="btn btn-outline btn-sm"><i class="fas fa-rotate-left" aria-hidden="true"></i> Clear filters</a>
+                                                <?php else: ?>
+                                                    <button type="button" class="btn btn-primary btn-sm" onclick="openAddModal()"><i class="fas fa-plus" aria-hidden="true"></i> Add new product</button>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                                <?php foreach ($products as $product):
+                                    $pid = (int) $product['id'];
+                                    $thumb_limit = 4;
+                                    $thumbs = array_slice($product['image_urls'], 0, $thumb_limit, true);
+                                    $thumbs_extra = max(0, count($product['image_urls']) - $thumb_limit);
+                                ?>
+                                    <tr class="prd-row" id="product-row-<?php echo $pid; ?>">
+                                        <td class="prd-col-product">
+                                            <button type="button" class="prd-name" onclick="openEditModal(<?php echo $pid; ?>)"
+                                                title="Edit <?php echo htmlspecialchars($product['product_name']); ?>"><?php echo htmlspecialchars($product['product_name']); ?></button>
+                                            <div class="prd-meta">ID <?php echo $pid; ?></div>
+                                        </td>
+                                        <td class="prd-col-category">
+                                            <span class="wa-badge <?php echo pr_category_tone((string) $product['category']); ?>"><?php echo htmlspecialchars($product['category']); ?></span>
+                                        </td>
+                                        <td class="prd-col-price is-num">
+                                            <span class="prd-price">&#8369;<?php echo number_format($product['price'], 2); ?></span>
+                                        </td>
+                                        <td class="prd-col-options">
+                                            <?php
+                                            $enabled_options = [];
+                                            foreach ($PRODUCT_OPTION_LABELS as $field => $label) {
+                                                if (!empty($product[$field])) {
+                                                    $enabled_options[] = $label;
+                                                }
+                                            }
+                                            ?>
+                                            <?php if ($enabled_options): ?>
+                                                <div class="prd-chips">
+                                                    <?php foreach ($enabled_options as $label): ?>
+                                                        <span class="wa-chip"><?php echo htmlspecialchars($label); ?></span>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php else: ?>
+                                                <span class="prd-state"><i class="fas fa-circle-minus" aria-hidden="true"></i> No options</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="prd-col-images">
+                                            <div class="prd-thumbs">
+                                                <?php foreach ($thumbs as $idx => $url): ?>
+                                                    <a class="prd-thumb" href="<?php echo htmlspecialchars($url); ?>" target="_blank" rel="noopener" title="Product image <?php echo $idx + 1; ?>">
+                                                        <img src="<?php echo htmlspecialchars($url); ?>" alt="Product image <?php echo $idx + 1; ?>" loading="lazy"
+                                                            onerror="this.closest('.prd-thumb').classList.add('is-broken')">
+                                                        <i class="fas fa-image" aria-hidden="true"></i>
+                                                    </a>
+                                                <?php endforeach; ?>
+                                                <?php if ($thumbs_extra > 0): ?>
+                                                    <span class="prd-thumb-more" title="<?php echo $thumbs_extra; ?> more image(s)">+<?php echo $thumbs_extra; ?></span>
+                                                <?php endif; ?>
+                                                <?php if (empty($product['image_urls'])): ?>
+                                                    <span class="prd-state is-missing" title="No product images"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> No image</span>
+                                                <?php endif; ?>
+
+                                                <?php if ($product['category'] === 'Other Services'): ?>
+                                                    <?php foreach ([['Base front', $product['base_url']], ['Base back', $product['base_back_url']]] as [$label, $url]): ?>
+                                                        <?php if ($url): ?>
+                                                            <a class="prd-thumb prd-thumb--base" href="<?php echo htmlspecialchars($url); ?>" target="_blank" rel="noopener" title="<?php echo $label; ?>">
+                                                                <img src="<?php echo htmlspecialchars($url); ?>" alt="<?php echo $label; ?>" loading="lazy"
+                                                                    onerror="this.closest('.prd-thumb').classList.add('is-broken')">
+                                                                <i class="fas fa-vector-square" aria-hidden="true"></i>
+                                                            </a>
+                                                        <?php else: ?>
+                                                            <span class="prd-state is-warn" title="<?php echo $label; ?> template missing"><i class="fas fa-circle-exclamation" aria-hidden="true"></i> <?php echo $label; ?></span>
+                                                        <?php endif; ?>
+                                                    <?php endforeach; ?>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                        <td class="prd-col-actions">
+                                            <div class="prd-actions">
+                                                <button type="button" class="btn btn-sm btn-outline" onclick="openEditModal(<?php echo $pid; ?>)">
+                                                    <i class="fas fa-pen" aria-hidden="true"></i> Edit
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline" onclick="openCustomizationModal(<?php echo $pid; ?>)">
+                                                    <i class="fas fa-sliders" aria-hidden="true"></i> Options
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline btn-icon prd-delete"
+                                                    onclick="confirmDelete(<?php echo $pid; ?>, <?php echo esc_attr_js($product['product_name']); ?>)"
+                                                    aria-label="Delete <?php echo htmlspecialchars($product['product_name']); ?>" title="Delete product">
+                                                    <i class="fas fa-trash" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="wa-datacard-foot">
+                        <span class="wa-datacard-foot-text">Showing <?php echo count($products); ?> of <?php echo $total_products; ?> products</span>
+                        <?php if ($total_pages > 1): ?>
+                            <nav class="wa-pager" aria-label="Pagination">
+                                <a class="wa-pager-link <?php echo $page <= 1 ? 'is-disabled' : ''; ?>" href="<?php echo build_query_url(['page' => $page - 1]); ?>"
+                                    <?php echo $page <= 1 ? 'aria-disabled="true" tabindex="-1"' : ''; ?>><i class="fas fa-chevron-left" aria-hidden="true"></i> Prev</a>
+                                <?php
+                                // A small window of page links around the current page, plus
+                                // first/last, so this stays compact even with many pages.
+                                $window = 2;
+                                for ($p = 1; $p <= $total_pages; $p++) {
+                                    $show = $p === 1 || $p === $total_pages || abs($p - $page) <= $window;
+                                    if (!$show) {
+                                        if ($p === 2 || $p === $total_pages - 1) {
+                                            echo '<span class="wa-pager-gap" aria-hidden="true">&hellip;</span>';
+                                        }
+                                        continue;
+                                    }
+                                    $active = $p === $page;
+                                    echo '<a class="wa-pager-link' . ($active ? ' is-active' : '') . '" href="' . build_query_url(['page' => $p]) . '"'
+                                        . ($active ? ' aria-current="page"' : '') . ' aria-label="Page ' . $p . '">' . $p . '</a>';
+                                }
+                                ?>
+                                <a class="wa-pager-link <?php echo $page >= $total_pages ? 'is-disabled' : ''; ?>" href="<?php echo build_query_url(['page' => $page + 1]); ?>"
+                                    <?php echo $page >= $total_pages ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>Next <i class="fas fa-chevron-right" aria-hidden="true"></i></a>
+                            </nav>
+                        <?php endif; ?>
+                    </div>
+                </section>
+
+            </div>
+        </main>
     </div>
 
-    <!-- Add/Edit Product Modal -->
-    <div id="productModal" class="modal">
+    <!-- Add/Edit product dialog -->
+    <div id="productModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modal-content modal-lg">
             <div class="modal-header">
-                <h2><i class="fas fa-box"></i> <span id="modalTitle">Add New Product</span></h2>
+                <div>
+                    <h2 id="modalTitle">Add New Product</h2>
+                    <p class="ord-dialog-sub" id="modalSub">Set the name, category and price, then add images.</p>
+                </div>
                 <button type="button" class="modal-close" onclick="closeModal('productModal')" aria-label="Close">&times;</button>
             </div>
             <form id="productForm" method="post" enctype="multipart/form-data">
-<?php echo csrf_field(); ?>
+                <?php echo csrf_field(); ?>
                 <input type="hidden" name="action" id="formAction" value="add_product">
                 <input type="hidden" name="product_id" id="productId">
 
                 <div class="modal-body">
+                    <div class="prd-stack">
 
-                <div class="form-group">
-                    <label for="product_name">Product Name</label>
-                    <input type="text" id="product_name" name="product_name" class="form-control" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="category">Category</label>
-                    <select id="category" name="category" class="form-control" required onchange="handleCategoryChange()">
-                        <option value="">Select Category</option>
-                        <?php foreach ($categories as $category): ?>
-                            <option value="<?php echo htmlspecialchars($category); ?>"><?php echo htmlspecialchars($category); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="price">Price (₱)</label>
-                    <input type="number" id="price" name="price" class="form-control" step="0.01" min="0" required>
-                </div>
-
-                <!-- Product Images -->
-                <div class="image-upload-section">
-                    <h4 class="image-upload-title"><i class="fas fa-images"></i> Product Images (Up to 5 images)</h4>
-
-                    <div class="form-group">
-                        <label>Product Images:</label>
-                        <label class="file-input-label">
-                            <i class="fas fa-upload"></i> Choose Product Images
-                            <input type="file" class="file-input" name="product_images[]" accept="image/*" multiple onchange="showFileNames(this, 'productImagesFile')">
-                        </label>
-                        <small id="productImagesFile" style="color: var(--gray); display: block; margin-top: 5px;">No files chosen</small>
-                        <small style="color: var(--gray);">Will be saved as: service-{id}.jpg, service-{id}-1.jpg, service-{id}-2.jpg, etc.</small>
-
-                        <!-- Image Previews Container -->
-                        <div class="image-preview-container" id="productImagesPreview" style="display: none; margin-top: 10px;">
-                            <!-- Previews will be added here dynamically -->
-                        </div>
-                    </div>
-
-                    <!-- Current Images Status (for edit mode) -->
-                    <div class="current-images-section" id="currentImagesSection" style="display: none;">
-                        <h5>Current Images Status:</h5>
-                        <div id="currentImagesList">
-                            <!-- Current images will be listed here -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Base Templates (Only for Other Services) -->
-                <div class="image-upload-section" id="baseTemplatesSection" style="display: none;">
-                    <h4 class="image-upload-title"><i class="fas fa-vector-square"></i> Base Templates</h4>
-
-                    <div class="form-group">
-                        <label>Front Base Template:</label>
-                        <label class="file-input-label">
-                            <i class="fas fa-upload"></i> Choose Front Base
-                            <input type="file" class="file-input" name="base_image" accept="image/*" onchange="showFileName(this, 'frontBaseFile')">
-                        </label>
-                        <small id="frontBaseFile" style="color: var(--gray); display: block; margin-top: 5px;">No file chosen</small>
-                        <small style="color: var(--gray);">Will be saved as: base-{id}.jpg</small>
-
-                        <!-- Image Preview -->
-                        <div class="image-preview-container" id="frontBasePreview" style="display: none; margin-top: 10px;">
-                            <div class="image-preview">
-                                <img id="frontBasePreviewImg" src="" alt="Preview">
+                        <!-- Details -->
+                        <section class="od-section">
+                            <header class="od-section-head">
+                                <h3 class="od-section-title"><i class="fas fa-box" aria-hidden="true"></i> Product details</h3>
+                            </header>
+                            <div class="od-section-body">
+                                <div class="prd-field">
+                                    <label class="prd-label" for="product_name">Product name</label>
+                                    <input type="text" id="product_name" name="product_name" class="prd-input" placeholder="e.g. Business Cards" required>
+                                </div>
+                                <div class="prd-grid">
+                                    <div class="prd-field">
+                                        <label class="prd-label" for="category">Category</label>
+                                        <select id="category" name="category" class="prd-input prd-select" required onchange="handleCategoryChange()">
+                                            <option value="">Select category</option>
+                                            <?php foreach ($categories as $category): ?>
+                                                <option value="<?php echo htmlspecialchars($category); ?>"><?php echo htmlspecialchars($category); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="prd-field">
+                                        <label class="prd-label" for="price">Price</label>
+                                        <div class="prd-input-wrap">
+                                            <span class="prd-affix" aria-hidden="true">&#8369;</span>
+                                            <input type="number" id="price" name="price" class="prd-input" step="0.01" min="0" placeholder="0.00" required>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
+                        </section>
 
-                    <div class="form-group">
-                        <label>Back Base Template (Optional):</label>
-                        <label class="file-input-label">
-                            <i class="fas fa-upload"></i> Choose Back Base
-                            <input type="file" class="file-input" name="base_back_image" accept="image/*" onchange="showFileName(this, 'backBaseFile')">
-                        </label>
-                        <small id="backBaseFile" style="color: var(--gray); display: block; margin-top: 5px;">No file chosen</small>
-                        <small style="color: var(--gray);">Will be saved as: base-{id}-1.jpg</small>
+                        <!-- Product images -->
+                        <section class="od-section">
+                            <header class="od-section-head">
+                                <h3 class="od-section-title"><i class="fas fa-images" aria-hidden="true"></i> Product images</h3>
+                                <span class="od-count">Up to 5</span>
+                            </header>
+                            <div class="od-section-body">
+                                <div class="prd-upload">
+                                    <label class="file-input-label">
+                                        <i class="fas fa-upload" aria-hidden="true"></i> Choose product images
+                                        <input type="file" class="file-input" name="product_images[]" accept="image/*" multiple onchange="showFileNames(this, 'productImagesFile')">
+                                    </label>
+                                    <span class="prd-file-name" id="productImagesFile">No files chosen</span>
+                                </div>
+                                <p class="ord-field-hint">Saved as service-{id}.jpg, service-{id}-1.jpg, service-{id}-2.jpg, and so on. New images fill the free slots.</p>
 
-                        <!-- Image Preview -->
-                        <div class="image-preview-container" id="backBasePreview" style="display: none; margin-top: 10px;">
-                            <div class="image-preview">
-                                <img id="backBasePreviewImg" src="" alt="Preview">
+                                <div class="image-preview-container" id="productImagesPreview" style="display: none;"></div>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- Current Base Templates Status (for edit mode) -->
-                    <div class="current-images-section" id="currentBaseSection" style="display: none;">
-                        <h5>Current Base Templates Status:</h5>
-                        <div class="image-status">
-                            <span class="status-indicator" id="frontBaseStatus"></span>
-                            <span>Front Base Template: <span id="frontBaseText">Checking...</span></span>
-                        </div>
-                        <div class="image-status">
-                            <span class="status-indicator" id="backBaseStatus"></span>
-                            <span>Back Base Template: <span id="backBaseText">Checking...</span></span>
-                        </div>
-                    </div>
-                </div>
+                            <!-- Current images (edit mode) -->
+                            <div class="od-block" id="currentImagesSection" style="display: none;">
+                                <div id="currentImagesList"></div>
+                            </div>
+                        </section>
 
+                        <!-- Base templates (Other Services only) -->
+                        <section class="od-section" id="baseTemplatesSection" style="display: none;">
+                            <header class="od-section-head">
+                                <h3 class="od-section-title"><i class="fas fa-vector-square" aria-hidden="true"></i> Base templates</h3>
+                                <span class="od-count">Other Services</span>
+                            </header>
+                            <div class="od-section-body">
+                                <div class="prd-grid">
+                                    <div class="prd-field">
+                                        <span class="prd-label">Front base template</span>
+                                        <div class="prd-upload">
+                                            <label class="file-input-label">
+                                                <i class="fas fa-upload" aria-hidden="true"></i> Choose front base
+                                                <input type="file" class="file-input" name="base_image" accept="image/*" onchange="showFileName(this, 'frontBaseFile')">
+                                            </label>
+                                            <span class="prd-file-name" id="frontBaseFile">No file chosen</span>
+                                        </div>
+                                        <p class="ord-field-hint">Saved as base-{id}.jpg</p>
+                                        <div class="image-preview-container" id="frontBasePreview" style="display: none;">
+                                            <div class="image-preview"><img id="frontBasePreviewImg" src="" alt="Front base preview"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="prd-field">
+                                        <span class="prd-label">Back base template <em>(optional)</em></span>
+                                        <div class="prd-upload">
+                                            <label class="file-input-label">
+                                                <i class="fas fa-upload" aria-hidden="true"></i> Choose back base
+                                                <input type="file" class="file-input" name="base_back_image" accept="image/*" onchange="showFileName(this, 'backBaseFile')">
+                                            </label>
+                                            <span class="prd-file-name" id="backBaseFile">No file chosen</span>
+                                        </div>
+                                        <p class="ord-field-hint">Saved as base-{id}-1.jpg</p>
+                                        <div class="image-preview-container" id="backBasePreview" style="display: none;">
+                                            <div class="image-preview"><img id="backBasePreviewImg" src="" alt="Back base preview"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Current base templates (edit mode) -->
+                            <div class="od-block" id="currentBaseSection" style="display: none;"></div>
+                        </section>
+
+                    </div>
                 </div>
 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('productModal')">Cancel</button>
-                    <button type="submit" class="btn btn-success" id="saveProductBtn">
-                        <span id="saveBtnText">Save Product</span>
+                    <button type="submit" class="btn btn-primary" id="saveProductBtn">
+                        <span id="saveBtnText">Save product</span>
                         <span id="saveBtnLoading" class="spinner" style="display: none;"></span>
                     </button>
                 </div>
@@ -913,59 +1224,53 @@ while ($row = $categories_result->fetch_assoc()) {
         </div>
     </div>
 
-    <!-- Customization Modal -->
-    <div id="customizationModal" class="modal">
-        <div class="modal-content">
+    <!-- Customization options dialog -->
+    <div id="customizationModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="customizationModalTitle">
+        <div class="modal-content modal-sm">
             <div class="modal-header">
-                <h2><i class="fas fa-sliders-h"></i> Customization Options</h2>
+                <div>
+                    <h2 id="customizationModalTitle">Customization options</h2>
+                    <p class="ord-dialog-sub">Choose what customers can customize on this product.</p>
+                </div>
                 <button type="button" class="modal-close" onclick="closeModal('customizationModal')" aria-label="Close">&times;</button>
             </div>
             <form id="customizationForm" method="post">
-<?php echo csrf_field(); ?>
+                <?php echo csrf_field(); ?>
                 <input type="hidden" name="action" value="update_customization">
                 <input type="hidden" name="product_id" id="customizationProductId">
 
                 <div class="modal-body">
-
-                <div class="form-group">
-                    <label>Enable Customization Options:</label>
-                    <div class="checkbox-group">
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="has_paper_option" name="has_paper_option" value="1">
-                            <label for="has_paper_option">Paper Options</label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="has_size_option" name="has_size_option" value="1">
-                            <label for="has_size_option">Size Options</label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="has_finish_option" name="has_finish_option" value="1">
-                            <label for="has_finish_option">Finish Options</label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="has_layout_option" name="has_layout_option" value="1">
-                            <label for="has_layout_option">Layout Options</label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="has_binding_option" name="has_binding_option" value="1">
-                            <label for="has_binding_option">Binding Options</label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="has_gsm_option" name="has_gsm_option" value="1">
-                            <label for="has_gsm_option">GSM Options</label>
-                        </div>
-                    </div>
-                </div>
-
+                    <fieldset class="ord-options prd-options">
+                        <legend class="sr-only">Enabled customization options</legend>
+                        <?php
+                        $option_fields = [
+                            'has_paper_option' => 'Paper options',
+                            'has_size_option' => 'Size options',
+                            'has_finish_option' => 'Finish options',
+                            'has_layout_option' => 'Layout options',
+                            'has_binding_option' => 'Binding options',
+                            'has_gsm_option' => 'GSM options',
+                        ];
+                        foreach ($option_fields as $field => $label): ?>
+                            <label class="ord-option tone-total">
+                                <input type="checkbox" class="sr-only" id="<?php echo $field; ?>" name="<?php echo $field; ?>" value="1">
+                                <span class="wa-dot" aria-hidden="true"></span>
+                                <span class="ord-option-label"><?php echo $label; ?></span>
+                                <i class="fas fa-check ord-option-check" aria-hidden="true"></i>
+                            </label>
+                        <?php endforeach; ?>
+                    </fieldset>
                 </div>
 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('customizationModal')">Cancel</button>
-                    <button type="submit" class="btn btn-success">Save Options</button>
+                    <button type="submit" class="btn btn-primary">Save options</button>
                 </div>
             </form>
         </div>
     </div>
+
+    <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
     <?php
     $wa_data = [

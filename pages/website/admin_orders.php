@@ -39,8 +39,48 @@ function bind_dynamic(mysqli_stmt $stmt, string $types, array $params): void
 }
 
 /**
- * Render the customization detail lines for a single order item (ported from
- * admin_order_details.php) into the currently-open output buffer.
+ * Small presentation helpers (UI only - no business logic).
+ */
+function od_initials(string $name): string
+{
+    $name = trim($name);
+    if ($name === '') {
+        return '?';
+    }
+    $chars = function_exists('mb_substr') ? mb_substr($name, 0, 2) : substr($name, 0, 2);
+    return function_exists('mb_strtoupper') ? mb_strtoupper($chars) : strtoupper($chars);
+}
+
+function od_status_badge(string $status, array $STATUS_LABELS, string $role = ''): string
+{
+    $label = $STATUS_LABELS[$status] ?? ucfirst(str_replace('_', ' ', $status));
+    return '<span class="wa-badge tone-' . htmlspecialchars($status) . '"'
+        . ($role !== '' ? ' data-role="' . htmlspecialchars($role) . '"' : '')
+        . '>' . htmlspecialchars($label) . '</span>';
+}
+
+function od_file_extension(string $path): string
+{
+    return strtolower(pathinfo($path, PATHINFO_EXTENSION));
+}
+
+function od_is_image(string $path): bool
+{
+    return in_array(od_file_extension($path), ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'], true);
+}
+
+/**
+ * One label/value tile in the customization grid.
+ */
+function render_spec(string $label, $value): void
+{
+    echo '<div class="od-spec"><dt>' . htmlspecialchars($label) . '</dt><dd>' . htmlspecialchars((string) $value) . '</dd></div>';
+}
+
+/**
+ * Render the customization detail tiles for a single order item (ported from
+ * admin_order_details.php) into the currently-open output buffer. The
+ * conditions and name lookups are unchanged; only the markup is new.
  */
 function render_item_customization(array $item): void
 {
@@ -51,28 +91,27 @@ function render_item_customization(array $item): void
         if ($category === 'Other Services') {
             switch ($product_name) {
                 case 'T-Shirts':
-                    echo '<div>T-Shirt Size: ' . htmlspecialchars($item['tshirt_size_name'] ?? $item['size_option']) . '</div>';
+                    render_spec('T-shirt size', $item['tshirt_size_name'] ?? $item['size_option']);
                     break;
                 case 'Tote Bag':
-                    echo '<div>Tote Bag Size: ' . htmlspecialchars($item['tote_size_name'] ?? $item['size_option']) . '</div>';
+                    render_spec('Tote bag size', $item['tote_size_name'] ?? $item['size_option']);
                     break;
                 case 'Paper Bag':
                     $dimensions = $item['paperbag_dimensions'] ?? '';
-                    echo '<div>Paper Bag Size: ' . htmlspecialchars($item['paperbag_size_name'] ?? $item['size_option']);
-                    if ($dimensions) echo ' (' . htmlspecialchars($dimensions) . ')';
-                    echo '</div>';
+                    $value = ($item['paperbag_size_name'] ?? $item['size_option']) . ($dimensions ? ' (' . $dimensions . ')' : '');
+                    render_spec('Paper bag size', $value);
                     break;
                 case 'Mug':
-                    echo '<div>Mug Size: ' . htmlspecialchars($item['mug_size_name'] ?? $item['size_option']) . '</div>';
+                    render_spec('Mug size', $item['mug_size_name'] ?? $item['size_option']);
                     break;
                 default:
-                    echo '<div>Size: ' . htmlspecialchars($item['size_option']) . '</div>';
+                    render_spec('Size', $item['size_option']);
             }
         } else {
-            echo '<div>Size: ' . htmlspecialchars($item['size_option']) . '</div>';
+            render_spec('Size', $item['size_option']);
         }
         if ($item['custom_size']) {
-            echo '<div>Custom Size: ' . htmlspecialchars($item['custom_size']) . '</div>';
+            render_spec('Custom size', $item['custom_size']);
         }
     }
 
@@ -80,41 +119,38 @@ function render_item_customization(array $item): void
         if ($category === 'Other Services') {
             switch ($product_name) {
                 case 'T-Shirts':
-                    echo '<div>T-Shirt Color: ' . htmlspecialchars($item['tshirt_color_name'] ?? $item['color_option']) . '</div>';
+                    render_spec('T-shirt color', $item['tshirt_color_name'] ?? $item['color_option']);
                     break;
                 case 'Tote Bag':
-                    echo '<div>Tote Bag Color: ' . htmlspecialchars($item['tote_color_name'] ?? $item['color_option']) . '</div>';
+                    render_spec('Tote bag color', $item['tote_color_name'] ?? $item['color_option']);
                     break;
                 case 'Mug':
-                    echo '<div>Mug Color: ' . htmlspecialchars($item['mug_color_name'] ?? $item['color_option']) . '</div>';
+                    render_spec('Mug color', $item['mug_color_name'] ?? $item['color_option']);
                     break;
                 case 'Paper Bag':
-                    echo '<div>Color: Brown</div>';
+                    render_spec('Color', 'Brown');
                     break;
                 default:
-                    echo '<div>Color: ' . htmlspecialchars($item['color_option']) . '</div>';
+                    render_spec('Color', $item['color_option']);
             }
         } else {
-            echo '<div>Color: ' . htmlspecialchars($item['color_option']) . '</div>';
+            render_spec('Color', $item['color_option']);
         }
         if ($item['custom_color']) {
-            echo '<div>Custom Color: ' . htmlspecialchars($item['custom_color']) . '</div>';
+            render_spec('Custom color', $item['custom_color']);
         }
     }
 
     if ($category !== 'Other Services') {
-        if ($item['finish_option_name']) echo '<div>Finish: ' . htmlspecialchars($item['finish_option_name']) . '</div>';
-        if ($item['paper_option_name']) echo '<div>Paper: ' . htmlspecialchars($item['paper_option_name']) . '</div>';
-        if ($item['binding_option_name']) echo '<div>Binding: ' . htmlspecialchars($item['binding_option_name']) . '</div>';
-        if ($item['layout_option_name']) echo '<div>Layout: ' . htmlspecialchars($item['layout_option_name']) . '</div>';
-        if ($item['layout_details']) echo '<div>Layout Details: ' . htmlspecialchars($item['layout_details']) . '</div>';
-        if ($item['gsm_option']) echo '<div>GSM: ' . htmlspecialchars($item['gsm_option']) . '</div>';
+        if ($item['finish_option_name']) render_spec('Finish', $item['finish_option_name']);
+        if ($item['paper_option_name']) render_spec('Paper', $item['paper_option_name']);
+        if ($item['binding_option_name']) render_spec('Binding', $item['binding_option_name']);
+        if ($item['layout_option_name']) render_spec('Layout', $item['layout_option_name']);
+        if ($item['layout_details']) render_spec('Layout details', $item['layout_details']);
+        if ($item['gsm_option']) render_spec('GSM', $item['gsm_option']);
     }
 }
 
-/**
- * Render one design-file preview <div>, or a "file not found" placeholder.
- */
 /**
  * Normalizes the "original design file(s)" value for one side into a plain
  * list of path strings. Accepts the new array shape (front_uploaded_files /
@@ -136,28 +172,86 @@ function normalize_design_file_list($value): array
     return [];
 }
 
-function render_design_preview(string $file, string $label, string $accentVar): void
+/**
+ * Render one design-file preview card, or a "file not found" placeholder.
+ * $kind is 'original' or 'mockup' (used only for styling).
+ */
+function render_design_preview(string $file, string $label, string $kind = 'original'): void
 {
     $path = "../../assets/uploads/" . $file;
     $exists = file_exists($path);
-    echo '<div class="design-preview">';
+    $safe_path = htmlspecialchars($path);
+    $safe_label = htmlspecialchars($label);
+    $name = htmlspecialchars(basename($file));
+
+    echo '<figure class="od-file od-file--' . htmlspecialchars($kind) . ($exists ? '' : ' is-missing') . '">';
     if ($exists) {
-        echo '<a href="' . htmlspecialchars($path) . '" download="' . htmlspecialchars(basename($file)) . '" style="text-decoration:none;">';
-        echo '<img src="' . htmlspecialchars($path) . '" alt="' . htmlspecialchars($label) . '">';
-        echo '<div class="design-label">' . htmlspecialchars($label) . '</div>';
+        echo '<a class="od-file-thumb" href="' . $safe_path . '" target="_blank" rel="noopener" title="Open ' . $safe_label . ' in a new tab">';
+        echo '<img src="' . $safe_path . '" alt="' . $safe_label . '" loading="lazy" onerror="this.closest(\'.od-file\').classList.add(\'is-broken\')">';
+        echo '<i class="fas fa-file" aria-hidden="true"></i>';
         echo '</a>';
+        echo '<a class="od-file-dl" href="' . $safe_path . '" download="' . $name . '" aria-label="Download ' . $safe_label . '" title="Download"><i class="fas fa-download" aria-hidden="true"></i></a>';
     } else {
-        echo '<div style="width:80px;height:80px;background:var(--light-gray);display:flex;align-items:center;justify-content:center;border-radius:8px;border:2px dashed ' . $accentVar . ';">';
-        echo '<i class="fas fa-file-image" style="font-size:20px;color:var(--gray);"></i></div>';
-        echo '<div class="design-label">File not found</div>';
-        echo '<small style="color:var(--gray);font-size:0.6em;">' . htmlspecialchars($file) . '</small>';
+        echo '<div class="od-file-thumb"><i class="fas fa-file-circle-xmark" aria-hidden="true"></i></div>';
+    }
+    echo '<figcaption class="od-file-meta">';
+    echo '<span class="od-file-label">' . $safe_label . '</span>';
+    echo '<span class="od-file-name" title="' . htmlspecialchars($file) . '">' . $name . '</span>';
+    if (!$exists) {
+        echo '<span class="od-file-flag">File not found</span>';
+    }
+    echo '</figcaption>';
+    echo '</figure>';
+}
+
+/**
+ * Render one customer-supplied layout file as a compact row with a download
+ * button. The path handling matches the original panel code.
+ */
+function render_layout_file(string $file_path): void
+{
+    $clean_path = str_replace('../../', '', $file_path);
+    $full_path = "../../" . $clean_path;
+    $file_exists = file_exists($full_path);
+    $name = basename($clean_path);
+    $ext = od_file_extension($name);
+
+    if ($ext === 'pdf') {
+        $icon = 'fa-file-pdf';
+    } elseif (in_array($ext, ['doc', 'docx', 'txt', 'rtf'], true)) {
+        $icon = 'fa-file-lines';
+    } elseif (in_array($ext, ['zip', 'rar', '7z'], true)) {
+        $icon = 'fa-file-zipper';
+    } else {
+        $icon = 'fa-file';
+    }
+
+    echo '<div class="od-layout-file' . ($file_exists ? '' : ' is-missing') . '">';
+    echo '<div class="od-layout-icon">';
+    if ($file_exists && od_is_image($name)) {
+        echo '<img src="' . htmlspecialchars($full_path) . '" alt="" loading="lazy">';
+    } else {
+        echo '<i class="fas ' . $icon . '" aria-hidden="true"></i>';
+    }
+    echo '</div>';
+    echo '<div class="od-layout-info">';
+    echo '<div class="od-layout-name" title="' . htmlspecialchars($name) . '">' . htmlspecialchars($name) . '</div>';
+    echo '<div class="od-layout-path">' . htmlspecialchars($clean_path) . '</div>';
+    if (!$file_exists) {
+        echo '<div class="od-layout-flag"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> File not found</div>';
+    }
+    echo '</div>';
+    if ($file_exists) {
+        echo '<a class="btn btn-sm btn-outline" href="' . htmlspecialchars($full_path) . '" download="' . htmlspecialchars($name) . '" target="_blank" rel="noopener"><i class="fas fa-download" aria-hidden="true"></i> Download</a>';
     }
     echo '</div>';
 }
 
 /**
  * Build the full slide-over panel body HTML for one order (ported from
- * admin_order_details.php, condensed for the panel context).
+ * admin_order_details.php, condensed for the panel context). Queries are
+ * unchanged; the markup is organised into overview / customer / payment /
+ * items sections.
  */
 function render_order_panel_html(mysqli $inventory, int $order_id, array $STATUS_LABELS): string
 {
@@ -206,167 +300,204 @@ function render_order_panel_html(mysqli $inventory, int $order_id, array $STATUS
 
     ob_start();
     ?>
-    <div class="panel-section">
-        <h3><i class="fas fa-user"></i> Customer Information</h3>
-        <div class="detail-row">
-            <span class="detail-label">Username:</span>
-            <span class="detail-value"><?php echo htmlspecialchars($order['username']); ?></span>
-        </div>
-        <div class="detail-row">
-            <span class="detail-label">User ID:</span>
-            <span class="detail-value"><?php echo (int) $order['user_id']; ?></span>
-        </div>
-        <div class="detail-row">
-            <span class="detail-label">Order Date:</span>
-            <span class="detail-value"><?php echo date('F j, Y g:i A', strtotime($order['created_at'])); ?></span>
-        </div>
-    </div>
-
-    <div class="panel-section">
-        <h3><i class="fas fa-receipt"></i> Order Summary</h3>
-        <div class="detail-row">
-            <span class="detail-label">Total Amount:</span>
-            <span class="detail-value" style="font-weight:bold;font-size:1.15em;color:var(--success);">
-                &#8369;<?php echo number_format($order['total_amount'], 2); ?>
-            </span>
-        </div>
-        <div class="detail-row">
-            <span class="detail-label">Payment Proof:</span>
-            <span class="detail-value">
-                <?php if ($order['payment_proof']):
-                    $proof_path = payment_proof_url((int) $order['order_id']);
-                    if (payment_proof_path((int) $order['user_id'], (string) $order['payment_proof'])): ?>
-                        <a href="<?php echo esc_html($proof_path); ?>" target="_blank" style="color:var(--primary);">
-                            <i class="fas fa-external-link-alt"></i> View Payment Proof
-                        </a>
-                    <?php else: ?>
-                        <span style="color:var(--danger);">File not found</span>
-                    <?php endif; ?>
-                <?php else: ?>
-                    <span style="color:var(--gray);">No payment proof uploaded</span>
-                <?php endif; ?>
-            </span>
-        </div>
-    </div>
-
-    <div class="panel-section">
-        <h3><i class="fas fa-boxes"></i> Order Items</h3>
-        <?php foreach ($order_items as $item): ?>
-            <div class="item-details">
-                <div class="detail-row">
-                    <span class="detail-label">Product:</span>
-                    <span class="detail-value" style="font-weight:bold;"><?php echo htmlspecialchars($item['product_name']); ?></span>
+    <section class="od-section">
+        <header class="od-section-head">
+            <h3 class="od-section-title"><i class="fas fa-receipt" aria-hidden="true"></i> Order overview</h3>
+        </header>
+        <div class="od-section-body">
+            <dl class="od-kpis">
+                <div class="od-kpi">
+                    <dt>Order ID</dt>
+                    <dd>#<?php echo (int) $order['order_id']; ?></dd>
                 </div>
-                <div class="detail-row">
-                    <span class="detail-label">Category:</span>
-                    <span class="detail-value"><?php echo htmlspecialchars($item['product_category']); ?></span>
+                <div class="od-kpi">
+                    <dt>Status</dt>
+                    <dd><?php echo od_status_badge((string) $order['status'], $STATUS_LABELS, 'panel-status-badge'); ?></dd>
                 </div>
-                <div class="detail-row">
-                    <span class="detail-label">Quantity:</span>
-                    <span class="detail-value"><?php echo (int) $item['quantity']; ?></span>
+                <div class="od-kpi">
+                    <dt>Order date</dt>
+                    <dd>
+                        <?php echo date('M j, Y', strtotime($order['created_at'])); ?>
+                        <span class="od-kpi-sub"><?php echo date('g:i A', strtotime($order['created_at'])); ?></span>
+                    </dd>
                 </div>
-                <div class="detail-row">
-                    <span class="detail-label">Unit Price:</span>
-                    <span class="detail-value">&#8369;<?php echo number_format($item['unit_price'], 2); ?></span>
+                <div class="od-kpi od-kpi--total">
+                    <dt>Total amount</dt>
+                    <dd>&#8369;<?php echo number_format($order['total_amount'], 2); ?></dd>
                 </div>
-                <div class="detail-row">
-                    <span class="detail-label">Subtotal:</span>
-                    <span class="detail-value" style="font-weight:bold;">&#8369;<?php echo number_format($item['unit_price'] * $item['quantity'], 2); ?></span>
+            </dl>
+        </div>
+    </section>
+
+    <section class="od-section">
+        <header class="od-section-head">
+            <h3 class="od-section-title"><i class="fas fa-user" aria-hidden="true"></i> Customer</h3>
+        </header>
+        <div class="od-section-body">
+            <div class="od-person">
+                <span class="wa-avatar" aria-hidden="true"><?php echo htmlspecialchars(od_initials((string) $order['username'])); ?></span>
+                <div>
+                    <div class="od-person-name"><?php echo htmlspecialchars($order['username']); ?></div>
+                    <div class="od-person-meta">User ID <?php echo (int) $order['user_id']; ?></div>
                 </div>
-
-                <?php if ($item['size_option'] || $item['color_option'] || $item['finish_option'] || $item['paper_option'] || $item['binding_option'] || $item['layout_option'] || $item['gsm_option']): ?>
-                    <div style="margin-top:10px;">
-                        <strong>Customization:</strong>
-                        <div style="margin-left:20px;margin-top:5px;">
-                            <?php render_item_customization($item); ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
-
-                <?php if (!empty($item['user_layout_files'])):
-                    $layout_files = json_decode($item['user_layout_files'], true); ?>
-                    <div style="margin-top:15px;padding-top:15px;border-top:2px dashed var(--warning);">
-                        <div style="font-weight:bold;margin-bottom:10px;color:var(--warning);font-size:1em;">
-                            <i class="fas fa-file-upload"></i> User Layout Files
-                        </div>
-                        <?php if (is_array($layout_files)):
-                            foreach ($layout_files as $file_path):
-                                $clean_path = str_replace('../../', '', $file_path);
-                                $full_path = "../../" . $clean_path;
-                                $file_exists = file_exists($full_path);
-                        ?>
-                            <div class="user-layout-file">
-                                <div>
-                                    <?php if ($file_exists): ?>
-                                        <a href="<?php echo htmlspecialchars($full_path); ?>" download="<?php echo htmlspecialchars(basename($clean_path)); ?>" target="_blank">
-                                            <i class="fas fa-download"></i> <?php echo htmlspecialchars(basename($clean_path)); ?>
-                                        </a>
-                                    <?php else: ?>
-                                        <span style="color:var(--danger);">
-                                            <i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars(basename($clean_path)); ?> (File not found)
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="file-path"><?php echo htmlspecialchars($clean_path); ?></div>
-                            </div>
-                        <?php endforeach;
-                        else: ?>
-                            <div style="color:var(--gray);font-style:italic;">No valid layout files found</div>
-                        <?php endif; ?>
-                    </div>
-                <?php endif; ?>
-
-                <?php if (!empty($item['design_image'])):
-                    $designData = $item['design_image'];
-                    $frontMockup = $backMockup = $uploadedFile = '';
-                    // Originals are a list per side now, but orders placed before this
-                    // change stored a single string under front_uploaded_file /
-                    // back_uploaded_file - normalize both shapes into a plain array.
-                    $frontUploadedFiles = $backUploadedFiles = [];
-                    $designArray = json_decode($designData, true);
-
-                    if (!(json_last_error() === JSON_ERROR_NONE && is_array($designArray)) && preg_match('/\{.*\}/', $designData)) {
-                        $fixedJson = stripslashes(str_replace('\"', '"', $designData));
-                        $designArray = json_decode($fixedJson, true);
-                    }
-
-                    if (is_array($designArray)) {
-                        $frontMockup = $designArray['front_mockup'] ?? '';
-                        $backMockup = $designArray['back_mockup'] ?? '';
-                        $uploadedFile = $designArray['uploaded_file'] ?? '';
-                        $frontUploadedFiles = normalize_design_file_list($designArray['front_uploaded_files'] ?? ($designArray['front_uploaded_file'] ?? null));
-                        $backUploadedFiles = normalize_design_file_list($designArray['back_uploaded_files'] ?? ($designArray['back_uploaded_file'] ?? null));
-                    } else {
-                        $uploadedFile = $designData;
-                    }
-
-                    $hasDesigns = $frontMockup || $backMockup || $uploadedFile || $frontUploadedFiles || $backUploadedFiles;
-                    if ($hasDesigns): ?>
-                        <div style="margin-top:15px;padding-top:15px;border-top:2px dashed var(--primary);">
-                            <div style="font-weight:bold;margin-bottom:10px;color:var(--primary);font-size:1em;">
-                                <i class="fas fa-palette"></i> Custom Design Files
-                            </div>
-                            <div class="design-previews">
-                                <?php
-                                if ($uploadedFile) render_design_preview($uploadedFile, 'Original File', 'var(--light-gray)');
-                                foreach ($frontUploadedFiles as $i => $file) {
-                                    $label = count($frontUploadedFiles) > 1 ? 'Front Original ' . ($i + 1) : 'Front Original';
-                                    render_design_preview($file, $label, 'var(--light-gray)');
-                                }
-                                foreach ($backUploadedFiles as $i => $file) {
-                                    $label = count($backUploadedFiles) > 1 ? 'Back Original ' . ($i + 1) : 'Back Original';
-                                    render_design_preview($file, $label, 'var(--light-gray)');
-                                }
-                                if ($frontMockup) render_design_preview($frontMockup, 'Front Mockup', 'var(--primary)');
-                                if ($backMockup) render_design_preview($backMockup, 'Back Mockup', 'var(--primary)');
-                                ?>
-                            </div>
-                        </div>
-                    <?php endif;
-                endif; ?>
             </div>
-        <?php endforeach; ?>
-    </div>
+        </div>
+    </section>
+
+    <section class="od-section">
+        <header class="od-section-head">
+            <h3 class="od-section-title"><i class="fas fa-money-check-dollar" aria-hidden="true"></i> Payment</h3>
+        </header>
+        <div class="od-section-body">
+            <?php
+            $proof_state = 'none';
+            $proof_path = '';
+            if ($order['payment_proof']) {
+                $proof_path = payment_proof_url((int) $order['order_id']);
+                $proof_state = payment_proof_path((int) $order['user_id'], (string) $order['payment_proof']) ? 'ok' : 'missing';
+            }
+            ?>
+            <div class="od-proof">
+                <?php if ($proof_state === 'ok'): ?>
+                    <a class="od-proof-thumb" href="<?php echo esc_html($proof_path); ?>" target="_blank" rel="noopener" title="Open payment proof in a new tab">
+                        <img src="<?php echo esc_html($proof_path); ?>" alt="Payment proof for order #<?php echo (int) $order['order_id']; ?>" loading="lazy" onerror="this.closest('.od-proof').classList.add('is-broken')">
+                        <i class="fas fa-file-invoice" aria-hidden="true"></i>
+                    </a>
+                    <div class="od-proof-info">
+                        <span class="od-proof-state is-ok"><i class="fas fa-circle-check" aria-hidden="true"></i> Payment proof uploaded</span>
+                        <a class="btn btn-sm btn-outline" href="<?php echo esc_html($proof_path); ?>" target="_blank" rel="noopener">
+                            <i class="fas fa-up-right-from-square" aria-hidden="true"></i> View payment proof
+                        </a>
+                    </div>
+                <?php elseif ($proof_state === 'missing'): ?>
+                    <div class="od-proof-thumb"><i class="fas fa-file-circle-xmark" aria-hidden="true"></i></div>
+                    <div class="od-proof-info">
+                        <span class="od-proof-state is-missing"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> File not found</span>
+                        <span class="od-proof-hint">A proof was recorded for this order, but the file is missing on the server.</span>
+                    </div>
+                <?php else: ?>
+                    <div class="od-proof-thumb"><i class="fas fa-file-circle-minus" aria-hidden="true"></i></div>
+                    <div class="od-proof-info">
+                        <span class="od-proof-state is-none"><i class="fas fa-circle-minus" aria-hidden="true"></i> No payment proof uploaded</span>
+                        <span class="od-proof-hint">The customer has not uploaded proof of payment yet.</span>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </section>
+
+    <section class="od-section">
+        <header class="od-section-head">
+            <h3 class="od-section-title"><i class="fas fa-boxes-stacked" aria-hidden="true"></i> Order items</h3>
+            <span class="od-count"><?php echo count($order_items); ?></span>
+        </header>
+        <div class="od-section-body">
+            <?php if (empty($order_items)): ?>
+                <p class="od-empty-note">No items were found for this order.</p>
+            <?php endif; ?>
+            <?php foreach ($order_items as $item): ?>
+                <article class="od-item">
+                    <header class="od-item-head">
+                        <div>
+                            <h4 class="od-item-name"><?php echo htmlspecialchars($item['product_name']); ?></h4>
+                            <span class="wa-chip"><?php echo htmlspecialchars($item['product_category']); ?></span>
+                        </div>
+                        <span class="od-item-qty">&times; <?php echo (int) $item['quantity']; ?></span>
+                    </header>
+
+                    <dl class="od-money">
+                        <div>
+                            <dt>Unit price</dt>
+                            <dd>&#8369;<?php echo number_format($item['unit_price'], 2); ?></dd>
+                        </div>
+                        <div>
+                            <dt>Quantity</dt>
+                            <dd><?php echo (int) $item['quantity']; ?></dd>
+                        </div>
+                        <div class="is-total">
+                            <dt>Subtotal</dt>
+                            <dd>&#8369;<?php echo number_format($item['unit_price'] * $item['quantity'], 2); ?></dd>
+                        </div>
+                    </dl>
+
+                    <?php if ($item['size_option'] || $item['color_option'] || $item['finish_option'] || $item['paper_option'] || $item['binding_option'] || $item['layout_option'] || $item['gsm_option']):
+                        ob_start();
+                        render_item_customization($item);
+                        $specs_html = ob_get_clean();
+                        if ($specs_html !== ''): ?>
+                            <div class="od-block">
+                                <h5 class="od-block-title"><i class="fas fa-sliders" aria-hidden="true"></i> Customization</h5>
+                                <dl class="od-specs"><?php echo $specs_html; ?></dl>
+                            </div>
+                        <?php endif;
+                    endif; ?>
+
+                    <?php if (!empty($item['user_layout_files'])):
+                        $layout_files = json_decode($item['user_layout_files'], true); ?>
+                        <div class="od-block">
+                            <h5 class="od-block-title"><i class="fas fa-file-arrow-up" aria-hidden="true"></i> Customer layout files</h5>
+                            <?php if (is_array($layout_files)): ?>
+                                <div class="od-layout-list">
+                                    <?php foreach ($layout_files as $file_path) {
+                                        render_layout_file((string) $file_path);
+                                    } ?>
+                                </div>
+                            <?php else: ?>
+                                <p class="od-empty-note">No valid layout files found.</p>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($item['design_image'])):
+                        $designData = $item['design_image'];
+                        $frontMockup = $backMockup = $uploadedFile = '';
+                        // Originals are a list per side now, but orders placed before this
+                        // change stored a single string under front_uploaded_file /
+                        // back_uploaded_file - normalize both shapes into a plain array.
+                        $frontUploadedFiles = $backUploadedFiles = [];
+                        $designArray = json_decode($designData, true);
+
+                        if (!(json_last_error() === JSON_ERROR_NONE && is_array($designArray)) && preg_match('/\{.*\}/', $designData)) {
+                            $fixedJson = stripslashes(str_replace('\"', '"', $designData));
+                            $designArray = json_decode($fixedJson, true);
+                        }
+
+                        if (is_array($designArray)) {
+                            $frontMockup = $designArray['front_mockup'] ?? '';
+                            $backMockup = $designArray['back_mockup'] ?? '';
+                            $uploadedFile = $designArray['uploaded_file'] ?? '';
+                            $frontUploadedFiles = normalize_design_file_list($designArray['front_uploaded_files'] ?? ($designArray['front_uploaded_file'] ?? null));
+                            $backUploadedFiles = normalize_design_file_list($designArray['back_uploaded_files'] ?? ($designArray['back_uploaded_file'] ?? null));
+                        } else {
+                            $uploadedFile = $designData;
+                        }
+
+                        $hasDesigns = $frontMockup || $backMockup || $uploadedFile || $frontUploadedFiles || $backUploadedFiles;
+                        if ($hasDesigns): ?>
+                            <div class="od-block">
+                                <h5 class="od-block-title"><i class="fas fa-palette" aria-hidden="true"></i> Custom design files</h5>
+                                <div class="od-files">
+                                    <?php
+                                    if ($uploadedFile) render_design_preview($uploadedFile, 'Original file', 'original');
+                                    foreach ($frontUploadedFiles as $i => $file) {
+                                        $label = count($frontUploadedFiles) > 1 ? 'Front original ' . ($i + 1) : 'Front original';
+                                        render_design_preview($file, $label, 'original');
+                                    }
+                                    foreach ($backUploadedFiles as $i => $file) {
+                                        $label = count($backUploadedFiles) > 1 ? 'Back original ' . ($i + 1) : 'Back original';
+                                        render_design_preview($file, $label, 'original');
+                                    }
+                                    if ($frontMockup) render_design_preview($frontMockup, 'Front', 'mockup');
+                                    if ($backMockup) render_design_preview($backMockup, 'Back', 'mockup');
+                                    ?>
+                                </div>
+                            </div>
+                        <?php endif;
+                    endif; ?>
+                </article>
+            <?php endforeach; ?>
+        </div>
+    </section>
     <?php
     return ob_get_clean();
 }
@@ -495,7 +626,7 @@ $stmt->execute();
 $orders = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 // Status tab counts (unfiltered by search, so counts stay stable while typing).
-$tab_counts = ['all' => 0, 'pending' => 0, 'processing' => 0, 'completed' => 0];
+$tab_counts = ['all' => 0, 'pending' => 0, 'paid' => 0, 'processing' => 0, 'ready_for_pickup' => 0, 'completed' => 0, 'cancelled' => 0];
 $count_by_status = $inventory->query("SELECT status, COUNT(*) AS c FROM orders GROUP BY status");
 while ($row = $count_by_status->fetch_assoc()) {
     $tab_counts['all'] += (int) $row['c'];
@@ -513,6 +644,11 @@ function build_query_url(array $overrides = []): string
 }
 
 $open_id = isset($_GET['open']) ? (int) $_GET['open'] : 0;
+
+// Display-only values for the header, summary tiles and result range.
+$in_progress_total = $tab_counts['paid'] + $tab_counts['processing'] + $tab_counts['ready_for_pickup'];
+$range_from = $total_orders > 0 ? $offset + 1 : 0;
+$range_to = $offset + count($orders);
 ?>
 
 <!DOCTYPE html>
@@ -531,147 +667,347 @@ $open_id = isset($_GET['open']) ? (int) $_GET['open'] : 0;
 
 <body class="page-orders" data-page="orders">
     <div class="admin-container">
-        <div class="main-content">
-            <div class="header">
-                <h1>Order Management</h1>
-            </div>
+        <main class="main-content">
+            <div class="wa-page">
 
-            <!-- Status Tabs -->
-            <div class="tab-bar">
-                <a href="<?php echo build_query_url(['status' => '', 'page' => '']); ?>" class="tab-link <?php echo $status === '' ? 'active' : ''; ?>">
-                    All <span class="tab-count"><?php echo $tab_counts['all']; ?></span>
-                </a>
-                <a href="<?php echo build_query_url(['status' => 'pending', 'page' => '']); ?>" class="tab-link <?php echo $status === 'pending' ? 'active' : ''; ?>">
-                    Pending <span class="tab-count"><?php echo $tab_counts['pending']; ?></span>
-                </a>
-                <a href="<?php echo build_query_url(['status' => 'processing', 'page' => '']); ?>" class="tab-link <?php echo $status === 'processing' ? 'active' : ''; ?>">
-                    Processing <span class="tab-count"><?php echo $tab_counts['processing']; ?></span>
-                </a>
-                <a href="<?php echo build_query_url(['status' => 'completed', 'page' => '']); ?>" class="tab-link <?php echo $status === 'completed' ? 'active' : ''; ?>">
-                    Completed <span class="tab-count"><?php echo $tab_counts['completed']; ?></span>
-                </a>
-            </div>
-
-            <!-- Search and Filter -->
-            <form class="search-filter" method="get" action="admin_orders.php">
-                <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Search by order ID or customer..." style="min-width: 250px;">
-                <select name="status">
-                    <option value="">All Statuses</option>
-                    <?php foreach ($STATUS_LABELS as $val => $label): ?>
-                        <option value="<?php echo $val; ?>" <?php echo $status === $val ? 'selected' : ''; ?>><?php echo $label; ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <button type="submit" class="search-btn"><i class="fas fa-search"></i> Filter</button>
-                <a href="admin_orders.php" class="search-btn secondary"><i class="fas fa-times"></i> Clear</a>
-            </form>
-
-            <!-- Orders Table -->
-            <div class="order-table">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Order ID</th>
-                            <th>Customer</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                            <th>Payment Proof</th>
-                            <th>Date</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ordersTable">
-                        <?php if (empty($orders)): ?>
-                            <tr>
-                                <td colspan="7" class="empty-cell">No orders match this view.</td>
-                            </tr>
-                        <?php endif; ?>
-                        <?php foreach ($orders as $order): ?>
-                            <tr class="order-row" id="order-row-<?php echo $order['order_id']; ?>" data-status="<?php echo $order['status']; ?>">
-                                <td><strong>#<?php echo $order['order_id']; ?></strong></td>
-                                <td>
-                                    <div>
-                                        <strong><?php echo htmlspecialchars($order['username']); ?></strong>
-                                        <br><small class="text-muted">User ID: <?php echo $order['user_id']; ?></small>
-                                    </div>
-                                </td>
-                                <td><strong>&#8369;<?php echo number_format($order['total_amount'], 2); ?></strong></td>
-                                <td>
-                                    <span class="status-badge status-<?php echo $order['status']; ?>" data-role="status-badge"
-                                        <?php if ($order['status'] === 'cancelled' && !empty($order['cancellation_reason'])): ?>
-                                            title="Reason: <?php echo esc_html($order['cancellation_reason']); ?>"
-                                        <?php endif; ?>>
-                                        <?php echo ucfirst(str_replace('_', ' ', $order['status'])); ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <?php if ($order['payment_proof']):
-                                        $proof_path = payment_proof_url((int) $order['order_id']);
-                                        if (payment_proof_path((int) $order['user_id'], (string) $order['payment_proof'])): ?>
-                                            <a href="<?php echo esc_html($proof_path); ?>" target="_blank">
-                                                <img src="<?php echo esc_html($proof_path); ?>" alt="Payment Proof" class="proof-image">
-                                            </a>
-                                        <?php else: ?>
-                                            <span class="text-muted">File not found</span>
-                                        <?php endif; ?>
-                                    <?php else: ?>
-                                        <span class="text-muted">No proof</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <?php echo date('M j, Y', strtotime($order['created_at'])); ?>
-                                    <br><small class="text-muted"><?php echo date('g:i A', strtotime($order['created_at'])); ?></small>
-                                </td>
-                                <td>
-                                    <div class="order-actions" data-order-id="<?php echo $order['order_id']; ?>">
-                                        <select class="status-select" data-role="status-select" onchange="onStatusSelectChange(this)">
-                                            <?php foreach ($STATUS_LABELS as $val => $label): ?>
-                                                <option value="<?php echo $val; ?>" <?php echo $order['status'] === $val ? 'selected' : ''; ?>><?php echo $label; ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                        <input type="text" class="cancel-reason-input" data-role="cancel-reason"
-                                            placeholder="Reason for cancellation"
-                                            value="<?php echo $order['status'] === 'cancelled' ? esc_html($order['cancellation_reason'] ?? '') : ''; ?>"
-                                            style="display: <?php echo $order['status'] === 'cancelled' ? 'inline-block' : 'none'; ?>;">
-                                        <button type="button" class="update-btn" data-role="update-btn" onclick="submitStatusUpdate(<?php echo (int) $order['order_id']; ?>, this)">
-                                            <i class="fas fa-sync"></i> Update
-                                        </button>
-                                        <button type="button" class="view-details" onclick="openOrderPanel(<?php echo (int) $order['order_id']; ?>)">
-                                            <i class="fas fa-eye"></i> Details
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Pagination -->
-            <div class="pagination">
-                <span class="pagination-summary">Showing <?php echo count($orders); ?> of <?php echo $total_orders; ?> orders</span>
-                <?php if ($total_pages > 1): ?>
-                    <div class="pagination-controls">
-                        <a class="page-link <?php echo $page <= 1 ? 'disabled' : ''; ?>" href="<?php echo build_query_url(['page' => $page - 1]); ?>"><i class="fas fa-chevron-left"></i> Prev</a>
-                        <?php for ($p = 1; $p <= $total_pages; $p++): ?>
-                            <a class="page-link <?php echo $p === $page ? 'active' : ''; ?>" href="<?php echo build_query_url(['page' => $p]); ?>"><?php echo $p; ?></a>
-                        <?php endfor; ?>
-                        <a class="page-link <?php echo $page >= $total_pages ? 'disabled' : ''; ?>" href="<?php echo build_query_url(['page' => $page + 1]); ?>">Next <i class="fas fa-chevron-right"></i></a>
+                <!-- 1. Page header -->
+                <header class="wa-page-head">
+                    <div>
+                        <h1 class="wa-page-title">Order Management</h1>
+                        <p class="wa-page-desc">Review payments, track production and update the status of customer orders.</p>
                     </div>
-                <?php endif; ?>
+                    <div class="wa-page-actions">
+                        <?php if ($tab_counts['pending'] > 0): ?>
+                            <a class="wa-chip tone-pending" href="admin_orders.php?status=pending">
+                                <span class="wa-dot" aria-hidden="true"></span>
+                                <span data-count="pending"><?php echo $tab_counts['pending']; ?></span>&nbsp;pending
+                            </a>
+                        <?php endif; ?>
+                        <a class="btn btn-secondary" href="<?php echo build_query_url(); ?>">
+                            <i class="fas fa-rotate" aria-hidden="true"></i> Refresh
+                        </a>
+                    </div>
+                </header>
+
+                <!-- 2. Summary -->
+                <section class="wa-stats" aria-label="Order summary">
+                    <a class="wa-stat tone-total <?php echo ($status === '' && $search === '') ? 'is-active' : ''; ?>" href="admin_orders.php">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-receipt"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Total orders</span>
+                            <span class="wa-stat-value" data-count="__all"><?php echo $tab_counts['all']; ?></span>
+                            <span class="wa-stat-sub">All statuses</span>
+                        </span>
+                    </a>
+                    <a class="wa-stat tone-pending <?php echo $status === 'pending' ? 'is-active' : ''; ?>" href="admin_orders.php?status=pending">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-clock"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Pending</span>
+                            <span class="wa-stat-value" data-count="pending"><?php echo $tab_counts['pending']; ?></span>
+                            <span class="wa-stat-sub">Waiting to be actioned</span>
+                        </span>
+                    </a>
+                    <div class="wa-stat tone-processing">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-gears"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">In progress</span>
+                            <span class="wa-stat-value" data-count="paid processing ready_for_pickup"><?php echo $in_progress_total; ?></span>
+                            <span class="wa-stat-sub">
+                                <span data-count="paid"><?php echo $tab_counts['paid']; ?></span> paid &middot;
+                                <span data-count="processing"><?php echo $tab_counts['processing']; ?></span> processing &middot;
+                                <span data-count="ready_for_pickup"><?php echo $tab_counts['ready_for_pickup']; ?></span> ready
+                            </span>
+                        </span>
+                    </div>
+                    <a class="wa-stat tone-completed <?php echo $status === 'completed' ? 'is-active' : ''; ?>" href="admin_orders.php?status=completed">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-circle-check"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Completed</span>
+                            <span class="wa-stat-value" data-count="completed"><?php echo $tab_counts['completed']; ?></span>
+                            <span class="wa-stat-sub">Fulfilled orders</span>
+                        </span>
+                    </a>
+                    <a class="wa-stat tone-cancelled <?php echo $status === 'cancelled' ? 'is-active' : ''; ?>" href="admin_orders.php?status=cancelled">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-ban"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Cancelled</span>
+                            <span class="wa-stat-value" data-count="cancelled"><?php echo $tab_counts['cancelled']; ?></span>
+                            <span class="wa-stat-sub">Closed without fulfilment</span>
+                        </span>
+                    </a>
+                </section>
+
+                <!-- 3 + 4. Search, filter and status navigation (one control) -->
+                <section class="wa-filterbar" aria-label="Search and filter orders">
+                    <form class="wa-filterbar-form" method="get" action="admin_orders.php" role="search">
+                        <div class="wa-search">
+                            <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                            <input type="search" name="search" id="orderSearch" value="<?php echo htmlspecialchars($search); ?>"
+                                placeholder="Search by order ID or customer" aria-label="Search orders by order ID or customer" autocomplete="off">
+                            <?php if ($search !== ''): ?>
+                                <a class="wa-search-clear" href="<?php echo build_query_url(['search' => '', 'page' => '']); ?>" aria-label="Clear search" title="Clear search">
+                                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                        <div class="wa-select">
+                            <label class="sr-only" for="orderStatusFilter">Filter by status</label>
+                            <select name="status" id="orderStatusFilter">
+                                <option value="">All statuses</option>
+                                <?php foreach ($STATUS_LABELS as $val => $label): ?>
+                                    <option value="<?php echo $val; ?>" <?php echo $status === $val ? 'selected' : ''; ?>><?php echo $label; ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-filter" aria-hidden="true"></i> Apply</button>
+                        <?php if ($status !== '' || $search !== ''): ?>
+                            <a href="admin_orders.php" class="btn btn-ghost"><i class="fas fa-rotate-left" aria-hidden="true"></i> Reset</a>
+                        <?php endif; ?>
+                    </form>
+
+                    <nav class="wa-tabs" aria-label="Filter orders by status">
+                        <?php foreach (array_merge(['' => 'All'], $STATUS_LABELS) as $val => $label):
+                            $val = (string) $val;
+                            $count_key = $val === '' ? 'all' : $val;
+                            $is_active = $status === $val;
+                        ?>
+                            <a class="wa-tab <?php echo $is_active ? 'is-active' : ''; ?>"
+                                href="<?php echo build_query_url(['status' => $val, 'page' => '']); ?>"
+                                <?php echo $is_active ? 'aria-current="page"' : ''; ?>>
+                                <?php if ($val !== ''): ?><span class="wa-dot tone-<?php echo $val; ?>" aria-hidden="true"></span><?php endif; ?>
+                                <?php echo htmlspecialchars($label); ?>
+                                <span class="wa-tab-count" data-count="<?php echo $val === '' ? '__all' : $val; ?>"><?php echo $tab_counts[$count_key]; ?></span>
+                            </a>
+                        <?php endforeach; ?>
+                    </nav>
+                </section>
+
+                <!-- 5 + 6. Orders data and pagination -->
+                <section class="wa-datacard" aria-labelledby="ordersHeading">
+                    <div class="wa-datacard-head">
+                        <div>
+                            <h2 class="wa-datacard-title" id="ordersHeading"><?php echo $status !== '' ? htmlspecialchars($STATUS_LABELS[$status]) . ' orders' : 'All orders'; ?></h2>
+                            <p class="wa-datacard-sub">
+                                <?php if ($total_orders > 0): ?>
+                                    Showing <?php echo $range_from; ?>&ndash;<?php echo $range_to; ?> of <?php echo $total_orders; ?> &middot; newest first
+                                <?php else: ?>
+                                    Nothing to show
+                                <?php endif; ?>
+                            </p>
+                        </div>
+                        <?php if ($status !== '' || $search !== ''): ?>
+                            <div class="wa-filter-chips" aria-label="Active filters">
+                                <?php if ($status !== ''): ?>
+                                    <span class="wa-filter-chip">
+                                        <span>Status: <?php echo htmlspecialchars($STATUS_LABELS[$status]); ?></span>
+                                        <a href="<?php echo build_query_url(['status' => '', 'page' => '']); ?>" aria-label="Remove status filter" title="Remove status filter"><i class="fas fa-xmark" aria-hidden="true"></i></a>
+                                    </span>
+                                <?php endif; ?>
+                                <?php if ($search !== ''): ?>
+                                    <span class="wa-filter-chip">
+                                        <span>Search: &ldquo;<?php echo htmlspecialchars($search); ?>&rdquo;</span>
+                                        <a href="<?php echo build_query_url(['search' => '', 'page' => '']); ?>" aria-label="Remove search filter" title="Remove search filter"><i class="fas fa-xmark" aria-hidden="true"></i></a>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="wa-table-wrap">
+                        <table class="ord-table">
+                            <caption class="sr-only">Customer orders</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Order</th>
+                                    <th scope="col">Customer</th>
+                                    <th scope="col">Payment</th>
+                                    <th scope="col" class="is-num">Total</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col"><span class="sr-only">Actions</span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersTable">
+                                <?php if (empty($orders)): ?>
+                                    <tr>
+                                        <td colspan="6" class="empty-row">
+                                            <div class="wa-empty">
+                                                <span class="wa-empty-icon" aria-hidden="true"><i class="fas fa-inbox"></i></span>
+                                                <div class="wa-empty-title">No orders found</div>
+                                                <p class="wa-empty-text">
+                                                    <?php echo ($status !== '' || $search !== '') ? 'Nothing matches the current search or status. Try a different term or clear the filters.' : 'Orders will appear here as customers place them.'; ?>
+                                                </p>
+                                                <?php if ($status !== '' || $search !== ''): ?>
+                                                    <a href="admin_orders.php" class="btn btn-outline btn-sm"><i class="fas fa-rotate-left" aria-hidden="true"></i> Clear filters</a>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                                <?php foreach ($orders as $order):
+                                    $created_ts = strtotime($order['created_at']);
+                                    $cancel_reason_text = ($order['status'] === 'cancelled' && !empty($order['cancellation_reason'])) ? $order['cancellation_reason'] : '';
+                                    $proof_state = 'none';
+                                    $proof_path = '';
+                                    if ($order['payment_proof']) {
+                                        $proof_path = payment_proof_url((int) $order['order_id']);
+                                        $proof_state = payment_proof_path((int) $order['user_id'], (string) $order['payment_proof']) ? 'ok' : 'missing';
+                                    }
+                                ?>
+                                    <tr class="ord-row" id="order-row-<?php echo (int) $order['order_id']; ?>"
+                                        data-status="<?php echo htmlspecialchars($order['status']); ?>"
+                                        data-customer="<?php echo htmlspecialchars($order['username']); ?>"
+                                        data-date="<?php echo date('M j, Y · g:i A', $created_ts); ?>"
+                                        data-cancel-reason="<?php echo htmlspecialchars($cancel_reason_text); ?>">
+                                        <td class="ord-col-order">
+                                            <button type="button" class="ord-id" onclick="openOrderPanel(<?php echo (int) $order['order_id']; ?>)"
+                                                aria-label="View order #<?php echo (int) $order['order_id']; ?>">#<?php echo (int) $order['order_id']; ?></button>
+                                            <div class="ord-meta">
+                                                <time datetime="<?php echo date('c', $created_ts); ?>"><?php echo date('M j, Y', $created_ts); ?> &middot; <?php echo date('g:i A', $created_ts); ?></time>
+                                            </div>
+                                        </td>
+                                        <td class="ord-col-customer">
+                                            <div class="ord-customer">
+                                                <span class="wa-avatar" aria-hidden="true"><?php echo htmlspecialchars(od_initials((string) $order['username'])); ?></span>
+                                                <div>
+                                                    <div class="ord-customer-name"><?php echo htmlspecialchars($order['username']); ?></div>
+                                                    <div class="ord-meta">User ID <?php echo (int) $order['user_id']; ?></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="ord-col-payment">
+                                            <?php if ($proof_state === 'ok'): ?>
+                                                <a class="ord-proof" href="<?php echo esc_html($proof_path); ?>" target="_blank" rel="noopener"
+                                                    title="Open payment proof for order #<?php echo (int) $order['order_id']; ?>">
+                                                    <span class="ord-proof-thumb">
+                                                        <img src="<?php echo esc_html($proof_path); ?>" alt="Payment proof for order #<?php echo (int) $order['order_id']; ?>" loading="lazy"
+                                                            onerror="this.closest('.ord-proof').classList.add('is-broken')">
+                                                        <i class="fas fa-file-invoice" aria-hidden="true"></i>
+                                                    </span>
+                                                    <span class="ord-proof-text">Proof uploaded</span>
+                                                </a>
+                                            <?php elseif ($proof_state === 'missing'): ?>
+                                                <span class="ord-proof-state is-missing"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> File not found</span>
+                                            <?php else: ?>
+                                                <span class="ord-proof-state"><i class="fas fa-circle-minus" aria-hidden="true"></i> No proof</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="ord-col-total is-num">
+                                            <span class="ord-total">&#8369;<?php echo number_format($order['total_amount'], 2); ?></span>
+                                        </td>
+                                        <td class="ord-col-status">
+                                            <span class="wa-badge tone-<?php echo htmlspecialchars($order['status']); ?>" data-role="status-badge"
+                                                <?php if ($cancel_reason_text !== ''): ?>title="Reason: <?php echo esc_html($cancel_reason_text); ?>" <?php endif; ?>>
+                                                <?php echo htmlspecialchars($STATUS_LABELS[$order['status']] ?? ucfirst(str_replace('_', ' ', $order['status']))); ?>
+                                            </span>
+                                            <div class="ord-reason" data-role="status-reason" <?php echo $cancel_reason_text === '' ? 'hidden' : ''; ?>>
+                                                <i class="fas fa-comment-dots" aria-hidden="true"></i>
+                                                <span data-role="status-reason-text"><?php echo htmlspecialchars($cancel_reason_text); ?></span>
+                                            </div>
+                                        </td>
+                                        <td class="ord-col-actions">
+                                            <div class="ord-actions" data-order-id="<?php echo (int) $order['order_id']; ?>">
+                                                <button type="button" class="btn btn-sm btn-outline" onclick="openOrderPanel(<?php echo (int) $order['order_id']; ?>)">
+                                                    <i class="fas fa-eye" aria-hidden="true"></i> View
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline btn-icon" onclick="openStatusDialog(<?php echo (int) $order['order_id']; ?>)"
+                                                    aria-label="Update status of order #<?php echo (int) $order['order_id']; ?>" title="Update status">
+                                                    <i class="fas fa-pen-to-square" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="wa-datacard-foot">
+                        <span class="wa-datacard-foot-text">Showing <?php echo count($orders); ?> of <?php echo $total_orders; ?> orders</span>
+                        <?php if ($total_pages > 1): ?>
+                            <nav class="wa-pager" aria-label="Pagination">
+                                <a class="wa-pager-link <?php echo $page <= 1 ? 'is-disabled' : ''; ?>" href="<?php echo build_query_url(['page' => $page - 1]); ?>"
+                                    <?php echo $page <= 1 ? 'aria-disabled="true" tabindex="-1"' : ''; ?>><i class="fas fa-chevron-left" aria-hidden="true"></i> Prev</a>
+                                <?php
+                                $window = 2;
+                                for ($p = 1; $p <= $total_pages; $p++) {
+                                    $show = $p === 1 || $p === $total_pages || abs($p - $page) <= $window;
+                                    if (!$show) {
+                                        if ($p === 2 || $p === $total_pages - 1) {
+                                            echo '<span class="wa-pager-gap" aria-hidden="true">&hellip;</span>';
+                                        }
+                                        continue;
+                                    }
+                                    $active = $p === $page;
+                                    echo '<a class="wa-pager-link' . ($active ? ' is-active' : '') . '" href="' . build_query_url(['page' => $p]) . '"'
+                                        . ($active ? ' aria-current="page"' : '') . ' aria-label="Page ' . $p . '">' . $p . '</a>';
+                                }
+                                ?>
+                                <a class="wa-pager-link <?php echo $page >= $total_pages ? 'is-disabled' : ''; ?>" href="<?php echo build_query_url(['page' => $page + 1]); ?>"
+                                    <?php echo $page >= $total_pages ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>Next <i class="fas fa-chevron-right" aria-hidden="true"></i></a>
+                            </nav>
+                        <?php endif; ?>
+                    </div>
+                </section>
+
             </div>
-        </div>
+        </main>
     </div>
 
-    <!-- Slide-over panel -->
+    <!-- Order detail slide-over panel -->
     <div class="panel-overlay" id="panelOverlay" onclick="closeOrderPanel()"></div>
-    <div class="slide-panel" id="slidePanel">
+    <aside class="slide-panel" id="slidePanel" role="dialog" aria-modal="true" aria-labelledby="panelTitle" aria-hidden="true">
         <div class="panel-header">
-            <h2 id="panelTitle">Order Details</h2>
-            <button type="button" class="panel-close" onclick="closeOrderPanel()" aria-label="Close"><i class="fas fa-times"></i></button>
+            <div class="panel-heading">
+                <div class="panel-title-row">
+                    <h2 id="panelTitle">Order Details</h2>
+                    <span id="panelHeadBadge"></span>
+                </div>
+                <p class="panel-subtitle" id="panelSubtitle"></p>
+            </div>
+            <button type="button" class="panel-close" id="panelClose" onclick="closeOrderPanel()" aria-label="Close order details"><i class="fas fa-xmark" aria-hidden="true"></i></button>
         </div>
         <div class="panel-status-bar" id="panelStatusBar"></div>
-        <div class="panel-body" id="panelBody">
-            <div class="panel-loading"><i class="fas fa-circle-notch"></i> Loading order...</div>
+        <div class="panel-body" id="panelBody" aria-live="polite">
+            <div class="od-skeleton" aria-hidden="true">
+                <div class="od-section"><div class="od-section-body"><span class="wa-skel" style="width:40%"></span><span class="wa-skel"></span><span class="wa-skel" style="width:70%"></span></div></div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Status dialog (opened from a row's "Update status" button) -->
+    <div class="modal" id="statusModal" role="dialog" aria-modal="true" aria-labelledby="statusModalTitle">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <div>
+                    <h2 id="statusModalTitle">Update order status</h2>
+                    <p class="ord-dialog-sub" id="statusModalSub"></p>
+                </div>
+                <button type="button" class="modal-close" onclick="closeModal('statusModal')" aria-label="Close">&times;</button>
+            </div>
+            <form id="statusForm" novalidate>
+                <div class="modal-body">
+                    <fieldset class="ord-options">
+                        <legend class="sr-only">New status</legend>
+                        <?php foreach ($STATUS_LABELS as $val => $label): ?>
+                            <label class="ord-option tone-<?php echo $val; ?>">
+                                <input type="radio" class="sr-only" name="dialog_status" value="<?php echo $val; ?>">
+                                <span class="wa-dot" aria-hidden="true"></span>
+                                <span class="ord-option-label"><?php echo htmlspecialchars($label); ?></span>
+                                <i class="fas fa-check ord-option-check" aria-hidden="true"></i>
+                            </label>
+                        <?php endforeach; ?>
+                    </fieldset>
+                    <div class="ord-reason-field" id="statusReasonField" hidden>
+                        <label for="statusReason">Reason for cancellation <span>Required</span></label>
+                        <textarea class="od-textarea" id="statusReason" rows="3" placeholder="Why is this order being cancelled?"></textarea>
+                        <p class="ord-field-hint">Saved with the order and shown in the orders list.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('statusModal')">Close</button>
+                    <button type="submit" class="btn btn-primary" id="statusSubmit"><span id="statusSubmitLabel">Update status</span></button>
+                </div>
+            </form>
         </div>
     </div>
 

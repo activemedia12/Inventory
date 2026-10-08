@@ -515,6 +515,14 @@
       cfg.status.values,
     );
 
+    // Recent-orders rows open the order in the orders page panel
+    document.querySelectorAll("tr[data-href]").forEach(function (row) {
+      row.addEventListener("click", function (e) {
+        if (e.target.closest("a, button")) return;
+        window.location.href = row.dataset.href;
+      });
+    });
+
     return {};
   });
 
@@ -523,41 +531,51 @@
        ================================================================== */
   WA.definePage("orders", function (cfg, WA) {
     const STATUS_LABELS = cfg.statusLabels || {};
+    const esc = WA.esc;
 
-    // ---------- Inline status update (row controls) ----------
-    function onStatusSelectChange(select) {
-      const container = select.closest(".order-actions");
-      const reasonInput = container.querySelector(
-        '[data-role="cancel-reason"]',
-      );
-      if (select.value === "cancelled") {
-        reasonInput.style.display = "inline-block";
-        reasonInput.focus();
-      } else {
-        reasonInput.style.display = "none";
-      }
+    // Slide-over panel state (declared first: the status helpers read it)
+    let panelOrderId = null;
+    let panelStatus = "";
+    let panelReturnFocus = null;
+
+    const panelEl = () => document.getElementById("slidePanel");
+
+    // ---------- Status badge helpers ----------
+    function labelFor(status) {
+      return STATUS_LABELS[status] || WA.statusLabel(status);
     }
 
-    async function submitStatusUpdate(orderId, btn) {
-      const container = btn.closest(".order-actions");
-      const status = container.querySelector(
-        '[data-role="status-select"]',
-      ).value;
-      const reasonInput = container.querySelector(
-        '[data-role="cancel-reason"]',
-      );
-      const reason = reasonInput.value.trim();
+    function setBadge(el, status, label) {
+      if (!el) return;
+      el.className = "wa-badge tone-" + status;
+      el.textContent = label || labelFor(status);
+    }
 
-      if (status === "cancelled" && reason === "") {
-        WA.toast("error", "Please enter a reason for cancelling this order.");
-        reasonInput.focus();
-        return;
-      }
+    // Keeps the tab counts / summary tiles in step after a status change.
+    // Elements opt in with data-count="status [status ...]".
+    function bumpCounts(previous, next) {
+      if (!previous || previous === next) return;
+      document.querySelectorAll("[data-count]").forEach(function (el) {
+        const keys = el.dataset.count.split(" ");
+        const delta =
+          (keys.indexOf(next) !== -1 ? 1 : 0) -
+          (keys.indexOf(previous) !== -1 ? 1 : 0);
+        if (!delta) return;
+        el.textContent = Math.max(
+          0,
+          (parseInt(el.textContent, 10) || 0) + delta,
+        );
+      });
+    }
 
-      btn.disabled = true;
-      const originalHtml = btn.innerHTML;
-      btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Updating...';
+    function currentStatusOf(orderId) {
+      const row = document.getElementById("order-row-" + orderId);
+      if (row) return row.dataset.status;
+      return panelOrderId === orderId ? panelStatus : "";
+    }
 
+    // ---------- Status update (shared by the dialog and the panel) ----------
+    async function requestStatusUpdate(orderId, status, reason) {
       try {
         const body = new URLSearchParams({
           ajax: "update_status",
@@ -569,28 +587,29 @@
         const res = await fetch("admin_orders.php", { method: "POST", body });
         const data = await res.json();
 
-        if (data.success) {
-          WA.toast("success", data.message);
-          applyStatusToRow(
-            orderId,
+        if (!data.success) {
+          WA.toast("error", data.message || "Failed to update order status.");
+          return false;
+        }
+
+        WA.toast("success", data.message);
+        bumpCounts(currentStatusOf(orderId), data.status);
+        applyStatusToRow(
+          orderId,
+          data.status,
+          data.status_label,
+          data.cancellation_reason,
+        );
+        if (panelOrderId === orderId)
+          applyStatusToPanel(
             data.status,
             data.status_label,
             data.cancellation_reason,
           );
-          if (panelOrderId === orderId)
-            applyStatusToPanel(
-              data.status,
-              data.status_label,
-              data.cancellation_reason,
-            );
-        } else {
-          WA.toast("error", data.message || "Failed to update order status.");
-        }
+        return true;
       } catch (e) {
         WA.toast("error", "Network error while updating the order.");
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
+        return false;
       }
     }
 
@@ -602,182 +621,406 @@
     ) {
       const row = document.getElementById("order-row-" + orderId);
       if (!row) return;
+      const reason = status === "cancelled" ? cancellationReason || "" : "";
       row.dataset.status = status;
+      row.dataset.cancelReason = reason;
+
       const badge = row.querySelector('[data-role="status-badge"]');
-      badge.className = "status-badge status-" + status;
-      badge.textContent = statusLabel;
-      if (status === "cancelled" && cancellationReason) {
-        badge.title = "Reason: " + cancellationReason;
-      } else {
-        badge.removeAttribute("title");
+      setBadge(badge, status, statusLabel);
+      if (badge) {
+        if (reason) badge.title = "Reason: " + reason;
+        else badge.removeAttribute("title");
       }
+
+      const note = row.querySelector('[data-role="status-reason"]');
+      if (note) {
+        note.hidden = !reason;
+        const text = note.querySelector('[data-role="status-reason-text"]');
+        if (text) text.textContent = reason;
+      }
+
+      // Brief highlight so the changed row is easy to spot
+      row.classList.remove("is-flash");
+      void row.offsetWidth;
+      row.classList.add("is-flash");
+      row.addEventListener(
+        "animationend",
+        function () {
+          row.classList.remove("is-flash");
+        },
+        { once: true },
+      );
     }
 
-    // ---------- Slide-over panel ----------
-    let panelOrderId = null;
+    // ---------- Status dialog (row action) ----------
+    const statusForm = document.getElementById("statusForm");
+    const reasonField = document.getElementById("statusReasonField");
+    const reasonInput = document.getElementById("statusReason");
+    const submitBtn = document.getElementById("statusSubmit");
+    let dialogOrderId = null;
 
+    function selectedDialogStatus() {
+      const checked = statusForm.querySelector(
+        'input[name="dialog_status"]:checked',
+      );
+      return checked ? checked.value : "";
+    }
+
+    function syncStatusDialog() {
+      const cancelled = selectedDialogStatus() === "cancelled";
+      reasonField.hidden = !cancelled;
+      submitBtn.classList.toggle("btn-danger", cancelled);
+      submitBtn.classList.toggle("btn-primary", !cancelled);
+      // Looked up each time: WA.setBusy swaps the button's inner HTML
+      const label = document.getElementById("statusSubmitLabel");
+      if (label && !submitBtn.disabled)
+        label.textContent = cancelled ? "Cancel order" : "Update status";
+      reasonInput.removeAttribute("aria-invalid");
+    }
+
+    function openStatusDialog(orderId) {
+      const row = document.getElementById("order-row-" + orderId);
+      dialogOrderId = orderId;
+      const status = row ? row.dataset.status : "";
+
+      document.getElementById("statusModalSub").textContent =
+        "Order #" +
+        orderId +
+        (row && row.dataset.customer ? " · " + row.dataset.customer : "");
+      statusForm
+        .querySelectorAll('input[name="dialog_status"]')
+        .forEach(function (r) {
+          r.checked = r.value === status;
+        });
+      reasonInput.value = row ? row.dataset.cancelReason || "" : "";
+      syncStatusDialog();
+
+      WA.openModal("statusModal");
+      // Land on the current status so arrow keys move from where the order is
+      setTimeout(function () {
+        const target =
+          statusForm.querySelector('input[name="dialog_status"]:checked') ||
+          statusForm.querySelector('input[name="dialog_status"]');
+        if (target) target.focus();
+      }, 60);
+    }
+
+    async function submitStatusDialog(e) {
+      e.preventDefault();
+      const status = selectedDialogStatus();
+      const reason = reasonInput.value.trim();
+      const orderId = dialogOrderId;
+
+      if (!status) {
+        WA.toast("warning", "Choose a status first.");
+        return;
+      }
+      if (status === "cancelled" && reason === "") {
+        reasonInput.setAttribute("aria-invalid", "true");
+        WA.toast("error", "Please enter a reason for cancelling this order.");
+        reasonInput.focus();
+        return;
+      }
+      const row = document.getElementById("order-row-" + orderId);
+      if (
+        row &&
+        row.dataset.status === status &&
+        (status !== "cancelled" || row.dataset.cancelReason === reason)
+      ) {
+        WA.closeModal("statusModal");
+        WA.toast("info", "No changes to save.");
+        return;
+      }
+
+      WA.setBusy(submitBtn, true, "Updating...");
+      const ok = await requestStatusUpdate(orderId, status, reason);
+      WA.setBusy(submitBtn, false);
+      if (ok) WA.closeModal("statusModal");
+      else syncStatusDialog();
+    }
+
+    if (statusForm) {
+      statusForm.addEventListener("change", function (e) {
+        syncStatusDialog();
+        if (e.target.value === "cancelled") reasonInput.focus();
+      });
+      statusForm.addEventListener("submit", submitStatusDialog);
+    }
+
+    // Clear the "required" highlight as soon as the admin starts typing a reason
+    document.addEventListener("input", function (e) {
+      if (e.target.matches("#statusReason, [data-role='panel-cancel-reason']"))
+        e.target.removeAttribute("aria-invalid");
+    });
+
+    // ---------- Slide-over panel ----------
     function openOrderPanel(orderId) {
+      const panel = panelEl();
+      const row = document.getElementById("order-row-" + orderId);
+      panelReturnFocus =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
       panelOrderId = orderId;
+      panelStatus = row ? row.dataset.status : "";
+
       document.getElementById("panelOverlay").classList.add("open");
-      document.getElementById("slidePanel").classList.add("open");
+      panel.classList.add("open");
+      panel.setAttribute("aria-hidden", "false");
+      document.body.classList.add("wa-modal-open");
+
       document.getElementById("panelTitle").textContent = "Order #" + orderId;
+      document.getElementById("panelSubtitle").textContent = row
+        ? (row.dataset.customer || "") +
+          (row.dataset.date ? " · " + row.dataset.date : "")
+        : "";
+      const headBadge = document.getElementById("panelHeadBadge");
+      headBadge.innerHTML = row ? '<span class="wa-badge"></span>' : "";
+      if (row) setBadge(headBadge.firstChild, panelStatus);
+      headBadge.firstChild &&
+        headBadge.firstChild.setAttribute("data-role", "panel-status-badge");
+
+      // The status controls only need the row's data, so show them right away
+      if (row)
+        renderPanelStatusBar(orderId, panelStatus, row.dataset.cancelReason);
+      else document.getElementById("panelStatusBar").innerHTML = "";
+
       document.getElementById("panelBody").innerHTML =
-        '<div class="panel-loading"><i class="fas fa-circle-notch"></i> Loading order...</div>';
-      document.getElementById("panelStatusBar").innerHTML = "";
+        '<div class="od-skeleton" aria-hidden="true">' +
+        '<div class="od-section"><div class="od-section-body"><span class="wa-skel" style="width:40%"></span><span class="wa-skel"></span><span class="wa-skel" style="width:70%"></span></div></div>' +
+        '<div class="od-section"><div class="od-section-body"><span class="wa-skel" style="width:30%"></span><span class="wa-skel"></span><span class="wa-skel"></span><span class="wa-skel" style="width:55%"></span></div></div>' +
+        "</div>";
 
       const url = new URL(window.location);
       url.searchParams.set("open", orderId);
       history.replaceState(null, "", url);
+
+      setTimeout(function () {
+        const close = document.getElementById("panelClose");
+        if (close && panelOrderId === orderId) close.focus();
+      }, 30);
 
       fetch("admin_orders.php?ajax=get_order_details&id=" + orderId)
         .then((res) => res.json())
         .then((data) => {
           if (panelOrderId !== orderId) return; // stale response, user moved on
           if (!data.success) {
-            document.getElementById("panelBody").innerHTML =
-              '<div class="panel-loading">' +
-              (data.message || "Order not found.") +
-              "</div>";
+            showPanelError(orderId, data.message || "Order not found.");
             return;
           }
           document.getElementById("panelBody").innerHTML = data.html;
-          renderPanelStatusBar(orderId, data.status, data.cancellation_reason);
+          panelStatus = data.status;
+          // Re-render the controls only if the page row was missing or out of date
+          if (!row || row.dataset.status !== data.status) {
+            renderPanelStatusBar(
+              orderId,
+              data.status,
+              data.cancellation_reason,
+            );
+            const hb = document.getElementById("panelHeadBadge");
+            hb.innerHTML =
+              '<span class="wa-badge" data-role="panel-status-badge"></span>';
+            setBadge(hb.firstChild, data.status);
+          }
         })
         .catch(() => {
-          document.getElementById("panelBody").innerHTML =
-            '<div class="panel-loading">Couldn\'t load this order. Please try again.</div>';
+          if (panelOrderId === orderId)
+            showPanelError(
+              orderId,
+              "Couldn't load this order. Please try again.",
+            );
         });
     }
 
+    function showPanelError(orderId, message) {
+      document.getElementById("panelBody").innerHTML =
+        '<div class="panel-loading"><i class="fas fa-circle-exclamation" aria-hidden="true"></i>' +
+        "<div>" +
+        esc(message) +
+        "</div>" +
+        '<button type="button" class="btn btn-outline btn-sm" onclick="openOrderPanel(' +
+        Number(orderId) +
+        ')"><i class="fas fa-rotate" aria-hidden="true"></i> Try again</button></div>';
+    }
+
     function closeOrderPanel() {
+      const panel = panelEl();
+      if (!panel.classList.contains("open")) return;
       panelOrderId = null;
       document.getElementById("panelOverlay").classList.remove("open");
-      document.getElementById("slidePanel").classList.remove("open");
+      panel.classList.remove("open");
+      panel.setAttribute("aria-hidden", "true");
+      if (!document.querySelector(".modal.open"))
+        document.body.classList.remove("wa-modal-open");
+
       const url = new URL(window.location);
       url.searchParams.delete("open");
       history.replaceState(null, "", url);
+
+      if (panelReturnFocus && document.contains(panelReturnFocus))
+        panelReturnFocus.focus();
+      panelReturnFocus = null;
     }
 
     function renderPanelStatusBar(orderId, status, cancellationReason) {
       const bar = document.getElementById("panelStatusBar");
+      const cancelled = status === "cancelled";
       let options = "";
       for (const [val, label] of Object.entries(STATUS_LABELS)) {
         options +=
           '<option value="' +
-          val +
+          esc(val) +
           '"' +
           (val === status ? " selected" : "") +
           ">" +
-          label +
+          esc(label) +
           "</option>";
       }
       bar.innerHTML =
-        '<select class="status-select" data-role="panel-status-select" onchange="onPanelStatusChange(this)">' +
+        '<div class="od-status">' +
+        '<label class="od-status-label" for="panelStatusSelect">Change status</label>' +
+        '<div class="od-status-form">' +
+        '<select id="panelStatusSelect" class="od-status-select" data-role="panel-status-select" onchange="onPanelStatusChange(this)">' +
         options +
         "</select>" +
-        '<input type="text" class="cancel-reason-input" data-role="panel-cancel-reason" placeholder="Reason for cancellation" ' +
-        'value="' +
-        (status === "cancelled" && cancellationReason
-          ? cancellationReason.replace(/"/g, "&quot;")
-          : "") +
-        '" ' +
-        'style="display:' +
-        (status === "cancelled" ? "inline-block" : "none") +
-        ';">' +
-        '<button type="button" class="update-btn" onclick="submitPanelStatusUpdate(' +
-        orderId +
-        ', this)"><i class="fas fa-sync"></i> Update</button>';
+        '<button type="button" class="btn ' +
+        (cancelled ? "btn-danger" : "btn-primary") +
+        '" data-role="panel-update-btn" onclick="submitPanelStatusUpdate(' +
+        Number(orderId) +
+        ', this)">' +
+        '<span data-role="panel-update-label">' +
+        (cancelled ? "Cancel order" : "Update") +
+        "</span></button>" +
+        "</div>" +
+        '<div class="od-reason" data-role="panel-reason-wrap"' +
+        (cancelled ? "" : " hidden") +
+        ">" +
+        '<label for="panelCancelReason">Reason for cancellation <span>Required</span></label>' +
+        '<textarea id="panelCancelReason" class="od-textarea" data-role="panel-cancel-reason" rows="2" placeholder="Why is this order being cancelled?">' +
+        esc(cancelled && cancellationReason ? cancellationReason : "") +
+        "</textarea></div></div>";
+    }
+
+    // Shows the reason box (and a red button) only while "Cancelled" is chosen
+    function syncPanelControls(status) {
+      const cancelled = status === "cancelled";
+      const wrap = document.querySelector('[data-role="panel-reason-wrap"]');
+      if (wrap) wrap.hidden = !cancelled;
+      const btn = document.querySelector('[data-role="panel-update-btn"]');
+      if (btn) {
+        btn.classList.toggle("btn-danger", cancelled);
+        btn.classList.toggle("btn-primary", !cancelled);
+        const label = btn.querySelector('[data-role="panel-update-label"]');
+        if (label && !btn.disabled)
+          label.textContent = cancelled ? "Cancel order" : "Update";
+      }
     }
 
     function onPanelStatusChange(select) {
-      const reasonInput = document.querySelector(
-        '[data-role="panel-cancel-reason"]',
-      );
-      reasonInput.style.display =
-        select.value === "cancelled" ? "inline-block" : "none";
+      syncPanelControls(select.value);
+      if (select.value === "cancelled") {
+        const input = document.querySelector(
+          '[data-role="panel-cancel-reason"]',
+        );
+        if (input) input.focus();
+      }
     }
 
     async function submitPanelStatusUpdate(orderId, btn) {
       const status = document.querySelector(
         '[data-role="panel-status-select"]',
       ).value;
-      const reasonInput = document.querySelector(
-        '[data-role="panel-cancel-reason"]',
-      );
-      const reason = reasonInput.value.trim();
+      const input = document.querySelector('[data-role="panel-cancel-reason"]');
+      const reason = input ? input.value.trim() : "";
 
       if (status === "cancelled" && reason === "") {
         WA.toast("error", "Please enter a reason for cancelling this order.");
-        reasonInput.focus();
+        if (input) {
+          input.setAttribute("aria-invalid", "true");
+          input.focus();
+        }
         return;
       }
+      if (input) input.removeAttribute("aria-invalid");
 
-      btn.disabled = true;
-      try {
-        const body = new URLSearchParams({
-          ajax: "update_status",
-          csrf_token: WA.csrfToken(),
-          order_id: orderId,
-          status: status,
-          cancel_reason: reason,
-        });
-        const res = await fetch("admin_orders.php", { method: "POST", body });
-        const data = await res.json();
-
-        if (data.success) {
-          WA.toast("success", data.message);
-          applyStatusToRow(
-            orderId,
-            data.status,
-            data.status_label,
-            data.cancellation_reason,
-          );
-          applyStatusToPanel(
-            data.status,
-            data.status_label,
-            data.cancellation_reason,
-          );
-        } else {
-          WA.toast("error", data.message || "Failed to update order status.");
-        }
-      } catch (e) {
-        WA.toast("error", "Network error while updating the order.");
-      } finally {
-        btn.disabled = false;
-      }
+      WA.setBusy(btn, true, "Updating...");
+      await requestStatusUpdate(orderId, status, reason);
+      WA.setBusy(btn, false);
+      syncPanelControls(status);
     }
 
     function applyStatusToPanel(status, statusLabel, cancellationReason) {
+      panelStatus = status;
       const select = document.querySelector(
         '[data-role="panel-status-select"]',
       );
       if (select) select.value = status;
-      const reasonInput = document.querySelector(
-        '[data-role="panel-cancel-reason"]',
-      );
-      if (reasonInput) {
-        reasonInput.style.display =
-          status === "cancelled" ? "inline-block" : "none";
-        if (cancellationReason) reasonInput.value = cancellationReason;
-      }
+      document
+        .querySelectorAll('[data-role="panel-status-badge"]')
+        .forEach(function (el) {
+          setBadge(el, status, statusLabel);
+        });
+      const input = document.querySelector('[data-role="panel-cancel-reason"]');
+      if (input && cancellationReason) input.value = cancellationReason;
+      syncPanelControls(status);
     }
 
-    // Escape closes the slide-over panel (dialogs handle Escape themselves).
+    // Escape closes the panel (dialogs handle Escape themselves); Tab stays inside it.
     document.addEventListener("keydown", function (e) {
-      if (
-        e.key === "Escape" &&
-        panelOrderId !== null &&
-        !document.querySelector(".modal.open")
-      )
+      if (panelOrderId === null || document.querySelector(".modal.open"))
+        return;
+      if (e.key === "Escape") {
         closeOrderPanel();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = Array.prototype.filter.call(
+        panelEl().querySelectorAll(FOCUSABLE),
+        function (el) {
+          return el.offsetParent !== null;
+        },
+      );
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!panelEl().contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     });
+
+    // ---------- List interactions ----------
+    // Clicking anywhere on a row (outside links/controls) opens its details.
+    const tbody = document.getElementById("ordersTable");
+    if (tbody) {
+      tbody.addEventListener("click", function (e) {
+        if (e.target.closest("a, button, input, select, textarea, label"))
+          return;
+        const row = e.target.closest(".ord-row");
+        if (row) openOrderPanel(parseInt(row.id.replace("order-row-", ""), 10));
+      });
+    }
+
+    // Picking a status in the filter bar applies it straight away
+    const statusFilter = document.getElementById("orderStatusFilter");
+    if (statusFilter && statusFilter.form) {
+      statusFilter.addEventListener("change", function () {
+        if (statusFilter.form.requestSubmit) statusFilter.form.requestSubmit();
+        else statusFilter.form.submit();
+      });
+    }
 
     // Deep link (?open=ID), e.g. from the dashboard or an old order-details bookmark.
     if (cfg.openId > 0) openOrderPanel(cfg.openId);
 
     return {
-      onStatusSelectChange,
-      submitStatusUpdate,
+      openStatusDialog,
       applyStatusToRow,
       openOrderPanel,
       closeOrderPanel,
@@ -790,119 +1033,360 @@
 
   /* ==================================================================
        Page: customers
+       Detail view is the same slide-over panel the orders page uses.
        ================================================================== */
   WA.definePage("customers", function (cfg, WA) {
     const esc = WA.esc;
-    function viewCustomerDetails(userId) {
-      fetch(`admin_customers.php?ajax=get_customer_stats&user_id=${userId}`)
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.error) {
-            WA.toast("error", "Error: " + data.error);
+    const FOCUSABLE =
+      'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const panelEl = () => document.getElementById("slidePanel");
+    let panelUserId = null;
+    let panelReturnFocus = null;
+
+    function money(value) {
+      return (
+        "\u20B1" +
+        (parseFloat(value) || 0).toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      );
+    }
+
+    function fmtDate(value) {
+      const d = new Date(String(value).replace(" ", "T"));
+      return isNaN(d)
+        ? ""
+        : d.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+    }
+
+    function initials(name) {
+      name = String(name || "").trim();
+      return name ? name.slice(0, 2).toUpperCase() : "?";
+    }
+
+    function spec(label, value) {
+      return (
+        '<div class="od-spec"><dt>' +
+        esc(label) +
+        "</dt><dd>" +
+        esc(value || "Not provided") +
+        "</dd></div>"
+      );
+    }
+
+    function joinParts(parts) {
+      return parts
+        .filter(function (p) {
+          return p && String(p).trim() !== "";
+        })
+        .join(", ");
+    }
+
+    // ---------- Slide-over panel ----------
+    function openCustomerPanel(userId) {
+      const panel = panelEl();
+      const row = document.getElementById("customer-row-" + userId);
+      panelReturnFocus =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      panelUserId = userId;
+
+      document.getElementById("panelOverlay").classList.add("open");
+      panel.classList.add("open");
+      panel.setAttribute("aria-hidden", "false");
+      document.body.classList.add("wa-modal-open");
+
+      document.getElementById("panelTitle").textContent = row
+        ? row.dataset.name || "Customer"
+        : "Customer";
+      document.getElementById("panelSubtitle").textContent = row
+        ? row.dataset.email || ""
+        : "";
+      document.getElementById("panelHeadBadge").innerHTML = "";
+      document.getElementById("panelStatusBar").innerHTML = "";
+      document.getElementById("panelBody").innerHTML =
+        '<div class="od-skeleton" aria-hidden="true">' +
+        '<div class="od-section"><div class="od-section-body"><span class="wa-skel" style="width:40%"></span><span class="wa-skel"></span><span class="wa-skel" style="width:70%"></span></div></div>' +
+        '<div class="od-section"><div class="od-section-body"><span class="wa-skel" style="width:30%"></span><span class="wa-skel"></span><span class="wa-skel"></span><span class="wa-skel" style="width:55%"></span></div></div>' +
+        "</div>";
+
+      const url = new URL(window.location);
+      url.searchParams.set("open", userId);
+      history.replaceState(null, "", url);
+
+      setTimeout(function () {
+        const close = document.getElementById("panelClose");
+        if (close && panelUserId === userId) close.focus();
+      }, 30);
+
+      Promise.all([
+        fetch(
+          "admin_customers.php?ajax=get_customer_stats&user_id=" + userId,
+        ).then((r) => r.json()),
+        fetch("admin_customers.php?ajax=get_customer&user_id=" + userId).then(
+          (r) => r.json(),
+        ),
+      ])
+        .then(function (res) {
+          if (panelUserId !== userId) return; // stale response, user moved on
+          const data = res[0];
+          const customer = res[1];
+          if (customer.error || data.error) {
+            showPanelError(userId, customer.error || data.error);
             return;
           }
-
-          // Fetch customer basic info
-          fetch(`admin_customers.php?ajax=get_customer&user_id=${userId}`)
-            .then((response) => response.json())
-            .then((customer) => {
-              const stats = data.order_stats;
-              const recentOrders = data.recent_orders;
-
-              let ordersHtml = "";
-              if (recentOrders.length > 0) {
-                ordersHtml = recentOrders
-                  .map(
-                    (order) => `
-                            <tr>
-                                <td>#${esc(order.order_id)}</td>
-                                <td>₱${esc(parseFloat(order.total_amount).toFixed(2))}</td>
-                                <td><span class="status-badge status-${esc(order.status)}">${esc(WA.statusLabel(order.status))}</span></td>
-                                <td>${esc(new Date(order.created_at).toLocaleDateString())}</td>
-                            </tr>
-                        `,
-                  )
-                  .join("");
-              } else {
-                ordersHtml =
-                  '<tr><td colspan="4" class="empty-cell">No orders found</td></tr>';
-              }
-
-              // --- Build Customer Info depending on type ---
-              let customerInfoHtml = "";
-
-              if (customer.customer_type === "personal") {
-                customerInfoHtml = `
-                            <h3>${esc(customer.first_name)} ${esc(customer.last_name)}</h3>
-                            <p><strong>Email:</strong> ${esc(customer.username)}</p>
-                            <p><strong>Full Name:</strong> ${esc(customer.first_name)} ${esc(customer.middle_name || "")} ${esc(customer.last_name)}</p>
-                            <p><strong>Phone:</strong> ${esc(customer.contact_number || "Not provided")}</p>
-                            <p><strong>Address:</strong> ${esc(customer.address_line1 || "Not provided")} ${esc(customer.city ? ", " + customer.city : "")} ${esc(customer.province ? ", " + customer.province : "")} ${esc(customer.zip_code ? " " + customer.zip_code : "")}</p>
-                            <p><strong>Age/Gender:</strong> ${esc(customer.age || "Not provided")} / ${esc(customer.gender || "Not provided")}</p>
-                            <p><strong>Birthdate:</strong> ${esc(customer.birthdate ? new Date(customer.birthdate).toLocaleDateString() : "Not provided")}</p>
-                        `;
-              } else if (customer.customer_type === "company") {
-                customerInfoHtml = `
-                            <h3>${esc(customer.company_name)}</h3>
-                            <p><strong>Email:</strong> ${esc(customer.username)}</p>
-                            <p><strong>Taxpayer:</strong> ${esc(customer.taxpayer_name || "Not provided")}</p>
-                            <p><strong>Person:</strong> ${esc(customer.contact_person || "Not provided")}</p>
-                            <p><strong>Phone:</strong> ${esc(customer.company_contact || "Not provided")}</p>
-                            <p><strong>Address:</strong> ${esc(customer.building_or_block || "")} ${esc(customer.lot_or_room_no || "")} ${esc(customer.subd_or_street || "")} ${esc(customer.barangay || "")} ${esc(customer.city || "")} ${esc(customer.province || "")} ${esc(customer.zip_code || "")}</p>
-                        `;
-              }
-
-              document.getElementById("customerDetails").innerHTML = `
-                        <div class="customer-info">
-                            ${customerInfoHtml}
-                        </div>
-
-                        <div class="customer-stats">
-                            <div class="stat-box">
-                                <div class="stat-value">${stats.total_orders || 0}</div>
-                                <div class="stat-label">Total Orders</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value">₱${parseFloat(stats.total_spent || 0).toFixed(2)}</div>
-                                <div class="stat-label">Total Spent</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value">₱${parseFloat(stats.avg_order_value || 0).toFixed(2)}</div>
-                                <div class="stat-label">Avg Order Value</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-value">${stats.last_order_date ? new Date(stats.last_order_date).toLocaleDateString() : "Never"}</div>
-                                <div class="stat-label">Last Order</div>
-                            </div>
-                        </div>
-
-                        <h4 class="modal-section-title">Recent Orders</h4>
-                        <div class="table-card">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Order ID</th>
-                                    <th>Amount</th>
-                                    <th>Status</th>
-                                    <th>Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>${ordersHtml}</tbody>
-                        </table>
-                        </div>
-                    `;
-
-              WA.openModal("customerModal");
-            });
+          renderPanel(userId, customer, data);
         })
-        .catch((error) => {
-          console.error("Error:", error);
-          WA.toast("error", "Error loading customer details");
+        .catch(function () {
+          if (panelUserId === userId)
+            showPanelError(
+              userId,
+              "Couldn't load this customer. Please try again.",
+            );
         });
     }
 
+    function showPanelError(userId, message) {
+      document.getElementById("panelBody").innerHTML =
+        '<div class="panel-loading"><i class="fas fa-circle-exclamation" aria-hidden="true"></i>' +
+        "<div>" +
+        esc(message) +
+        "</div>" +
+        '<button type="button" class="btn btn-outline btn-sm" onclick="openCustomerPanel(' +
+        Number(userId) +
+        ')"><i class="fas fa-rotate" aria-hidden="true"></i> Try again</button></div>';
+    }
+
+    function renderPanel(userId, customer, data) {
+      const stats = data.order_stats || {};
+      const recent = data.recent_orders || [];
+      const isCompany = customer.customer_type === "company";
+      const personalName = (
+        (customer.first_name || "") +
+        " " +
+        (customer.last_name || "")
+      ).trim();
+      const displayName = isCompany
+        ? customer.company_name || customer.username
+        : personalName || customer.username;
+
+      document.getElementById("panelTitle").textContent = displayName;
+      document.getElementById("panelSubtitle").textContent = customer.username;
+      document.getElementById("panelHeadBadge").innerHTML =
+        '<span class="wa-chip ' +
+        (isCompany ? "tone-total" : "tone-neutral") +
+        '"><i class="fas ' +
+        (isCompany ? "fa-building" : "fa-user") +
+        '" aria-hidden="true"></i> ' +
+        (isCompany ? "Company" : "Personal") +
+        "</span>";
+
+      // Quick actions live where the orders panel keeps its status controls
+      document.getElementById("panelStatusBar").innerHTML =
+        '<div class="cu-actions">' +
+        '<button type="button" class="btn btn-sm btn-outline" data-role="panel-edit"><i class="fas fa-pen-to-square" aria-hidden="true"></i> Edit customer</button>' +
+        '<button type="button" class="btn btn-sm btn-outline" data-role="panel-delete"><i class="fas fa-trash" aria-hidden="true"></i> Delete</button>' +
+        "</div>";
+      document
+        .querySelector('[data-role="panel-edit"]')
+        .addEventListener("click", function () {
+          closeCustomerPanel();
+          editCustomer(userId);
+        });
+      document
+        .querySelector('[data-role="panel-delete"]')
+        .addEventListener("click", function () {
+          closeCustomerPanel();
+          confirmDelete(userId, customer.username);
+        });
+
+      let details = "";
+      if (isCompany) {
+        details =
+          spec("Email", customer.username) +
+          spec("Phone", customer.company_contact) +
+          spec("Contact person", customer.contact_person) +
+          spec("Taxpayer", customer.taxpayer_name) +
+          spec(
+            "Address",
+            joinParts([
+              [
+                customer.building_or_block,
+                customer.lot_or_room_no,
+                customer.subd_or_street,
+              ]
+                .filter(Boolean)
+                .join(" "),
+              customer.barangay,
+              customer.company_city,
+              customer.company_province,
+              customer.company_zip,
+            ]),
+          );
+      } else {
+        details =
+          spec("Email", customer.username) +
+          spec(
+            "Full name",
+            [customer.first_name, customer.middle_name, customer.last_name]
+              .filter(Boolean)
+              .join(" "),
+          ) +
+          spec("Phone", customer.contact_number) +
+          spec(
+            "Address",
+            joinParts([
+              customer.address_line1,
+              customer.city,
+              customer.province,
+              customer.zip_code,
+            ]),
+          ) +
+          spec(
+            "Age / gender",
+            customer.age || customer.gender
+              ? (customer.age || "\u2014") +
+                  " / " +
+                  (customer.gender || "\u2014")
+              : "",
+          ) +
+          spec(
+            "Birthdate",
+            customer.birthdate ? fmtDate(customer.birthdate) : "",
+          );
+      }
+
+      let ordersHtml = "";
+      if (recent.length) {
+        ordersHtml =
+          '<div class="cu-orders">' +
+          recent
+            .map(function (o) {
+              return (
+                '<a class="cu-order" href="admin_orders.php?open=' +
+                encodeURIComponent(o.order_id) +
+                '" title="Open order #' +
+                esc(o.order_id) +
+                '">' +
+                '<span class="cu-order-id">#' +
+                esc(o.order_id) +
+                '<span class="cu-order-date">' +
+                esc(fmtDate(o.created_at)) +
+                "</span></span>" +
+                '<span class="wa-badge tone-' +
+                esc(o.status) +
+                '">' +
+                esc(WA.statusLabel(o.status)) +
+                "</span>" +
+                '<span class="cu-order-total">' +
+                esc(money(o.total_amount)) +
+                "</span></a>"
+              );
+            })
+            .join("") +
+          "</div>";
+      } else {
+        ordersHtml = '<p class="od-empty-note">No orders found.</p>';
+      }
+
+      document.getElementById("panelBody").innerHTML =
+        '<section class="od-section"><header class="od-section-head"><h3 class="od-section-title"><i class="fas fa-chart-simple" aria-hidden="true"></i> Customer overview</h3></header>' +
+        '<div class="od-section-body"><dl class="od-kpis">' +
+        '<div class="od-kpi"><dt>Total orders</dt><dd>' +
+        esc(stats.total_orders || 0) +
+        "</dd></div>" +
+        '<div class="od-kpi od-kpi--total"><dt>Total spent</dt><dd>' +
+        esc(money(stats.total_spent)) +
+        "</dd></div>" +
+        '<div class="od-kpi"><dt>Avg order value</dt><dd>' +
+        esc(money(stats.avg_order_value)) +
+        "</dd></div>" +
+        '<div class="od-kpi"><dt>Last order</dt><dd>' +
+        (stats.last_order_date
+          ? esc(fmtDate(stats.last_order_date))
+          : "Never") +
+        "</dd></div>" +
+        "</dl></div></section>" +
+        '<section class="od-section"><header class="od-section-head"><h3 class="od-section-title"><i class="fas fa-address-card" aria-hidden="true"></i> Customer details</h3></header>' +
+        '<div class="od-section-body"><div class="od-person" style="margin-bottom:var(--space-4)">' +
+        '<span class="wa-avatar" aria-hidden="true">' +
+        esc(initials(displayName)) +
+        "</span><div>" +
+        '<div class="od-person-name">' +
+        esc(displayName) +
+        "</div>" +
+        '<div class="od-person-meta">User ID ' +
+        esc(customer.id) +
+        "</div></div></div>" +
+        '<dl class="od-specs">' +
+        details +
+        "</dl></div></section>" +
+        '<section class="od-section"><header class="od-section-head"><h3 class="od-section-title"><i class="fas fa-receipt" aria-hidden="true"></i> Recent orders</h3>' +
+        '<span class="od-count">' +
+        recent.length +
+        "</span></header>" +
+        '<div class="od-section-body">' +
+        ordersHtml +
+        "</div></section>";
+    }
+
+    function closeCustomerPanel() {
+      const panel = panelEl();
+      if (!panel.classList.contains("open")) return;
+      panelUserId = null;
+      document.getElementById("panelOverlay").classList.remove("open");
+      panel.classList.remove("open");
+      panel.setAttribute("aria-hidden", "true");
+      if (!document.querySelector(".modal.open"))
+        document.body.classList.remove("wa-modal-open");
+
+      const url = new URL(window.location);
+      url.searchParams.delete("open");
+      history.replaceState(null, "", url);
+
+      if (panelReturnFocus && document.contains(panelReturnFocus))
+        panelReturnFocus.focus();
+      panelReturnFocus = null;
+    }
+
+    // Escape closes the panel (dialogs handle Escape themselves); Tab stays inside it.
+    document.addEventListener("keydown", function (e) {
+      if (panelUserId === null || document.querySelector(".modal.open")) return;
+      if (e.key === "Escape") {
+        closeCustomerPanel();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = Array.prototype.filter.call(
+        panelEl().querySelectorAll(FOCUSABLE),
+        function (el) {
+          return el.offsetParent !== null;
+        },
+      );
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!panelEl().contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+
+    // ---------- Edit dialog ----------
     function editCustomer(userId) {
-      fetch(`admin_customers.php?ajax=get_customer&user_id=${userId}`)
+      fetch("admin_customers.php?ajax=get_customer&user_id=" + userId)
         .then((response) => response.json())
         .then((customer) => {
           if (customer.error) {
@@ -914,6 +1398,14 @@
           document.getElementById("editUsername").value = customer.username;
 
           const isCompany = customer.customer_type === "company";
+          document.getElementById("editCustomerSub").textContent =
+            (isCompany
+              ? customer.company_name
+              : (
+                  (customer.first_name || "") +
+                  " " +
+                  (customer.last_name || "")
+                ).trim()) || customer.username;
           document.getElementById("personalFields").style.display = isCompany
             ? "none"
             : "block";
@@ -986,8 +1478,35 @@
       });
     }
 
+    // ---------- List interactions ----------
+    // Clicking anywhere on a row (outside links/controls) opens its details.
+    const tbody = document.getElementById("customersTable");
+    if (tbody) {
+      tbody.addEventListener("click", function (e) {
+        if (e.target.closest("a, button, input, select, textarea, label"))
+          return;
+        const row = e.target.closest(".ord-row");
+        if (row)
+          openCustomerPanel(parseInt(row.id.replace("customer-row-", ""), 10));
+      });
+    }
+
+    // Picking a sort order in the filter bar applies it straight away
+    const sortFilter = document.getElementById("customerSortFilter");
+    if (sortFilter && sortFilter.form) {
+      sortFilter.addEventListener("change", function () {
+        if (sortFilter.form.requestSubmit) sortFilter.form.requestSubmit();
+        else sortFilter.form.submit();
+      });
+    }
+
+    // Deep link (?open=ID)
+    if (cfg.openId > 0) openCustomerPanel(cfg.openId);
+
     return {
-      viewCustomerDetails,
+      openCustomerPanel,
+      closeCustomerPanel,
+      viewCustomerDetails: openCustomerPanel, // kept for any older caller
       editCustomer,
       confirmDelete,
     };
@@ -1002,8 +1521,14 @@
     let currentProductName = null;
 
     // Modal functions
+    function setModalSub(text) {
+      const el = document.getElementById("modalSub");
+      if (el) el.textContent = text;
+    }
+
     function openAddModal() {
       document.getElementById("modalTitle").textContent = "Add New Product";
+      setModalSub("Set the name, category and price, then add images.");
       document.getElementById("formAction").value = "add_product";
       document.getElementById("productId").value = "";
       document.getElementById("productForm").reset();
@@ -1046,6 +1571,9 @@
 
           // Populate form with product data
           document.getElementById("modalTitle").textContent = "Edit Product";
+          setModalSub(
+            "Update the details or images for product #" + data.id + ".",
+          );
           document.getElementById("formAction").value = "update_product";
           document.getElementById("productId").value = data.id;
           document.getElementById("product_name").value = data.product_name;
@@ -1134,8 +1662,7 @@
 
       if (input.files && input.files[0]) {
         displayElement.textContent = `Selected: ${input.files[0].name}`;
-        displayElement.style.color = "var(--success)";
-        displayElement.style.fontWeight = "600";
+        displayElement.classList.add("is-selected");
 
         // Show image preview for base templates
         if (input.name === "base_image") {
@@ -1145,8 +1672,7 @@
         }
       } else {
         displayElement.textContent = "No file chosen";
-        displayElement.style.color = "var(--gray)";
-        displayElement.style.fontWeight = "normal";
+        displayElement.classList.remove("is-selected");
 
         // Hide image preview
         if (input.name === "base_image") {
@@ -1170,15 +1696,13 @@
         const fileCount = Math.min(input.files.length, 5);
 
         displayElement.textContent = `Selected ${fileCount} file(s): ${fileNames}`;
-        displayElement.style.color = "var(--success)";
-        displayElement.style.fontWeight = "600";
+        displayElement.classList.add("is-selected");
 
         // Show image previews
         showMultipleImagePreviews(input);
       } else {
         displayElement.textContent = "No files chosen";
-        displayElement.style.color = "var(--gray)";
-        displayElement.style.fontWeight = "normal";
+        displayElement.classList.remove("is-selected");
 
         // Hide image previews
         previewContainer.style.display = "none";
@@ -1264,8 +1788,7 @@
         if (element) {
           element.textContent =
             id === "productImagesFile" ? "No files chosen" : "No file chosen";
-          element.style.color = "var(--gray)";
-          element.style.fontWeight = "normal";
+          element.classList.remove("is-selected");
         }
       });
 
@@ -1292,6 +1815,21 @@
       });
     }
 
+    // One row in the "current images" / "current base templates" lists
+    function prdAssetRow(opts) {
+      const thumb =
+        opts.exists && opts.url
+          ? `<img src="${WA.esc(opts.url)}" alt="${WA.esc(opts.label)}">`
+          : '<i class="fas fa-image" aria-hidden="true"></i>';
+      const state = opts.exists
+        ? '<span class="prd-asset-state is-ok"><i class="fas fa-circle-check" aria-hidden="true"></i> Present</span>'
+        : '<span class="prd-asset-state is-missing"><i class="fas fa-circle-exclamation" aria-hidden="true"></i> Not uploaded</span>';
+      const action = opts.exists
+        ? `<button type="button" class="btn btn-sm btn-outline prd-btn-danger" onclick="${opts.deleteCall}" title="${WA.esc(opts.deleteTitle)}"><i class="fas fa-trash" aria-hidden="true"></i> Delete</button>`
+        : "";
+      return `<div class="prd-asset"><span class="prd-asset-thumb">${thumb}</span><div class="prd-asset-info"><span class="prd-asset-name">${WA.esc(opts.label)}</span>${state}</div>${action}</div>`;
+    }
+
     // Update image status in edit mode with delete buttons
     function updateImageStatus(productData) {
       const currentImagesSection = document.getElementById(
@@ -1300,96 +1838,63 @@
       const currentImagesList = document.getElementById("currentImagesList");
       const currentBaseSection = document.getElementById("currentBaseSection");
 
-      if (productData.id) {
-        // Show current images section
-        currentImagesSection.style.display = "block";
-        currentImagesList.innerHTML = "<h5>Current Images Status:</h5>";
-
-        let hasAnyImages = false;
-
-        // Check for up to 5 product images
-        for (let i = 0; i < 5; i++) {
-          const imageExists = productData[`product_image_exists_${i}`] || false;
-          if (imageExists) hasAnyImages = true;
-
-          const imageStatus = document.createElement("div");
-          imageStatus.className = "image-status";
-          imageStatus.innerHTML = `
-                        <span class="status-indicator ${imageExists ? "status-present" : "status-missing"}"></span>
-                        <span style="flex: 1;">Product Image ${i + 1}: <strong>${imageExists ? "✓ Present" : "✗ Missing"}</strong></span>
-                        ${
-                          imageExists
-                            ? `
-                            <button type="button" class="btn-delete-small" onclick="deleteProductImage(${productData.id}, ${i})" title="Delete this image">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
-                        `
-                            : ""
-                        }
-                    `;
-          currentImagesList.appendChild(imageStatus);
-        }
-
-        // Add "Delete All Images" button if any images exist
-        if (hasAnyImages) {
-          const deleteAllContainer = document.createElement("div");
-          deleteAllContainer.style.marginTop = "15px";
-          deleteAllContainer.style.paddingTop = "15px";
-          deleteAllContainer.style.borderTop = "1px solid var(--light-gray)";
-          deleteAllContainer.innerHTML = `
-                        <button type="button" class="btn-delete-all" onclick="deleteAllProductImages(${productData.id})">
-                            <i class="fas fa-trash"></i> Delete All Product Images
-                        </button>
-                    `;
-          currentImagesList.appendChild(deleteAllContainer);
-        }
-
-        // Update base templates status if Other Services
-        if (productData.category === "Other Services") {
-          currentBaseSection.style.display = "block";
-          currentBaseSection.innerHTML =
-            "<h5>Current Base Templates Status:</h5>";
-
-          // Front base template
-          const frontBaseStatus = document.createElement("div");
-          frontBaseStatus.className = "image-status";
-          frontBaseStatus.innerHTML = `
-                        <span class="status-indicator ${productData.base_image_exists ? "status-present" : "status-missing"}"></span>
-                        <span style="flex: 1;">Front Base Template: <strong>${productData.base_image_exists ? "✓ Present" : "✗ Missing"}</strong></span>
-                        ${
-                          productData.base_image_exists
-                            ? `
-                            <button type="button" class="btn-delete-small" onclick="deleteBaseTemplate(${productData.id}, 'front')" title="Delete front base template">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
-                        `
-                            : ""
-                        }
-                    `;
-          currentBaseSection.appendChild(frontBaseStatus);
-
-          // Back base template
-          const backBaseStatus = document.createElement("div");
-          backBaseStatus.className = "image-status";
-          backBaseStatus.innerHTML = `
-                        <span class="status-indicator ${productData.base_back_image_exists ? "status-present" : "status-missing"}"></span>
-                        <span style="flex: 1;">Back Base Template: <strong>${productData.base_back_image_exists ? "✓ Present" : "✗ Missing"}</strong></span>
-                        ${
-                          productData.base_back_image_exists
-                            ? `
-                            <button type="button" class="btn-delete-small" onclick="deleteBaseTemplate(${productData.id}, 'back')" title="Delete back base template">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
-                        `
-                            : ""
-                        }
-                    `;
-          currentBaseSection.appendChild(backBaseStatus);
-        } else {
-          currentBaseSection.style.display = "none";
-        }
-      } else {
+      if (!productData.id) {
         currentImagesSection.style.display = "none";
+        currentBaseSection.style.display = "none";
+        return;
+      }
+
+      const pid = Number(productData.id);
+      const maxImages = 5;
+
+      // Product images: list the ones that exist (new uploads fill free slots)
+      const present = [];
+      for (let i = 0; i < maxImages; i++) {
+        if (productData[`product_image_exists_${i}`]) present.push(i);
+      }
+
+      let html = `<div class="prd-subhead"><span>Current images</span><span class="od-count">${present.length} / ${maxImages}</span></div>`;
+      if (present.length === 0) {
+        html +=
+          '<p class="prd-note">No product images yet. Choose files above to add some.</p>';
+      } else {
+        html += '<div class="prd-assets">';
+        present.forEach(function (i) {
+          html += prdAssetRow({
+            label: `Product image ${i + 1}`,
+            url: productData[`product_image_url_${i}`],
+            exists: true,
+            deleteCall: `deleteProductImage(${pid}, ${i})`,
+            deleteTitle: "Delete this image",
+          });
+        });
+        html += "</div>";
+        html += `<div class="prd-assets-foot"><button type="button" class="btn btn-sm btn-outline prd-btn-danger" onclick="deleteAllProductImages(${pid})"><i class="fas fa-trash" aria-hidden="true"></i> Delete all images</button></div>`;
+      }
+      currentImagesList.innerHTML = html;
+      currentImagesSection.style.display = "block";
+
+      // Base templates (Other Services only)
+      if (productData.category === "Other Services") {
+        currentBaseSection.style.display = "block";
+        currentBaseSection.innerHTML =
+          '<div class="prd-subhead"><span>Current base templates</span></div><div class="prd-assets">' +
+          prdAssetRow({
+            label: "Front base template",
+            url: productData.base_image_url,
+            exists: !!productData.base_image_exists,
+            deleteCall: `deleteBaseTemplate(${pid}, 'front')`,
+            deleteTitle: "Delete front base template",
+          }) +
+          prdAssetRow({
+            label: "Back base template",
+            url: productData.base_back_image_url,
+            exists: !!productData.base_back_image_exists,
+            deleteCall: `deleteBaseTemplate(${pid}, 'back')`,
+            deleteTitle: "Delete back base template",
+          }) +
+          "</div>";
+      } else {
         currentBaseSection.style.display = "none";
       }
     }
@@ -1557,6 +2062,316 @@
        Page: pricing
        ================================================================== */
   WA.definePage("pricing", function (cfg, WA) {
+    const STATUS_LABELS = cfg.statusLabels || {};
+    const esc = WA.esc;
+
+    // Slide-over panel state
+    let panelRequestId = null;
+    let panelReturnFocus = null;
+
+    const panelEl = () => document.getElementById("slidePanel");
+
+    // ---------- Helpers ----------
+    function labelFor(status) {
+      return STATUS_LABELS[status] || WA.statusLabel(status);
+    }
+
+    function setBadge(el, status, label) {
+      if (!el) return;
+      el.className = "wa-badge tone-" + status;
+      el.textContent = label || labelFor(status);
+    }
+
+    function money(value) {
+      return (
+        "₱" +
+        Number(value || 0).toLocaleString("en-PH", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      );
+    }
+
+    // Keeps the tab counts / summary tiles in step after a status change or
+    // a delete (next === null). Elements opt in with data-count="status [...]".
+    function bumpCounts(previous, next) {
+      if (next !== null && (!previous || previous === next)) return;
+      document.querySelectorAll("[data-count]").forEach(function (el) {
+        const keys = el.dataset.count.split(" ");
+        let delta =
+          (next !== null && keys.indexOf(next) !== -1 ? 1 : 0) -
+          (previous && keys.indexOf(previous) !== -1 ? 1 : 0);
+        if (next === null && keys.indexOf("__all") !== -1) delta -= 1;
+        if (!delta) return;
+        el.textContent = Math.max(
+          0,
+          (parseInt(el.textContent, 10) || 0) + delta,
+        );
+      });
+    }
+
+    function quoteDataOf(row) {
+      try {
+        return JSON.parse(row.dataset.quote || "{}");
+      } catch (e) {
+        return {};
+      }
+    }
+
+    // ---------- Row update after a save ----------
+    function priceCellHtml(finalPrice, estimatedTotal) {
+      if (!(finalPrice > 0)) return '<span class="ord-meta">Not set</span>';
+      const difference = finalPrice - estimatedTotal;
+      const percentage =
+        estimatedTotal > 0 ? (difference / estimatedTotal) * 100 : 0;
+      let diff;
+      if (difference > 0) {
+        diff =
+          '<small class="price-increase">+' +
+          money(Math.abs(difference)) +
+          " (" +
+          Math.abs(percentage).toFixed(1) +
+          "%)</small>";
+      } else if (difference < 0) {
+        diff =
+          '<small class="price-decrease">-' +
+          money(Math.abs(difference)) +
+          " (" +
+          Math.abs(percentage).toFixed(1) +
+          "%)</small>";
+      } else {
+        diff = '<small class="price-same">No change</small>';
+      }
+      return (
+        '<span class="ord-total">' +
+        money(finalPrice) +
+        "</span>" +
+        '<div class="ord-meta price-comparison">' +
+        diff +
+        "</div>"
+      );
+    }
+
+    function applyPricingUpdateToRow(requestId, data, notes) {
+      const row = document.getElementById("request-row-" + requestId);
+      if (!row) return;
+      row.dataset.status = data.status;
+
+      setBadge(
+        row.querySelector('[data-role="status-badge"]'),
+        data.status,
+        data.status_label,
+      );
+
+      const note = row.querySelector('[data-role="status-reason"]');
+      if (note) {
+        note.hidden = !notes;
+        const text = note.querySelector('[data-role="status-reason-text"]');
+        if (text) text.textContent = notes;
+      }
+
+      const priceCell = row.querySelector('[data-role="final-price-cell"]');
+      if (priceCell)
+        priceCell.innerHTML = priceCellHtml(
+          Number(data.final_price),
+          Number(data.estimated_total),
+        );
+
+      // Keep the dialog's prefill in step with what the server saved (covers
+      // the even-split fallback applied when a request is first quoted).
+      const quote = quoteDataOf(row);
+      quote.notes = notes;
+      (quote.items || []).forEach(function (item) {
+        if (data.item_prices && data.item_prices[item.id] !== undefined) {
+          const saved = data.item_prices[item.id];
+          item.price = saved === null ? null : Number(saved);
+        }
+      });
+      row.dataset.quote = JSON.stringify(quote);
+
+      // Brief highlight so the changed row is easy to spot
+      row.classList.remove("is-flash");
+      void row.offsetWidth;
+      row.classList.add("is-flash");
+      row.addEventListener(
+        "animationend",
+        function () {
+          row.classList.remove("is-flash");
+        },
+        { once: true },
+      );
+    }
+
+    // ---------- Quote dialog (row action) ----------
+    const quoteForm = document.getElementById("quoteForm");
+    const itemsWrap = document.getElementById("quoteItems");
+    const totalEl = document.getElementById("quoteTotal");
+    const notesInput = document.getElementById("quoteNotes");
+    const submitBtn = document.getElementById("quoteSubmit");
+    let dialogRequestId = null;
+    let dialogEstimated = 0;
+
+    function selectedStatus() {
+      const checked = quoteForm.querySelector(
+        'input[name="dialog_status"]:checked',
+      );
+      return checked ? checked.value : "";
+    }
+
+    function priceInputs() {
+      return Array.from(itemsWrap.querySelectorAll(".item-price-input"));
+    }
+
+    // Updates the running total. While the request is still "Pending", typing
+    // a price flips the status to "Checked" (never overrides a status that
+    // was picked on purpose, e.g. Cancelled).
+    function recalcTotal(autoFlip) {
+      let total = 0;
+      let hasPrice = false;
+      priceInputs().forEach(function (input) {
+        const val = parseFloat(input.value);
+        if (!isNaN(val) && val > 0) {
+          total += val;
+          hasPrice = true;
+        }
+      });
+      totalEl.textContent = money(total);
+
+      if (autoFlip && hasPrice && selectedStatus() === "pending") {
+        const quoted = quoteForm.querySelector(
+          'input[name="dialog_status"][value="quoted"]',
+        );
+        if (quoted) quoted.checked = true;
+      }
+    }
+
+    function openQuoteDialog(requestId) {
+      const row = document.getElementById("request-row-" + requestId);
+      if (!row) return;
+      const data = quoteDataOf(row);
+      dialogRequestId = requestId;
+      dialogEstimated = Number(data.estimated) || 0;
+
+      document.getElementById("quoteModalSub").textContent =
+        "Request #" +
+        requestId +
+        (row.dataset.customer ? " · " + row.dataset.customer : "");
+
+      quoteForm
+        .querySelectorAll('input[name="dialog_status"]')
+        .forEach(function (r) {
+          r.checked = r.value === row.dataset.status;
+        });
+
+      const items = data.items || [];
+      itemsWrap.innerHTML = items.length
+        ? items
+            .map(function (item) {
+              return (
+                '<div class="pq-item">' +
+                '<span class="pq-item-label" title="' +
+                esc(item.label) +
+                '">' +
+                esc(item.label) +
+                "</span>" +
+                '<div class="pq-money"><span aria-hidden="true">₱</span>' +
+                '<input type="number" class="pq-input item-price-input" data-item-id="' +
+                Number(item.id) +
+                '" aria-label="Price for ' +
+                esc(item.label) +
+                '" placeholder="0.00" step="0.01" min="0" value="' +
+                (item.price === null || item.price === undefined
+                  ? ""
+                  : esc(item.price)) +
+                '"></div></div>'
+              );
+            })
+            .join("")
+        : '<p class="od-empty-note pq-empty">No items were found for this request.</p>';
+
+      notesInput.value = data.notes || "";
+      recalcTotal(false);
+
+      WA.openModal("quoteModal");
+      setTimeout(function () {
+        const target =
+          itemsWrap.querySelector(".item-price-input") ||
+          quoteForm.querySelector('input[name="dialog_status"]:checked');
+        if (target) target.focus();
+      }, 60);
+    }
+
+    // "Split evenly" quick action
+    function fillEvenPrices() {
+      const inputs = priceInputs();
+      const empty = inputs.filter((i) => i.value.trim() === "");
+      const targets = empty.length > 0 ? empty : inputs; // nothing empty? split across all of them
+      const share = targets.length > 0 ? dialogEstimated / targets.length : 0;
+      targets.forEach((input) => {
+        input.value = share.toFixed(2);
+      });
+      recalcTotal(true);
+    }
+
+    async function submitQuote(e) {
+      e.preventDefault();
+      const status = selectedStatus();
+      const requestId = dialogRequestId;
+      const notes = notesInput.value;
+
+      if (!status) {
+        WA.toast("warning", "Choose a status first.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.set("ajax", "1");
+      formData.set("update_pricing_status", "1");
+      formData.set("csrf_token", WA.csrfToken());
+      formData.set("request_id", requestId);
+      formData.set("status", status);
+      formData.set("admin_notes", notes);
+      priceInputs().forEach(function (input) {
+        formData.set("item_price[" + input.dataset.itemId + "]", input.value);
+      });
+
+      WA.setBusy(submitBtn, true, "Saving...");
+      try {
+        const res = await fetch("admin_pricing_estimates.php", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+
+        if (!data.success) {
+          WA.toast(
+            "error",
+            data.message || "Failed to update pricing request.",
+          );
+          return;
+        }
+
+        WA.toast("success", data.message);
+        const row = document.getElementById("request-row-" + requestId);
+        const previousStatus = row ? row.dataset.status : null;
+        applyPricingUpdateToRow(requestId, data, notes);
+        bumpCounts(previousStatus, data.status);
+        if (panelRequestId === requestId) loadPanel(requestId, true);
+        WA.closeModal("quoteModal");
+      } catch (err) {
+        WA.toast("error", "Network error while updating the request.");
+      } finally {
+        WA.setBusy(submitBtn, false);
+      }
+    }
+
+    if (quoteForm) {
+      quoteForm.addEventListener("submit", submitQuote);
+      quoteForm.addEventListener("input", function (e) {
+        if (e.target.matches(".item-price-input")) recalcTotal(true);
+      });
+    }
+
     // ---------- Delete (AJAX, no reload) ----------
     async function confirmDeleteRequest(requestId, btn) {
       const ok = await WA.confirm({
@@ -1585,12 +2400,18 @@
         if (data.success) {
           WA.toast("success", data.message);
           const row = document.getElementById("request-row-" + requestId);
+          if (panelRequestId === requestId) closeRequestPanel();
           if (row) {
             const status = row.dataset.status;
             row.style.transition = "opacity 0.2s ease";
             row.style.opacity = "0";
-            setTimeout(() => row.remove(), 200);
-            adjustStatCounts(status, null);
+            bumpCounts(status, null);
+            setTimeout(function () {
+              row.remove();
+              // Last row on this page gone: reload so the list (and paging) refreshes
+              if (!document.querySelector(".request-row"))
+                window.location.reload();
+            }, 200);
           }
         } else {
           WA.toast(
@@ -1605,298 +2426,183 @@
       }
     }
 
-    // ---------- Status / pricing update (AJAX, no reload) ----------
-    async function submitPricingUpdate(event, form) {
-      event.preventDefault();
-      const btn = form.querySelector(".update-btn");
-      const originalHtml = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Updating...';
-
-      const requestId = form.querySelector('[name="request_id"]').value;
-      const formData = new FormData(form);
-      formData.set("ajax", "1");
-      formData.set("update_pricing_status", "1");
-
-      try {
-        const res = await fetch("admin_pricing_estimates.php", {
-          method: "POST",
-          body: formData,
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          WA.toast("success", data.message);
-          const row = document.getElementById("request-row-" + requestId);
-          const previousStatus = row ? row.dataset.status : null;
-          applyPricingUpdateToRow(row, form, data);
-          adjustStatCounts(previousStatus, data.status);
-        } else {
-          WA.toast(
-            "error",
-            data.message || "Failed to update pricing request.",
-          );
-        }
-      } catch (e) {
-        WA.toast("error", "Network error while updating the request.");
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-      }
-      return false;
+    // ---------- Slide-over panel ----------
+    function renderPanelStatusBar(requestId) {
+      document.getElementById("panelStatusBar").innerHTML =
+        '<div class="od-status">' +
+        '<span class="od-status-label">Manage this quote</span>' +
+        '<div class="od-status-form">' +
+        '<button type="button" class="btn btn-primary" onclick="openQuoteDialog(' +
+        Number(requestId) +
+        ')"><i class="fas fa-pen-to-square" aria-hidden="true"></i> Edit quote</button>' +
+        "</div></div>";
     }
 
-    function applyPricingUpdateToRow(row, form, data) {
-      if (!row) return;
-      row.dataset.status = data.status;
+    function setPanelBadge(status) {
+      const headBadge = document.getElementById("panelHeadBadge");
+      headBadge.innerHTML =
+        '<span class="wa-badge" data-role="panel-status-badge"></span>';
+      setBadge(headBadge.firstChild, status);
+    }
 
-      const badge = row.querySelector('[data-role="status-badge"]');
-      if (badge) {
-        badge.className = "status-badge status-" + data.status;
-        badge.textContent = data.status_label;
+    function loadPanel(requestId, quiet) {
+      if (!quiet) {
+        document.getElementById("panelBody").innerHTML =
+          '<div class="od-skeleton" aria-hidden="true">' +
+          '<div class="od-section"><div class="od-section-body"><span class="wa-skel" style="width:40%"></span><span class="wa-skel"></span><span class="wa-skel" style="width:70%"></span></div></div>' +
+          '<div class="od-section"><div class="od-section-body"><span class="wa-skel" style="width:30%"></span><span class="wa-skel"></span><span class="wa-skel"></span><span class="wa-skel" style="width:55%"></span></div></div>' +
+          "</div>";
       }
 
-      // Sync each price input to whatever was actually saved (covers the
-      // even-split fallback the server applies when a request is first
-      // quoted with no explicit per-item price).
-      if (data.item_prices) {
-        Object.entries(data.item_prices).forEach(([itemId, price]) => {
-          const input = form.querySelector(
-            '.item-price-input[data-item-id="' + itemId + '"]',
-          );
-          if (input && price !== null && input.value === "") {
-            input.value = Number(price).toFixed(2);
+      fetch(
+        "admin_pricing_estimates.php?ajax=get_request_details&id=" + requestId,
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          if (panelRequestId !== requestId) return; // stale response, user moved on
+          if (!data.success) {
+            showPanelError(requestId, data.message || "Request not found.");
+            return;
           }
+          document.getElementById("panelBody").innerHTML = data.html;
+          setPanelBadge(data.status);
+        })
+        .catch(() => {
+          if (panelRequestId === requestId)
+            showPanelError(
+              requestId,
+              "Couldn't load this request. Please try again.",
+            );
         });
-      }
-      const totalEl = form.querySelector(".computed-total");
-      if (totalEl) {
-        totalEl.textContent =
-          "₱" +
-          Number(data.final_price).toLocaleString("en-PH", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          });
-      }
-
-      const priceCell = row.querySelector('[data-role="final-price-cell"]');
-      if (priceCell) {
-        const finalPrice = Number(data.final_price);
-        const estimatedTotal = Number(data.estimated_total);
-        if (finalPrice > 0) {
-          const difference = finalPrice - estimatedTotal;
-          const percentage =
-            estimatedTotal > 0 ? (difference / estimatedTotal) * 100 : 0;
-          let comparisonHtml;
-          if (difference > 0) {
-            comparisonHtml =
-              '<small class="price-increase">+₱' +
-              Math.abs(difference).toFixed(2) +
-              " (" +
-              Math.abs(percentage).toFixed(1) +
-              "%)</small>";
-          } else if (difference < 0) {
-            comparisonHtml =
-              '<small class="price-decrease">-₱' +
-              Math.abs(difference).toFixed(2) +
-              " (" +
-              Math.abs(percentage).toFixed(1) +
-              "%)</small>";
-          } else {
-            comparisonHtml = '<small class="price-same">No change</small>';
-          }
-          priceCell.innerHTML =
-            "<strong>₱" +
-            finalPrice.toLocaleString("en-PH", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            }) +
-            "</strong>" +
-            '<div class="price-comparison">' +
-            comparisonHtml +
-            "</div>";
-        } else {
-          priceCell.innerHTML =
-            '<span style="color: var(--gray);">Not set</span>';
-        }
-      }
     }
 
-    // ---------- "Split evenly" quick action ----------
-    function fillEvenPrices(btn) {
-      const form = btn.closest("form");
-      const inputs = Array.from(form.querySelectorAll(".item-price-input"));
-      const empty = inputs.filter((i) => i.value.trim() === "");
-      const targets = empty.length > 0 ? empty : inputs; // nothing empty? split across all of them
-      const estimatedTotal = parseFloat(form.dataset.estimatedTotal) || 0;
-      const share = targets.length > 0 ? estimatedTotal / targets.length : 0;
+    function openRequestPanel(requestId) {
+      const panel = panelEl();
+      const row = document.getElementById("request-row-" + requestId);
+      panelReturnFocus =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      panelRequestId = requestId;
 
-      targets.forEach((input) => {
-        input.value = share.toFixed(2);
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-      });
+      document.getElementById("panelOverlay").classList.add("open");
+      panel.classList.add("open");
+      panel.setAttribute("aria-hidden", "false");
+      document.body.classList.add("wa-modal-open");
+
+      document.getElementById("panelTitle").textContent =
+        "Request #" + requestId;
+      document.getElementById("panelSubtitle").textContent = row
+        ? (row.dataset.customer || "") +
+          (row.dataset.date ? " · " + row.dataset.date : "")
+        : "";
+      if (row) setPanelBadge(row.dataset.status);
+      else document.getElementById("panelHeadBadge").innerHTML = "";
+      renderPanelStatusBar(requestId);
+
+      const url = new URL(window.location);
+      url.searchParams.set("open", requestId);
+      history.replaceState(null, "", url);
+
+      setTimeout(function () {
+        const close = document.getElementById("panelClose");
+        if (close && panelRequestId === requestId) close.focus();
+      }, 30);
+
+      loadPanel(requestId, false);
     }
 
-    // ---------- Stat card counters (best-effort local sync, matches server on next reload) ----------
-    function adjustStatCounts(fromStatus, toStatus) {
-      const ids = {
-        pending: "statPending",
-        quoted: "statQuoted",
-        cancelled: "statCancelled",
-      };
-      function bump(status, delta) {
-        if (!status || !ids[status]) return;
-        const el = document.getElementById(ids[status]);
-        if (el)
-          el.textContent = Math.max(0, parseInt(el.textContent, 10) + delta);
-      }
+    function showPanelError(requestId, message) {
+      document.getElementById("panelBody").innerHTML =
+        '<div class="panel-loading"><i class="fas fa-circle-exclamation" aria-hidden="true"></i>' +
+        "<div>" +
+        esc(message) +
+        "</div>" +
+        '<button type="button" class="btn btn-outline btn-sm" onclick="openRequestPanel(' +
+        Number(requestId) +
+        ')"><i class="fas fa-rotate" aria-hidden="true"></i> Try again</button></div>';
+    }
 
-      if (toStatus === null) {
-        // Deletion: one row leaves its current bucket and the total.
-        bump(fromStatus, -1);
-        const totalEl = document.getElementById("statTotal");
-        if (totalEl)
-          totalEl.textContent = Math.max(
-            0,
-            parseInt(totalEl.textContent, 10) - 1,
-          );
+    function closeRequestPanel() {
+      const panel = panelEl();
+      if (!panel.classList.contains("open")) return;
+      panelRequestId = null;
+      document.getElementById("panelOverlay").classList.remove("open");
+      panel.classList.remove("open");
+      panel.setAttribute("aria-hidden", "true");
+      if (!document.querySelector(".modal.open"))
+        document.body.classList.remove("wa-modal-open");
+
+      const url = new URL(window.location);
+      url.searchParams.delete("open");
+      history.replaceState(null, "", url);
+
+      if (panelReturnFocus && document.contains(panelReturnFocus))
+        panelReturnFocus.focus();
+      panelReturnFocus = null;
+    }
+
+    // Escape closes the panel (dialogs handle Escape themselves); Tab stays inside it.
+    document.addEventListener("keydown", function (e) {
+      if (panelRequestId === null || document.querySelector(".modal.open"))
+        return;
+      if (e.key === "Escape") {
+        closeRequestPanel();
         return;
       }
-
-      if (fromStatus !== toStatus) {
-        bump(fromStatus, -1);
-        bump(toStatus, 1);
+      if (e.key !== "Tab") return;
+      const items = Array.prototype.filter.call(
+        panelEl().querySelectorAll(FOCUSABLE),
+        function (el) {
+          return el.offsetParent !== null;
+        },
+      );
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!panelEl().contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
       }
-    }
+    });
 
-    function filterRequests() {
-      const searchTerm = document
-        .getElementById("searchInput")
-        .value.toLowerCase();
-      const statusFilter = document.getElementById("statusFilter").value;
-      const rows = document.querySelectorAll(".request-row");
-
-      rows.forEach((row) => {
-        const requestId = row.cells[0].textContent.toLowerCase();
-        const customer = row.cells[1].textContent.toLowerCase();
-        const status = row.getAttribute("data-status");
-
-        const matchesSearch =
-          requestId.includes(searchTerm) || customer.includes(searchTerm);
-        const matchesStatus = !statusFilter || status === statusFilter;
-
-        row.style.display = matchesSearch && matchesStatus ? "" : "none";
+    // ---------- List interactions ----------
+    // Clicking anywhere on a row (outside links/controls) opens its details.
+    const tbody = document.getElementById("requestsTable");
+    if (tbody) {
+      tbody.addEventListener("click", function (e) {
+        if (e.target.closest("a, button, input, select, textarea, label"))
+          return;
+        const row = e.target.closest(".request-row");
+        if (row)
+          openRequestPanel(parseInt(row.id.replace("request-row-", ""), 10));
       });
     }
 
-    function clearFilters() {
-      document.getElementById("searchInput").value = "";
-      document.getElementById("statusFilter").value = "";
-      filterRequests();
-    }
-
-    function viewRequestDetails(requestId) {
-      // Show loading state
-      document.getElementById("modalBody").innerHTML = `
-                <div class="loading-state">
-                    <div class="loading-spinner">
-                        <i class="fas fa-spinner fa-spin"></i>
-                    </div>
-                    <p>Loading request details...</p>
-                </div>
-            `;
-
-      WA.openModal("requestModal");
-
-      // Fetch request details via AJAX
-      fetch(`get_pricing_request_details.php?id=${requestId}`)
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error("Network response was not ok");
-          }
-          return response.json();
-        })
-        .then((data) => {
-          if (data.error) {
-            document.getElementById("modalBody").innerHTML = `
-                            <div class="error-message">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <h3>Error Loading Details</h3>
-                                <p>${WA.esc(data.error)}</p>
-                            </div>
-                        `;
-          } else {
-            document.getElementById("modalBody").innerHTML = data.html;
-          }
-        })
-        .catch((error) => {
-          console.error("Error fetching request details:", error);
-          document.getElementById("modalBody").innerHTML = `
-                        <div class="error-message">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <h3>Network Error</h3>
-                            <p>Failed to load request details. Please try again.</p>
-                            <p><small>Error: ${WA.esc(error.message)}</small></p>
-                        </div>
-                    `;
-        });
-    }
-
-    // Initial filter on page load
-    (function () {
-      filterRequests();
-    })();
-
-    // As soon as the admin fills in a price for any item, flip that
-    // request's status to "Checked" automatically (only while it's
-    // still "Pending", so it never overrides a status picked on
-    // purpose, e.g. Cancelled). Also keeps the running total in sync.
-    (function () {
-      document.querySelectorAll(".status-form").forEach(function (form) {
-        const priceInputs = form.querySelectorAll(".item-price-input");
-        const statusSelect = form.querySelector(".status-select");
-        const totalEl = form.querySelector(".computed-total");
-
-        function refresh() {
-          let total = 0;
-          let hasPrice = false;
-          priceInputs.forEach(function (i) {
-            const val = parseFloat(i.value);
-            if (!isNaN(val) && val > 0) {
-              total += val;
-              hasPrice = true;
-            }
-          });
-
-          if (totalEl) {
-            totalEl.textContent =
-              "₱" +
-              total.toLocaleString("en-PH", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              });
-          }
-
-          if (hasPrice && statusSelect && statusSelect.value === "pending") {
-            statusSelect.value = "quoted";
-          }
-        }
-
-        priceInputs.forEach(function (input) {
-          input.addEventListener("input", refresh);
-        });
+    // Picking a status in the filter bar applies it straight away
+    const statusFilter = document.getElementById("requestStatusFilter");
+    if (statusFilter && statusFilter.form) {
+      statusFilter.addEventListener("change", function () {
+        if (statusFilter.form.requestSubmit) statusFilter.form.requestSubmit();
+        else statusFilter.form.submit();
       });
-    })();
+    }
+
+    // Deep link (?open=ID)
+    if (cfg.openId > 0) openRequestPanel(cfg.openId);
 
     return {
-      confirmDeleteRequest,
-      submitPricingUpdate,
-      applyPricingUpdateToRow,
+      openRequestPanel,
+      closeRequestPanel,
+      openQuoteDialog,
       fillEvenPrices,
-      adjustStatCounts,
-      filterRequests,
-      clearFilters,
-      viewRequestDetails,
+      confirmDeleteRequest,
     };
   });
 

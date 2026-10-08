@@ -286,6 +286,15 @@ if (isset($_GET['ajax'])) {
 // Get search and filter parameters
 $search = $_GET['search'] ?? '';
 $sort = $_GET['sort'] ?? 'newest';
+$SORT_LABELS = [
+    'newest' => 'Newest',
+    'name' => 'Name A-Z',
+    'orders' => 'Most orders',
+    'spent' => 'Highest spent',
+];
+if (!array_key_exists($sort, $SORT_LABELS)) {
+    $sort = 'newest';
+}
 
 // Shared WHERE clause + params, used by both the count query (for
 // pagination) and the main listing query below.
@@ -391,6 +400,63 @@ $stats_query = "SELECT
     ) as customer_stats";
 $stats_result = $inventory->query($stats_query);
 $stats = $stats_result->fetch_assoc();
+
+// Personal vs company split for the summary tiles (same rule as get_customer's
+// customer_type: a personal_customers row wins, otherwise a company row).
+$type_result = $inventory->query("SELECT
+        COALESCE(SUM(pc.user_id IS NOT NULL), 0) AS personal_total,
+        COALESCE(SUM(pc.user_id IS NULL AND cc.user_id IS NOT NULL), 0) AS company_total
+    FROM users u
+    LEFT JOIN personal_customers pc ON u.id = pc.user_id
+    LEFT JOIN company_customers cc ON u.id = cc.user_id
+    WHERE u.role = 'customer'");
+$type_counts = $type_result->fetch_assoc();
+$personal_total = (int) $type_counts['personal_total'];
+$company_total = (int) $type_counts['company_total'];
+$total_customers = (int) $stats['total_customers'];
+$avg_orders = round((float) ($stats['avg_orders_per_customer'] ?? 0), 1);
+
+/**
+ * Small presentation helpers (UI only - no business logic).
+ */
+function cu_initials(string $name): string
+{
+    $name = trim($name);
+    if ($name === '') {
+        return '?';
+    }
+    $chars = function_exists('mb_substr') ? mb_substr($name, 0, 2) : substr($name, 0, 2);
+    return function_exists('mb_strtoupper') ? mb_strtoupper($chars) : strtoupper($chars);
+}
+
+function cu_display_name(array $customer): string
+{
+    if (!empty($customer['first_name'])) {
+        return trim($customer['first_name'] . ' ' . $customer['last_name']);
+    }
+    if (!empty($customer['company_name'])) {
+        return $customer['company_name'];
+    }
+    return 'Customer';
+}
+
+function build_query_url(array $overrides = []): string
+{
+    $current = ['search' => $_GET['search'] ?? '', 'sort' => $_GET['sort'] ?? '', 'page' => $_GET['page'] ?? ''];
+    $merged = array_merge($current, $overrides);
+    $merged = array_filter($merged, fn($v) => $v !== '' && $v !== null);
+    if (isset($merged['sort']) && $merged['sort'] === 'newest') {
+        unset($merged['sort']); // default order, keep the URL clean
+    }
+    return 'admin_customers.php' . ($merged ? ('?' . http_build_query($merged)) : '');
+}
+
+$open_id = isset($_GET['open']) ? (int) $_GET['open'] : 0;
+
+// Display-only values for the result range.
+$range_from = $total_customers_matching > 0 ? $offset + 1 : 0;
+$range_to = $offset + count($customers);
+$is_filtered = ($search !== '');
 ?>
 
 <!DOCTYPE html>
@@ -409,219 +475,305 @@ $stats = $stats_result->fetch_assoc();
 
 <body class="page-customers" data-page="customers">
     <div class="admin-container">
-        <div class="main-content">
-            <div class="header">
-                <h1>Customer Management</h1>
-            </div>
+        <main class="main-content">
+            <div class="wa-page">
 
-            <!-- Statistics Cards -->
-            <div class="stats-grid">
-                <div class="stat-card customers">
-                    <i class="fas fa-users"></i>
-                    <div class="stat-number"><?php echo $stats['total_customers']; ?></div>
-                    <div class="stat-label">Total Customers</div>
-                </div>
-                <div class="stat-card orders">
-                    <i class="fas fa-shopping-cart"></i>
-                    <div class="stat-number"><?php echo round($stats['avg_orders_per_customer'], 1); ?></div>
-                    <div class="stat-label">Avg Orders per Customer</div>
-                </div>
-            </div>
-
-            <!-- Search and Filter -->
-            <div class="search-filter">
-                <form method="GET" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                    <input type="text" name="search" placeholder="Search by name, email, or phone..."
-                        value="<?php echo htmlspecialchars($search); ?>" style="min-width: 250px;">
-
-                    <select name="sort">
-                        <option value="newest" <?php echo $sort === 'newest' ? 'selected' : ''; ?>>Newest First</option>
-                        <option value="name" <?php echo $sort === 'name' ? 'selected' : ''; ?>>Name A-Z</option>
-                        <option value="orders" <?php echo $sort === 'orders' ? 'selected' : ''; ?>>Most Orders</option>
-                        <option value="spent" <?php echo $sort === 'spent' ? 'selected' : ''; ?>>Highest Spent</option>
-                    </select>
-
-                    <button type="submit" class="search-btn">
-                        <i class="fas fa-search"></i> Search
-                    </button>
-
-                    <a href="admin_customers.php" class="btn" style="background: var(--gray); color: white; text-decoration: none; padding: 10px 15px;">
-                        <i class="fas fa-times"></i> Clear
-                    </a>
-                </form>
-            </div>
-
-            <!-- Customers Table -->
-            <div class="customers-table">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Customer</th>
-                            <th>Contact Info</th>
-                            <th>Orders</th>
-                            <th>Total Spent</th>
-                            <th>Last Order</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($customers as $customer): ?>
-                            <tr>
-                                <td><?php echo $customer['id']; ?></td>
-                                <td>
-                                    <strong>
-                                        <?php
-                                        if (!empty($customer['first_name'])) {
-                                            echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']);
-                                        } elseif (!empty($customer['company_name'])) {
-                                            echo htmlspecialchars($customer['company_name']);
-                                        } else {
-                                            echo 'Customer';
-                                        }
-                                        ?>
-                                    </strong>
-                                    <br>
-                                    <small class="text-muted">
-                                        <i class="fas fa-envelope"></i> <?php echo htmlspecialchars($customer['username']); ?>
-                                    </small>
-                                    <?php if (!empty($customer['middle_name'])): ?>
-                                        <br>
-                                        <small class="text-muted">Middle: <?php echo htmlspecialchars($customer['middle_name']); ?></small>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <?php if (!empty($customer['contact_number']) || !empty($customer['company_contact'])): ?>
-                                        <i class="fas fa-phone"></i>
-                                        <?php echo htmlspecialchars($customer['contact_number'] ?: $customer['company_contact']); ?>
-                                        <br>
-                                    <?php endif; ?>
-
-                                    <?php if (!empty($customer['city']) || !empty($customer['company_city'])): ?>
-                                        <i class="fas fa-map-marker-alt"></i>
-                                        <?php echo htmlspecialchars($customer['city'] ?: $customer['company_city']); ?>
-                                    <?php else: ?>
-                                        <span class="text-muted">No location info</span>
-                                    <?php endif; ?>
-                                </td>
-
-                                <td>
-                                    <strong><?php echo $customer['order_count']; ?> orders</strong>
-                                </td>
-                                <td>
-                                    <strong>₱<?php echo number_format($customer['total_spent'], 2); ?></strong>
-                                </td>
-                                <td>
-                                    <?php if ($customer['last_order_date']): ?>
-                                        <?php echo date('M j, Y', strtotime($customer['last_order_date'])); ?>
-                                    <?php else: ?>
-                                        <span class="text-muted">No orders yet</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <div class="action-buttons">
-                                        <button class="btn btn-info" onclick="viewCustomerDetails(<?php echo $customer['id']; ?>)">
-                                            <i class="fas fa-eye"></i> View
-                                        </button>
-                                        <button class="btn btn-warning" onclick="editCustomer(<?php echo $customer['id']; ?>)">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </button>
-                                        <button class="btn btn-danger" onclick="confirmDelete(<?php echo (int) $customer['id']; ?>, <?php echo esc_attr_js($customer['username']); ?>)">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-
-            <?php if ($total_pages > 1):
-                // Preserve search/sort on every pagination link
-                $base_params = [];
-                if (!empty($search)) {
-                    $base_params['search'] = $search;
-                }
-                if (!empty($sort) && $sort !== 'newest') {
-                    $base_params['sort'] = $sort;
-                }
-                $page_url = function ($p) use ($base_params) {
-                    return '?' . http_build_query(array_merge($base_params, ['page' => $p]));
-                };
-            ?>
-                <div class="pagination">
-                    <span class="pagination-summary">
-                        Showing <?php echo $offset + 1; ?>–<?php echo min($offset + $per_page, $total_customers_matching); ?>
-                        of <?php echo $total_customers_matching; ?> customers
-                    </span>
-                    <div class="pagination-controls">
-                        <a href="<?php echo htmlspecialchars($page_url(max(1, $page - 1))); ?>"
-                           class="btn <?php echo $page <= 1 ? 'btn-disabled' : ''; ?>"
-                           <?php echo $page <= 1 ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>
-                            <i class="fas fa-chevron-left"></i> Prev
-                        </a>
-                        <?php
-                        $window = 2;
-                        for ($p = 1; $p <= $total_pages; $p++) {
-                            $show = $p === 1 || $p === $total_pages || abs($p - $page) <= $window;
-                            if (!$show) {
-                                if ($p === 2 || $p === $total_pages - 1) {
-                                    echo '<span class="pagination-ellipsis">&hellip;</span>';
-                                }
-                                continue;
-                            }
-                            $active = $p === $page ? 'active' : '';
-                            echo '<a href="' . htmlspecialchars($page_url($p)) . '" class="btn ' . $active . '">' . $p . '</a>';
-                        }
-                        ?>
-                        <a href="<?php echo htmlspecialchars($page_url(min($total_pages, $page + 1))); ?>"
-                           class="btn <?php echo $page >= $total_pages ? 'btn-disabled' : ''; ?>"
-                           <?php echo $page >= $total_pages ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>
-                            Next <i class="fas fa-chevron-right"></i>
+                <!-- 1. Page header -->
+                <header class="wa-page-head">
+                    <div>
+                        <h1 class="wa-page-title">Customer Management</h1>
+                        <p class="wa-page-desc">Browse registered customers, review their order history and keep their details up to date.</p>
+                    </div>
+                    <div class="wa-page-actions">
+                        <a class="btn btn-secondary" href="<?php echo build_query_url(); ?>">
+                            <i class="fas fa-rotate" aria-hidden="true"></i> Refresh
                         </a>
                     </div>
-                </div>
-            <?php endif; ?>
-        </div>
+                </header>
+
+                <!-- 2. Summary -->
+                <section class="wa-stats" aria-label="Customer summary">
+                    <a class="wa-stat tone-total <?php echo (!$is_filtered && $sort === 'newest') ? 'is-active' : ''; ?>" href="admin_customers.php">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-users"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Total customers</span>
+                            <span class="wa-stat-value"><?php echo $total_customers; ?></span>
+                            <span class="wa-stat-sub">All registered accounts</span>
+                        </span>
+                    </a>
+                    <div class="wa-stat tone-completed">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-user"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Personal</span>
+                            <span class="wa-stat-value"><?php echo $personal_total; ?></span>
+                            <span class="wa-stat-sub">Individual customers</span>
+                        </span>
+                    </div>
+                    <div class="wa-stat tone-processing">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-building"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Company</span>
+                            <span class="wa-stat-value"><?php echo $company_total; ?></span>
+                            <span class="wa-stat-sub">Business accounts</span>
+                        </span>
+                    </div>
+                    <div class="wa-stat tone-pending">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-cart-shopping"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Avg orders per customer</span>
+                            <span class="wa-stat-value"><?php echo $avg_orders; ?></span>
+                            <span class="wa-stat-sub">Across all customers</span>
+                        </span>
+                    </div>
+                </section>
+
+                <!-- 3 + 4. Search, sort and quick sort tabs (one control) -->
+                <section class="wa-filterbar" aria-label="Search and sort customers">
+                    <form class="wa-filterbar-form" method="get" action="admin_customers.php" role="search">
+                        <div class="wa-search">
+                            <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                            <input type="search" name="search" id="customerSearch" value="<?php echo htmlspecialchars($search); ?>"
+                                placeholder="Search by name, email or phone" aria-label="Search customers by name, email or phone" autocomplete="off">
+                            <?php if ($search !== ''): ?>
+                                <a class="wa-search-clear" href="<?php echo build_query_url(['search' => '', 'page' => '']); ?>" aria-label="Clear search" title="Clear search">
+                                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                        <div class="wa-select">
+                            <label class="sr-only" for="customerSortFilter">Sort customers</label>
+                            <select name="sort" id="customerSortFilter">
+                                <?php foreach ($SORT_LABELS as $val => $label): ?>
+                                    <option value="<?php echo $val; ?>" <?php echo $sort === $val ? 'selected' : ''; ?>><?php echo htmlspecialchars($label); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-filter" aria-hidden="true"></i> Apply</button>
+                        <?php if ($is_filtered || $sort !== 'newest'): ?>
+                            <a href="admin_customers.php" class="btn btn-ghost"><i class="fas fa-rotate-left" aria-hidden="true"></i> Reset</a>
+                        <?php endif; ?>
+                    </form>
+
+                    <nav class="wa-tabs" aria-label="Sort customers">
+                        <?php foreach ($SORT_LABELS as $val => $label):
+                            $is_active = $sort === $val;
+                        ?>
+                            <a class="wa-tab <?php echo $is_active ? 'is-active' : ''; ?>"
+                                href="<?php echo build_query_url(['sort' => $val, 'page' => '']); ?>"
+                                <?php echo $is_active ? 'aria-current="page"' : ''; ?>>
+                                <?php echo htmlspecialchars($label); ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </nav>
+                </section>
+
+                <!-- 5 + 6. Customers data and pagination -->
+                <section class="wa-datacard" aria-labelledby="customersHeading">
+                    <div class="wa-datacard-head">
+                        <div>
+                            <h2 class="wa-datacard-title" id="customersHeading"><?php echo $is_filtered ? 'Matching customers' : 'All customers'; ?></h2>
+                            <p class="wa-datacard-sub">
+                                <?php if ($total_customers_matching > 0): ?>
+                                    Showing <?php echo $range_from; ?>&ndash;<?php echo $range_to; ?> of <?php echo $total_customers_matching; ?> &middot; <?php echo htmlspecialchars(strtolower($SORT_LABELS[$sort])); ?>
+                                <?php else: ?>
+                                    Nothing to show
+                                <?php endif; ?>
+                            </p>
+                        </div>
+                        <?php if ($is_filtered): ?>
+                            <div class="wa-filter-chips" aria-label="Active filters">
+                                <span class="wa-filter-chip">
+                                    <span>Search: &ldquo;<?php echo htmlspecialchars($search); ?>&rdquo;</span>
+                                    <a href="<?php echo build_query_url(['search' => '', 'page' => '']); ?>" aria-label="Remove search filter" title="Remove search filter"><i class="fas fa-xmark" aria-hidden="true"></i></a>
+                                </span>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="wa-table-wrap">
+                        <table class="ord-table cust-table">
+                            <caption class="sr-only">Customers</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Customer</th>
+                                    <th scope="col">Contact</th>
+                                    <th scope="col" class="is-num">Orders</th>
+                                    <th scope="col" class="is-num">Total spent</th>
+                                    <th scope="col">Last order</th>
+                                    <th scope="col"><span class="sr-only">Actions</span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="customersTable">
+                                <?php if (empty($customers)): ?>
+                                    <tr>
+                                        <td colspan="6" class="empty-row">
+                                            <div class="wa-empty">
+                                                <span class="wa-empty-icon" aria-hidden="true"><i class="fas fa-user-slash"></i></span>
+                                                <div class="wa-empty-title">No customers found</div>
+                                                <p class="wa-empty-text">
+                                                    <?php echo $is_filtered ? 'Nothing matches the current search. Try a different term or clear the search.' : 'Customers will appear here as they register.'; ?>
+                                                </p>
+                                                <?php if ($is_filtered): ?>
+                                                    <a href="admin_customers.php" class="btn btn-outline btn-sm"><i class="fas fa-rotate-left" aria-hidden="true"></i> Clear search</a>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                                <?php foreach ($customers as $customer):
+                                    $display_name = cu_display_name($customer);
+                                    $is_company_row = empty($customer['first_name']) && !empty($customer['company_name']);
+                                    $phone = $customer['contact_number'] ?: ($customer['company_contact'] ?? '');
+                                    $city = $customer['city'] ?: ($customer['company_city'] ?? '');
+                                ?>
+                                    <tr class="ord-row cust-row" id="customer-row-<?php echo (int) $customer['id']; ?>"
+                                        data-name="<?php echo htmlspecialchars($display_name); ?>"
+                                        data-email="<?php echo htmlspecialchars($customer['username']); ?>">
+                                        <td class="cust-col-customer">
+                                            <div class="cust-customer">
+                                                <span class="wa-avatar" aria-hidden="true"><?php echo htmlspecialchars(cu_initials($display_name)); ?></span>
+                                                <div>
+                                                    <div class="cust-name-row">
+                                                        <button type="button" class="cust-name" onclick="openCustomerPanel(<?php echo (int) $customer['id']; ?>)"
+                                                            title="<?php echo htmlspecialchars($display_name); ?>"
+                                                            aria-label="View <?php echo htmlspecialchars($display_name); ?>"><?php echo htmlspecialchars($display_name); ?></button>
+                                                        <?php if ($is_company_row): ?>
+                                                            <span class="wa-chip tone-total"><i class="fas fa-building" aria-hidden="true"></i> Company</span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                    <div class="cust-sub">
+                                                        <i class="fas fa-envelope" aria-hidden="true"></i>
+                                                        <span title="<?php echo htmlspecialchars($customer['username']); ?>"><?php echo htmlspecialchars($customer['username']); ?></span>
+                                                    </div>
+                                                    <div class="ord-meta">User ID <?php echo (int) $customer['id']; ?></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="cust-col-contact">
+                                            <?php if ($phone !== '' || $city !== ''): ?>
+                                                <div class="cust-contact">
+                                                    <?php if ($phone !== ''): ?>
+                                                        <div><i class="fas fa-phone" aria-hidden="true"></i> <?php echo htmlspecialchars($phone); ?></div>
+                                                    <?php endif; ?>
+                                                    <?php if ($city !== ''): ?>
+                                                        <div><i class="fas fa-location-dot" aria-hidden="true"></i> <?php echo htmlspecialchars($city); ?></div>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php else: ?>
+                                                <span class="cust-muted">No contact info</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="cust-col-orders is-num">
+                                            <span class="cust-count"><?php echo (int) $customer['order_count']; ?> <small><?php echo ((int) $customer['order_count'] === 1) ? 'order' : 'orders'; ?></small></span>
+                                        </td>
+                                        <td class="cust-col-spent is-num">
+                                            <span class="ord-total">&#8369;<?php echo number_format($customer['total_spent'], 2); ?></span>
+                                        </td>
+                                        <td class="cust-col-last">
+                                            <?php if ($customer['last_order_date']): ?>
+                                                <time class="cust-date" datetime="<?php echo date('c', strtotime($customer['last_order_date'])); ?>"><?php echo date('M j, Y', strtotime($customer['last_order_date'])); ?></time>
+                                            <?php else: ?>
+                                                <span class="cust-muted">No orders yet</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="cust-col-actions">
+                                            <div class="ord-actions">
+                                                <button type="button" class="btn btn-sm btn-outline" onclick="openCustomerPanel(<?php echo (int) $customer['id']; ?>)">
+                                                    <i class="fas fa-eye" aria-hidden="true"></i> View
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline btn-icon" onclick="editCustomer(<?php echo (int) $customer['id']; ?>)"
+                                                    aria-label="Edit <?php echo htmlspecialchars($display_name); ?>" title="Edit customer">
+                                                    <i class="fas fa-pen-to-square" aria-hidden="true"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline btn-icon cust-delete" onclick="confirmDelete(<?php echo (int) $customer['id']; ?>, <?php echo esc_attr_js($customer['username']); ?>)"
+                                                    aria-label="Delete <?php echo htmlspecialchars($display_name); ?>" title="Delete customer">
+                                                    <i class="fas fa-trash" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="wa-datacard-foot">
+                        <span class="wa-datacard-foot-text">Showing <?php echo count($customers); ?> of <?php echo $total_customers_matching; ?> customers</span>
+                        <?php if ($total_pages > 1): ?>
+                            <nav class="wa-pager" aria-label="Pagination">
+                                <a class="wa-pager-link <?php echo $page <= 1 ? 'is-disabled' : ''; ?>" href="<?php echo build_query_url(['page' => $page - 1]); ?>"
+                                    <?php echo $page <= 1 ? 'aria-disabled="true" tabindex="-1"' : ''; ?>><i class="fas fa-chevron-left" aria-hidden="true"></i> Prev</a>
+                                <?php
+                                $window = 2;
+                                for ($p = 1; $p <= $total_pages; $p++) {
+                                    $show = $p === 1 || $p === $total_pages || abs($p - $page) <= $window;
+                                    if (!$show) {
+                                        if ($p === 2 || $p === $total_pages - 1) {
+                                            echo '<span class="wa-pager-gap" aria-hidden="true">&hellip;</span>';
+                                        }
+                                        continue;
+                                    }
+                                    $active = $p === $page;
+                                    echo '<a class="wa-pager-link' . ($active ? ' is-active' : '') . '" href="' . build_query_url(['page' => $p]) . '"'
+                                        . ($active ? ' aria-current="page"' : '') . ' aria-label="Page ' . $p . '">' . $p . '</a>';
+                                }
+                                ?>
+                                <a class="wa-pager-link <?php echo $page >= $total_pages ? 'is-disabled' : ''; ?>" href="<?php echo build_query_url(['page' => $page + 1]); ?>"
+                                    <?php echo $page >= $total_pages ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>Next <i class="fas fa-chevron-right" aria-hidden="true"></i></a>
+                            </nav>
+                        <?php endif; ?>
+                    </div>
+                </section>
+
+            </div>
+        </main>
     </div>
 
-    <!-- Customer Details Modal -->
-    <div id="customerModal" class="modal">
-        <div class="modal-content modal-lg">
-            <div class="modal-header">
-                <h2><i class="fas fa-user-circle"></i> Customer Details</h2>
-                <button type="button" class="modal-close" onclick="closeModal(\'customerModal\')" aria-label="Close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="customerDetails">
-                    <!-- Content will be loaded via AJAX -->
+    <!-- Customer detail slide-over panel -->
+    <div class="panel-overlay" id="panelOverlay" onclick="closeCustomerPanel()"></div>
+    <aside class="slide-panel" id="slidePanel" role="dialog" aria-modal="true" aria-labelledby="panelTitle" aria-hidden="true">
+        <div class="panel-header">
+            <div class="panel-heading">
+                <div class="panel-title-row">
+                    <h2 id="panelTitle">Customer Details</h2>
+                    <span id="panelHeadBadge"></span>
                 </div>
+                <p class="panel-subtitle" id="panelSubtitle"></p>
+            </div>
+            <button type="button" class="panel-close" id="panelClose" onclick="closeCustomerPanel()" aria-label="Close customer details"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+        </div>
+        <div class="panel-status-bar" id="panelStatusBar"></div>
+        <div class="panel-body" id="panelBody" aria-live="polite">
+            <div class="od-skeleton" aria-hidden="true">
+                <div class="od-section"><div class="od-section-body"><span class="wa-skel" style="width:40%"></span><span class="wa-skel"></span><span class="wa-skel" style="width:70%"></span></div></div>
             </div>
         </div>
-    </div>
+    </aside>
 
-    <!-- Edit Customer Modal -->
-    <div id="editCustomerModal" class="modal">
+    <!-- Edit Customer dialog -->
+    <div class="modal" id="editCustomerModal" role="dialog" aria-modal="true" aria-labelledby="editCustomerTitle">
         <div class="modal-content modal-lg">
             <div class="modal-header">
-                <h2><i class="fas fa-edit"></i> Edit Customer</h2>
-                <button type="button" class="modal-close" onclick="closeModal(\'editCustomerModal\')" aria-label="Close">&times;</button>
+                <div>
+                    <h2 id="editCustomerTitle">Edit customer</h2>
+                    <p class="ord-dialog-sub" id="editCustomerSub"></p>
+                </div>
+                <button type="button" class="modal-close" onclick="closeModal('editCustomerModal')" aria-label="Close">&times;</button>
             </div>
             <form id="editCustomerForm" method="post">
-<?php echo csrf_field(); ?>
+                <?php echo csrf_field(); ?>
                 <div class="modal-body">
                     <input type="hidden" name="action" value="update_customer">
                     <input type="hidden" name="user_id" id="editUserId">
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label><i class="fas fa-envelope"></i> Username/Email</label>
+                            <label for="editUsername"><i class="fas fa-envelope" aria-hidden="true"></i> Username / email</label>
                             <input type="email" name="username" id="editUsername" class="form-control" required>
                         </div>
 
                         <div class="form-group" id="personalContactGroup">
-                            <label><i class="fas fa-phone"></i> Phone Number</label>
+                            <label for="editContactNumber"><i class="fas fa-phone" aria-hidden="true"></i> Phone number</label>
                             <input type="text" name="contact_number" id="editContactNumber" class="form-control">
                         </div>
                     </div>
@@ -630,23 +782,23 @@ $stats = $stats_result->fetch_assoc();
                     <div id="personalFields">
                         <div class="form-row">
                             <div class="form-group">
-                                <label><i class="fas fa-user"></i> First Name</label>
+                                <label for="editFirstName"><i class="fas fa-user" aria-hidden="true"></i> First name</label>
                                 <input type="text" name="first_name" id="editFirstName" class="form-control">
                             </div>
 
                             <div class="form-group">
-                                <label><i class="fas fa-user"></i> Last Name</label>
+                                <label for="editLastName"><i class="fas fa-user" aria-hidden="true"></i> Last name</label>
                                 <input type="text" name="last_name" id="editLastName" class="form-control">
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <label><i class="fas fa-map-marker-alt"></i> Address Line 1</label>
+                            <label for="editAddressLine1"><i class="fas fa-location-dot" aria-hidden="true"></i> Address line 1</label>
                             <input type="text" name="address_line1" id="editAddressLine1" class="form-control">
                         </div>
 
                         <div class="form-group">
-                            <label><i class="fas fa-city"></i> City</label>
+                            <label for="editCity"><i class="fas fa-city" aria-hidden="true"></i> City</label>
                             <input type="text" name="city" id="editCity" class="form-control">
                         </div>
                     </div>
@@ -655,79 +807,80 @@ $stats = $stats_result->fetch_assoc();
                     <div id="companyFields" style="display: none;">
                         <div class="form-row">
                             <div class="form-group">
-                                <label><i class="fas fa-building"></i> Company Name</label>
+                                <label for="editCompanyName"><i class="fas fa-building" aria-hidden="true"></i> Company name</label>
                                 <input type="text" name="company_name" id="editCompanyName" class="form-control">
                             </div>
 
                             <div class="form-group">
-                                <label><i class="fas fa-file-invoice"></i> Taxpayer Name</label>
+                                <label for="editTaxpayerName"><i class="fas fa-file-invoice" aria-hidden="true"></i> Taxpayer name</label>
                                 <input type="text" name="taxpayer_name" id="editTaxpayerName" class="form-control">
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label><i class="fas fa-user"></i> Contact Person</label>
+                                <label for="editContactPerson"><i class="fas fa-user" aria-hidden="true"></i> Contact person</label>
                                 <input type="text" name="contact_person" id="editContactPerson" class="form-control">
                             </div>
 
                             <div class="form-group">
-                                <label><i class="fas fa-phone"></i> Phone Number</label>
+                                <label for="editCompanyContactNumber"><i class="fas fa-phone" aria-hidden="true"></i> Phone number</label>
                                 <input type="text" name="company_contact_number" id="editCompanyContactNumber" class="form-control">
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Building/Block</label>
+                                <label for="editBuildingOrBlock">Building / block</label>
                                 <input type="text" name="building_or_block" id="editBuildingOrBlock" class="form-control">
                             </div>
                             <div class="form-group">
-                                <label>Lot/Room No.</label>
+                                <label for="editLotOrRoomNo">Lot / room no.</label>
                                 <input type="text" name="lot_or_room_no" id="editLotOrRoomNo" class="form-control">
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Subdivision/Street</label>
+                                <label for="editSubdOrStreet">Subdivision / street</label>
                                 <input type="text" name="subd_or_street" id="editSubdOrStreet" class="form-control">
                             </div>
                             <div class="form-group">
-                                <label>Barangay</label>
+                                <label for="editBarangay">Barangay</label>
                                 <input type="text" name="barangay" id="editBarangay" class="form-control">
                             </div>
                         </div>
 
                         <div class="form-row cols-3">
                             <div class="form-group">
-                                <label><i class="fas fa-city"></i> City</label>
+                                <label for="editCompanyCity"><i class="fas fa-city" aria-hidden="true"></i> City</label>
                                 <input type="text" name="company_city" id="editCompanyCity" class="form-control">
                             </div>
                             <div class="form-group">
-                                <label>Province</label>
+                                <label for="editCompanyProvince">Province</label>
                                 <input type="text" name="company_province" id="editCompanyProvince" class="form-control">
                             </div>
                             <div class="form-group">
-                                <label>Zip Code</label>
+                                <label for="editCompanyZipCode">Zip code</label>
                                 <input type="text" name="company_zip_code" id="editCompanyZipCode" class="form-control">
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('editCustomerModal')">
-                        <i class="fas fa-times"></i> Cancel
-                    </button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-save"></i> Update Customer
-                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('editCustomerModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update customer</button>
                 </div>
             </form>
         </div>
     </div>
 
+    <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
     <?php
+    $wa_data = [
+        'openId' => (int) $open_id,
+    ];
     ?>
     <script>
         window.WA_CONFIG = {
@@ -735,7 +888,8 @@ $stats = $stats_result->fetch_assoc();
             flash: {
                 message: <?php echo isset($_SESSION['message']) ? esc_js($_SESSION['message']) : 'null'; ?>,
                 error: <?php echo isset($_SESSION['error']) ? esc_js($_SESSION['error']) : 'null'; ?>
-            }
+            },
+            data: <?php echo json_encode($wa_data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>
         };
         <?php unset($_SESSION['message'], $_SESSION['error']); ?>
     </script>

@@ -110,6 +110,35 @@ $status_distribution = [];
 while ($row = $status_distribution_result->fetch_assoc()) {
     $status_distribution[] = $row;
 }
+// Recent orders (presentation query only - moved out of the markup)
+$recent_orders = [];
+$result = $inventory->query("SELECT o.*, u.username
+                             FROM orders o
+                             JOIN users u ON o.user_id = u.id
+                             ORDER BY o.created_at DESC
+                             LIMIT 5");
+while ($row = $result->fetch_assoc()) {
+    $recent_orders[] = $row;
+}
+
+function dash_initials(string $name): string
+{
+    $name = trim($name);
+    if ($name === '') {
+        return '?';
+    }
+    $chars = function_exists('mb_substr') ? mb_substr($name, 0, 2) : substr($name, 0, 2);
+    return function_exists('mb_strtoupper') ? mb_strtoupper($chars) : strtoupper($chars);
+}
+
+$dash_status_labels = [
+    'pending' => 'Pending',
+    'paid' => 'Paid',
+    'processing' => 'Processing',
+    'ready_for_pickup' => 'Ready for Pickup',
+    'completed' => 'Completed',
+    'cancelled' => 'Cancelled',
+];
 ?>
 
 <!DOCTYPE html>
@@ -129,122 +158,215 @@ while ($row = $status_distribution_result->fetch_assoc()) {
 
 <body class="page-dashboard" data-page="dashboard">
     <div class="admin-container">
-        <!-- Main Content -->
-        <div class="main-content">
-            <div class="header">
-                <h1>Monthly Website Overview - <?php echo date('F Y'); ?></h1>
-            </div>
+        <main class="main-content">
+            <div class="wa-page">
 
-            <!-- Statistics Cards -->
-            <div class="stats-grid">
-                <a href="admin_orders.php" class="stat-card orders">
-                    <i class="fas fa-shopping-cart"></i>
-                    <div class="stat-number"><?php echo $stats['total_orders']; ?></div>
-                    <div class="stat-label">Total Orders</div>
-                    <div class="stat-card-hint">View all orders →</div>
-                </a>
-                <?php if ($can_web_finance): ?>
-                <a href="admin_reports.php" class="stat-card revenue">
-                    <i class="fas fa-money-bill-wave"></i>
-                    <div class="stat-number">₱<?php echo number_format($stats['total_revenue'], 2); ?></div>
-                    <div class="stat-label">Total Revenue</div>
-                    <div class="stat-card-hint">View reports →</div>
-                </a>
-                <?php endif; ?>
-                <a href="admin_orders.php?status=pending" class="stat-card pending">
-                    <i class="fas fa-clock"></i>
-                    <div class="stat-number"><?php echo $stats['pending_orders']; ?></div>
-                    <div class="stat-label">Pending Orders</div>
-                    <div class="stat-card-hint">View pending →</div>
-                </a>
-                <a href="admin_orders.php?status=completed" class="stat-card completed">
-                    <i class="fas fa-check-circle"></i>
-                    <div class="stat-number"><?php echo $stats['completed_orders']; ?></div>
-                    <div class="stat-label">Completed Orders</div>
-                    <div class="stat-card-hint">View completed →</div>
-                </a>
-                <a href="admin_customers.php" class="stat-card customers">
-                    <i class="fas fa-users"></i>
-                    <div class="stat-number"><?php echo $stats['total_customers']; ?></div>
-                    <div class="stat-label">Total Customers</div>
-                    <div class="stat-card-hint">View customers →</div>
-                </a>
-            </div>
+                <!-- 1. Page header -->
+                <header class="wa-page-head">
+                    <div>
+                        <h1 class="wa-page-title">Monthly Website Overview</h1>
+                        <p class="wa-page-desc"><?php echo date('F Y'); ?> &middot; orders, customers and top-selling products at a glance.</p>
+                    </div>
+                    <div class="wa-page-actions">
+                        <?php if ($stats['pending_orders'] > 0): ?>
+                            <a class="wa-chip tone-pending" href="admin_orders.php?status=pending">
+                                <span class="wa-dot" aria-hidden="true"></span>
+                                <?php echo (int) $stats['pending_orders']; ?>&nbsp;pending
+                            </a>
+                        <?php endif; ?>
+                        <?php if ($can_web_finance): ?>
+                            <a class="btn btn-secondary" href="admin_reports.php"><i class="fas fa-chart-line" aria-hidden="true"></i> Reports</a>
+                        <?php endif; ?>
+                        <a class="btn btn-primary" href="admin_orders.php"><i class="fas fa-receipt" aria-hidden="true"></i> All orders</a>
+                    </div>
+                </header>
 
-            <!-- Charts Section -->
-            <div class="charts-section<?php echo $can_web_finance ? '' : ' charts-section--single'; ?>">
-                <div class="chart-container"<?php if (!$can_web_finance) echo ' style="display:none"'; ?>>
-                    <h3 class="chart-title">Cumulative Revenue - <?php echo date('Y'); ?> (Monthly)</h3>
-                    <canvas id="revenueChart"></canvas>
+                <!-- 2. Summary -->
+                <section class="wa-stats" aria-label="Monthly summary">
+                    <a class="wa-stat tone-paid" href="admin_orders.php">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-shopping-cart"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Total orders</span>
+                            <span class="wa-stat-value"><?php echo (int) $stats['total_orders']; ?></span>
+                            <span class="wa-stat-sub">View all orders</span>
+                        </span>
+                    </a>
+                    <?php if ($can_web_finance): ?>
+                        <a class="wa-stat tone-completed" href="admin_reports.php">
+                            <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-money-bill-wave"></i></span>
+                            <span class="wa-stat-body">
+                                <span class="wa-stat-label">Total revenue</span>
+                                <span class="wa-stat-value">&#8369;<?php echo number_format($stats['total_revenue'], 2); ?></span>
+                                <span class="wa-stat-sub">View reports</span>
+                            </span>
+                        </a>
+                    <?php endif; ?>
+                    <a class="wa-stat tone-pending" href="admin_orders.php?status=pending">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-clock"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Pending orders</span>
+                            <span class="wa-stat-value"><?php echo (int) $stats['pending_orders']; ?></span>
+                            <span class="wa-stat-sub">View pending</span>
+                        </span>
+                    </a>
+                    <a class="wa-stat tone-ready_for_pickup" href="admin_orders.php?status=completed">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-circle-check"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Completed orders</span>
+                            <span class="wa-stat-value"><?php echo (int) $stats['completed_orders']; ?></span>
+                            <span class="wa-stat-sub">View completed</span>
+                        </span>
+                    </a>
+                    <a class="wa-stat tone-processing" href="admin_customers.php">
+                        <span class="wa-stat-icon" aria-hidden="true"><i class="fas fa-users"></i></span>
+                        <span class="wa-stat-body">
+                            <span class="wa-stat-label">Total customers</span>
+                            <span class="wa-stat-value"><?php echo (int) $stats['total_customers']; ?></span>
+                            <span class="wa-stat-sub">View customers</span>
+                        </span>
+                    </a>
+                </section>
+
+                <!-- 3. Charts -->
+                <div class="wa-dash-grid<?php echo $can_web_finance ? '' : ' wa-dash-grid--single'; ?>">
+                    <?php if ($can_web_finance): ?>
+                        <section class="wa-datacard" aria-labelledby="revenueHeading">
+                            <div class="wa-datacard-head">
+                                <div>
+                                    <h2 class="wa-datacard-title" id="revenueHeading">Cumulative revenue</h2>
+                                    <p class="wa-datacard-sub"><?php echo date('Y'); ?> &middot; month by month</p>
+                                </div>
+                            </div>
+                            <div class="dash-chart">
+                                <canvas id="revenueChart" aria-label="Cumulative revenue by month"></canvas>
+                            </div>
+                        </section>
+                    <?php endif; ?>
+                    <section class="wa-datacard" aria-labelledby="statusHeading">
+                        <div class="wa-datacard-head">
+                            <div>
+                                <h2 class="wa-datacard-title" id="statusHeading">Order status distribution</h2>
+                                <p class="wa-datacard-sub"><?php echo date('F Y'); ?></p>
+                            </div>
+                        </div>
+                        <div class="dash-chart dash-chart--doughnut">
+                            <canvas id="statusChart" aria-label="Orders by status"></canvas>
+                        </div>
+                    </section>
                 </div>
-                <div class="chart-container">
-                    <h3 class="chart-title">Order Status Distribution</h3>
-                    <canvas id="statusChart"></canvas>
-                </div>
-            </div>
 
-            <!-- Recent Orders & Top Products -->
-            <div class="charts-section">
-                <div class="chart-container">
-                    <h3 class="chart-title">Recent Orders</h3>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Order ID</th>
-                                <th>Customer</th>
-                                <?php if ($can_web_finance): ?><th>Amount</th><?php endif; ?>
-                                <th>Status</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php
-                            $query = "SELECT o.*, u.username 
-                                      FROM orders o 
-                                      JOIN users u ON o.user_id = u.id 
-                                      ORDER BY o.created_at DESC 
-                                      LIMIT 5";
-                            $result = $inventory->query($query);
-                            while ($order = $result->fetch_assoc()):
-                            ?>
+                <!-- 4. Recent orders -->
+                <section class="wa-datacard" aria-labelledby="recentHeading">
+                    <div class="wa-datacard-head">
+                        <div>
+                            <h2 class="wa-datacard-title" id="recentHeading">Recent orders</h2>
+                            <p class="wa-datacard-sub">Latest 5 &middot; newest first</p>
+                        </div>
+                        <a class="btn btn-outline btn-sm" href="admin_orders.php">View all orders <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+                    </div>
+
+                    <div class="wa-table-wrap">
+                        <table class="ord-table dash-table">
+                            <caption class="sr-only">Recent orders</caption>
+                            <thead>
                                 <tr>
-                                    <td>#<?php echo $order['order_id']; ?></td>
-                                    <td><?php echo htmlspecialchars($order['username']); ?></td>
-                                    <?php if ($can_web_finance): ?><td>₱<?php echo number_format($order['total_amount'], 2); ?></td><?php endif; ?>
-                                    <td>
-                                        <span class="status-badge status-<?php echo $order['status']; ?>">
-                                            <?php echo ucfirst(str_replace('_', ' ', $order['status'])); ?>
-                                        </span>
-                                    </td>
-                                    <td><?php echo date('M j, Y', strtotime($order['created_at'])); ?></td>
+                                    <th scope="col">Order</th>
+                                    <th scope="col">Customer</th>
+                                    <th scope="col">Date</th>
+                                    <?php if ($can_web_finance): ?><th scope="col" class="is-num">Amount</th><?php endif; ?>
+                                    <th scope="col">Status</th>
                                 </tr>
-                            <?php endwhile; ?>
-                        </tbody>
-                    </table>
-                    <a href="admin_orders.php" class="view-all">View All Orders →</a>
-                </div>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($recent_orders)): ?>
+                                    <tr>
+                                        <td colspan="<?php echo $can_web_finance ? 5 : 4; ?>" class="empty-row">
+                                            <div class="wa-empty">
+                                                <span class="wa-empty-icon" aria-hidden="true"><i class="fas fa-inbox"></i></span>
+                                                <div class="wa-empty-title">No orders yet</div>
+                                                <p class="wa-empty-text">Orders will appear here as customers place them.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                                <?php foreach ($recent_orders as $order):
+                                    $created_ts = strtotime($order['created_at']);
+                                    $status_key = (string) $order['status'];
+                                ?>
+                                    <tr class="ord-row" data-href="admin_orders.php?open=<?php echo (int) $order['order_id']; ?>">
+                                        <td class="ord-col-order">
+                                            <a class="ord-id" href="admin_orders.php?open=<?php echo (int) $order['order_id']; ?>" aria-label="View order #<?php echo (int) $order['order_id']; ?>">#<?php echo (int) $order['order_id']; ?></a>
+                                        </td>
+                                        <td class="ord-col-customer">
+                                            <div class="ord-customer">
+                                                <span class="wa-avatar" aria-hidden="true"><?php echo htmlspecialchars(dash_initials((string) $order['username'])); ?></span>
+                                                <div class="ord-customer-name"><?php echo htmlspecialchars($order['username']); ?></div>
+                                            </div>
+                                        </td>
+                                        <td class="ord-col-payment">
+                                            <div class="ord-meta"><time datetime="<?php echo date('c', $created_ts); ?>"><?php echo date('M j, Y', $created_ts); ?></time></div>
+                                        </td>
+                                        <?php if ($can_web_finance): ?>
+                                            <td class="ord-col-total is-num"><span class="ord-total">&#8369;<?php echo number_format($order['total_amount'], 2); ?></span></td>
+                                        <?php endif; ?>
+                                        <td class="ord-col-status">
+                                            <span class="wa-badge tone-<?php echo htmlspecialchars($status_key); ?>"><?php echo htmlspecialchars($dash_status_labels[$status_key] ?? ucfirst(str_replace('_', ' ', $status_key))); ?></span>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
 
-                <div class="chart-container">
-                    <h3 class="chart-title">Top Products</h3>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Sold</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($top_products as $product): ?>
+                <!-- 5. Top products -->
+                <section class="wa-datacard" aria-labelledby="topHeading">
+                    <div class="wa-datacard-head">
+                        <div>
+                            <h2 class="wa-datacard-title" id="topHeading">Top products</h2>
+                            <p class="wa-datacard-sub"><?php echo date('F Y'); ?> &middot; by units sold</p>
+                        </div>
+                    </div>
+
+                    <div class="wa-table-wrap">
+                        <table class="ord-table dash-table">
+                            <caption class="sr-only">Top products this month</caption>
+                            <thead>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($product['product_name']); ?></td>
-                                    <td><?php echo $product['total_sold']; ?> units</td>
+                                    <th scope="col">Product</th>
+                                    <th scope="col" class="is-num">Sold</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($top_products)): ?>
+                                    <tr>
+                                        <td colspan="2" class="empty-row">
+                                            <div class="wa-empty">
+                                                <span class="wa-empty-icon" aria-hidden="true"><i class="fas fa-box-open"></i></span>
+                                                <div class="wa-empty-title">No sales this month</div>
+                                                <p class="wa-empty-text">Top-selling products will show up once orders are paid.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                                <?php foreach ($top_products as $i => $product): ?>
+                                    <tr class="dash-row">
+                                        <td>
+                                            <div class="ord-customer">
+                                                <span class="wa-avatar" aria-hidden="true"><?php echo $i + 1; ?></span>
+                                                <div class="ord-customer-name"><?php echo htmlspecialchars($product['product_name']); ?></div>
+                                            </div>
+                                        </td>
+                                        <td class="is-num"><span class="ord-total"><?php echo (int) $product['total_sold']; ?> units</span></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
             </div>
-        </div>
+        </main>
     </div>
 
     <?php
