@@ -18,30 +18,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Reports are all revenue / sales figures: only for users the super admin switched on.
 if (!can('web_finance')) {
     http_response_code(403);
+    require_once 'admin_layout.php';
+    admin_layout_start(['page' => 'reports', 'title' => 'Reports']);
     ?>
-    <!DOCTYPE html>
-    <html lang="en">
-
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Reports - Active Media</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-        <link rel="stylesheet" href="../../assets/css/website_admin.css">
-    </head>
-
-    <body class="page-reports" data-page="reports">
-        <div class="admin-container">
-            <div class="main-content" style="display:flex;align-items:center;justify-content:center;min-height:60vh;">
-                <div style="text-align:center;max-width:420px;">
-                    <i class="fas fa-lock" style="font-size:42px;color:#ff4d4f;margin-bottom:16px;"></i>
-                    <h2 style="margin-bottom:8px;">Permission required</h2>
-                    <p style="color:#65676b;line-height:1.6;"><?php echo htmlspecialchars(permission_denied_message('web_finance')); ?></p>
-                </div>
-            </div>
+    <div class="card">
+        <div class="state state--lock">
+            <i class="fas fa-lock" aria-hidden="true"></i>
+            <h3>Permission required</h3>
+            <p><?php echo htmlspecialchars(permission_denied_message('web_finance')); ?></p>
+            <a class="btn btn-secondary btn-sm" href="admin_dashboard.php">Back to dashboard</a>
         </div>
+    </div>
+    <?php
+    admin_layout_end();
+    ?>
+    <script src="../../assets/js/website_admin.js"></script>
     </body>
 
     </html>
@@ -339,328 +330,230 @@ if ($report_type === 'sales') {
 }
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
+<?php
+require_once 'admin_layout.php';
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reports & Analytics - Active Media</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="../../assets/css/website_admin.css">
-</head>
+$range_label = date('M j, Y', strtotime($start_date)) . ' to ' . date('M j, Y', strtotime($end_date));
+$report_titles = ['sales' => 'Sales report', 'customers' => 'Customer report', 'products' => 'Product report'];
+admin_layout_start([
+    'page' => 'reports',
+    'title' => 'Reports',
+    'subtitle' => $report_titles[$report_type] . ': ' . $range_label,
+    'chart' => true,
+    'actions' => '<button type="button" class="btn btn-secondary" data-report-action="export"><i class="fas fa-download" aria-hidden="true"></i> Export CSV</button>',
+]);
+?>
 
-<body class="page-reports" data-page="reports">
-    <div class="admin-container">
-        <div class="main-content">
-            <div class="header">
-                <h1>Reports & Analytics</h1>
+<!-- Report type -->
+<div class="report-tabs tabs" role="tablist" aria-label="Report type">
+    <?php foreach ([['sales', 'fa-chart-line', 'Sales'], ['customers', 'fa-users', 'Customers'], ['products', 'fa-box', 'Products']] as [$key, $icon, $label]): ?>
+        <button type="button" role="tab" aria-selected="<?php echo $report_type === $key ? 'true' : 'false'; ?>"
+            class="tab-btn <?php echo $report_type === $key ? 'active' : ''; ?>" data-report-action="type" data-type="<?php echo $key; ?>">
+            <i class="fas <?php echo $icon; ?>" aria-hidden="true"></i> <?php echo $label; ?>
+        </button>
+    <?php endforeach; ?>
+</div>
+
+<!-- Date range -->
+<div class="report-filters">
+    <form method="GET" id="reportForm">
+        <input type="hidden" name="report_type" id="reportType" value="<?php echo esc_html($report_type); ?>">
+        <div class="filter-row">
+            <div class="form-group">
+                <label for="start_date">From</label>
+                <input type="date" id="start_date" name="start_date" class="form-control" value="<?php echo esc_html($start_date); ?>" required>
             </div>
-
-            <!-- Report Tabs -->
-            <div class="report-tabs">
-                <button class="tab-btn <?php echo $report_type === 'sales' ? 'active' : ''; ?>"
-                    onclick="changeReportType('sales')">
-                    <i class="fas fa-chart-line"></i> Sales Report
-                </button>
-                <button class="tab-btn <?php echo $report_type === 'customers' ? 'active' : ''; ?>"
-                    onclick="changeReportType('customers')">
-                    <i class="fas fa-users"></i> Customer Report
-                </button>
-                <button class="tab-btn <?php echo $report_type === 'products' ? 'active' : ''; ?>"
-                    onclick="changeReportType('products')">
-                    <i class="fas fa-box"></i> Product Report
-                </button>
+            <div class="form-group">
+                <label for="end_date">To</label>
+                <input type="date" id="end_date" name="end_date" class="form-control" value="<?php echo esc_html($end_date); ?>" required>
             </div>
-
-            <!-- Report Filters -->
-            <div class="report-filters">
-                <form method="GET" id="reportForm">
-                    <input type="hidden" name="report_type" id="reportType" value="<?php echo esc_html($report_type); ?>">
-
-                    <div class="filter-row">
-                        <div class="form-group">
-                            <label for="start_date">Start Date</label>
-                            <input type="date" id="start_date" name="start_date" class="form-control"
-                                value="<?php echo esc_html($start_date); ?>" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="end_date">End Date</label>
-                            <input type="date" id="end_date" name="end_date" class="form-control"
-                                value="<?php echo esc_html($end_date); ?>" required>
-                        </div>
-
-                        <div class="form-group">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-filter"></i> Apply Filters
-                            </button>
-                            <button type="button" class="btn btn-secondary" onclick="resetFilters()">
-                                <i class="fas fa-redo"></i> Reset
-                            </button>
-                            <button type="button" class="btn btn-success" onclick="exportReport()">
-                                <i class="fas fa-download"></i> Export Report
-                            </button>
-                        </div>
-                    </div>
-                </form>
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-filter" aria-hidden="true"></i> Apply</button>
+                <button type="button" class="btn btn-secondary" data-report-action="reset"><i class="fas fa-rotate-left" aria-hidden="true"></i> This month</button>
             </div>
-
-            <!-- Sales Report -->
-            <?php if ($report_type === 'sales'): ?>
-                <!-- Sales Statistics -->
-                <div class="stats-grid">
-                    <div class="stat-card orders">
-                        <i class="fas fa-shopping-cart"></i>
-                        <div class="stat-number"><?php echo $sales_data['total_orders'] ?? 0; ?></div>
-                        <div class="stat-label">Total Orders</div>
-                    </div>
-                    <div class="stat-card revenue">
-                        <i class="fas fa-money-bill-wave"></i>
-                        <div class="stat-number">₱ <?php echo number_format($sales_data['total_revenue'] ?? 0, 2); ?></div>
-                        <div class="stat-label">Total Revenue</div>
-                    </div>
-                    <div class="stat-card avg-order">
-                        <i class="fas fa-chart-pie"></i>
-                        <div class="stat-number">₱ <?php echo number_format($sales_data['avg_order_value'] ?? 0, 2); ?></div>
-                        <div class="stat-label">Average Order Value</div>
-                    </div>
-                    <div class="stat-card customers">
-                        <i class="fas fa-users"></i>
-                        <div class="stat-number"><?php echo $sales_data['unique_customers'] ?? 0; ?></div>
-                        <div class="stat-label">Unique Customers</div>
-                    </div>
-                </div>
-
-                <!-- Charts Section -->
-                <div class="charts-section">
-                    <div class="chart-container">
-                        <h3 class="chart-title">Sales Trend</h3>
-                        <canvas id="salesTrendChart"></canvas>
-                    </div>
-                    <div class="chart-container">
-                        <h3 class="chart-title">Order Status Distribution</h3>
-                        <canvas id="statusChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- Detailed table toggle -->
-                <button type="button" class="btn btn-secondary detail-toggle-btn" onclick="toggleDetailTable()">
-                    <i id="toggleDetailIcon" class="fas fa-chevron-down"></i>
-                    <span id="toggleDetailLabel">Show Detailed Table</span>
-                </button>
-
-                <div id="detailTables" class="detail-tables collapsed">
-                    <!-- Top Products -->
-                    <div class="data-table">
-                        <h3 style="padding: 20px 20px 0; margin: 0;">Top Selling Products</h3>
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Product</th>
-                                    <th>Quantity Sold</th>
-                                    <th>Total Revenue</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($top_products as $product): ?>
-                                    <tr>
-                                        <td><?php echo htmlspecialchars($product['product_name']); ?></td>
-                                        <td><?php echo $product['total_sold']; ?></td>
-                                        <td>₱<?php echo number_format($product['total_revenue'], 2); ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            <?php endif; ?>
-
-            <!-- Customer Report -->
-            <?php if ($report_type === 'customers'): ?>
-                <!-- Customer Statistics -->
-                <div class="stats-grid">
-                    <div class="stat-card customers">
-                        <i class="fas fa-users"></i>
-                        <div class="stat-number"><?php echo $customer_stats['active_customers'] ?? 0; ?></div>
-                        <div class="stat-label">Active Customers</div>
-                    </div>
-                    <div class="stat-card orders">
-                        <i class="fas fa-shopping-cart"></i>
-                        <div class="stat-number"><?php echo round($customer_stats['avg_orders_per_customer'] ?? 0, 1); ?></div>
-                        <div class="stat-label">Avg Orders per Customer</div>
-                    </div>
-                    <div class="stat-card revenue">
-                        <i class="fas fa-money-bill-wave"></i>
-                        <div class="stat-number">₱<?php echo number_format($customer_stats['avg_customer_value'] ?? 0, 2); ?></div>
-                        <div class="stat-label">Avg Customer Value</div>
-                    </div>
-                </div>
-
-                <!-- Detailed table toggle -->
-                <button type="button" class="btn btn-secondary detail-toggle-btn" onclick="toggleDetailTable()">
-                    <i id="toggleDetailIcon" class="fas fa-chevron-down"></i>
-                    <span id="toggleDetailLabel">Show Detailed Table</span>
-                </button>
-
-                <div id="detailTables" class="detail-tables collapsed">
-                    <!-- Top Customers -->
-                    <div class="data-table">
-                        <h3 style="padding: 20px 20px 0; margin: 0;">Top Customers</h3>
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Customer</th>
-                                    <th>Orders</th>
-                                    <th>Total Spent</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($top_customers as $customer): ?>
-                                    <tr>
-                                        <td>
-                                            <?php echo htmlspecialchars($customer['first_name'] . ' ' . $customer['last_name']); ?>
-                                            <br>
-                                            <small class="text-muted"><?php echo htmlspecialchars($customer['username']); ?></small>
-                                        </td>
-                                        <td><?php echo $customer['order_count']; ?></td>
-                                        <td>₱<?php echo number_format($customer['total_spent'], 2); ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            <?php endif; ?>
-
-            <!-- Product Report -->
-            <?php if ($report_type === 'products'):
-                $products_total_revenue = array_sum(array_column($category_performance, 'total_revenue'));
-                $top_category = $category_performance[0]['category'] ?? '—';
-            ?>
-                <!-- Product Summary -->
-                <div class="stats-grid">
-                    <div class="stat-card orders">
-                        <i class="fas fa-box"></i>
-                        <div class="stat-number"><?php echo count($product_performance); ?></div>
-                        <div class="stat-label">Products Listed</div>
-                    </div>
-                    <div class="stat-card revenue">
-                        <i class="fas fa-money-bill-wave"></i>
-                        <div class="stat-number">₱<?php echo number_format($products_total_revenue, 2); ?></div>
-                        <div class="stat-label">Total Revenue</div>
-                    </div>
-                    <div class="stat-card customers">
-                        <i class="fas fa-crown"></i>
-                        <div class="stat-number" style="font-size: 1.1rem;"><?php echo htmlspecialchars($top_category); ?></div>
-                        <div class="stat-label">Top Category</div>
-                    </div>
-                </div>
-
-                <!-- Detailed table toggle -->
-                <button type="button" class="btn btn-secondary detail-toggle-btn" onclick="toggleDetailTable()">
-                    <i id="toggleDetailIcon" class="fas fa-chevron-down"></i>
-                    <span id="toggleDetailLabel">Show Detailed Table</span>
-                </button>
-
-                <div id="detailTables" class="detail-tables collapsed">
-                    <!-- Product Performance -->
-                    <div class="data-table">
-                        <h3 style="padding: 20px 20px 0; margin: 0;">Product Performance</h3>
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Product</th>
-                                    <th>Category</th>
-                                    <th>Price</th>
-                                    <th>Times Ordered</th>
-                                    <th>Total Quantity</th>
-                                    <th>Total Revenue</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($product_performance as $product):
-                                    $category_class = 'category-' . strtolower(str_replace(' ', '-', $product['category']));
-                                ?>
-                                    <tr>
-                                        <td><?php echo htmlspecialchars($product['product_name']); ?></td>
-                                        <td>
-                                            <span class="category-badge <?php echo $category_class; ?>">
-                                                <?php echo htmlspecialchars($product['category']); ?>
-                                            </span>
-                                        </td>
-                                        <td>₱<?php echo number_format($product['price'], 2); ?></td>
-                                        <td><?php echo $product['times_ordered']; ?></td>
-                                        <td><?php echo $product['total_quantity']; ?></td>
-                                        <td>₱<?php echo number_format($product['total_revenue'], 2); ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Category Performance -->
-                    <div class="data-table">
-                        <h3 style="padding: 20px 20px 0; margin: 0;">Category Performance</h3>
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Category</th>
-                                    <th>Total Orders</th>
-                                    <th>Total Quantity</th>
-                                    <th>Total Revenue</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($category_performance as $category): ?>
-                                    <tr>
-                                        <td><?php echo htmlspecialchars($category['category']); ?></td>
-                                        <td><?php echo $category['total_orders']; ?></td>
-                                        <td><?php echo $category['total_quantity']; ?></td>
-                                        <td>₱<?php echo number_format($category['total_revenue'], 2); ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            <?php endif; ?>
         </div>
+    </form>
+</div>
+
+<?php
+$toggle_btn = '<button type="button" class="btn btn-secondary detail-toggle-btn" data-report-action="toggle" aria-controls="detailTables">'
+    . '<i id="toggleDetailIcon" class="fas fa-chevron-up" aria-hidden="true"></i> <span id="toggleDetailLabel">Hide detailed tables</span></button>';
+?>
+
+<?php if ($report_type === 'sales'): ?>
+    <div class="kpi-grid">
+        <div class="kpi"><span class="kpi-label"><i class="fas fa-receipt" aria-hidden="true"></i> Orders</span><span class="kpi-value"><?php echo (int) ($sales_data['total_orders'] ?? 0); ?></span><span class="kpi-meta">Paid or later</span></div>
+        <div class="kpi"><span class="kpi-label"><i class="fas fa-money-bill-wave" aria-hidden="true"></i> Revenue</span><span class="kpi-value">&#8369;<?php echo number_format($sales_data['total_revenue'] ?? 0, 2); ?></span><span class="kpi-meta">In this period</span></div>
+        <div class="kpi"><span class="kpi-label"><i class="fas fa-chart-pie" aria-hidden="true"></i> Average order</span><span class="kpi-value">&#8369;<?php echo number_format($sales_data['avg_order_value'] ?? 0, 2); ?></span><span class="kpi-meta">Revenue per order</span></div>
+        <div class="kpi"><span class="kpi-label"><i class="fas fa-users" aria-hidden="true"></i> Unique customers</span><span class="kpi-value"><?php echo (int) ($sales_data['unique_customers'] ?? 0); ?></span><span class="kpi-meta">Who ordered</span></div>
     </div>
 
+    <div class="report-grid">
+        <section class="card chart-card" aria-labelledby="trendTitle">
+            <div class="card-head"><h2 class="card-title" id="trendTitle">Sales trend</h2><span class="card-sub">Daily revenue</span></div>
+            <?php if (empty($daily_sales)): ?>
+                <div class="empty-state"><i class="fas fa-chart-line" aria-hidden="true"></i><h3>No sales in this period</h3><p>Pick a wider date range to see a trend.</p></div>
+            <?php else: ?>
+                <div class="chart-box"><canvas id="salesTrendChart" role="img" aria-label="Daily revenue over the selected period"></canvas></div>
+            <?php endif; ?>
+        </section>
+        <section class="card chart-card" aria-labelledby="statusTitle">
+            <div class="card-head"><h2 class="card-title" id="statusTitle">Order status</h2><span class="card-sub">All orders in range</span></div>
+            <?php if (empty($status_distribution)): ?>
+                <div class="empty-state"><i class="fas fa-chart-pie" aria-hidden="true"></i><h3>No orders in this period</h3></div>
+            <?php else: ?>
+                <div class="chart-box"><canvas id="statusChart" role="img" aria-label="Order status distribution"></canvas></div>
+            <?php endif; ?>
+        </section>
+    </div>
 
-    <!-- SweetAlert Messages -->
-    <?php
-    $wa_charts = ($report_type === 'sales' && !empty($daily_sales)) ? [
-        'salesLabels' => array_column($daily_sales, 'date'),
-        'salesValues' => array_column($daily_sales, 'daily_revenue'),
-        'statusLabels' => array_map(function ($status) {
-            return ucfirst(str_replace('_', ' ', $status['status']));
-        }, $status_distribution),
-        'statusValues' => array_column($status_distribution, 'order_count'),
-    ] : null;
-    $wa_data = [
-        'exportData' => $export_payload,
-        'charts' => $wa_charts,
-    ];
-    ?>
-    <script>
-        window.WA_CONFIG = {
-            csrfToken: <?php echo esc_js(csrf_token()); ?>,
-            flash: {
-                message: <?php echo isset($_SESSION['message']) ? esc_js($_SESSION['message']) : 'null'; ?>,
-                error: <?php echo isset($_SESSION['error']) ? esc_js($_SESSION['error']) : 'null'; ?>
-            },
-            data: <?php echo json_encode($wa_data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>
-        };
-        <?php unset($_SESSION['message'], $_SESSION['error']); ?>
-    </script>
-    <script src="../../assets/js/website_admin.js"></script>
+    <?php echo $toggle_btn; ?>
+    <div id="detailTables" class="detail-tables">
+        <section class="data-table">
+            <div class="card-head"><h2 class="card-title">Top selling products</h2><span class="card-sub">Top 10 by units sold</span></div>
+            <?php if (empty($top_products)): ?>
+                <div class="empty-state"><i class="fas fa-box-open" aria-hidden="true"></i><h3>No product sales in this period</h3></div>
+            <?php else: ?>
+            <div class="table-scroll">
+                <table class="table">
+                    <thead><tr><th scope="col">Product</th><th scope="col" class="num">Quantity sold</th><th scope="col" class="num">Revenue</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($top_products as $product): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($product['product_name']); ?></td>
+                                <td class="num"><?php echo (int) $product['total_sold']; ?></td>
+                                <td class="num">&#8369;<?php echo number_format($product['total_revenue'], 2); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+        </section>
+    </div>
+<?php endif; ?>
 
+<?php if ($report_type === 'customers'): ?>
+    <div class="kpi-grid">
+        <div class="kpi"><span class="kpi-label"><i class="fas fa-users" aria-hidden="true"></i> Active customers</span><span class="kpi-value"><?php echo (int) ($customer_stats['active_customers'] ?? 0); ?></span><span class="kpi-meta">Ordered in this period</span></div>
+        <div class="kpi"><span class="kpi-label"><i class="fas fa-receipt" aria-hidden="true"></i> Orders per customer</span><span class="kpi-value"><?php echo round($customer_stats['avg_orders_per_customer'] ?? 0, 1); ?></span><span class="kpi-meta">Average</span></div>
+        <div class="kpi"><span class="kpi-label"><i class="fas fa-money-bill-wave" aria-hidden="true"></i> Value per customer</span><span class="kpi-value">&#8369;<?php echo number_format($customer_stats['avg_customer_value'] ?? 0, 2); ?></span><span class="kpi-meta">Average spend</span></div>
+    </div>
+
+    <?php echo $toggle_btn; ?>
+    <div id="detailTables" class="detail-tables">
+        <section class="data-table">
+            <div class="card-head"><h2 class="card-title">Top customers</h2><span class="card-sub">Top 10 by spend</span></div>
+            <?php if (empty($top_customers)): ?>
+                <div class="empty-state"><i class="fas fa-user-slash" aria-hidden="true"></i><h3>No customer orders in this period</h3></div>
+            <?php else: ?>
+            <div class="table-scroll">
+                <table class="table">
+                    <thead><tr><th scope="col">Customer</th><th scope="col" class="num">Orders</th><th scope="col" class="num">Total spent</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($top_customers as $customer):
+                            $cname = trim($customer['first_name'] . ' ' . $customer['last_name']); ?>
+                            <tr>
+                                <td>
+                                    <div class="cell-stack">
+                                        <span class="cell-main"><?php echo htmlspecialchars($cname !== '' ? $cname : $customer['username']); ?></span>
+                                        <?php if ($cname !== ''): ?><span class="cell-sub"><?php echo htmlspecialchars($customer['username']); ?></span><?php endif; ?>
+                                    </div>
+                                </td>
+                                <td class="num"><?php echo (int) $customer['order_count']; ?></td>
+                                <td class="num">&#8369;<?php echo number_format($customer['total_spent'], 2); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+        </section>
+    </div>
+<?php endif; ?>
+
+<?php if ($report_type === 'products'):
+    $products_total_revenue = array_sum(array_column($category_performance, 'total_revenue'));
+    $top_category = $category_performance[0]['category'] ?? '—';
+?>
+    <div class="kpi-grid">
+        <div class="kpi"><span class="kpi-label"><i class="fas fa-box" aria-hidden="true"></i> Products listed</span><span class="kpi-value"><?php echo count($product_performance); ?></span><span class="kpi-meta">In the catalog</span></div>
+        <div class="kpi"><span class="kpi-label"><i class="fas fa-money-bill-wave" aria-hidden="true"></i> Revenue</span><span class="kpi-value">&#8369;<?php echo number_format($products_total_revenue, 2); ?></span><span class="kpi-meta">In this period</span></div>
+        <div class="kpi"><span class="kpi-label"><i class="fas fa-crown" aria-hidden="true"></i> Top category</span><span class="kpi-value"><?php echo htmlspecialchars($top_category); ?></span><span class="kpi-meta">By revenue</span></div>
+    </div>
+
+    <?php echo $toggle_btn; ?>
+    <div id="detailTables" class="detail-tables">
+        <section class="data-table">
+            <div class="card-head"><h2 class="card-title">Category performance</h2></div>
+            <div class="table-scroll">
+                <table class="table" data-paginate="10">
+                    <thead><tr><th scope="col">Category</th><th scope="col" class="num">Orders</th><th scope="col" class="num">Quantity</th><th scope="col" class="num">Revenue</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($category_performance as $category): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($category['category']); ?></td>
+                                <td class="num"><?php echo (int) $category['total_orders']; ?></td>
+                                <td class="num"><?php echo (int) $category['total_quantity']; ?></td>
+                                <td class="num">&#8369;<?php echo number_format($category['total_revenue'], 2); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="data-table">
+            <div class="card-head"><h2 class="card-title">Product performance</h2><span class="card-sub">Sorted by revenue</span></div>
+            <div class="table-scroll">
+                <table class="table" data-paginate="10">
+                    <thead><tr><th scope="col">Product</th><th scope="col">Category</th><th scope="col" class="num">Price</th><th scope="col" class="num">Times ordered</th><th scope="col" class="num">Quantity</th><th scope="col" class="num">Revenue</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($product_performance as $product): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($product['product_name']); ?></td>
+                                <td><span class="category-badge"><?php echo htmlspecialchars($product['category']); ?></span></td>
+                                <td class="num">&#8369;<?php echo number_format($product['price'], 2); ?></td>
+                                <td class="num"><?php echo (int) $product['times_ordered']; ?></td>
+                                <td class="num"><?php echo (int) $product['total_quantity']; ?></td>
+                                <td class="num">&#8369;<?php echo number_format($product['total_revenue'], 2); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+<?php endif; ?>
+
+<?php admin_layout_end(); ?>
+
+<?php
+$wa_charts = ($report_type === 'sales') ? [
+    'salesLabels' => array_column($daily_sales, 'date'),
+    'salesValues' => array_column($daily_sales, 'daily_revenue'),
+    'statusLabels' => array_map(function ($status) {
+        return ucfirst(str_replace('_', ' ', $status['status']));
+    }, $status_distribution),
+    'statusValues' => array_column($status_distribution, 'order_count'),
+] : null;
+$wa_data = [
+    'exportData' => $export_payload,
+    'charts' => $wa_charts,
+];
+?>
+<script>
+    window.WA_CONFIG = {
+        csrfToken: <?php echo esc_js(csrf_token()); ?>,
+        flash: {
+            message: <?php echo isset($_SESSION['message']) ? esc_js($_SESSION['message']) : 'null'; ?>,
+            error: <?php echo isset($_SESSION['error']) ? esc_js($_SESSION['error']) : 'null'; ?>
+        },
+        data: <?php echo json_encode($wa_data, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>
+    };
+    <?php unset($_SESSION['message'], $_SESSION['error']); ?>
+</script>
+<script src="../../assets/js/website_admin.js"></script>
 </body>
 
 </html>

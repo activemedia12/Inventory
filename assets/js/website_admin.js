@@ -200,8 +200,33 @@
       : idOrEl;
   }
 
+  var lastShellState = null;
+
+  // The sidebar and top bar live in website_admin.php, outside this iframe, so
+  // this page can't dim them. Tell the shell instead; it draws a matching dim
+  // layer over its own sidebar/top bar.
+  function notifyShell() {
+    if (window.parent === window) return;
+    var isOpen = openStack.length > 0;
+    var dim = openStack.some(function (m) {
+      return m.classList.contains("modal");
+    })
+      ? 0.5
+      : 0.4;
+    var key = isOpen + ":" + dim;
+    if (key === lastShellState) return;
+    lastShellState = key;
+    try {
+      window.parent.postMessage(
+        { type: "wa-modal", open: isOpen, dim: dim },
+        window.location.origin,
+      );
+    } catch (e) {}
+  }
+
   function syncBodyLock() {
     document.body.classList.toggle("wa-modal-open", openStack.length > 0);
+    notifyShell();
   }
 
   WA.openModal = function (idOrEl) {
@@ -400,11 +425,224 @@
   };
 
   /* ---------------------------------------------------------------------
+       App shell: top bar navigation, dropdowns, live counters
+       (markup comes from admin_layout.php)
+       --------------------------------------------------------------------- */
+  WA.initShell = function () {
+    // Shared modal hooks: data-close-modal closes the modal it sits in.
+    document.addEventListener("click", function (e) {
+      var closer = e.target.closest("[data-close-modal]");
+      if (closer) {
+        var m = closer.closest(".modal");
+        if (m) WA.closeModal(m);
+      }
+    });
+
+    var app = document.getElementById("app");
+    if (!app) return;
+
+    // Any element with data-close-modal closes the modal / drawer it sits in.
+    document.addEventListener("click", function (e) {
+      var closer = e.target.closest("[data-close-modal]");
+      if (!closer) return;
+      var modal = closer.closest(".modal");
+      if (modal) WA.closeModal(modal);
+    });
+
+    // Dropdown menus (notifications, user)
+    function closeMenus(except) {
+      document
+        .querySelectorAll("[data-dropdown-toggle]")
+        .forEach(function (btn) {
+          var menu = document.getElementById(
+            btn.getAttribute("data-dropdown-toggle"),
+          );
+          if (menu && menu !== except && !menu.hidden) {
+            menu.hidden = true;
+            btn.setAttribute("aria-expanded", "false");
+          }
+        });
+    }
+
+    document.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-dropdown-toggle]");
+      if (btn) {
+        var menu = document.getElementById(
+          btn.getAttribute("data-dropdown-toggle"),
+        );
+        if (!menu) return;
+        var willOpen = menu.hidden;
+        closeMenus(menu);
+        menu.hidden = !willOpen;
+        btn.setAttribute("aria-expanded", String(willOpen));
+        if (willOpen) {
+          var firstItem = menu.querySelector("a, button");
+          if (firstItem) firstItem.focus();
+        }
+        return;
+      }
+      if (!e.target.closest(".dropdown-menu")) closeMenus();
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      var openBtn = document.querySelector(
+        '[data-dropdown-toggle][aria-expanded="true"]',
+      );
+      if (openBtn) {
+        closeMenus();
+        openBtn.focus();
+      }
+    });
+  };
+
+  // Keeps the status tabs roughly in step after an AJAX
+  // status change (the server renders the true numbers on the next load).
+  WA.bumpStatusCount = function (fromStatus, toStatus) {
+    if (!fromStatus || !toStatus || fromStatus === toStatus) return;
+    function bump(status, delta) {
+      document
+        .querySelectorAll('[data-count-status="' + status + '"]')
+        .forEach(function (el) {
+          var next = Math.max(0, (parseInt(el.textContent, 10) || 0) + delta);
+          el.textContent = next;
+          if (el.classList.contains("nav-badge")) el.hidden = next === 0;
+        });
+    }
+    bump(fromStatus, -1);
+    bump(toStatus, 1);
+  };
+
+  /* ---------------------------------------------------------------------
        Status labels + charts (Chart.js must be loaded on pages that draw charts)
+       Colours are read from the CSS tokens so badges and charts always agree.
        --------------------------------------------------------------------- */
   WA.statusLabel = function (status) {
     var s = String(status || "").replace(/_/g, " ");
     return s.charAt(0).toUpperCase() + s.slice(1);
+  };
+
+  WA.cssVar = function (name, fallback) {
+    var v = getComputedStyle(document.documentElement)
+      .getPropertyValue(name)
+      .trim();
+    return v || fallback;
+  };
+
+  WA.statusKey = function (label) {
+    return String(label || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "_");
+  };
+
+  // Client-side pager, drawn with the same classes as the server-rendered one.
+  // opts: { page, perPage, total, noun, onPage(n) }. Returns the clamped page.
+  WA.renderPager = function (host, opts) {
+    var perPage = opts.perPage;
+    var total = opts.total;
+    var pages = Math.max(1, Math.ceil(total / perPage));
+    var page = Math.min(Math.max(1, opts.page), pages);
+    var from = total ? (page - 1) * perPage + 1 : 0;
+    var to = Math.min(page * perPage, total);
+    host.hidden = total === 0;
+    host.className = "pagination";
+    var html =
+      '<span class="pagination-summary">Showing ' +
+      from +
+      "\u2013" +
+      to +
+      " of " +
+      total +
+      " " +
+      WA.esc(opts.noun || "items") +
+      "</span>";
+    if (pages > 1) {
+      var btn = function (label, target, extra, aria) {
+        return (
+          '<button type="button" class="btn ' +
+          (extra || "") +
+          '" data-page="' +
+          target +
+          '"' +
+          (aria || "") +
+          ">" +
+          label +
+          "</button>"
+        );
+      };
+      html += '<div class="pagination-controls">';
+      html += btn(
+        '<i class="fas fa-chevron-left" aria-hidden="true"></i> Prev',
+        page - 1,
+        page <= 1 ? "btn-disabled" : "",
+        page <= 1 ? ' aria-disabled="true" tabindex="-1"' : "",
+      );
+      for (var p = 1; p <= pages; p++) {
+        if (p === 1 || p === pages || Math.abs(p - page) <= 2) {
+          html += btn(
+            p,
+            p,
+            p === page ? "active" : "",
+            p === page ? ' aria-current="page"' : "",
+          );
+        } else if (p === 2 || p === pages - 1) {
+          html += '<span class="pagination-ellipsis">&hellip;</span>';
+        }
+      }
+      html += btn(
+        'Next <i class="fas fa-chevron-right" aria-hidden="true"></i>',
+        page + 1,
+        page >= pages ? "btn-disabled" : "",
+        page >= pages ? ' aria-disabled="true" tabindex="-1"' : "",
+      );
+      html += "</div>";
+    }
+    host.innerHTML = html;
+    host.onclick = function (e) {
+      var b = e.target.closest("button[data-page]");
+      if (!b || b.classList.contains("btn-disabled")) return;
+      opts.onPage(Number(b.dataset.page));
+    };
+    return page;
+  };
+
+  // Any <table data-paginate="10"> is split into pages in the browser.
+  WA.initPaginatedTables = function () {
+    document.querySelectorAll("table[data-paginate]").forEach(function (table) {
+      var perPage = parseInt(table.getAttribute("data-paginate"), 10) || 10;
+      var rows = Array.prototype.slice.call(
+        table.querySelectorAll("tbody > tr"),
+      );
+      if (rows.length <= perPage) return;
+      var host = document.createElement("div");
+      var anchor = table.closest(".table-scroll") || table;
+      anchor.parentNode.insertBefore(host, anchor.nextSibling);
+      var page = 1;
+      function show(n) {
+        page = WA.renderPager(host, {
+          page: n,
+          perPage: perPage,
+          total: rows.length,
+          noun: "rows",
+          onPage: show,
+        });
+        rows.forEach(function (row, i) {
+          row.hidden = i < (page - 1) * perPage || i >= page * perPage;
+        });
+      }
+      show(1);
+    });
+  };
+
+  WA.peso = function (value, decimals) {
+    return (
+      "\u20B1" +
+      Number(value || 0).toLocaleString("en-PH", {
+        minimumFractionDigits: decimals || 0,
+        maximumFractionDigits: decimals || 0,
+      })
+    );
   };
 
   WA.charts = {
@@ -412,14 +650,21 @@
       return typeof window.Chart !== "undefined";
     },
 
-    // Line chart. opts: { label, smooth, xTitle, yTitle }
+    defaults: function () {
+      Chart.defaults.font.family =
+        '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      Chart.defaults.font.size = 12;
+      Chart.defaults.color = WA.cssVar("--ink-3", "#697283");
+    },
+
+    // Line chart. opts: { label, smooth }
     line: function (canvasId, labels, values, opts) {
       opts = opts || {};
       var el = document.getElementById(canvasId);
       if (!el || !WA.charts.available()) return null;
-      var scales = { y: { beginAtZero: true }, x: {} };
-      if (opts.yTitle) scales.y.title = { display: true, text: opts.yTitle };
-      if (opts.xTitle) scales.x.title = { display: true, text: opts.xTitle };
+      WA.charts.defaults();
+      var brand = WA.cssVar("--brand", "#4f5eff");
+      var grid = WA.cssVar("--line", "#e3e6eb");
       return new Chart(el.getContext("2d"), {
         type: "line",
         data: {
@@ -428,22 +673,68 @@
             {
               label: opts.label || "",
               data: values,
-              borderColor: "#4f5eff",
-              backgroundColor: "rgba(79, 94, 255, 0.1)",
+              borderColor: brand,
+              backgroundColor: "rgba(79, 94, 255, 0.08)",
               borderWidth: 2,
               fill: true,
-              tension: opts.smooth ? 0.4 : 0,
+              tension: opts.smooth ? 0.35 : 0.15,
+              pointRadius: values.length > 40 ? 0 : 3,
+              pointHoverRadius: 5,
+              pointBackgroundColor: brand,
             },
           ],
         },
-        options: { responsive: true, scales: scales },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) {
+                  return (
+                    " " +
+                    (opts.label
+                      ? opts.label.replace(/\s*\(.*\)$/, "") + ": "
+                      : "") +
+                    WA.peso(ctx.parsed.y, 2)
+                  );
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: grid },
+              border: { display: false },
+              ticks: {
+                callback: function (v) {
+                  return WA.peso(v);
+                },
+              },
+            },
+          },
+        },
       });
     },
 
-    // Order-status doughnut; colours follow the status badge palette.
+    // Order-status doughnut; segment colours follow the status badge palette.
     statusDoughnut: function (canvasId, labels, values) {
       var el = document.getElementById(canvasId);
       if (!el || !WA.charts.available()) return null;
+      WA.charts.defaults();
+      var colors = labels.map(function (label) {
+        return WA.cssVar("--st-" + WA.statusKey(label), "#9aa1ae");
+      });
+      var total = values.reduce(function (a, b) {
+        return a + Number(b);
+      }, 0);
       return new Chart(el.getContext("2d"), {
         type: "doughnut",
         data: {
@@ -451,27 +742,34 @@
           datasets: [
             {
               data: values,
-              backgroundColor: [
-                "#fdf2df",
-                "#e8f1fc",
-                "#f6f3e3",
-                "#eef1ff",
-                "#e3f6ee",
-                "#f6e3e3",
-              ],
-              borderColor: [
-                "#b6790a",
-                "#2a7ade",
-                "#9c841a",
-                "#4048e0",
-                "#1a9c6b",
-                "#fc3737",
-              ],
-              borderWidth: 1,
+              backgroundColor: colors,
+              borderColor: WA.cssVar("--surface", "#fff"),
+              borderWidth: 2,
+              hoverOffset: 4,
             },
           ],
         },
-        options: { responsive: true },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: "62%",
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: { usePointStyle: true, boxWidth: 8, padding: 14 },
+            },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) {
+                  var pct = total ? Math.round((ctx.parsed / total) * 100) : 0;
+                  return (
+                    " " + ctx.label + ": " + ctx.parsed + " (" + pct + "%)"
+                  );
+                },
+              },
+            },
+          },
+        },
       });
     },
   };
@@ -486,6 +784,8 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     WA.flash();
+    WA.initShell();
+    WA.initPaginatedTables();
     var name = document.body.getAttribute("data-page");
     var factory = name && WA.pages[name];
     if (!factory) return;
@@ -515,14 +815,6 @@
       cfg.status.values,
     );
 
-    // Recent-orders rows open the order in the orders page panel
-    document.querySelectorAll("tr[data-href]").forEach(function (row) {
-      row.addEventListener("click", function (e) {
-        if (e.target.closest("a, button")) return;
-        window.location.href = row.dataset.href;
-      });
-    });
-
     return {};
   });
 
@@ -531,85 +823,124 @@
        ================================================================== */
   WA.definePage("orders", function (cfg, WA) {
     const STATUS_LABELS = cfg.statusLabels || {};
+    // "paid" is a payment label, not an order status, so it is not a step here.
+    const FLOW = ["pending", "processing", "ready_for_pickup", "completed"];
+    // Which statuses each status may move to (same rules the server enforces).
+    const TRANSITIONS = cfg.transitions || {};
     const esc = WA.esc;
 
-    // Slide-over panel state (declared first: the status helpers read it)
+    const panel = document.getElementById("slidePanel");
+    const overlay = document.getElementById("panelOverlay");
+    const body = document.getElementById("panelBody");
+    const bar = document.getElementById("panelStatusBar");
+    const title = document.getElementById("panelTitle");
+    const badge = document.getElementById("panelStatusBadge");
+    const table = document.getElementById("ordersTable");
     let panelOrderId = null;
-    let panelStatus = "";
-    let panelReturnFocus = null;
 
-    const panelEl = () => document.getElementById("slidePanel");
-
-    // ---------- Status badge helpers ----------
     function labelFor(status) {
       return STATUS_LABELS[status] || WA.statusLabel(status);
     }
 
-    function setBadge(el, status, label) {
-      if (!el) return;
-      el.className = "wa-badge tone-" + status;
-      el.textContent = label || labelFor(status);
+    // ---------- Inline status update (row controls) ----------
+    function onStatusSelectChange(select) {
+      const container = select.closest(".order-actions");
+      const reasonInput = container.querySelector(
+        '[data-role="cancel-reason"]',
+      );
+      const needsReason = select.value === "cancelled";
+      reasonInput.hidden = !needsReason;
+      if (needsReason) reasonInput.focus();
     }
 
-    // Keeps the tab counts / summary tiles in step after a status change.
-    // Elements opt in with data-count="status [status ...]".
-    function bumpCounts(previous, next) {
-      if (!previous || previous === next) return;
-      document.querySelectorAll("[data-count]").forEach(function (el) {
-        const keys = el.dataset.count.split(" ");
-        const delta =
-          (keys.indexOf(next) !== -1 ? 1 : 0) -
-          (keys.indexOf(previous) !== -1 ? 1 : 0);
-        if (!delta) return;
-        el.textContent = Math.max(
-          0,
-          (parseInt(el.textContent, 10) || 0) + delta,
-        );
-      });
-    }
-
-    function currentStatusOf(orderId) {
-      const row = document.getElementById("order-row-" + orderId);
-      if (row) return row.dataset.status;
-      return panelOrderId === orderId ? panelStatus : "";
-    }
-
-    // ---------- Status update (shared by the dialog and the panel) ----------
     async function requestStatusUpdate(orderId, status, reason) {
+      const body = new URLSearchParams({
+        ajax: "update_status",
+        csrf_token: WA.csrfToken(),
+        order_id: orderId,
+        status: status,
+        cancel_reason: reason,
+      });
+      const res = await fetch("admin_orders.php", { method: "POST", body });
+      return res.json();
+    }
+
+    async function submitStatusUpdate(orderId, btn) {
+      const container = btn.closest(".order-actions");
+      const status = container.querySelector(
+        '[data-role="status-select"]',
+      ).value;
+      const reasonInput = container.querySelector(
+        '[data-role="cancel-reason"]',
+      );
+      const reason = reasonInput.value.trim();
+
+      if (status === "cancelled" && reason === "") {
+        WA.toast("error", "Please enter a reason for cancelling this order.");
+        reasonInput.hidden = false;
+        reasonInput.focus();
+        return;
+      }
+
+      WA.setBusy(btn, true, "Updating...");
       try {
-        const body = new URLSearchParams({
-          ajax: "update_status",
-          csrf_token: WA.csrfToken(),
-          order_id: orderId,
-          status: status,
-          cancel_reason: reason,
-        });
-        const res = await fetch("admin_orders.php", { method: "POST", body });
-        const data = await res.json();
-
-        if (!data.success) {
-          WA.toast("error", data.message || "Failed to update order status.");
-          return false;
-        }
-
-        WA.toast("success", data.message);
-        bumpCounts(currentStatusOf(orderId), data.status);
-        applyStatusToRow(
-          orderId,
-          data.status,
-          data.status_label,
-          data.cancellation_reason,
-        );
-        if (panelOrderId === orderId)
-          applyStatusToPanel(
+        const row = document.getElementById("order-row-" + orderId);
+        const previous = row ? row.dataset.status : null;
+        const data = await requestStatusUpdate(orderId, status, reason);
+        if (data.success) {
+          WA.toast("success", data.message);
+          applyStatusToRow(
+            orderId,
             data.status,
             data.status_label,
             data.cancellation_reason,
+            data,
           );
-        return true;
+          WA.bumpStatusCount(previous, data.status);
+          if (panelOrderId === orderId)
+            applyStatusToPanel(
+              data.status,
+              data.status_label,
+              data.cancellation_reason,
+            );
+        } else {
+          WA.toast("error", data.message || "Failed to update order status.");
+        }
       } catch (e) {
         WA.toast("error", "Network error while updating the order.");
-        return false;
+      } finally {
+        WA.setBusy(btn, false);
+      }
+    }
+
+    // Payment badge + balance line in the row (data comes from the server's payment_snapshot).
+    function applyPaymentToRow(row, data) {
+      if (!row || !data || !data.payment_label) return;
+      const badge = row.querySelector('[data-role="payment-badge"]');
+      if (badge) {
+        badge.className = "status-badge " + data.payment_class;
+        badge.textContent = data.payment_label;
+      }
+      const flag = row.querySelector('[data-role="proof-flag"]');
+      if (flag && typeof data.needs_review === "boolean")
+        flag.hidden = !data.needs_review;
+      const cell = row.querySelector(".pay-cell");
+      if (!cell) return;
+      let balance = cell.querySelector(".pay-balance");
+      if (Number(data.balance_owed) > 0) {
+        if (!balance) {
+          balance = document.createElement("span");
+          balance.className = "cell-sub pay-balance";
+          cell.appendChild(balance);
+        }
+        balance.textContent =
+          "Balance \u20B1" +
+          Number(data.balance_owed).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+      } else if (balance) {
+        balance.remove();
       }
     }
 
@@ -618,401 +949,577 @@
       status,
       statusLabel,
       cancellationReason,
+      payment,
     ) {
       const row = document.getElementById("order-row-" + orderId);
       if (!row) return;
-      const reason = status === "cancelled" ? cancellationReason || "" : "";
       row.dataset.status = status;
-      row.dataset.cancelReason = reason;
-
-      const badge = row.querySelector('[data-role="status-badge"]');
-      setBadge(badge, status, statusLabel);
-      if (badge) {
-        if (reason) badge.title = "Reason: " + reason;
-        else badge.removeAttribute("title");
+      applyPaymentToRow(row, payment);
+      const badgeEl = row.querySelector('[data-role="status-badge"]');
+      badgeEl.className = "status-badge status-" + status;
+      badgeEl.textContent = statusLabel;
+      if (status === "cancelled" && cancellationReason) {
+        badgeEl.title = "Reason: " + cancellationReason;
+      } else {
+        badgeEl.removeAttribute("title");
       }
-
-      const note = row.querySelector('[data-role="status-reason"]');
-      if (note) {
-        note.hidden = !reason;
-        const text = note.querySelector('[data-role="status-reason-text"]');
-        if (text) text.textContent = reason;
+      // keep the row's own controls in step when the change came from the drawer
+      const select = row.querySelector('[data-role="status-select"]');
+      const reasonInput = row.querySelector('[data-role="cancel-reason"]');
+      if (select) {
+        // only offer the statuses this order can actually move to now
+        const allowedNow = TRANSITIONS[status];
+        if (allowedNow) {
+          select.innerHTML = [status]
+            .concat(allowedNow)
+            .map(function (v) {
+              return (
+                '<option value="' +
+                esc(v) +
+                '"' +
+                (v === status ? " selected" : "") +
+                ">" +
+                esc(labelFor(v)) +
+                "</option>"
+              );
+            })
+            .join("");
+          select.disabled = allowedNow.length === 0;
+          const updateBtn = row.querySelector('[data-role="update-btn"]');
+          if (updateBtn) updateBtn.disabled = allowedNow.length === 0;
+        }
+        select.value = status;
       }
-
-      // Brief highlight so the changed row is easy to spot
-      row.classList.remove("is-flash");
-      void row.offsetWidth;
-      row.classList.add("is-flash");
-      row.addEventListener(
-        "animationend",
-        function () {
-          row.classList.remove("is-flash");
-        },
-        { once: true },
-      );
-    }
-
-    // ---------- Status dialog (row action) ----------
-    const statusForm = document.getElementById("statusForm");
-    const reasonField = document.getElementById("statusReasonField");
-    const reasonInput = document.getElementById("statusReason");
-    const submitBtn = document.getElementById("statusSubmit");
-    let dialogOrderId = null;
-
-    function selectedDialogStatus() {
-      const checked = statusForm.querySelector(
-        'input[name="dialog_status"]:checked',
-      );
-      return checked ? checked.value : "";
-    }
-
-    function syncStatusDialog() {
-      const cancelled = selectedDialogStatus() === "cancelled";
-      reasonField.hidden = !cancelled;
-      submitBtn.classList.toggle("btn-danger", cancelled);
-      submitBtn.classList.toggle("btn-primary", !cancelled);
-      // Looked up each time: WA.setBusy swaps the button's inner HTML
-      const label = document.getElementById("statusSubmitLabel");
-      if (label && !submitBtn.disabled)
-        label.textContent = cancelled ? "Cancel order" : "Update status";
-      reasonInput.removeAttribute("aria-invalid");
-    }
-
-    function openStatusDialog(orderId) {
-      const row = document.getElementById("order-row-" + orderId);
-      dialogOrderId = orderId;
-      const status = row ? row.dataset.status : "";
-
-      document.getElementById("statusModalSub").textContent =
-        "Order #" +
-        orderId +
-        (row && row.dataset.customer ? " · " + row.dataset.customer : "");
-      statusForm
-        .querySelectorAll('input[name="dialog_status"]')
-        .forEach(function (r) {
-          r.checked = r.value === status;
-        });
-      reasonInput.value = row ? row.dataset.cancelReason || "" : "";
-      syncStatusDialog();
-
-      WA.openModal("statusModal");
-      // Land on the current status so arrow keys move from where the order is
-      setTimeout(function () {
-        const target =
-          statusForm.querySelector('input[name="dialog_status"]:checked') ||
-          statusForm.querySelector('input[name="dialog_status"]');
-        if (target) target.focus();
-      }, 60);
-    }
-
-    async function submitStatusDialog(e) {
-      e.preventDefault();
-      const status = selectedDialogStatus();
-      const reason = reasonInput.value.trim();
-      const orderId = dialogOrderId;
-
-      if (!status) {
-        WA.toast("warning", "Choose a status first.");
-        return;
+      if (reasonInput) {
+        reasonInput.hidden = status !== "cancelled";
+        if (cancellationReason) reasonInput.value = cancellationReason;
       }
-      if (status === "cancelled" && reason === "") {
-        reasonInput.setAttribute("aria-invalid", "true");
-        WA.toast("error", "Please enter a reason for cancelling this order.");
-        reasonInput.focus();
-        return;
-      }
-      const row = document.getElementById("order-row-" + orderId);
-      if (
-        row &&
-        row.dataset.status === status &&
-        (status !== "cancelled" || row.dataset.cancelReason === reason)
-      ) {
-        WA.closeModal("statusModal");
-        WA.toast("info", "No changes to save.");
-        return;
-      }
-
-      WA.setBusy(submitBtn, true, "Updating...");
-      const ok = await requestStatusUpdate(orderId, status, reason);
-      WA.setBusy(submitBtn, false);
-      if (ok) WA.closeModal("statusModal");
-      else syncStatusDialog();
     }
 
-    if (statusForm) {
-      statusForm.addEventListener("change", function (e) {
-        syncStatusDialog();
-        if (e.target.value === "cancelled") reasonInput.focus();
-      });
-      statusForm.addEventListener("submit", submitStatusDialog);
+    // ---------- Slide-over drawer ----------
+    function setBadge(status) {
+      if (!badge) return;
+      badge.hidden = !status;
+      if (!status) return;
+      badge.className = "status-badge status-" + status;
+      badge.textContent = labelFor(status);
     }
 
-    // Clear the "required" highlight as soon as the admin starts typing a reason
-    document.addEventListener("input", function (e) {
-      if (e.target.matches("#statusReason, [data-role='panel-cancel-reason']"))
-        e.target.removeAttribute("aria-invalid");
-    });
+    function showPanelState(html) {
+      body.innerHTML = html;
+    }
 
-    // ---------- Slide-over panel ----------
     function openOrderPanel(orderId) {
-      const panel = panelEl();
-      const row = document.getElementById("order-row-" + orderId);
-      panelReturnFocus =
-        document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null;
+      orderId = Number(orderId);
       panelOrderId = orderId;
-      panelStatus = row ? row.dataset.status : "";
-
-      document.getElementById("panelOverlay").classList.add("open");
-      panel.classList.add("open");
-      panel.setAttribute("aria-hidden", "false");
-      document.body.classList.add("wa-modal-open");
-
-      document.getElementById("panelTitle").textContent = "Order #" + orderId;
-      document.getElementById("panelSubtitle").textContent = row
-        ? (row.dataset.customer || "") +
-          (row.dataset.date ? " · " + row.dataset.date : "")
-        : "";
-      const headBadge = document.getElementById("panelHeadBadge");
-      headBadge.innerHTML = row ? '<span class="wa-badge"></span>' : "";
-      if (row) setBadge(headBadge.firstChild, panelStatus);
-      headBadge.firstChild &&
-        headBadge.firstChild.setAttribute("data-role", "panel-status-badge");
-
-      // The status controls only need the row's data, so show them right away
-      if (row)
-        renderPanelStatusBar(orderId, panelStatus, row.dataset.cancelReason);
-      else document.getElementById("panelStatusBar").innerHTML = "";
-
-      document.getElementById("panelBody").innerHTML =
-        '<div class="od-skeleton" aria-hidden="true">' +
-        '<div class="od-section"><div class="od-section-body"><span class="wa-skel" style="width:40%"></span><span class="wa-skel"></span><span class="wa-skel" style="width:70%"></span></div></div>' +
-        '<div class="od-section"><div class="od-section-body"><span class="wa-skel" style="width:30%"></span><span class="wa-skel"></span><span class="wa-skel"></span><span class="wa-skel" style="width:55%"></span></div></div>' +
-        "</div>";
+      title.textContent = "Order #" + orderId;
+      setBadge(null);
+      bar.innerHTML = "";
+      showPanelState(
+        '<div class="panel-loading" role="status"><i class="fas fa-circle-notch" aria-hidden="true"></i> Loading order...</div>',
+      );
+      overlay.classList.add("open");
+      WA.openModal(panel);
 
       const url = new URL(window.location);
       url.searchParams.set("open", orderId);
       history.replaceState(null, "", url);
-
-      setTimeout(function () {
-        const close = document.getElementById("panelClose");
-        if (close && panelOrderId === orderId) close.focus();
-      }, 30);
 
       fetch("admin_orders.php?ajax=get_order_details&id=" + orderId)
         .then((res) => res.json())
         .then((data) => {
           if (panelOrderId !== orderId) return; // stale response, user moved on
           if (!data.success) {
-            showPanelError(orderId, data.message || "Order not found.");
+            showPanelState(
+              '<div class="state state--error"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><h3>Order not found</h3><p>' +
+                esc(data.message || "This order may have been deleted.") +
+                "</p></div>",
+            );
             return;
           }
-          document.getElementById("panelBody").innerHTML = data.html;
-          panelStatus = data.status;
-          // Re-render the controls only if the page row was missing or out of date
-          if (!row || row.dataset.status !== data.status) {
-            renderPanelStatusBar(
-              orderId,
-              data.status,
-              data.cancellation_reason,
-            );
-            const hb = document.getElementById("panelHeadBadge");
-            hb.innerHTML =
-              '<span class="wa-badge" data-role="panel-status-badge"></span>';
-            setBadge(hb.firstChild, data.status);
-          }
+          body.innerHTML = data.html;
+          body.scrollTop = 0;
+          renderPanelStatusBar(orderId, data.status, data.cancellation_reason);
         })
         .catch(() => {
-          if (panelOrderId === orderId)
-            showPanelError(
-              orderId,
-              "Couldn't load this order. Please try again.",
-            );
+          if (panelOrderId !== orderId) return;
+          showPanelState(
+            '<div class="state state--error"><i class="fas fa-wifi" aria-hidden="true"></i><h3>Couldn\'t load this order</h3><p>Check your connection and try again.</p>' +
+              '<button type="button" class="btn btn-secondary btn-sm" data-retry="' +
+              orderId +
+              '">Try again</button></div>',
+          );
         });
     }
 
-    function showPanelError(orderId, message) {
-      document.getElementById("panelBody").innerHTML =
-        '<div class="panel-loading"><i class="fas fa-circle-exclamation" aria-hidden="true"></i>' +
-        "<div>" +
-        esc(message) +
-        "</div>" +
-        '<button type="button" class="btn btn-outline btn-sm" onclick="openOrderPanel(' +
-        Number(orderId) +
-        ')"><i class="fas fa-rotate" aria-hidden="true"></i> Try again</button></div>';
+    // Re-fetch just the panel content (payment chip, money tiles, proofs) without reopening it.
+    function refreshOrderPanelBody(orderId) {
+      fetch("admin_orders.php?ajax=get_order_details&id=" + orderId)
+        .then((res) => res.json())
+        .then((data) => {
+          if (panelOrderId !== orderId || !data.success) return;
+          const top = body.scrollTop;
+          body.innerHTML = data.html;
+          body.scrollTop = top;
+        })
+        .catch(() => {});
     }
 
     function closeOrderPanel() {
-      const panel = panelEl();
-      if (!panel.classList.contains("open")) return;
+      if (panelOrderId === null && !panel.classList.contains("open")) return;
       panelOrderId = null;
-      document.getElementById("panelOverlay").classList.remove("open");
-      panel.classList.remove("open");
-      panel.setAttribute("aria-hidden", "true");
-      if (!document.querySelector(".modal.open"))
-        document.body.classList.remove("wa-modal-open");
-
+      overlay.classList.remove("open");
+      WA.closeModal(panel);
       const url = new URL(window.location);
       url.searchParams.delete("open");
       history.replaceState(null, "", url);
-
-      if (panelReturnFocus && document.contains(panelReturnFocus))
-        panelReturnFocus.focus();
-      panelReturnFocus = null;
     }
 
+    // Escape (handled by WA's shared key handler) goes through here so the URL
+    // and state are cleaned up too.
+    panel._cancel = closeOrderPanel;
+
     function renderPanelStatusBar(orderId, status, cancellationReason) {
-      const bar = document.getElementById("panelStatusBar");
       const cancelled = status === "cancelled";
+      const idx = FLOW.indexOf(status);
+
+      const steps = FLOW.map(function (s, i) {
+        let cls = "";
+        if (!cancelled) {
+          if (i < idx) cls = "is-done";
+          else if (i === idx) cls = "is-current";
+        }
+        return (
+          '<li class="step ' +
+          cls +
+          '"' +
+          (cls === "is-current" ? ' aria-current="step"' : "") +
+          ">" +
+          '<span class="step-dot">' +
+          (cls === "is-done"
+            ? '<i class="fas fa-check" aria-hidden="true"></i>'
+            : "") +
+          "</span>" +
+          '<span class="step-label">' +
+          esc(labelFor(s)) +
+          "</span></li>"
+        );
+      }).join("");
+
+      const allowed = TRANSITIONS[status] || null;
+      const locked = !!allowed && allowed.length === 0;
+      const choices = allowed
+        ? [status].concat(allowed)
+        : Object.keys(STATUS_LABELS);
       let options = "";
-      for (const [val, label] of Object.entries(STATUS_LABELS)) {
+      choices.forEach(function (val) {
         options +=
           '<option value="' +
           esc(val) +
           '"' +
           (val === status ? " selected" : "") +
           ">" +
-          esc(label) +
+          esc(STATUS_LABELS[val]) +
           "</option>";
-      }
+      });
+
+      const next =
+        !cancelled &&
+        idx > -1 &&
+        idx < FLOW.length - 1 &&
+        (!allowed || allowed.indexOf(FLOW[idx + 1]) !== -1)
+          ? FLOW[idx + 1]
+          : null;
+
       bar.innerHTML =
-        '<div class="od-status">' +
-        '<label class="od-status-label" for="panelStatusSelect">Change status</label>' +
-        '<div class="od-status-form">' +
-        '<select id="panelStatusSelect" class="od-status-select" data-role="panel-status-select" onchange="onPanelStatusChange(this)">' +
+        '<ol class="stepper' +
+        (cancelled ? " is-cancelled" : "") +
+        '" aria-label="Order progress">' +
+        steps +
+        "</ol>" +
+        (cancelled
+          ? '<div class="cancel-note"><i class="fas fa-ban" aria-hidden="true"></i><span><strong>Cancelled.</strong> ' +
+            esc(cancellationReason || "No reason recorded.") +
+            "</span></div>"
+          : "") +
+        '<div class="status-controls">' +
+        '<label class="sr-only" for="panelStatusSelect">Order status</label>' +
+        '<select id="panelStatusSelect" class="status-select" data-role="panel-status-select"' +
+        (locked ? " disabled" : "") +
+        ">" +
         options +
         "</select>" +
-        '<button type="button" class="btn ' +
-        (cancelled ? "btn-danger" : "btn-primary") +
-        '" data-role="panel-update-btn" onclick="submitPanelStatusUpdate(' +
-        Number(orderId) +
-        ', this)">' +
-        '<span data-role="panel-update-label">' +
-        (cancelled ? "Cancel order" : "Update") +
-        "</span></button>" +
-        "</div>" +
-        '<div class="od-reason" data-role="panel-reason-wrap"' +
+        '<button type="button" class="btn btn-primary btn-sm" data-action="save"' +
+        (locked ? " disabled" : "") +
+        ">Update status</button>" +
+        (next
+          ? '<button type="button" class="btn btn-secondary btn-sm" data-action="advance" data-next="' +
+            esc(next) +
+            '">Move to ' +
+            esc(labelFor(next)) +
+            "</button>"
+          : "") +
+        '<input type="text" class="cancel-reason-input" data-role="panel-cancel-reason" placeholder="Reason for cancellation" aria-label="Reason for cancellation" value="' +
+        esc(cancelled && cancellationReason ? cancellationReason : "") +
+        '"' +
         (cancelled ? "" : " hidden") +
         ">" +
-        '<label for="panelCancelReason">Reason for cancellation <span>Required</span></label>' +
-        '<textarea id="panelCancelReason" class="od-textarea" data-role="panel-cancel-reason" rows="2" placeholder="Why is this order being cancelled?">' +
-        esc(cancelled && cancellationReason ? cancellationReason : "") +
-        "</textarea></div></div>";
-    }
+        "</div>";
 
-    // Shows the reason box (and a red button) only while "Cancelled" is chosen
-    function syncPanelControls(status) {
-      const cancelled = status === "cancelled";
-      const wrap = document.querySelector('[data-role="panel-reason-wrap"]');
-      if (wrap) wrap.hidden = !cancelled;
-      const btn = document.querySelector('[data-role="panel-update-btn"]');
-      if (btn) {
-        btn.classList.toggle("btn-danger", cancelled);
-        btn.classList.toggle("btn-primary", !cancelled);
-        const label = btn.querySelector('[data-role="panel-update-label"]');
-        if (label && !btn.disabled)
-          label.textContent = cancelled ? "Cancel order" : "Update";
-      }
+      setBadge(status);
     }
 
     function onPanelStatusChange(select) {
-      syncPanelControls(select.value);
-      if (select.value === "cancelled") {
-        const input = document.querySelector(
-          '[data-role="panel-cancel-reason"]',
-        );
-        if (input) input.focus();
-      }
+      const reasonInput = bar.querySelector(
+        '[data-role="panel-cancel-reason"]',
+      );
+      const needsReason = select.value === "cancelled";
+      reasonInput.hidden = !needsReason;
+      if (needsReason) reasonInput.focus();
     }
 
     async function submitPanelStatusUpdate(orderId, btn) {
-      const status = document.querySelector(
-        '[data-role="panel-status-select"]',
-      ).value;
-      const input = document.querySelector('[data-role="panel-cancel-reason"]');
-      const reason = input ? input.value.trim() : "";
+      const select = bar.querySelector('[data-role="panel-status-select"]');
+      const reasonInput = bar.querySelector(
+        '[data-role="panel-cancel-reason"]',
+      );
+      const status = select.value;
+      const reason = reasonInput.value.trim();
 
       if (status === "cancelled" && reason === "") {
         WA.toast("error", "Please enter a reason for cancelling this order.");
-        if (input) {
-          input.setAttribute("aria-invalid", "true");
-          input.focus();
-        }
+        reasonInput.hidden = false;
+        reasonInput.focus();
         return;
       }
-      if (input) input.removeAttribute("aria-invalid");
 
       WA.setBusy(btn, true, "Updating...");
-      await requestStatusUpdate(orderId, status, reason);
-      WA.setBusy(btn, false);
-      syncPanelControls(status);
+      try {
+        const row = document.getElementById("order-row-" + orderId);
+        const previous = row ? row.dataset.status : null;
+        const data = await requestStatusUpdate(orderId, status, reason);
+        if (data.success) {
+          WA.toast("success", data.message);
+          applyStatusToRow(
+            orderId,
+            data.status,
+            data.status_label,
+            data.cancellation_reason,
+            data,
+          );
+          WA.bumpStatusCount(previous, data.status);
+          applyStatusToPanel(
+            data.status,
+            data.status_label,
+            data.cancellation_reason,
+          );
+        } else {
+          WA.toast("error", data.message || "Failed to update order status.");
+          WA.setBusy(btn, false);
+        }
+      } catch (e) {
+        WA.toast("error", "Network error while updating the order.");
+        WA.setBusy(btn, false);
+      }
     }
 
     function applyStatusToPanel(status, statusLabel, cancellationReason) {
-      panelStatus = status;
-      const select = document.querySelector(
-        '[data-role="panel-status-select"]',
-      );
-      if (select) select.value = status;
-      document
-        .querySelectorAll('[data-role="panel-status-badge"]')
-        .forEach(function (el) {
-          setBadge(el, status, statusLabel);
-        });
-      const input = document.querySelector('[data-role="panel-cancel-reason"]');
-      if (input && cancellationReason) input.value = cancellationReason;
-      syncPanelControls(status);
+      renderPanelStatusBar(panelOrderId, status, cancellationReason);
+      refreshOrderPanelBody(panelOrderId);
+      const select = document.getElementById("panelStatusSelect");
+      if (select) select.focus();
     }
 
-    // Escape closes the panel (dialogs handle Escape themselves); Tab stays inside it.
-    document.addEventListener("keydown", function (e) {
-      if (panelOrderId === null || document.querySelector(".modal.open"))
-        return;
-      if (e.key === "Escape") {
-        closeOrderPanel();
-        return;
+    // ---------- Event wiring (delegated; no inline handlers) ----------
+    overlay.addEventListener("click", closeOrderPanel);
+    document
+      .getElementById("panelClose")
+      .addEventListener("click", closeOrderPanel);
+
+    bar.addEventListener("click", function (e) {
+      const btn = e.target.closest("[data-action]");
+      if (!btn || panelOrderId === null) return;
+      const select = bar.querySelector('[data-role="panel-status-select"]');
+      if (btn.dataset.action === "advance") {
+        select.value = btn.dataset.next;
+        onPanelStatusChange(select);
       }
-      if (e.key !== "Tab") return;
-      const items = Array.prototype.filter.call(
-        panelEl().querySelectorAll(FOCUSABLE),
-        function (el) {
-          return el.offsetParent !== null;
-        },
-      );
-      if (!items.length) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (!panelEl().contains(document.activeElement)) {
-        e.preventDefault();
-        first.focus();
-      } else if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
+      submitPanelStatusUpdate(panelOrderId, btn);
     });
 
-    // ---------- List interactions ----------
-    // Clicking anywhere on a row (outside links/controls) opens its details.
-    const tbody = document.getElementById("ordersTable");
-    if (tbody) {
-      tbody.addEventListener("click", function (e) {
-        if (e.target.closest("a, button, input, select, textarea, label"))
-          return;
-        const row = e.target.closest(".ord-row");
-        if (row) openOrderPanel(parseInt(row.id.replace("order-row-", ""), 10));
+    bar.addEventListener("change", function (e) {
+      if (e.target.matches('[data-role="panel-status-select"]'))
+        onPanelStatusChange(e.target);
+    });
+
+    // Saves the amount the admin read off the payment proof (Quote vs paid section).
+    async function submitProofAmount(btn) {
+      const wrap = btn.closest(".qv-proof");
+      const input = wrap.querySelector('[data-role="proof-amount"]');
+      const params = new URLSearchParams({
+        ajax: "save_proof_amount",
+        csrf_token: WA.csrfToken(),
+        order_id: btn.dataset.orderId,
+        amount: input.value.trim(),
       });
+      WA.setBusy(btn, true, "Saving...");
+      try {
+        const res = await fetch("admin_orders.php", {
+          method: "POST",
+          body: params,
+        });
+        const data = await res.json();
+        if (data.success) {
+          WA.toast("success", data.message);
+          wrap.querySelector('[data-role="proof-diff"]').innerHTML =
+            data.diff_html;
+        } else {
+          WA.toast("error", data.message || "Could not save the amount.");
+        }
+      } catch (err) {
+        WA.toast("error", "Network error while saving the amount.");
+      } finally {
+        WA.setBusy(btn, false);
+      }
     }
 
-    // Picking a status in the filter bar applies it straight away
-    const statusFilter = document.getElementById("orderStatusFilter");
-    if (statusFilter && statusFilter.form) {
-      statusFilter.addEventListener("change", function () {
-        if (statusFilter.form.requestSubmit) statusFilter.form.requestSubmit();
-        else statusFilter.form.submit();
+    // Verify the payment (marks the order Paid) or reject it (cancels the order).
+    async function submitPaymentDecision(btn, action) {
+      const wrap = btn.closest(".pv");
+      const orderId = Number(btn.dataset.orderId);
+      if (action === "verify_payment") {
+        const cashTick = wrap.querySelector('[data-role="cash-toggle"]');
+        if (btn.dataset.hasProof === "0") {
+          WA.toast(
+            "error",
+            "The customer hasn't uploaded a proof yet, so this can't be verified.",
+          );
+          return;
+        }
+        if (cashTick && cashTick.checked) {
+          WA.toast(
+            "error",
+            "Paid in cash is ticked. Confirm the cash payment instead of verifying a proof.",
+          );
+          return;
+        }
+      }
+      let reason = "";
+      if (action === "reject_payment") {
+        const reasonInput = wrap.querySelector('[data-role="reject-reason"]');
+        reason = reasonInput.value.trim();
+        if (reason === "") {
+          WA.toast("error", "Enter the reason for rejecting this payment.");
+          reasonInput.focus();
+          return;
+        }
+      }
+      if (action === "cash_balance") {
+        const ok = await WA.confirm({
+          title: "Balance paid in cash?",
+          message:
+            "Confirm that the customer paid the remaining balance of \u20B1" +
+            (btn.dataset.balance || "") +
+            " in cash. The order will be marked Paid in full.",
+          confirmText: "Yes, cash received",
+          cancelText: "Cancel",
+          tone: "warning",
+        });
+        if (!ok) return;
+      }
+      const amountInput = wrap.querySelector('[data-role="proof-amount"]');
+      const params = {
+        ajax: action,
+        csrf_token: WA.csrfToken(),
+        order_id: orderId,
+        reason: reason,
+        amount:
+          action === "verify_payment" && amountInput
+            ? amountInput.value.trim()
+            : "",
+      };
+      WA.setBusy(btn, true, "Working...");
+      try {
+        const row = document.getElementById("order-row-" + orderId);
+        const previous = row ? row.dataset.status : null;
+        const send = async function () {
+          const res = await fetch("admin_orders.php", {
+            method: "POST",
+            body: new URLSearchParams(params),
+          });
+          return res.json();
+        };
+        let data = await send();
+        if (!data.success && data.needs_confirm) {
+          // Balance amount differs from what is due: let the admin decide.
+          const ok = await WA.confirm({
+            title: "Amount does not match",
+            message: data.message,
+            confirmText: "Verify anyway",
+            cancelText: "Go back",
+            tone: "warning",
+          });
+          if (!ok) {
+            WA.setBusy(btn, false);
+            return;
+          }
+          params.confirm_mismatch = "1";
+          data = await send();
+        }
+        if (data.success) {
+          WA.toast("success", data.message);
+          applyStatusToRow(
+            orderId,
+            data.status,
+            data.status_label,
+            data.cancellation_reason,
+            data,
+          );
+          WA.bumpStatusCount(previous, data.status);
+          applyStatusToPanel(
+            data.status,
+            data.status_label,
+            data.cancellation_reason,
+          );
+          // the decision is made: re-render the panel so the Payment section
+          // matches the new state (settled, or "Verify balance" after a downpayment)
+          if (data.status === "cancelled") {
+            ["pv-actions", "pv-hint", "pv-note"].forEach(function (role) {
+              const el = wrap.querySelector('[data-role="' + role + '"]');
+              if (el) el.remove();
+            });
+          } else {
+            openOrderPanel(orderId);
+          }
+        } else {
+          WA.toast("error", data.message || "Could not complete this action.");
+          WA.setBusy(btn, false);
+        }
+      } catch (err) {
+        WA.toast("error", "Network error. Please try again.");
+        WA.setBusy(btn, false);
+      }
+    }
+
+    // "Paid in cash" ticked: the proof can't be verified any more, only the cash confirmed.
+    // Unticked: Verify is available again, but only when the customer uploaded a proof.
+    body.addEventListener("change", function (e) {
+      if (!e.target.matches('[data-role="cash-toggle"]')) return;
+      const box = e.target.closest(".pv");
+      if (!box) return;
+      const verifyBtn = box.querySelector('[data-role="verify-payment"]');
+      const cashBtn = box.querySelector('[data-role="cash-balance"]');
+      const hint = box.querySelector('[data-role="pv-hint"]');
+      const cash = e.target.checked;
+      if (verifyBtn)
+        verifyBtn.disabled = cash || verifyBtn.dataset.hasProof === "0";
+      if (cashBtn) cashBtn.hidden = !cash;
+      if (hint) hint.hidden = cash;
+    });
+
+    body.addEventListener("click", function (e) {
+      const retry = e.target.closest("[data-retry]");
+      if (retry) openOrderPanel(retry.dataset.retry);
+      const saveProof = e.target.closest('[data-role="save-proof"]');
+      if (saveProof) submitProofAmount(saveProof);
+      const verify = e.target.closest('[data-role="verify-payment"]');
+      if (verify) submitPaymentDecision(verify, "verify_payment");
+      const reject = e.target.closest('[data-role="reject-payment"]');
+      if (reject) submitPaymentDecision(reject, "reject_payment");
+      const cash = e.target.closest('[data-role="cash-balance"]');
+      if (cash) submitPaymentDecision(cash, "cash_balance");
+    });
+
+    // The amount field has no Save button: the badge updates as you type, the value is stored
+    // when you leave the field, and Verify sends whatever is in the field.
+    function showProofDiff(input) {
+      const cell = input
+        .closest(".qv-proof")
+        .querySelector('[data-role="proof-diff"]');
+      const due = parseFloat(input.dataset.due);
+      const raw = input.value.trim();
+      if (!cell) return;
+      if (raw === "" || isNaN(parseFloat(raw))) {
+        cell.innerHTML = '<span class="text-muted">&mdash;</span>';
+        return;
+      }
+      const diff = Math.round((parseFloat(raw) - due) * 100) / 100;
+      if (Math.abs(diff) < 0.005) {
+        cell.innerHTML =
+          '<span class="status-badge status-completed">Match</span>';
+      } else {
+        cell.innerHTML =
+          '<span class="status-badge status-cancelled">' +
+          (diff < 0 ? "Short" : "Over") +
+          " \u20B1" +
+          Math.abs(diff).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) +
+          "</span>";
+      }
+    }
+
+    async function autosaveProofAmount(input) {
+      const hint = input
+        .closest(".qv-proof")
+        .querySelector('[data-role="proof-saved"]');
+      try {
+        const res = await fetch("admin_orders.php", {
+          method: "POST",
+          body: new URLSearchParams({
+            ajax: "save_proof_amount",
+            csrf_token: WA.csrfToken(),
+            order_id: input.dataset.orderId,
+            amount: input.value.trim(),
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (hint) hint.textContent = "Saved";
+        } else {
+          if (hint) hint.textContent = "";
+          WA.toast("error", data.message || "Could not save the amount.");
+        }
+      } catch (err) {
+        WA.toast("error", "Network error while saving the amount.");
+      }
+    }
+
+    body.addEventListener("input", function (e) {
+      if (!e.target.matches('[data-role="proof-amount"]')) return;
+      showProofDiff(e.target);
+      const hint = e.target
+        .closest(".qv-proof")
+        .querySelector('[data-role="proof-saved"]');
+      if (hint) hint.textContent = "";
+    });
+
+    body.addEventListener("change", function (e) {
+      if (e.target.matches('[data-role="proof-amount"]'))
+        autosaveProofAmount(e.target);
+    });
+
+    body.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" || !e.target.matches('[data-role="proof-amount"]'))
+        return;
+      e.preventDefault();
+      e.target.blur(); // fires "change", which stores the amount
+    });
+
+    if (table) {
+      table.addEventListener("click", function (e) {
+        const open = e.target.closest("[data-open-order]");
+        if (open) {
+          openOrderPanel(open.dataset.openOrder);
+          return;
+        }
+        const update = e.target.closest('[data-role="update-btn"]');
+        if (update) submitStatusUpdate(Number(update.dataset.orderId), update);
+      });
+      table.addEventListener("change", function (e) {
+        if (e.target.matches('[data-role="status-select"]'))
+          onStatusSelectChange(e.target);
       });
     }
 
@@ -1020,7 +1527,8 @@
     if (cfg.openId > 0) openOrderPanel(cfg.openId);
 
     return {
-      openStatusDialog,
+      onStatusSelectChange,
+      submitStatusUpdate,
       applyStatusToRow,
       openOrderPanel,
       closeOrderPanel,
@@ -1033,97 +1541,49 @@
 
   /* ==================================================================
        Page: customers
-       Detail view is the same slide-over panel the orders page uses.
        ================================================================== */
   WA.definePage("customers", function (cfg, WA) {
     const esc = WA.esc;
-    const FOCUSABLE =
-      'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-    const panelEl = () => document.getElementById("slidePanel");
-    let panelUserId = null;
-    let panelReturnFocus = null;
+    const $ = (id) => document.getElementById(id);
 
-    function money(value) {
+    function initials(text) {
+      const parts = String(text || "?")
+        .trim()
+        .split(/\s+/);
       return (
-        "\u20B1" +
-        (parseFloat(value) || 0).toLocaleString("en-US", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-      );
+        (parts[0] || "?")[0] +
+        (parts.length > 1 ? parts[parts.length - 1][0] : "")
+      ).toUpperCase();
     }
 
-    function fmtDate(value) {
-      const d = new Date(String(value).replace(" ", "T"));
-      return isNaN(d)
-        ? ""
-        : d.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          });
-    }
-
-    function initials(name) {
-      name = String(name || "").trim();
-      return name ? name.slice(0, 2).toUpperCase() : "?";
-    }
-
-    function spec(label, value) {
+    function row(label, value) {
       return (
-        '<div class="od-spec"><dt>' +
+        "<dt>" +
         esc(label) +
         "</dt><dd>" +
-        esc(value || "Not provided") +
-        "</dd></div>"
+        (value ? esc(value) : '<span class="text-muted">Not provided</span>') +
+        "</dd>"
       );
     }
 
     function joinParts(parts) {
-      return parts
-        .filter(function (p) {
-          return p && String(p).trim() !== "";
-        })
-        .join(", ");
+      return parts.filter(Boolean).join(", ");
     }
 
-    // ---------- Slide-over panel ----------
-    function openCustomerPanel(userId) {
-      const panel = panelEl();
-      const row = document.getElementById("customer-row-" + userId);
-      panelReturnFocus =
-        document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null;
-      panelUserId = userId;
-
-      document.getElementById("panelOverlay").classList.add("open");
-      panel.classList.add("open");
-      panel.setAttribute("aria-hidden", "false");
-      document.body.classList.add("wa-modal-open");
-
-      document.getElementById("panelTitle").textContent = row
-        ? row.dataset.name || "Customer"
-        : "Customer";
-      document.getElementById("panelSubtitle").textContent = row
-        ? row.dataset.email || ""
+    function fmtDate(value) {
+      return value
+        ? new Date(String(value).replace(" ", "T")).toLocaleDateString(
+            "en-PH",
+            { year: "numeric", month: "short", day: "numeric" },
+          )
         : "";
-      document.getElementById("panelHeadBadge").innerHTML = "";
-      document.getElementById("panelStatusBar").innerHTML = "";
-      document.getElementById("panelBody").innerHTML =
-        '<div class="od-skeleton" aria-hidden="true">' +
-        '<div class="od-section"><div class="od-section-body"><span class="wa-skel" style="width:40%"></span><span class="wa-skel"></span><span class="wa-skel" style="width:70%"></span></div></div>' +
-        '<div class="od-section"><div class="od-section-body"><span class="wa-skel" style="width:30%"></span><span class="wa-skel"></span><span class="wa-skel"></span><span class="wa-skel" style="width:55%"></span></div></div>' +
-        "</div>";
+    }
 
-      const url = new URL(window.location);
-      url.searchParams.set("open", userId);
-      history.replaceState(null, "", url);
-
-      setTimeout(function () {
-        const close = document.getElementById("panelClose");
-        if (close && panelUserId === userId) close.focus();
-      }, 30);
+    function viewCustomerDetails(userId) {
+      const target = $("customerDetails");
+      target.innerHTML =
+        '<div class="loading-state" role="status"><div class="loading-spinner"><i class="fas fa-circle-notch" aria-hidden="true"></i></div><p>Loading customer...</p></div>';
+      WA.openModal("customerModal");
 
       Promise.all([
         fetch(
@@ -1133,258 +1593,139 @@
           (r) => r.json(),
         ),
       ])
-        .then(function (res) {
-          if (panelUserId !== userId) return; // stale response, user moved on
-          const data = res[0];
-          const customer = res[1];
-          if (customer.error || data.error) {
-            showPanelError(userId, customer.error || data.error);
+        .then(function (results) {
+          const data = results[0];
+          const customer = results[1];
+          if (data.error || customer.error) {
+            target.innerHTML =
+              '<div class="error-message"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><h3>Customer unavailable</h3><p>' +
+              esc(data.error || customer.error) +
+              "</p></div>";
             return;
           }
-          renderPanel(userId, customer, data);
-        })
-        .catch(function () {
-          if (panelUserId === userId)
-            showPanelError(
-              userId,
-              "Couldn't load this customer. Please try again.",
-            );
-        });
-    }
 
-    function showPanelError(userId, message) {
-      document.getElementById("panelBody").innerHTML =
-        '<div class="panel-loading"><i class="fas fa-circle-exclamation" aria-hidden="true"></i>' +
-        "<div>" +
-        esc(message) +
-        "</div>" +
-        '<button type="button" class="btn btn-outline btn-sm" onclick="openCustomerPanel(' +
-        Number(userId) +
-        ')"><i class="fas fa-rotate" aria-hidden="true"></i> Try again</button></div>';
-    }
-
-    function renderPanel(userId, customer, data) {
-      const stats = data.order_stats || {};
-      const recent = data.recent_orders || [];
-      const isCompany = customer.customer_type === "company";
-      const personalName = (
-        (customer.first_name || "") +
-        " " +
-        (customer.last_name || "")
-      ).trim();
-      const displayName = isCompany
-        ? customer.company_name || customer.username
-        : personalName || customer.username;
-
-      document.getElementById("panelTitle").textContent = displayName;
-      document.getElementById("panelSubtitle").textContent = customer.username;
-      document.getElementById("panelHeadBadge").innerHTML =
-        '<span class="wa-chip ' +
-        (isCompany ? "tone-total" : "tone-neutral") +
-        '"><i class="fas ' +
-        (isCompany ? "fa-building" : "fa-user") +
-        '" aria-hidden="true"></i> ' +
-        (isCompany ? "Company" : "Personal") +
-        "</span>";
-
-      // Quick actions live where the orders panel keeps its status controls
-      document.getElementById("panelStatusBar").innerHTML =
-        '<div class="cu-actions">' +
-        '<button type="button" class="btn btn-sm btn-outline" data-role="panel-edit"><i class="fas fa-pen-to-square" aria-hidden="true"></i> Edit customer</button>' +
-        '<button type="button" class="btn btn-sm btn-outline" data-role="panel-delete"><i class="fas fa-trash" aria-hidden="true"></i> Delete</button>' +
-        "</div>";
-      document
-        .querySelector('[data-role="panel-edit"]')
-        .addEventListener("click", function () {
-          closeCustomerPanel();
-          editCustomer(userId);
-        });
-      document
-        .querySelector('[data-role="panel-delete"]')
-        .addEventListener("click", function () {
-          closeCustomerPanel();
-          confirmDelete(userId, customer.username);
-        });
-
-      let details = "";
-      if (isCompany) {
-        details =
-          spec("Email", customer.username) +
-          spec("Phone", customer.company_contact) +
-          spec("Contact person", customer.contact_person) +
-          spec("Taxpayer", customer.taxpayer_name) +
-          spec(
-            "Address",
-            joinParts([
-              [
-                customer.building_or_block,
-                customer.lot_or_room_no,
-                customer.subd_or_street,
-              ]
+          const stats = data.order_stats || {};
+          const orders = data.recent_orders || [];
+          const company = customer.customer_type === "company";
+          const name = company
+            ? customer.company_name
+            : [customer.first_name, customer.last_name]
                 .filter(Boolean)
-                .join(" "),
-              customer.barangay,
-              customer.company_city,
-              customer.company_province,
-              customer.company_zip,
-            ]),
-          );
-      } else {
-        details =
-          spec("Email", customer.username) +
-          spec(
-            "Full name",
-            [customer.first_name, customer.middle_name, customer.last_name]
-              .filter(Boolean)
-              .join(" "),
-          ) +
-          spec("Phone", customer.contact_number) +
-          spec(
-            "Address",
-            joinParts([
-              customer.address_line1,
-              customer.city,
-              customer.province,
-              customer.zip_code,
-            ]),
-          ) +
-          spec(
-            "Age / gender",
-            customer.age || customer.gender
-              ? (customer.age || "\u2014") +
-                  " / " +
-                  (customer.gender || "\u2014")
-              : "",
-          ) +
-          spec(
-            "Birthdate",
-            customer.birthdate ? fmtDate(customer.birthdate) : "",
-          );
-      }
+                .join(" ");
 
-      let ordersHtml = "";
-      if (recent.length) {
-        ordersHtml =
-          '<div class="cu-orders">' +
-          recent
-            .map(function (o) {
-              return (
-                '<a class="cu-order" href="admin_orders.php?open=' +
-                encodeURIComponent(o.order_id) +
-                '" title="Open order #' +
-                esc(o.order_id) +
-                '">' +
-                '<span class="cu-order-id">#' +
-                esc(o.order_id) +
-                '<span class="cu-order-date">' +
-                esc(fmtDate(o.created_at)) +
-                "</span></span>" +
-                '<span class="wa-badge tone-' +
-                esc(o.status) +
-                '">' +
-                esc(WA.statusLabel(o.status)) +
-                "</span>" +
-                '<span class="cu-order-total">' +
-                esc(money(o.total_amount)) +
-                "</span></a>"
+          let details;
+          if (company) {
+            details =
+              row("Email", customer.username) +
+              row("Taxpayer", customer.taxpayer_name) +
+              row("Contact person", customer.contact_person) +
+              row("Phone", customer.company_contact) +
+              row(
+                "Address",
+                joinParts([
+                  customer.building_or_block,
+                  customer.lot_or_room_no,
+                  customer.subd_or_street,
+                  customer.barangay,
+                  customer.company_city,
+                  customer.company_province,
+                  customer.company_zip,
+                ]),
               );
-            })
-            .join("") +
-          "</div>";
-      } else {
-        ordersHtml = '<p class="od-empty-note">No orders found.</p>';
-      }
+          } else {
+            details =
+              row("Email", customer.username) +
+              row(
+                "Full name",
+                [customer.first_name, customer.middle_name, customer.last_name]
+                  .filter(Boolean)
+                  .join(" "),
+              ) +
+              row("Phone", customer.contact_number) +
+              row(
+                "Address",
+                joinParts([
+                  customer.address_line1,
+                  customer.city,
+                  customer.province,
+                  customer.zip_code,
+                ]),
+              ) +
+              row(
+                "Age / gender",
+                [customer.age, customer.gender].filter(Boolean).join(" / "),
+              ) +
+              row("Birthdate", fmtDate(customer.birthdate));
+          }
 
-      document.getElementById("panelBody").innerHTML =
-        '<section class="od-section"><header class="od-section-head"><h3 class="od-section-title"><i class="fas fa-chart-simple" aria-hidden="true"></i> Customer overview</h3></header>' +
-        '<div class="od-section-body"><dl class="od-kpis">' +
-        '<div class="od-kpi"><dt>Total orders</dt><dd>' +
-        esc(stats.total_orders || 0) +
-        "</dd></div>" +
-        '<div class="od-kpi od-kpi--total"><dt>Total spent</dt><dd>' +
-        esc(money(stats.total_spent)) +
-        "</dd></div>" +
-        '<div class="od-kpi"><dt>Avg order value</dt><dd>' +
-        esc(money(stats.avg_order_value)) +
-        "</dd></div>" +
-        '<div class="od-kpi"><dt>Last order</dt><dd>' +
-        (stats.last_order_date
-          ? esc(fmtDate(stats.last_order_date))
-          : "Never") +
-        "</dd></div>" +
-        "</dl></div></section>" +
-        '<section class="od-section"><header class="od-section-head"><h3 class="od-section-title"><i class="fas fa-address-card" aria-hidden="true"></i> Customer details</h3></header>' +
-        '<div class="od-section-body"><div class="od-person" style="margin-bottom:var(--space-4)">' +
-        '<span class="wa-avatar" aria-hidden="true">' +
-        esc(initials(displayName)) +
-        "</span><div>" +
-        '<div class="od-person-name">' +
-        esc(displayName) +
-        "</div>" +
-        '<div class="od-person-meta">User ID ' +
-        esc(customer.id) +
-        "</div></div></div>" +
-        '<dl class="od-specs">' +
-        details +
-        "</dl></div></section>" +
-        '<section class="od-section"><header class="od-section-head"><h3 class="od-section-title"><i class="fas fa-receipt" aria-hidden="true"></i> Recent orders</h3>' +
-        '<span class="od-count">' +
-        recent.length +
-        "</span></header>" +
-        '<div class="od-section-body">' +
-        ordersHtml +
-        "</div></section>";
+          const ordersHtml = orders.length
+            ? orders
+                .map(function (o) {
+                  return (
+                    '<tr><td><a href="admin_orders.php?open=' +
+                    encodeURIComponent(o.order_id) +
+                    '">#' +
+                    esc(o.order_id) +
+                    "</a></td>" +
+                    '<td class="num">' +
+                    esc(WA.peso(o.total_amount, 2)) +
+                    "</td>" +
+                    '<td><span class="status-badge status-' +
+                    esc(o.status) +
+                    '">' +
+                    esc(WA.statusLabel(o.status)) +
+                    "</span></td>" +
+                    "<td>" +
+                    esc(fmtDate(o.created_at)) +
+                    "</td></tr>"
+                  );
+                })
+                .join("")
+            : '<tr><td colspan="4" class="empty-cell">No orders yet.</td></tr>';
+
+          target.innerHTML =
+            '<div class="customer-head"><span class="avatar' +
+            (company ? " avatar--company" : "") +
+            '" aria-hidden="true">' +
+            esc(initials(name || customer.username)) +
+            "</span>" +
+            "<div><h3>" +
+            esc(name || customer.username) +
+            '</h3><span class="type-badge type-badge--' +
+            (company ? "company" : "personal") +
+            '">' +
+            (company ? "Company" : "Personal") +
+            "</span></div></div>" +
+            '<dl class="detail-list">' +
+            details +
+            "</dl>" +
+            '<div class="customer-stats">' +
+            '<div class="stat-box"><span class="stat-value">' +
+            esc(stats.total_orders || 0) +
+            '</span><span class="stat-label">Orders</span></div>' +
+            '<div class="stat-box"><span class="stat-value">' +
+            esc(WA.peso(stats.total_spent, 2)) +
+            '</span><span class="stat-label">Total spent</span></div>' +
+            '<div class="stat-box"><span class="stat-value">' +
+            esc(WA.peso(stats.avg_order_value, 2)) +
+            '</span><span class="stat-label">Average order</span></div>' +
+            '<div class="stat-box"><span class="stat-value">' +
+            esc(
+              stats.last_order_date ? fmtDate(stats.last_order_date) : "Never",
+            ) +
+            '</span><span class="stat-label">Last order</span></div></div>' +
+            '<h4 class="modal-section-title">Recent orders</h4>' +
+            '<div class="table-card"><table class="table"><thead><tr><th>Order</th><th class="num">Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>' +
+            ordersHtml +
+            "</tbody></table></div>";
+        })
+        .catch(function (error) {
+          console.error("Error:", error);
+          target.innerHTML =
+            '<div class="error-message"><i class="fas fa-wifi" aria-hidden="true"></i><h3>Couldn\'t load this customer</h3><p>Check your connection and try again.</p></div>';
+        });
     }
 
-    function closeCustomerPanel() {
-      const panel = panelEl();
-      if (!panel.classList.contains("open")) return;
-      panelUserId = null;
-      document.getElementById("panelOverlay").classList.remove("open");
-      panel.classList.remove("open");
-      panel.setAttribute("aria-hidden", "true");
-      if (!document.querySelector(".modal.open"))
-        document.body.classList.remove("wa-modal-open");
-
-      const url = new URL(window.location);
-      url.searchParams.delete("open");
-      history.replaceState(null, "", url);
-
-      if (panelReturnFocus && document.contains(panelReturnFocus))
-        panelReturnFocus.focus();
-      panelReturnFocus = null;
-    }
-
-    // Escape closes the panel (dialogs handle Escape themselves); Tab stays inside it.
-    document.addEventListener("keydown", function (e) {
-      if (panelUserId === null || document.querySelector(".modal.open")) return;
-      if (e.key === "Escape") {
-        closeCustomerPanel();
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const items = Array.prototype.filter.call(
-        panelEl().querySelectorAll(FOCUSABLE),
-        function (el) {
-          return el.offsetParent !== null;
-        },
-      );
-      if (!items.length) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (!panelEl().contains(document.activeElement)) {
-        e.preventDefault();
-        first.focus();
-      } else if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    });
-
-    // ---------- Edit dialog ----------
     function editCustomer(userId) {
       fetch("admin_customers.php?ajax=get_customer&user_id=" + userId)
         .then((response) => response.json())
@@ -1394,62 +1735,41 @@
             return;
           }
 
-          document.getElementById("editUserId").value = customer.id;
-          document.getElementById("editUsername").value = customer.username;
+          $("editUserId").value = customer.id;
+          $("editUsername").value = customer.username;
 
           const isCompany = customer.customer_type === "company";
-          document.getElementById("editCustomerSub").textContent =
-            (isCompany
-              ? customer.company_name
-              : (
-                  (customer.first_name || "") +
-                  " " +
-                  (customer.last_name || "")
-                ).trim()) || customer.username;
-          document.getElementById("personalFields").style.display = isCompany
-            ? "none"
-            : "block";
-          document.getElementById("companyFields").style.display = isCompany
-            ? "block"
-            : "none";
-          // The plain "Phone Number" field up top is the personal
-          // one; company has its own phone field further down.
-          document.getElementById("personalContactGroup").style.display =
-            isCompany ? "none" : "block";
+          $("personalFields").hidden = isCompany;
+          $("companyFields").hidden = !isCompany;
+          // The plain "Phone Number" field up top is the personal one;
+          // company has its own phone field in its section.
+          $("personalContactGroup").hidden = isCompany;
+          const typeEl = $("editCustomerType");
+          if (typeEl) {
+            typeEl.textContent = isCompany ? "Company" : "Personal";
+            typeEl.className =
+              "type-badge type-badge--" + (isCompany ? "company" : "personal");
+          }
 
           if (isCompany) {
-            document.getElementById("editCompanyName").value =
-              customer.company_name || "";
-            document.getElementById("editTaxpayerName").value =
-              customer.taxpayer_name || "";
-            document.getElementById("editContactPerson").value =
-              customer.contact_person || "";
-            document.getElementById("editCompanyContactNumber").value =
+            $("editCompanyName").value = customer.company_name || "";
+            $("editTaxpayerName").value = customer.taxpayer_name || "";
+            $("editContactPerson").value = customer.contact_person || "";
+            $("editCompanyContactNumber").value =
               customer.company_contact || "";
-            document.getElementById("editBuildingOrBlock").value =
-              customer.building_or_block || "";
-            document.getElementById("editLotOrRoomNo").value =
-              customer.lot_or_room_no || "";
-            document.getElementById("editSubdOrStreet").value =
-              customer.subd_or_street || "";
-            document.getElementById("editBarangay").value =
-              customer.barangay || "";
-            document.getElementById("editCompanyCity").value =
-              customer.company_city || "";
-            document.getElementById("editCompanyProvince").value =
-              customer.company_province || "";
-            document.getElementById("editCompanyZipCode").value =
-              customer.company_zip || "";
+            $("editBuildingOrBlock").value = customer.building_or_block || "";
+            $("editLotOrRoomNo").value = customer.lot_or_room_no || "";
+            $("editSubdOrStreet").value = customer.subd_or_street || "";
+            $("editBarangay").value = customer.barangay || "";
+            $("editCompanyCity").value = customer.company_city || "";
+            $("editCompanyProvince").value = customer.company_province || "";
+            $("editCompanyZipCode").value = customer.company_zip || "";
           } else {
-            document.getElementById("editFirstName").value =
-              customer.first_name || "";
-            document.getElementById("editLastName").value =
-              customer.last_name || "";
-            document.getElementById("editContactNumber").value =
-              customer.contact_number || "";
-            document.getElementById("editAddressLine1").value =
-              customer.address_line1 || "";
-            document.getElementById("editCity").value = customer.city || "";
+            $("editFirstName").value = customer.first_name || "";
+            $("editLastName").value = customer.last_name || "";
+            $("editContactNumber").value = customer.contact_number || "";
+            $("editAddressLine1").value = customer.address_line1 || "";
+            $("editCity").value = customer.city || "";
           }
 
           WA.openModal("editCustomerModal");
@@ -1465,7 +1785,7 @@
         title: "Delete this customer?",
         messageHtml:
           "You are about to delete <strong>" +
-          WA.esc(username) +
+          esc(username) +
           "</strong>. This can't be undone.",
         confirmText: "Delete customer",
         tone: "danger",
@@ -1478,153 +1798,89 @@
       });
     }
 
-    // ---------- List interactions ----------
-    // Clicking anywhere on a row (outside links/controls) opens its details.
-    const tbody = document.getElementById("customersTable");
-    if (tbody) {
-      tbody.addEventListener("click", function (e) {
-        if (e.target.closest("a, button, input, select, textarea, label"))
-          return;
-        const row = e.target.closest(".ord-row");
-        if (row)
-          openCustomerPanel(parseInt(row.id.replace("customer-row-", ""), 10));
-      });
-    }
+    // Row actions (data attributes instead of inline handlers)
+    document.addEventListener("click", function (e) {
+      const btn = e.target.closest("[data-customer-action]");
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+      if (btn.dataset.customerAction === "view") viewCustomerDetails(id);
+      else if (btn.dataset.customerAction === "edit") editCustomer(id);
+      else if (btn.dataset.customerAction === "delete")
+        confirmDelete(id, btn.dataset.username || "");
+    });
 
-    // Picking a sort order in the filter bar applies it straight away
-    const sortFilter = document.getElementById("customerSortFilter");
-    if (sortFilter && sortFilter.form) {
-      sortFilter.addEventListener("change", function () {
-        if (sortFilter.form.requestSubmit) sortFilter.form.requestSubmit();
-        else sortFilter.form.submit();
-      });
-    }
-
-    // Deep link (?open=ID)
-    if (cfg.openId > 0) openCustomerPanel(cfg.openId);
-
-    return {
-      openCustomerPanel,
-      closeCustomerPanel,
-      viewCustomerDetails: openCustomerPanel, // kept for any older caller
-      editCustomer,
-      confirmDelete,
-    };
+    return { viewCustomerDetails, editCustomer, confirmDelete };
   });
 
   /* ==================================================================
        Page: products
        ================================================================== */
   WA.definePage("products", function (cfg, WA) {
-    // Global variables
-    let currentProductId = null;
-    let currentProductName = null;
+    const esc = WA.esc;
+    const $ = (id) => document.getElementById(id);
+    const MAX_IMAGES = 5;
 
-    // Modal functions
-    function setModalSub(text) {
-      const el = document.getElementById("modalSub");
-      if (el) el.textContent = text;
-    }
-
+    // ---------- Add / edit ----------
     function openAddModal() {
-      document.getElementById("modalTitle").textContent = "Add New Product";
-      setModalSub("Set the name, category and price, then add images.");
-      document.getElementById("formAction").value = "add_product";
-      document.getElementById("productId").value = "";
-      document.getElementById("productForm").reset();
-      document.getElementById("currentImagesSection").style.display = "none";
-      document.getElementById("currentBaseSection").style.display = "none";
-      document.getElementById("baseTemplatesSection").style.display = "none";
-
-      // Reset file inputs
+      $("productForm").reset();
+      $("modalTitle").textContent = "Add product";
+      $("formAction").value = "add_product";
+      $("productId").value = "";
       resetFileInputs();
-
+      $("currentImagesSection").hidden = true;
+      $("currentBaseSection").hidden = true;
+      $("productOptionsSection").hidden = true;
+      handleCategoryChange();
       WA.openModal("productModal");
     }
 
-    function openEditModal(productId) {
-      // Show loading state
-      document.getElementById("saveBtnText").style.display = "none";
-      document.getElementById("saveBtnLoading").style.display = "inline-block";
-
-      // Reset file inputs first
+    function openEditModal(productId, btn) {
       resetFileInputs();
+      WA.setBusy(btn, true, "Loading...");
 
-      console.log("Fetching product data for ID:", productId);
-
-      // Fetch product data via AJAX
-      fetch(`admin_products.php?ajax=get_product&product_id=${productId}`)
+      fetch("admin_products.php?ajax=get_product&product_id=" + productId)
         .then((response) => {
-          console.log("Response status:", response.status);
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
+          if (!response.ok) throw new Error("HTTP error " + response.status);
           return response.json();
         })
         .then((data) => {
-          console.log("Received data:", data);
-
           if (data.error) {
             WA.toast("error", "Error: " + data.error);
             return;
           }
-
-          // Populate form with product data
-          document.getElementById("modalTitle").textContent = "Edit Product";
-          setModalSub(
-            "Update the details or images for product #" + data.id + ".",
-          );
-          document.getElementById("formAction").value = "update_product";
-          document.getElementById("productId").value = data.id;
-          document.getElementById("product_name").value = data.product_name;
-          document.getElementById("category").value = data.category;
-          document.getElementById("price").value = data.price;
-
-          // Update image status
+          $("modalTitle").textContent = "Edit product";
+          $("formAction").value = "update_product";
+          $("productId").value = data.id;
+          $("product_name").value = data.product_name;
+          $("category").value = data.category;
+          $("price").value = data.price;
           updateImageStatus(data);
-
-          // Handle category-specific visibility
+          $("productOptionsSection").hidden = false;
           handleCategoryChange();
-
           WA.openModal("productModal");
         })
         .catch((error) => {
           console.error("Fetch Error:", error);
           WA.toast("error", "Error loading product data: " + error.message);
         })
-        .finally(() => {
-          // Hide loading state
-          document.getElementById("saveBtnText").style.display = "inline";
-          document.getElementById("saveBtnLoading").style.display = "none";
-        });
+        .finally(() => WA.setBusy(btn, false));
     }
 
     function openCustomizationModal(productId) {
-      document.getElementById("customizationProductId").value = productId;
-
-      // Fetch current customization settings
-      fetch(`admin_products.php?ajax=get_customization&product_id=${productId}`)
+      $("customizationProductId").value = productId;
+      fetch("admin_products.php?ajax=get_customization&product_id=" + productId)
         .then((response) => response.json())
         .then((data) => {
           if (data.error) {
             WA.toast("error", "Error: " + data.error);
             return;
           }
-
-          // Set checkbox states
-          document.getElementById("has_paper_option").checked =
-            data.has_paper_option == 1;
-          document.getElementById("has_size_option").checked =
-            data.has_size_option == 1;
-          document.getElementById("has_finish_option").checked =
-            data.has_finish_option == 1;
-          document.getElementById("has_layout_option").checked =
-            data.has_layout_option == 1;
-          document.getElementById("has_binding_option").checked =
-            data.has_binding_option == 1;
-          document.getElementById("has_gsm_option").checked =
-            data.has_gsm_option == 1;
-
+          ["paper", "size", "finish", "layout", "binding", "gsm"].forEach(
+            function (k) {
+              $("has_" + k + "_option").checked =
+                data["has_" + k + "_option"] == 1;
+            },
+          );
           WA.openModal("customizationModal");
         })
         .catch((error) => {
@@ -1634,277 +1890,234 @@
     }
 
     function refreshPageAfterUpload() {
-      setTimeout(() => {
-        location.reload();
-      }, 1000);
+      setTimeout(() => location.reload(), 1000);
     }
 
-    // Handle category change for base templates visibility
+    // Base templates only apply to "Other Services"
     function handleCategoryChange() {
-      const category = document.getElementById("category").value;
-      const baseSection = document.getElementById("baseTemplatesSection");
-
-      if (category) {
-        // Show/hide base templates section
-        if (category === "Other Services") {
-          baseSection.style.display = "block";
-        } else {
-          baseSection.style.display = "none";
-        }
-      } else {
-        baseSection.style.display = "none";
-      }
+      const isOther = $("category").value === "Other Services";
+      $("baseTemplatesSection").hidden = !isOther;
+      if (!isOther) $("currentBaseSection").hidden = true;
+      else if ($("formAction").value === "update_product")
+        $("currentBaseSection").hidden = false;
     }
 
-    // Show single file name when file is selected
+    // ---------- File pickers + previews ----------
+    function setFileName(el, text, selected) {
+      if (!el) return;
+      el.textContent = text;
+      el.classList.toggle("is-selected", !!selected);
+    }
+
     function showFileName(input, displayElementId) {
-      const displayElement = document.getElementById(displayElementId);
-
-      if (input.files && input.files[0]) {
-        displayElement.textContent = `Selected: ${input.files[0].name}`;
-        displayElement.classList.add("is-selected");
-
-        // Show image preview for base templates
-        if (input.name === "base_image") {
-          showImagePreview(input, "frontBase");
-        } else if (input.name === "base_back_image") {
-          showImagePreview(input, "backBase");
-        }
-      } else {
-        displayElement.textContent = "No file chosen";
-        displayElement.classList.remove("is-selected");
-
-        // Hide image preview
-        if (input.name === "base_image") {
-          hideImagePreview("frontBase");
-        } else if (input.name === "base_back_image") {
-          hideImagePreview("backBase");
-        }
-      }
+      const el = $(displayElementId);
+      const has = input.files && input.files[0];
+      setFileName(
+        el,
+        has ? "Selected: " + input.files[0].name : "No file chosen",
+        has,
+      );
+      const previewId = getPreviewId(input.name);
+      if (has) showImagePreview(input, previewId);
+      else hideImagePreview(previewId);
     }
 
-    // Show multiple file names when files are selected
     function showFileNames(input, displayElementId) {
-      const displayElement = document.getElementById(displayElementId);
-      const previewContainer = document.getElementById("productImagesPreview");
-
+      const el = $(displayElementId);
+      const container = $("productImagesPreview");
       if (input.files && input.files.length > 0) {
-        const fileNames = Array.from(input.files)
-          .slice(0, 5)
-          .map((file) => file.name)
-          .join(", ");
-        const fileCount = Math.min(input.files.length, 5);
-
-        displayElement.textContent = `Selected ${fileCount} file(s): ${fileNames}`;
-        displayElement.classList.add("is-selected");
-
-        // Show image previews
+        const files = Array.from(input.files).slice(0, MAX_IMAGES);
+        setFileName(
+          el,
+          "Selected " +
+            files.length +
+            " file(s): " +
+            files.map((f) => f.name).join(", "),
+          true,
+        );
         showMultipleImagePreviews(input);
       } else {
-        displayElement.textContent = "No files chosen";
-        displayElement.classList.remove("is-selected");
-
-        // Hide image previews
-        previewContainer.style.display = "none";
-        previewContainer.innerHTML = "";
+        setFileName(el, "No files chosen", false);
+        container.hidden = true;
+        container.innerHTML = "";
       }
     }
 
-    // Show multiple image previews
     function showMultipleImagePreviews(input) {
-      const previewContainer = document.getElementById("productImagesPreview");
-      previewContainer.innerHTML = "";
-
-      if (input.files && input.files.length > 0) {
-        const fileCount = Math.min(input.files.length, 5);
-
-        for (let i = 0; i < fileCount; i++) {
-          const file = input.files[i];
+      const container = $("productImagesPreview");
+      container.innerHTML = "";
+      if (!input.files || !input.files.length) return;
+      Array.from(input.files)
+        .slice(0, MAX_IMAGES)
+        .forEach(function (file, i) {
           const reader = new FileReader();
-
           reader.onload = function (e) {
-            const previewDiv = document.createElement("div");
-            previewDiv.className = "image-preview";
-            previewDiv.innerHTML = `
-                            <img src="${e.target.result}" alt="Preview ${i + 1}">
-                            <div class="image-preview-label">Image ${i + 1}</div>
-                        `;
-            previewContainer.appendChild(previewDiv);
+            const div = document.createElement("div");
+            div.className = "image-preview";
+            div.innerHTML =
+              '<img src="' +
+              e.target.result +
+              '" alt="New image ' +
+              (i + 1) +
+              '">' +
+              '<div class="image-preview-label">New ' +
+              (i + 1) +
+              "</div>";
+            container.appendChild(div);
           };
-
           reader.readAsDataURL(file);
-        }
-
-        previewContainer.style.display = "flex";
-      }
+        });
+      container.hidden = false;
     }
 
-    // Show image preview
     function showImagePreview(input, previewId) {
-      const previewContainer = document.getElementById(previewId + "Preview");
-      const previewImg = document.getElementById(previewId + "PreviewImg");
-
-      if (input.files && input.files[0]) {
-        const reader = new FileReader();
-
-        reader.onload = function (e) {
-          previewImg.src = e.target.result;
-          previewContainer.style.display = "block";
-        };
-
-        reader.readAsDataURL(input.files[0]);
-      }
+      const container = $(previewId + "Preview");
+      const img = $(previewId + "PreviewImg");
+      if (!input.files || !input.files[0] || !container) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        img.src = e.target.result;
+        container.hidden = false;
+      };
+      reader.readAsDataURL(input.files[0]);
     }
 
-    // Hide image preview
     function hideImagePreview(previewId) {
-      const previewContainer = document.getElementById(previewId + "Preview");
-      if (previewContainer) {
-        previewContainer.style.display = "none";
-      }
+      const container = $(previewId + "Preview");
+      if (container) container.hidden = true;
     }
 
-    // Get preview ID based on input name
     function getPreviewId(inputName) {
-      const previewMap = {
+      const map = {
         product_image: "mainProduct",
         product_back_image: "backProduct",
         base_image: "frontBase",
         base_back_image: "backBase",
       };
-
-      return previewMap[inputName] || inputName;
+      return map[inputName] || inputName;
     }
 
     function resetFileInputs() {
-      // Reset file name displays
-      const fileDisplays = [
-        "productImagesFile",
-        "frontBaseFile",
-        "backBaseFile",
-      ];
-      fileDisplays.forEach((id) => {
-        const element = document.getElementById(id);
-        if (element) {
-          element.textContent =
-            id === "productImagesFile" ? "No files chosen" : "No file chosen";
-          element.classList.remove("is-selected");
-        }
+      [
+        ["productImagesFile", "No files chosen"],
+        ["frontBaseFile", "No file chosen"],
+        ["backBaseFile", "No file chosen"],
+      ].forEach(function (pair) {
+        setFileName($(pair[0]), pair[1], false);
       });
-
-      // Hide all previews
-      const previews = [
-        "productImagesPreview",
-        "frontBasePreview",
-        "backBasePreview",
-      ];
-      previews.forEach((id) => {
-        const element = document.getElementById(id);
-        if (element) {
-          element.style.display = "none";
-          if (id === "productImagesPreview") {
-            element.innerHTML = "";
-          }
-        }
-      });
-
-      // Reset file inputs
-      const fileInputs = document.querySelectorAll(".file-input");
-      fileInputs.forEach((input) => {
-        input.value = "";
-      });
-    }
-
-    // One row in the "current images" / "current base templates" lists
-    function prdAssetRow(opts) {
-      const thumb =
-        opts.exists && opts.url
-          ? `<img src="${WA.esc(opts.url)}" alt="${WA.esc(opts.label)}">`
-          : '<i class="fas fa-image" aria-hidden="true"></i>';
-      const state = opts.exists
-        ? '<span class="prd-asset-state is-ok"><i class="fas fa-circle-check" aria-hidden="true"></i> Present</span>'
-        : '<span class="prd-asset-state is-missing"><i class="fas fa-circle-exclamation" aria-hidden="true"></i> Not uploaded</span>';
-      const action = opts.exists
-        ? `<button type="button" class="btn btn-sm btn-outline prd-btn-danger" onclick="${opts.deleteCall}" title="${WA.esc(opts.deleteTitle)}"><i class="fas fa-trash" aria-hidden="true"></i> Delete</button>`
-        : "";
-      return `<div class="prd-asset"><span class="prd-asset-thumb">${thumb}</span><div class="prd-asset-info"><span class="prd-asset-name">${WA.esc(opts.label)}</span>${state}</div>${action}</div>`;
-    }
-
-    // Update image status in edit mode with delete buttons
-    function updateImageStatus(productData) {
-      const currentImagesSection = document.getElementById(
-        "currentImagesSection",
+      ["productImagesPreview", "frontBasePreview", "backBasePreview"].forEach(
+        function (id) {
+          const el = $(id);
+          if (!el) return;
+          el.hidden = true;
+          if (id === "productImagesPreview") el.innerHTML = "";
+        },
       );
-      const currentImagesList = document.getElementById("currentImagesList");
-      const currentBaseSection = document.getElementById("currentBaseSection");
+      document
+        .querySelectorAll(".file-input")
+        .forEach((input) => (input.value = ""));
+    }
 
-      if (!productData.id) {
-        currentImagesSection.style.display = "none";
-        currentBaseSection.style.display = "none";
+    // ---------- Current images (edit mode): slot gallery ----------
+    function slotHtml(index, label, url, deleteAttr) {
+      if (url) {
+        return (
+          '<div class="slot-wrap"><div class="slot is-filled"><img src="' +
+          esc(url) +
+          '" alt="' +
+          esc(label) +
+          '">' +
+          '<span class="slot-label">' +
+          esc(index) +
+          "</span>" +
+          '<button type="button" class="slot-delete" ' +
+          deleteAttr +
+          ' aria-label="Delete ' +
+          esc(label) +
+          '"><i class="fas fa-trash" aria-hidden="true"></i></button></div>' +
+          '<div class="slot-caption">' +
+          esc(label) +
+          "</div></div>"
+        );
+      }
+      return (
+        '<div class="slot-wrap"><div class="slot"><i class="fas fa-image" aria-hidden="true"></i><span>Empty</span>' +
+        '<span class="slot-label">' +
+        esc(index) +
+        "</span></div>" +
+        '<div class="slot-caption">' +
+        esc(label) +
+        "</div></div>"
+      );
+    }
+
+    function updateImageStatus(d) {
+      const section = $("currentImagesSection");
+      const list = $("currentImagesList");
+      const base = $("currentBaseSection");
+
+      if (!d || !d.id) {
+        section.hidden = true;
+        base.hidden = true;
         return;
       }
 
-      const pid = Number(productData.id);
-      const maxImages = 5;
-
-      // Product images: list the ones that exist (new uploads fill free slots)
-      const present = [];
-      for (let i = 0; i < maxImages; i++) {
-        if (productData[`product_image_exists_${i}`]) present.push(i);
+      section.hidden = false;
+      let used = 0;
+      let slots = "";
+      for (let i = 0; i < MAX_IMAGES; i++) {
+        const exists =
+          d["product_image_exists_" + i] && d["product_image_url_" + i];
+        if (exists) used++;
+        slots += slotHtml(
+          i + 1,
+          "Image " + (i + 1),
+          exists ? d["product_image_url_" + i] : null,
+          'data-delete-image="' + i + '"',
+        );
       }
+      list.innerHTML =
+        "<h5>Current images (" +
+        used +
+        " of " +
+        MAX_IMAGES +
+        " slots used)</h5>" +
+        '<div class="slot-grid">' +
+        slots +
+        "</div>" +
+        (used
+          ? '<div class="slot-actions"><button type="button" class="btn btn-ghost-danger btn-sm" data-delete-all><i class="fas fa-trash" aria-hidden="true"></i> Delete all images</button></div>'
+          : '<p class="form-hint">No images yet. New uploads fill the first free slots.</p>');
 
-      let html = `<div class="prd-subhead"><span>Current images</span><span class="od-count">${present.length} / ${maxImages}</span></div>`;
-      if (present.length === 0) {
-        html +=
-          '<p class="prd-note">No product images yet. Choose files above to add some.</p>';
-      } else {
-        html += '<div class="prd-assets">';
-        present.forEach(function (i) {
-          html += prdAssetRow({
-            label: `Product image ${i + 1}`,
-            url: productData[`product_image_url_${i}`],
-            exists: true,
-            deleteCall: `deleteProductImage(${pid}, ${i})`,
-            deleteTitle: "Delete this image",
-          });
-        });
-        html += "</div>";
-        html += `<div class="prd-assets-foot"><button type="button" class="btn btn-sm btn-outline prd-btn-danger" onclick="deleteAllProductImages(${pid})"><i class="fas fa-trash" aria-hidden="true"></i> Delete all images</button></div>`;
-      }
-      currentImagesList.innerHTML = html;
-      currentImagesSection.style.display = "block";
-
-      // Base templates (Other Services only)
-      if (productData.category === "Other Services") {
-        currentBaseSection.style.display = "block";
-        currentBaseSection.innerHTML =
-          '<div class="prd-subhead"><span>Current base templates</span></div><div class="prd-assets">' +
-          prdAssetRow({
-            label: "Front base template",
-            url: productData.base_image_url,
-            exists: !!productData.base_image_exists,
-            deleteCall: `deleteBaseTemplate(${pid}, 'front')`,
-            deleteTitle: "Delete front base template",
-          }) +
-          prdAssetRow({
-            label: "Back base template",
-            url: productData.base_back_image_url,
-            exists: !!productData.base_back_image_exists,
-            deleteCall: `deleteBaseTemplate(${pid}, 'back')`,
-            deleteTitle: "Delete back base template",
-          }) +
+      if (d.category === "Other Services") {
+        base.hidden = false;
+        base.innerHTML =
+          "<h5>Current base templates</h5>" +
+          '<div class="slot-grid slot-grid--two">' +
+          slotHtml(
+            "F",
+            "Front template",
+            d.base_image_exists ? d.base_image_url : null,
+            'data-delete-base="front"',
+          ) +
+          slotHtml(
+            "B",
+            "Back template",
+            d.base_back_image_exists ? d.base_back_image_url : null,
+            'data-delete-base="back"',
+          ) +
           "</div>";
       } else {
-        currentBaseSection.style.display = "none";
+        base.hidden = true;
       }
     }
 
-    // Delete a specific product image
+    // ---------- Deleting images / products ----------
     function deleteProductImage(productId, imageIndex) {
       WA.confirm({
         title: "Delete this image?",
         message:
-          "Product Image " + (imageIndex + 1) + " will be permanently removed.",
+          "Product image " + (imageIndex + 1) + " will be permanently removed.",
         confirmText: "Delete image",
         tone: "danger",
       }).then(function (ok) {
@@ -1917,7 +2130,6 @@
       });
     }
 
-    // Delete all product images
     function deleteAllProductImages(productId) {
       WA.confirm({
         title: "Delete all product images?",
@@ -1935,13 +2147,12 @@
       });
     }
 
-    // Delete base template
     function deleteBaseTemplate(productId, templateType) {
-      const templateName =
-        templateType === "front" ? "Front Base Template" : "Back Base Template";
+      const name =
+        templateType === "front" ? "front base template" : "back base template";
       WA.confirm({
         title: "Delete this base template?",
-        message: "The " + templateName + " will be permanently removed.",
+        message: "The " + name + " will be permanently removed.",
         confirmText: "Delete template",
         tone: "danger",
       }).then(function (ok) {
@@ -1954,18 +2165,13 @@
       });
     }
 
-    // Helper function to update status indicators
     function updateStatusIndicator(statusId, textId, exists, label) {
-      const statusElement = document.getElementById(statusId);
-      const textElement = document.getElementById(textId);
-
-      if (exists) {
-        statusElement.className = "status-indicator status-present";
-        textElement.textContent = `${label} ✓`;
-      } else {
-        statusElement.className = "status-indicator status-missing";
-        textElement.textContent = `${label} ✗ (Missing)`;
-      }
+      const statusElement = $(statusId);
+      const textElement = $(textId);
+      if (!statusElement || !textElement) return;
+      statusElement.className =
+        "status-indicator " + (exists ? "status-present" : "status-missing");
+      textElement.textContent = label + (exists ? " (present)" : " (missing)");
     }
 
     function confirmDelete(productId, productName) {
@@ -1973,7 +2179,7 @@
         title: "Delete this product?",
         messageHtml:
           "You are about to delete <strong>" +
-          WA.esc(productName) +
+          esc(productName) +
           "</strong>. This can't be undone.",
         confirmText: "Delete product",
         tone: "danger",
@@ -1987,53 +2193,112 @@
     }
 
     function exportProducts() {
-      // Simple CSV export
       const rows = [["ID", "Product Name", "Category", "Price"]].concat(
         cfg.products || [],
       );
-
-      let csvContent = "data:text/csv;charset=utf-8,";
-      rows.forEach(function (rowArray) {
-        let row = rowArray.map((field) => `"${field}"`).join(",");
-        csvContent += row + "\r\n";
-      });
-
-      const encodedUri = encodeURI(csvContent);
+      const csv = rows
+        .map((r) =>
+          r
+            .map((field) => '"' + String(field).replace(/"/g, '""') + '"')
+            .join(","),
+        )
+        .join("\r\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", "products_export.csv");
+      link.href = url;
+      link.download = "products_export.csv";
       document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     }
 
-    // Form validation
-    document
-      .getElementById("productForm")
-      .addEventListener("submit", function (e) {
-        const productName = document
-          .getElementById("product_name")
-          .value.trim();
-        const category = document.getElementById("category").value;
-        const price = document.getElementById("price").value;
-
-        if (!productName) {
-          e.preventDefault();
-          WA.toast("warning", "Please enter a product name");
-          return;
-        }
-
-        if (!category) {
-          e.preventDefault();
-          WA.toast("warning", "Please select a category");
-          return;
-        }
-
-        if (!price || price <= 0) {
-          e.preventDefault();
-          WA.toast("warning", "Please enter a valid price");
-          return;
-        }
+    // ---------- Client-side search / category filter (current page of results) ----------
+    function filterProducts() {
+      const term = ($("productSearch").value || "").trim().toLowerCase();
+      const cat = $("categoryFilter").value;
+      let visible = 0;
+      document.querySelectorAll(".product-card").forEach(function (card) {
+        const match =
+          (!term || card.dataset.name.indexOf(term) !== -1) &&
+          (!cat || card.dataset.category === cat);
+        card.hidden = !match;
+        if (match) visible++;
       });
+      $("productsEmpty").hidden = visible !== 0;
+      const count = $("productCount");
+      if (count) count.textContent = visible;
+    }
+
+    function clearProductFilters() {
+      $("productSearch").value = "";
+      $("categoryFilter").value = "";
+      filterProducts();
+    }
+
+    // ---------- Wiring ----------
+    $("addProductBtn").addEventListener("click", openAddModal);
+    $("exportProductsBtn").addEventListener("click", exportProducts);
+    const clearBtn = $("clearProductFilters");
+    if (clearBtn) clearBtn.addEventListener("click", clearProductFilters);
+    $("productSearch").addEventListener("input", filterProducts);
+    $("categoryFilter").addEventListener("change", filterProducts);
+
+    document.addEventListener("click", function (e) {
+      const t = e.target.closest("[data-product-action]");
+      if (t) {
+        const id = Number(t.dataset.id);
+        if (t.dataset.productAction === "edit") openEditModal(id, t);
+        else if (t.dataset.productAction === "options")
+          openCustomizationModal(id || Number($("productId").value));
+        else if (t.dataset.productAction === "delete")
+          confirmDelete(id, t.dataset.name || "");
+        return;
+      }
+      const pid = Number($("productId").value);
+      const img = e.target.closest("[data-delete-image]");
+      if (img) return deleteProductImage(pid, Number(img.dataset.deleteImage));
+      const baseBtn = e.target.closest("[data-delete-base]");
+      if (baseBtn) return deleteBaseTemplate(pid, baseBtn.dataset.deleteBase);
+      if (e.target.closest("[data-delete-all]"))
+        return deleteAllProductImages(pid);
+    });
+
+    $("productForm").addEventListener("submit", function (e) {
+      const name = $("product_name").value.trim();
+      const category = $("category").value;
+      const price = $("price").value;
+      if (!name) {
+        e.preventDefault();
+        WA.toast("warning", "Please enter a product name");
+        return;
+      }
+      if (!category) {
+        e.preventDefault();
+        WA.toast("warning", "Please select a category");
+        return;
+      }
+      if (!price || price <= 0) {
+        e.preventDefault();
+        WA.toast("warning", "Please enter a valid price");
+        return;
+      }
+      // double-submit guard for uploads
+      $("saveBtnText").hidden = true;
+      $("saveBtnLoading").hidden = false;
+    });
+
+    $("category").addEventListener("change", handleCategoryChange);
+    $("productImagesInput").addEventListener("change", function () {
+      showFileNames(this, "productImagesFile");
+    });
+    $("frontBaseInput").addEventListener("change", function () {
+      showFileName(this, "frontBaseFile");
+    });
+    $("backBaseInput").addEventListener("change", function () {
+      showFileName(this, "backBaseFile");
+    });
 
     return {
       openAddModal,
@@ -2055,6 +2320,8 @@
       updateStatusIndicator,
       confirmDelete,
       exportProducts,
+      filterProducts,
+      clearProductFilters,
     };
   });
 
@@ -2062,316 +2329,6 @@
        Page: pricing
        ================================================================== */
   WA.definePage("pricing", function (cfg, WA) {
-    const STATUS_LABELS = cfg.statusLabels || {};
-    const esc = WA.esc;
-
-    // Slide-over panel state
-    let panelRequestId = null;
-    let panelReturnFocus = null;
-
-    const panelEl = () => document.getElementById("slidePanel");
-
-    // ---------- Helpers ----------
-    function labelFor(status) {
-      return STATUS_LABELS[status] || WA.statusLabel(status);
-    }
-
-    function setBadge(el, status, label) {
-      if (!el) return;
-      el.className = "wa-badge tone-" + status;
-      el.textContent = label || labelFor(status);
-    }
-
-    function money(value) {
-      return (
-        "₱" +
-        Number(value || 0).toLocaleString("en-PH", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-      );
-    }
-
-    // Keeps the tab counts / summary tiles in step after a status change or
-    // a delete (next === null). Elements opt in with data-count="status [...]".
-    function bumpCounts(previous, next) {
-      if (next !== null && (!previous || previous === next)) return;
-      document.querySelectorAll("[data-count]").forEach(function (el) {
-        const keys = el.dataset.count.split(" ");
-        let delta =
-          (next !== null && keys.indexOf(next) !== -1 ? 1 : 0) -
-          (previous && keys.indexOf(previous) !== -1 ? 1 : 0);
-        if (next === null && keys.indexOf("__all") !== -1) delta -= 1;
-        if (!delta) return;
-        el.textContent = Math.max(
-          0,
-          (parseInt(el.textContent, 10) || 0) + delta,
-        );
-      });
-    }
-
-    function quoteDataOf(row) {
-      try {
-        return JSON.parse(row.dataset.quote || "{}");
-      } catch (e) {
-        return {};
-      }
-    }
-
-    // ---------- Row update after a save ----------
-    function priceCellHtml(finalPrice, estimatedTotal) {
-      if (!(finalPrice > 0)) return '<span class="ord-meta">Not set</span>';
-      const difference = finalPrice - estimatedTotal;
-      const percentage =
-        estimatedTotal > 0 ? (difference / estimatedTotal) * 100 : 0;
-      let diff;
-      if (difference > 0) {
-        diff =
-          '<small class="price-increase">+' +
-          money(Math.abs(difference)) +
-          " (" +
-          Math.abs(percentage).toFixed(1) +
-          "%)</small>";
-      } else if (difference < 0) {
-        diff =
-          '<small class="price-decrease">-' +
-          money(Math.abs(difference)) +
-          " (" +
-          Math.abs(percentage).toFixed(1) +
-          "%)</small>";
-      } else {
-        diff = '<small class="price-same">No change</small>';
-      }
-      return (
-        '<span class="ord-total">' +
-        money(finalPrice) +
-        "</span>" +
-        '<div class="ord-meta price-comparison">' +
-        diff +
-        "</div>"
-      );
-    }
-
-    function applyPricingUpdateToRow(requestId, data, notes) {
-      const row = document.getElementById("request-row-" + requestId);
-      if (!row) return;
-      row.dataset.status = data.status;
-
-      setBadge(
-        row.querySelector('[data-role="status-badge"]'),
-        data.status,
-        data.status_label,
-      );
-
-      const note = row.querySelector('[data-role="status-reason"]');
-      if (note) {
-        note.hidden = !notes;
-        const text = note.querySelector('[data-role="status-reason-text"]');
-        if (text) text.textContent = notes;
-      }
-
-      const priceCell = row.querySelector('[data-role="final-price-cell"]');
-      if (priceCell)
-        priceCell.innerHTML = priceCellHtml(
-          Number(data.final_price),
-          Number(data.estimated_total),
-        );
-
-      // Keep the dialog's prefill in step with what the server saved (covers
-      // the even-split fallback applied when a request is first quoted).
-      const quote = quoteDataOf(row);
-      quote.notes = notes;
-      (quote.items || []).forEach(function (item) {
-        if (data.item_prices && data.item_prices[item.id] !== undefined) {
-          const saved = data.item_prices[item.id];
-          item.price = saved === null ? null : Number(saved);
-        }
-      });
-      row.dataset.quote = JSON.stringify(quote);
-
-      // Brief highlight so the changed row is easy to spot
-      row.classList.remove("is-flash");
-      void row.offsetWidth;
-      row.classList.add("is-flash");
-      row.addEventListener(
-        "animationend",
-        function () {
-          row.classList.remove("is-flash");
-        },
-        { once: true },
-      );
-    }
-
-    // ---------- Quote dialog (row action) ----------
-    const quoteForm = document.getElementById("quoteForm");
-    const itemsWrap = document.getElementById("quoteItems");
-    const totalEl = document.getElementById("quoteTotal");
-    const notesInput = document.getElementById("quoteNotes");
-    const submitBtn = document.getElementById("quoteSubmit");
-    let dialogRequestId = null;
-    let dialogEstimated = 0;
-
-    function selectedStatus() {
-      const checked = quoteForm.querySelector(
-        'input[name="dialog_status"]:checked',
-      );
-      return checked ? checked.value : "";
-    }
-
-    function priceInputs() {
-      return Array.from(itemsWrap.querySelectorAll(".item-price-input"));
-    }
-
-    // Updates the running total. While the request is still "Pending", typing
-    // a price flips the status to "Checked" (never overrides a status that
-    // was picked on purpose, e.g. Cancelled).
-    function recalcTotal(autoFlip) {
-      let total = 0;
-      let hasPrice = false;
-      priceInputs().forEach(function (input) {
-        const val = parseFloat(input.value);
-        if (!isNaN(val) && val > 0) {
-          total += val;
-          hasPrice = true;
-        }
-      });
-      totalEl.textContent = money(total);
-
-      if (autoFlip && hasPrice && selectedStatus() === "pending") {
-        const quoted = quoteForm.querySelector(
-          'input[name="dialog_status"][value="quoted"]',
-        );
-        if (quoted) quoted.checked = true;
-      }
-    }
-
-    function openQuoteDialog(requestId) {
-      const row = document.getElementById("request-row-" + requestId);
-      if (!row) return;
-      const data = quoteDataOf(row);
-      dialogRequestId = requestId;
-      dialogEstimated = Number(data.estimated) || 0;
-
-      document.getElementById("quoteModalSub").textContent =
-        "Request #" +
-        requestId +
-        (row.dataset.customer ? " · " + row.dataset.customer : "");
-
-      quoteForm
-        .querySelectorAll('input[name="dialog_status"]')
-        .forEach(function (r) {
-          r.checked = r.value === row.dataset.status;
-        });
-
-      const items = data.items || [];
-      itemsWrap.innerHTML = items.length
-        ? items
-            .map(function (item) {
-              return (
-                '<div class="pq-item">' +
-                '<span class="pq-item-label" title="' +
-                esc(item.label) +
-                '">' +
-                esc(item.label) +
-                "</span>" +
-                '<div class="pq-money"><span aria-hidden="true">₱</span>' +
-                '<input type="number" class="pq-input item-price-input" data-item-id="' +
-                Number(item.id) +
-                '" aria-label="Price for ' +
-                esc(item.label) +
-                '" placeholder="0.00" step="0.01" min="0" value="' +
-                (item.price === null || item.price === undefined
-                  ? ""
-                  : esc(item.price)) +
-                '"></div></div>'
-              );
-            })
-            .join("")
-        : '<p class="od-empty-note pq-empty">No items were found for this request.</p>';
-
-      notesInput.value = data.notes || "";
-      recalcTotal(false);
-
-      WA.openModal("quoteModal");
-      setTimeout(function () {
-        const target =
-          itemsWrap.querySelector(".item-price-input") ||
-          quoteForm.querySelector('input[name="dialog_status"]:checked');
-        if (target) target.focus();
-      }, 60);
-    }
-
-    // "Split evenly" quick action
-    function fillEvenPrices() {
-      const inputs = priceInputs();
-      const empty = inputs.filter((i) => i.value.trim() === "");
-      const targets = empty.length > 0 ? empty : inputs; // nothing empty? split across all of them
-      const share = targets.length > 0 ? dialogEstimated / targets.length : 0;
-      targets.forEach((input) => {
-        input.value = share.toFixed(2);
-      });
-      recalcTotal(true);
-    }
-
-    async function submitQuote(e) {
-      e.preventDefault();
-      const status = selectedStatus();
-      const requestId = dialogRequestId;
-      const notes = notesInput.value;
-
-      if (!status) {
-        WA.toast("warning", "Choose a status first.");
-        return;
-      }
-
-      const formData = new FormData();
-      formData.set("ajax", "1");
-      formData.set("update_pricing_status", "1");
-      formData.set("csrf_token", WA.csrfToken());
-      formData.set("request_id", requestId);
-      formData.set("status", status);
-      formData.set("admin_notes", notes);
-      priceInputs().forEach(function (input) {
-        formData.set("item_price[" + input.dataset.itemId + "]", input.value);
-      });
-
-      WA.setBusy(submitBtn, true, "Saving...");
-      try {
-        const res = await fetch("admin_pricing_estimates.php", {
-          method: "POST",
-          body: formData,
-        });
-        const data = await res.json();
-
-        if (!data.success) {
-          WA.toast(
-            "error",
-            data.message || "Failed to update pricing request.",
-          );
-          return;
-        }
-
-        WA.toast("success", data.message);
-        const row = document.getElementById("request-row-" + requestId);
-        const previousStatus = row ? row.dataset.status : null;
-        applyPricingUpdateToRow(requestId, data, notes);
-        bumpCounts(previousStatus, data.status);
-        if (panelRequestId === requestId) loadPanel(requestId, true);
-        WA.closeModal("quoteModal");
-      } catch (err) {
-        WA.toast("error", "Network error while updating the request.");
-      } finally {
-        WA.setBusy(submitBtn, false);
-      }
-    }
-
-    if (quoteForm) {
-      quoteForm.addEventListener("submit", submitQuote);
-      quoteForm.addEventListener("input", function (e) {
-        if (e.target.matches(".item-price-input")) recalcTotal(true);
-      });
-    }
-
     // ---------- Delete (AJAX, no reload) ----------
     async function confirmDeleteRequest(requestId, btn) {
       const ok = await WA.confirm({
@@ -2400,18 +2357,13 @@
         if (data.success) {
           WA.toast("success", data.message);
           const row = document.getElementById("request-row-" + requestId);
-          if (panelRequestId === requestId) closeRequestPanel();
+          const editRow = document.getElementById("request-edit-" + requestId);
           if (row) {
             const status = row.dataset.status;
-            row.style.transition = "opacity 0.2s ease";
-            row.style.opacity = "0";
-            bumpCounts(status, null);
-            setTimeout(function () {
-              row.remove();
-              // Last row on this page gone: reload so the list (and paging) refreshes
-              if (!document.querySelector(".request-row"))
-                window.location.reload();
-            }, 200);
+            row.remove();
+            if (editRow) editRow.remove();
+            adjustStatCounts(status, null);
+            filterRequests();
           }
         } else {
           WA.toast(
@@ -2426,33 +2378,320 @@
       }
     }
 
-    // ---------- Slide-over panel ----------
-    function renderPanelStatusBar(requestId) {
-      document.getElementById("panelStatusBar").innerHTML =
-        '<div class="od-status">' +
-        '<span class="od-status-label">Manage this quote</span>' +
-        '<div class="od-status-form">' +
-        '<button type="button" class="btn btn-primary" onclick="openQuoteDialog(' +
-        Number(requestId) +
-        ')"><i class="fas fa-pen-to-square" aria-hidden="true"></i> Edit quote</button>' +
-        "</div></div>";
-    }
+    // ---------- Status / pricing update (AJAX, no reload) ----------
+    async function submitPricingUpdate(event, form) {
+      event.preventDefault();
+      const btn = form.querySelector(".update-btn");
+      WA.setBusy(btn, true, "Saving...");
 
-    function setPanelBadge(status) {
-      const headBadge = document.getElementById("panelHeadBadge");
-      headBadge.innerHTML =
-        '<span class="wa-badge" data-role="panel-status-badge"></span>';
-      setBadge(headBadge.firstChild, status);
-    }
+      const requestId = form.querySelector('[name="request_id"]').value;
+      const formData = new FormData(form);
+      formData.set("ajax", "1");
+      formData.set("update_pricing_status", "1");
 
-    function loadPanel(requestId, quiet) {
-      if (!quiet) {
-        document.getElementById("panelBody").innerHTML =
-          '<div class="od-skeleton" aria-hidden="true">' +
-          '<div class="od-section"><div class="od-section-body"><span class="wa-skel" style="width:40%"></span><span class="wa-skel"></span><span class="wa-skel" style="width:70%"></span></div></div>' +
-          '<div class="od-section"><div class="od-section-body"><span class="wa-skel" style="width:30%"></span><span class="wa-skel"></span><span class="wa-skel"></span><span class="wa-skel" style="width:55%"></span></div></div>' +
-          "</div>";
+      try {
+        const res = await fetch("admin_pricing_estimates.php", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          WA.toast("success", data.message);
+          const row = document.getElementById("request-row-" + requestId);
+          const previousStatus = row ? row.dataset.status : null;
+          applyPricingUpdateToRow(row, form, data);
+          adjustStatCounts(previousStatus, data.status);
+        } else {
+          WA.toast(
+            "error",
+            data.message || "Failed to update pricing request.",
+          );
+        }
+      } catch (e) {
+        WA.toast("error", "Network error while updating the request.");
+      } finally {
+        WA.setBusy(btn, false);
       }
+      return false;
+    }
+
+    function applyPricingUpdateToRow(row, form, data) {
+      if (!row) return;
+      row.dataset.status = data.status;
+
+      const badge = row.querySelector('[data-role="status-badge"]');
+      if (badge) {
+        badge.className = "status-badge status-" + data.status;
+        badge.textContent = data.status_label;
+      }
+
+      // Sync each price input to whatever was actually saved (covers the
+      // even-split fallback the server applies when a request is first
+      // quoted with no explicit per-item price).
+      if (data.item_prices) {
+        Object.entries(data.item_prices).forEach(([itemId, price]) => {
+          const input = form.querySelector(
+            '.item-price-input[data-item-id="' + itemId + '"]',
+          );
+          if (input && price !== null && input.value === "") {
+            input.value = Number(price).toFixed(2);
+          }
+        });
+      }
+      updateTotals(form);
+
+      const priceCell = row.querySelector('[data-role="final-price-cell"]');
+      if (priceCell) {
+        const finalPrice = Number(data.final_price);
+        const estimatedTotal = Number(data.estimated_total);
+        if (finalPrice > 0) {
+          const difference = finalPrice - estimatedTotal;
+          const percentage =
+            estimatedTotal > 0 ? (difference / estimatedTotal) * 100 : 0;
+          let comparisonHtml;
+          if (difference > 0) {
+            comparisonHtml =
+              '<small class="price-increase">+₱' +
+              Math.abs(difference).toFixed(2) +
+              " (" +
+              Math.abs(percentage).toFixed(1) +
+              "%)</small>";
+          } else if (difference < 0) {
+            comparisonHtml =
+              '<small class="price-decrease">-₱' +
+              Math.abs(difference).toFixed(2) +
+              " (" +
+              Math.abs(percentage).toFixed(1) +
+              "%)</small>";
+          } else {
+            comparisonHtml = '<small class="price-same">No change</small>';
+          }
+          priceCell.innerHTML =
+            "<strong>₱" +
+            finalPrice.toLocaleString("en-PH", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }) +
+            "</strong>" +
+            '<div class="price-comparison">' +
+            comparisonHtml +
+            "</div>";
+        } else {
+          priceCell.innerHTML = '<span class="text-muted">Not set</span>';
+        }
+      }
+    }
+
+    // ---------- "Split evenly" quick action ----------
+    function fillEvenPrices(btn) {
+      const form = btn.closest("form");
+      const inputs = Array.from(form.querySelectorAll(".item-price-input"));
+      const empty = inputs.filter((i) => i.value.trim() === "");
+      const targets = empty.length > 0 ? empty : inputs; // nothing empty? split across all of them
+      const estimatedTotal = parseFloat(form.dataset.estimatedTotal) || 0;
+      const share = targets.length > 0 ? estimatedTotal / targets.length : 0;
+
+      targets.forEach((input) => {
+        input.value = share.toFixed(2);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    }
+
+    // ---------- Stat card counters (best-effort local sync, matches server on next reload) ----------
+    function adjustStatCounts(fromStatus, toStatus) {
+      const ids = {
+        pending: "statPending",
+        quoted: "statQuoted",
+        cancelled: "statCancelled",
+      };
+      function bump(status, delta) {
+        if (!status || !ids[status]) return;
+        const el = document.getElementById(ids[status]);
+        if (el)
+          el.textContent = Math.max(0, parseInt(el.textContent, 10) + delta);
+      }
+
+      if (toStatus === null) {
+        // Deletion: one row leaves its current bucket and the total.
+        bump(fromStatus, -1);
+        const totalEl = document.getElementById("statTotal");
+        if (totalEl)
+          totalEl.textContent = Math.max(
+            0,
+            parseInt(totalEl.textContent, 10) - 1,
+          );
+        return;
+      }
+
+      if (fromStatus !== toStatus) {
+        bump(fromStatus, -1);
+        bump(toStatus, 1);
+      }
+    }
+
+    var requestPage = 1;
+    var REQUEST_PAGE_SIZE = 10;
+
+    // Search/status filter, then show only the current page of the matches.
+    function filterRequests() {
+      const searchTerm = document
+        .getElementById("searchInput")
+        .value.toLowerCase();
+      const statusFilter = document.getElementById("statusFilter").value;
+      const rows = document.querySelectorAll(".request-row");
+      const matches = [];
+
+      rows.forEach((row) => {
+        const requestId = row.cells[0].textContent.toLowerCase();
+        const customer = row.cells[1].textContent.toLowerCase();
+        const status = row.getAttribute("data-status");
+
+        const matchesSearch =
+          requestId.includes(searchTerm) || customer.includes(searchTerm);
+        const matchesStatus = !statusFilter || status === statusFilter;
+        if (matchesSearch && matchesStatus) matches.push(row);
+      });
+
+      const pager = document.getElementById("requestsPager");
+      if (pager) {
+        requestPage = WA.renderPager(pager, {
+          page: requestPage,
+          perPage: REQUEST_PAGE_SIZE,
+          total: matches.length,
+          noun: "requests",
+          onPage: function (n) {
+            requestPage = n;
+            filterRequests();
+            window.scrollTo(0, 0);
+          },
+        });
+      }
+      const start = (requestPage - 1) * REQUEST_PAGE_SIZE;
+      const onPage = new Set(matches.slice(start, start + REQUEST_PAGE_SIZE));
+
+      rows.forEach((row) => {
+        const show = onPage.has(row);
+        row.hidden = !show;
+        const editRow = document.getElementById(
+          "request-edit-" + row.id.replace("request-row-", ""),
+        );
+        if (editRow && !show && !editRow.hidden) {
+          // collapse an open quote panel that is leaving the screen
+          editRow.hidden = true;
+          row.classList.remove("is-open");
+          const toggle = row.querySelector('[data-pricing-action="toggle"]');
+          if (toggle) {
+            toggle.setAttribute("aria-expanded", "false");
+            const label = toggle.querySelector("[data-label]");
+            if (label) label.textContent = "Quote";
+          }
+        }
+      });
+      const empty = document.getElementById("requestsEmpty");
+      if (empty) empty.hidden = matches.length !== 0 || rows.length === 0;
+      const count = document.getElementById("requestCount");
+      if (count) count.textContent = matches.length;
+    }
+
+    // typing / changing the status filter starts again from page 1
+    function onRequestFilterChange() {
+      requestPage = 1;
+      filterRequests();
+    }
+
+    // Open / close the inline quote panel under a request row
+    function toggleQuoteRow(requestId, btn) {
+      const row = document.getElementById("request-row-" + requestId);
+      const panel = document.getElementById("request-edit-" + requestId);
+      if (!panel) return;
+      const open = panel.hidden;
+      panel.hidden = !open;
+      if (row) row.classList.toggle("is-open", open);
+      if (btn) {
+        btn.setAttribute("aria-expanded", String(open));
+        const label = btn.querySelector("[data-label]");
+        if (label) label.textContent = open ? "Close" : "Quote";
+      }
+      if (open) {
+        const first = panel.querySelector(".item-price-input, .status-select");
+        if (first) first.focus();
+      }
+    }
+
+    // Recomputes the quoted total + difference vs the estimate for one form.
+    function updateTotals(form) {
+      let total = 0;
+      let hasPrice = false;
+      form.querySelectorAll(".item-price-input").forEach(function (i) {
+        const val = parseFloat(i.value);
+        if (!isNaN(val) && val > 0) {
+          total += val;
+          hasPrice = true;
+        }
+      });
+      const totalEl = form.querySelector(".computed-total");
+      if (totalEl) totalEl.textContent = WA.peso(total, 2);
+
+      const diffEl = form.querySelector(".quote-diff");
+      if (diffEl) {
+        const estimate = parseFloat(form.dataset.estimatedTotal) || 0;
+        if (hasPrice && estimate > 0) {
+          const d = total - estimate;
+          diffEl.className =
+            "quote-diff " + (d > 0 ? "up" : d < 0 ? "down" : "");
+          diffEl.textContent =
+            d === 0
+              ? "Matches the estimate"
+              : (d > 0 ? "+" : "\u2212") +
+                WA.peso(Math.abs(d), 2) +
+                " vs estimate";
+        } else {
+          diffEl.className = "quote-diff";
+          diffEl.textContent = "";
+        }
+      }
+      return hasPrice;
+    }
+
+    function clearFilters() {
+      document.getElementById("searchInput").value = "";
+      document.getElementById("statusFilter").value = "";
+      onRequestFilterChange();
+    }
+
+    // ---------- Request details drawer (same behaviour as the orders drawer) ----------
+    const panel = document.getElementById("slidePanel");
+    const overlay = document.getElementById("panelOverlay");
+    const panelBody = document.getElementById("panelBody");
+    const panelTitle = document.getElementById("panelTitle");
+    const panelBadge = document.getElementById("panelStatusBadge");
+    let panelRequestId = null;
+
+    function setPanelBadge(status, label) {
+      if (!status) {
+        panelBadge.hidden = true;
+        return;
+      }
+      panelBadge.hidden = false;
+      panelBadge.className = "status-badge status-" + status;
+      panelBadge.textContent = label || WA.statusLabel(status);
+    }
+
+    function showPanelState(html) {
+      panelBody.innerHTML = html;
+    }
+
+    function viewRequestDetails(requestId) {
+      requestId = Number(requestId);
+      panelRequestId = requestId;
+      panelTitle.textContent = "Request #" + requestId;
+      setPanelBadge(null);
+      showPanelState(
+        '<div class="panel-loading" role="status"><i class="fas fa-circle-notch" aria-hidden="true"></i> Loading request...</div>',
+      );
+      overlay.classList.add("open");
+      WA.openModal(panel);
 
       fetch(
         "admin_pricing_estimates.php?ajax=get_request_details&id=" + requestId,
@@ -2461,148 +2700,109 @@
         .then((data) => {
           if (panelRequestId !== requestId) return; // stale response, user moved on
           if (!data.success) {
-            showPanelError(requestId, data.message || "Request not found.");
+            showPanelState(
+              '<div class="state state--error"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><h3>Request not found</h3><p>' +
+                WA.esc(data.message || "This request may have been deleted.") +
+                "</p></div>",
+            );
             return;
           }
-          document.getElementById("panelBody").innerHTML = data.html;
-          setPanelBadge(data.status);
+          setPanelBadge(data.status, data.status_label);
+          panelBody.innerHTML = data.html;
+          panelBody.scrollTop = 0;
         })
         .catch(() => {
-          if (panelRequestId === requestId)
-            showPanelError(
-              requestId,
-              "Couldn't load this request. Please try again.",
-            );
+          if (panelRequestId !== requestId) return;
+          showPanelState(
+            '<div class="state state--error"><i class="fas fa-wifi" aria-hidden="true"></i><h3>Couldn\'t load this request</h3><p>Check your connection and try again.</p>' +
+              '<button type="button" class="btn btn-secondary btn-sm" data-retry="' +
+              requestId +
+              '">Try again</button></div>',
+          );
         });
     }
 
-    function openRequestPanel(requestId) {
-      const panel = panelEl();
-      const row = document.getElementById("request-row-" + requestId);
-      panelReturnFocus =
-        document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null;
-      panelRequestId = requestId;
-
-      document.getElementById("panelOverlay").classList.add("open");
-      panel.classList.add("open");
-      panel.setAttribute("aria-hidden", "false");
-      document.body.classList.add("wa-modal-open");
-
-      document.getElementById("panelTitle").textContent =
-        "Request #" + requestId;
-      document.getElementById("panelSubtitle").textContent = row
-        ? (row.dataset.customer || "") +
-          (row.dataset.date ? " · " + row.dataset.date : "")
-        : "";
-      if (row) setPanelBadge(row.dataset.status);
-      else document.getElementById("panelHeadBadge").innerHTML = "";
-      renderPanelStatusBar(requestId);
-
-      const url = new URL(window.location);
-      url.searchParams.set("open", requestId);
-      history.replaceState(null, "", url);
-
-      setTimeout(function () {
-        const close = document.getElementById("panelClose");
-        if (close && panelRequestId === requestId) close.focus();
-      }, 30);
-
-      loadPanel(requestId, false);
-    }
-
-    function showPanelError(requestId, message) {
-      document.getElementById("panelBody").innerHTML =
-        '<div class="panel-loading"><i class="fas fa-circle-exclamation" aria-hidden="true"></i>' +
-        "<div>" +
-        esc(message) +
-        "</div>" +
-        '<button type="button" class="btn btn-outline btn-sm" onclick="openRequestPanel(' +
-        Number(requestId) +
-        ')"><i class="fas fa-rotate" aria-hidden="true"></i> Try again</button></div>';
-    }
-
     function closeRequestPanel() {
-      const panel = panelEl();
-      if (!panel.classList.contains("open")) return;
+      if (panelRequestId === null && !panel.classList.contains("open")) return;
       panelRequestId = null;
-      document.getElementById("panelOverlay").classList.remove("open");
-      panel.classList.remove("open");
-      panel.setAttribute("aria-hidden", "true");
-      if (!document.querySelector(".modal.open"))
-        document.body.classList.remove("wa-modal-open");
-
-      const url = new URL(window.location);
-      url.searchParams.delete("open");
-      history.replaceState(null, "", url);
-
-      if (panelReturnFocus && document.contains(panelReturnFocus))
-        panelReturnFocus.focus();
-      panelReturnFocus = null;
+      overlay.classList.remove("open");
+      WA.closeModal(panel);
     }
 
-    // Escape closes the panel (dialogs handle Escape themselves); Tab stays inside it.
-    document.addEventListener("keydown", function (e) {
-      if (panelRequestId === null || document.querySelector(".modal.open"))
-        return;
-      if (e.key === "Escape") {
-        closeRequestPanel();
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const items = Array.prototype.filter.call(
-        panelEl().querySelectorAll(FOCUSABLE),
-        function (el) {
-          return el.offsetParent !== null;
-        },
-      );
-      if (!items.length) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (!panelEl().contains(document.activeElement)) {
-        e.preventDefault();
-        first.focus();
-      } else if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
+    // Escape (WA's shared key handler) goes through here so the overlay closes too.
+    panel._cancel = closeRequestPanel;
+    overlay.addEventListener("click", closeRequestPanel);
+    document
+      .getElementById("panelClose")
+      .addEventListener("click", closeRequestPanel);
+    panelBody.addEventListener("click", function (e) {
+      const retry = e.target.closest("[data-retry]");
+      if (retry) viewRequestDetails(retry.dataset.retry);
     });
 
-    // ---------- List interactions ----------
-    // Clicking anywhere on a row (outside links/controls) opens its details.
-    const tbody = document.getElementById("requestsTable");
-    if (tbody) {
-      tbody.addEventListener("click", function (e) {
-        if (e.target.closest("a, button, input, select, textarea, label"))
-          return;
-        const row = e.target.closest(".request-row");
-        if (row)
-          openRequestPanel(parseInt(row.id.replace("request-row-", ""), 10));
-      });
-    }
+    // Initial filter on page load
+    (function () {
+      filterRequests();
+    })();
 
-    // Picking a status in the filter bar applies it straight away
-    const statusFilter = document.getElementById("requestStatusFilter");
-    if (statusFilter && statusFilter.form) {
-      statusFilter.addEventListener("change", function () {
-        if (statusFilter.form.requestSubmit) statusFilter.form.requestSubmit();
-        else statusFilter.form.submit();
+    // As soon as the admin fills in a price for any item, flip that
+    // request's status to "Checked" automatically (only while it's
+    // still "Pending", so it never overrides a status picked on
+    // purpose, e.g. Cancelled). Also keeps the running total in sync.
+    document.querySelectorAll(".status-form").forEach(function (form) {
+      const statusSelect = form.querySelector(".status-select");
+      updateTotals(form);
+      form.querySelectorAll(".item-price-input").forEach(function (input) {
+        input.addEventListener("input", function () {
+          const hasPrice = updateTotals(form);
+          if (hasPrice && statusSelect && statusSelect.value === "pending") {
+            statusSelect.value = "quoted";
+          }
+        });
       });
-    }
+    });
 
-    // Deep link (?open=ID)
-    if (cfg.openId > 0) openRequestPanel(cfg.openId);
+    // Delegated wiring (no inline handlers)
+    document.addEventListener("submit", function (e) {
+      const form = e.target.closest(".status-form");
+      if (form) submitPricingUpdate(e, form);
+    });
+    document.addEventListener("click", function (e) {
+      const t = e.target.closest("[data-pricing-action]");
+      if (!t) return;
+      const id = Number(t.dataset.id);
+      const action = t.dataset.pricingAction;
+      if (action === "toggle") toggleQuoteRow(id, t);
+      else if (action === "details") viewRequestDetails(id);
+      else if (action === "delete") confirmDeleteRequest(id, t);
+      else if (action === "split") fillEvenPrices(t);
+    });
+    const clearBtn = document.getElementById("clearRequestFilters");
+    if (clearBtn) clearBtn.addEventListener("click", clearFilters);
+    document
+      .getElementById("searchInput")
+      .addEventListener("input", onRequestFilterChange);
+    document
+      .getElementById("statusFilter")
+      .addEventListener("change", onRequestFilterChange);
+    document
+      .getElementById("clearRequestFilters")
+      .addEventListener("click", clearFilters);
+
+    filterRequests(); // apply paging on first load
 
     return {
-      openRequestPanel,
-      closeRequestPanel,
-      openQuoteDialog,
-      fillEvenPrices,
+      toggleQuoteRow,
+      updateTotals,
       confirmDeleteRequest,
+      submitPricingUpdate,
+      applyPricingUpdateToRow,
+      fillEvenPrices,
+      adjustStatCounts,
+      filterRequests,
+      clearFilters,
+      viewRequestDetails,
+      closeRequestPanel,
     };
   });
 
@@ -2627,8 +2827,17 @@
       document.getElementById("reportForm").submit();
     }
 
+    // Local date parts: toISOString() converts to UTC, which shifts the date
+    // back a day for anyone ahead of UTC (e.g. Manila).
     function formatDate(date) {
-      return date.toISOString().split("T")[0];
+      const pad = (n) => String(n).padStart(2, "0");
+      return (
+        date.getFullYear() +
+        "-" +
+        pad(date.getMonth() + 1) +
+        "-" +
+        pad(date.getDate())
+      );
     }
 
     // The full data behind the current report — summary stats plus every
@@ -2710,26 +2919,48 @@
       const isHidden = wrapper.classList.toggle("collapsed");
       if (label)
         label.textContent = isHidden
-          ? "Show Detailed Table"
-          : "Hide Detailed Table";
+          ? "Show detailed tables"
+          : "Hide detailed tables";
       if (icon)
         icon.className = isHidden ? "fas fa-chevron-down" : "fas fa-chevron-up";
     }
 
     // Charts (only sent for the sales report)
     if (cfg.charts) {
-      WA.charts.line(
-        "salesTrendChart",
-        cfg.charts.salesLabels,
-        cfg.charts.salesValues,
-        { label: "Daily Revenue (₱)" },
-      );
-      WA.charts.statusDoughnut(
-        "statusChart",
-        cfg.charts.statusLabels,
-        cfg.charts.statusValues,
-      );
+      if (cfg.charts.salesLabels && cfg.charts.salesLabels.length)
+        WA.charts.line(
+          "salesTrendChart",
+          cfg.charts.salesLabels,
+          cfg.charts.salesValues.map(Number),
+          { label: "Daily revenue (₱)" },
+        );
+      if (cfg.charts.statusLabels && cfg.charts.statusLabels.length)
+        WA.charts.statusDoughnut(
+          "statusChart",
+          cfg.charts.statusLabels,
+          cfg.charts.statusValues.map(Number),
+        );
     }
+
+    document.addEventListener("click", function (e) {
+      const b = e.target.closest("[data-report-action]");
+      if (!b) return;
+      const a = b.dataset.reportAction;
+      if (a === "type") changeReportType(b.dataset.type);
+      else if (a === "reset") resetFilters();
+      else if (a === "export") exportReport();
+      else if (a === "toggle") toggleDetailTable();
+    });
+
+    document.addEventListener("click", function (e) {
+      const t = e.target.closest("[data-report-action]");
+      if (!t) return;
+      const action = t.dataset.reportAction;
+      if (action === "type") changeReportType(t.dataset.type);
+      else if (action === "reset") resetFilters();
+      else if (action === "export") exportReport();
+      else if (action === "toggle") toggleDetailTable();
+    });
 
     return {
       changeReportType,
@@ -2814,9 +3045,7 @@
         hideDropdown();
       });
 
-      // Mark as initialized
       customerSearchInitialized = true;
-      console.log("Customer search initialized");
     }
 
     function showDropdown(customers) {
@@ -2826,8 +3055,7 @@
       if (!dropdown || !searchInput) return;
 
       if (customers.length === 0) {
-        dropdown.innerHTML =
-          '<div class="no-results" style="padding: 15px; text-align: center; color: var(--gray);">No customers found</div>';
+        dropdown.innerHTML = '<div class="no-results">No customers found</div>';
         dropdown.style.display = "block";
         return;
       }
@@ -2845,20 +3073,15 @@
                         <div class="customer-username">${escapeHtml(customer.username)}</div>
                         ${customer.email ? `<div class="customer-email">${escapeHtml(customer.email)}</div>` : ""}
                     </div>
-                    ${isSelected ? '<i class="fas fa-check" style="color: var(--success);"></i>' : ""}
+                    ${isSelected ? '<i class="fas fa-check" aria-hidden="true"></i>' : ""}
                 </div>
             `;
       });
 
       dropdown.innerHTML = html;
+      // Position comes from CSS (.select-search-container is the anchor), so it
+      // follows the input inside the modal instead of using page coordinates.
       dropdown.style.display = "block";
-
-      const inputRect = searchInput.getBoundingClientRect();
-      dropdown.style.position = "absolute";
-      dropdown.style.top = inputRect.bottom + window.scrollY + "px";
-      dropdown.style.left = inputRect.left + "px";
-      dropdown.style.width = inputRect.width + "px";
-      dropdown.style.zIndex = "9999";
     }
 
     function hideDropdown() {
@@ -2901,7 +3124,7 @@
       }
 
       if (selectedCustomerInfo) {
-        selectedCustomerInfo.style.display = "block";
+        selectedCustomerInfo.hidden = false;
       }
 
       // Clear search input
@@ -2930,7 +3153,7 @@
       const selectedCustomerInfo = document.getElementById(
         "selectedCustomerInfo",
       );
-      if (selectedCustomerInfo) selectedCustomerInfo.style.display = "none";
+      if (selectedCustomerInfo) selectedCustomerInfo.hidden = true;
 
       const searchInput = document.getElementById("customer_search");
       if (searchInput) {
@@ -3114,8 +3337,6 @@
 
     // ========== PAGE INITIALIZATION ==========
     (function () {
-      console.log("Page initialized, total customers:", allCustomers.length);
-
       // Setup chat input
       setupChatInput();
 
@@ -3147,11 +3368,26 @@
         });
       }
 
-      // Test: Try to initialize search on page load (for debugging)
-      console.log("Testing customer search initialization...");
-      if (document.getElementById("customer_search")) {
-        console.log("Customer search element exists on page load");
+      // Filter the conversation list as you type
+      const convSearch = document.getElementById("convSearch");
+      if (convSearch) {
+        convSearch.addEventListener("input", function () {
+          const term = convSearch.value.trim().toLowerCase();
+          let shown = 0;
+          document
+            .querySelectorAll(".conversation-item")
+            .forEach(function (item) {
+              const match =
+                !term || (item.dataset.search || "").indexOf(term) !== -1;
+              item.hidden = !match;
+              if (match) shown++;
+            });
+          const none = document.getElementById("convNoMatch");
+          if (none) none.hidden = shown !== 0;
+        });
       }
+
+      // Open a conversation from the list (links, so keyboard + middle-click work)
     })();
 
     // ========== ADMIN HEARTBEAT ==========
@@ -3180,6 +3416,26 @@
       if (!document.hidden) {
         updateAdminHeartbeat();
       }
+    });
+
+    document.addEventListener("click", function (e) {
+      const b = e.target.closest("[data-chat-action]");
+      if (!b) return;
+      const a = b.dataset.chatAction;
+      if (a === "new") openNewConversationModal();
+      else if (a === "refresh") refreshMessages();
+      else if (a === "delete") confirmDeleteConversation();
+      else if (a === "clear-customer") clearCustomerSelection();
+    });
+
+    document.addEventListener("click", function (e) {
+      const t = e.target.closest("[data-chat-action]");
+      if (!t) return;
+      const action = t.dataset.chatAction;
+      if (action === "new") openNewConversationModal();
+      else if (action === "refresh") refreshMessages();
+      else if (action === "delete") confirmDeleteConversation();
+      else if (action === "clear-customer") clearCustomerSelection();
     });
 
     return {

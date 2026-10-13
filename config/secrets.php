@@ -1,4 +1,6 @@
 <?php
+define('SECRET_DEBUG_TOKEN', 'aabd16387c0471171eddcb2ba44224f246a5fc4cd9c3d6162e81e20e4a341a57');
+
 define('SECRET_SMTP_USERNAME', 'amdpreports@gmail.com');
 define('SECRET_SMTP_PASSWORD', 'xrqc skcn huqq vcvm');
 

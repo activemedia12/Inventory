@@ -4,6 +4,31 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
     header("Location: ../accounts/login.php");
     exit;
 }
+
+$wa_role = (string) ($_SESSION['role'] ?? 'admin');
+$wa_role_label = ucwords(str_replace('_', ' ', $wa_role));
+$wa_username = (string) ($_SESSION['username'] ?? ($_SESSION['display_name'] ?? ''));
+$wa_name = $wa_username !== '' ? $wa_username : $wa_role_label;
+$wa_initials = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $wa_name) ?: 'A', 0, 2));
+
+// Section navigation for the website admin pages (these load in the iframe below)
+$wa_nav = [
+    ['key' => 'admin_dashboard.php', 'label' => 'Dashboard', 'icon' => 'fa-gauge-high'],
+    ['key' => 'admin_orders.php', 'label' => 'Orders', 'icon' => 'fa-receipt', 'badge' => 'orders', 'children' => [
+        ['status' => '', 'label' => 'All orders'],
+        ['status' => 'pending', 'label' => 'Pending'],
+        ['status' => 'paid', 'label' => 'Paid'],
+        ['status' => 'processing', 'label' => 'Processing'],
+        ['status' => 'ready_for_pickup', 'label' => 'Ready for pickup'],
+        ['status' => 'completed', 'label' => 'Completed'],
+        ['status' => 'cancelled', 'label' => 'Cancelled'],
+    ]],
+    ['key' => 'admin_customers.php', 'label' => 'Customers', 'icon' => 'fa-users'],
+    ['key' => 'admin_products.php', 'label' => 'Products', 'icon' => 'fa-box-open'],
+    ['key' => 'admin_pricing_estimates.php', 'label' => 'Pricing estimates', 'icon' => 'fa-file-invoice-dollar', 'badge' => 'pricing'],
+    ['key' => 'admin_reports.php', 'label' => 'Reports', 'icon' => 'fa-chart-line'],
+    ['key' => 'admin_chat.php', 'label' => 'Chat', 'icon' => 'fa-comments', 'badge' => 'chats'],
+];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -37,8 +62,6 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
             --gray: #6b7280;
             --light-gray: #e2e4e7;
             --card-bg: #ffffff;
-            --nav-size: 52px;
-            --nav-gap: 8px;
         }
 
         * {
@@ -122,105 +145,305 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
             color: inherit;
         }
 
-        /* Floating sub-nav for the website admin sections, rendered over the iframe */
-        .floating-nav {
+        /* Fixed top bar for the website admin: section nav (centred), notifications
+           and user menu. It lives here, outside the iframe, so it never reloads
+           (and never blinks) when you change pages. */
+        .site-bar {
             position: fixed;
-            bottom: 20px;
-            left: calc(240px + (100% - 240px) / 2);
-            transform: translateX(-50%);
-            display: flex;
-            gap: var(--nav-gap);
+            top: 0;
+            left: 240px;
+            right: 0;
+            height: 56px;
+            /* Must be above .content-frame (1000), otherwise the bell / user /
+               order-status dropdowns, which hang below the 56px bar, are drawn
+               underneath the iframe. Lowered under the dim while a modal is open
+               (see body.shell-modal-open below). */
+            z-index: 1100;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
-            padding: 8px;
-            border-radius: 20px;
+            gap: 10px;
+            padding: 0 24px;
             background: var(--card-bg);
-            border: 1px solid var(--light-gray);
-            box-shadow: 0 4px 16px rgba(20, 23, 31, 0.12);
-            z-index: 1000;
+            border-bottom: 1px solid var(--light-gray);
         }
 
-        .floating-nav button {
+        .site-nav {
+            grid-column: 2;
+            display: flex;
+            align-items: stretch;
+            gap: 2px;
+            height: 100%;
+            min-width: 0;
+        }
+
+        .site-item {
             position: relative;
-            width: var(--nav-size);
-            height: var(--nav-size);
-            border-radius: 50%;
-            border: 1px solid transparent;
-            display: inline-flex;
+            display: flex;
             align-items: center;
-            justify-content: center;
-            background: transparent;
-            color: var(--gray);
-            cursor: pointer;
-            transition: background-color 0.15s ease, color 0.15s ease;
         }
 
-        .floating-nav button:hover,
-        .floating-nav button.active {
+        .site-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            height: 36px;
+            padding: 0 12px;
+            border-radius: 6px;
+            color: #4a5262;
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            text-decoration: none;
+            transition: background-color 0.12s ease, color 0.12s ease;
+        }
+
+        .site-link i {
+            width: 16px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .site-link:hover,
+        .site-item:focus-within>.site-link {
+            background: #f8f9fb;
+            color: var(--dark);
+        }
+
+        /* The selectors also cover :hover and :focus-within, which have higher
+           specificity than a plain .is-active; without them the highlight fades to
+           the light hover grey as soon as you click a link (it keeps focus). */
+        .site-link.is-active,
+        .site-link.is-active:hover,
+        .site-item:focus-within>.site-link.is-active {
             background: var(--primary-bg);
             color: var(--secondary);
         }
 
-        .floating-nav i {
-            font-size: 17px;
-        }
-
-        /* Notification badge shown on a nav button when its page has new
-           data (e.g. unread chats, pending orders/price requests). Hidden
-           by default; toggled on by JS once counts come back > 0. */
-        .nav-badge {
-            display: none;
-            position: absolute;
-            top: -2px;
-            right: -2px;
-            min-width: 16px;
-            height: 16px;
-            padding: 0 4px;
+        .site-badge {
+            min-width: 18px;
+            padding: 0 5px;
             border-radius: 999px;
             background: #ef4444;
             color: #fff;
-            border: 2px solid var(--card-bg);
             font-size: 10px;
-            font-weight: 700;
-            line-height: 1;
-            align-items: center;
-            justify-content: center;
+            font-weight: 600;
+            line-height: 18px;
+            text-align: center;
         }
 
-        /* Tooltip label */
-        .tooltip {
+        .site-badge[hidden] {
+            display: none;
+        }
+
+        .site-pop {
             position: absolute;
-            bottom: calc(100% + 10px);
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--dark);
-            color: #fff;
-            padding: 5px 10px;
+            top: 100%;
+            z-index: 950;
+            min-width: 230px;
+            padding: 6px;
+            list-style: none;
+            background: var(--card-bg);
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(20, 23, 31, 0.14);
+        }
+
+        .site-pop[hidden] {
+            display: none;
+        }
+
+        .site-menu {
+            display: none;
+            left: 0;
+        }
+
+        .site-item.has-menu:hover .site-menu,
+        .site-item.has-menu:focus-within .site-menu {
+            display: block;
+        }
+
+        .site-sublink,
+        .site-pop-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            height: 32px;
+            padding: 0 10px;
             border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
+            color: #4a5262;
+            font-size: 13px;
             white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.15s ease;
+            text-decoration: none;
         }
 
-        .floating-nav button:hover .tooltip {
-            opacity: 1;
+        .site-sublink:hover,
+        .site-pop-item:hover {
+            background: #f8f9fb;
+            color: var(--dark);
         }
 
-        @media (prefers-reduced-motion: reduce) {
+        .site-sublink.is-active {
+            background: var(--primary-bg);
+            color: var(--secondary);
+            font-weight: 600;
+        }
 
-            .floating-nav,
-            .floating-nav button {
-                transition: none
+        .site-pop-title {
+            padding: 8px 10px 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--gray);
+        }
+
+        .site-pop-title small {
+            display: block;
+            font-weight: 400;
+        }
+
+        .site-pop-empty {
+            padding: 8px 10px 10px;
+            font-size: 13px;
+            color: var(--gray);
+        }
+
+        .site-tools {
+            grid-column: 3;
+            justify-self: end;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .site-tool {
+            position: relative;
+        }
+
+        .site-pop--end {
+            right: 0;
+            top: calc(100% + 8px);
+        }
+
+        .site-icon-btn,
+        .site-user-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            height: 36px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            background: transparent;
+            color: #4a5262;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .site-icon-btn {
+            position: relative;
+            width: 36px;
+            justify-content: center;
+            font-size: 15px;
+        }
+
+        .site-user-btn {
+            padding: 0 6px;
+        }
+
+        .site-icon-btn:hover,
+        .site-user-btn:hover {
+            background: #f8f9fb;
+        }
+
+        .site-dot {
+            position: absolute;
+            top: 7px;
+            right: 8px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            border: 2px solid var(--card-bg);
+        }
+
+        .site-dot[hidden] {
+            display: none;
+        }
+
+        .site-avatar {
+            display: grid;
+            place-items: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: var(--primary-bg);
+            color: var(--secondary);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .site-user-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            line-height: 1.15;
+            font-weight: 500;
+        }
+
+        .site-user-text small {
+            font-size: 11px;
+            font-weight: 400;
+            color: var(--gray);
+        }
+
+        @media (max-width: 1240px) {
+            .site-user-text {
+                display: none;
             }
         }
 
+        @media (max-width: 1000px) {
+            .site-link:not(.is-active) span:not(.site-badge) {
+                display: none;
+            }
+
+            .site-link:not(.is-active) {
+                padding: 0 10px;
+            }
+        }
+
+        /* Dims the sidebar and top bar while a modal is open inside the iframe.
+           It sits above them (z-index) but below the iframe, which dims itself,
+           so the two layers never stack on the content area. */
+        .shell-dim {
+            position: fixed;
+            inset: 0;
+            z-index: 960;
+            background: rgb(20, 23, 31);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.16s ease, visibility 0s linear 0.16s;
+        }
+
+        .shell-dim.open {
+            opacity: var(--dim, 0.5);
+            visibility: visible;
+            transition-delay: 0s;
+        }
+
+        /* While a modal is open the top bar drops back under the dim (960). */
+        body.shell-modal-open .site-bar {
+            z-index: 900;
+        }
+
         .content-frame {
+            position: relative;
+            z-index: 1000;
             width: calc(100% - 240px);
-            height: 100vh;
+            height: calc(100vh - 56px);
             border: none;
             margin-left: 240px;
+            margin-top: 56px;
+            background: var(--light);
         }
 
         /* This admin panel embeds a full desktop dashboard (iframe) with a
@@ -236,8 +459,8 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
         @media (max-width: 768px) {
 
             .sidebar-con,
-            .content-frame,
-            .floating-nav {
+            .site-bar,
+            .content-frame {
                 display: none !important;
             }
 
@@ -310,7 +533,7 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
     </div>
 
     <!-- Shown only on small screens (see @media max-width:768px) in place of
-         the sidebar/iframe/floating-nav, which are desktop-only. -->
+         the sidebar/iframe, which are desktop-only. -->
     <div class="desktop-only-notice">
         <i class="fas fa-desktop" aria-hidden="true"></i>
         <h1>Desktop Only</h1>
@@ -318,94 +541,81 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
         <a href="dashboard.php"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to Dashboard</a>
     </div>
 
+    <!-- Fixed top bar: section nav, notifications, user menu. Links load into the iframe below. -->
+    <header class="site-bar" id="siteBar">
+        <nav class="site-nav" aria-label="Website admin sections">
+            <?php foreach ($wa_nav as $item): ?>
+                <div class="site-item<?php echo !empty($item['children']) ? ' has-menu' : ''; ?>">
+                    <a class="site-link" href="website/<?php echo htmlspecialchars($item['key']); ?>" target="contentFrame"
+                        data-page="<?php echo htmlspecialchars($item['key']); ?>" title="<?php echo htmlspecialchars($item['label']); ?>">
+                        <i class="fas <?php echo htmlspecialchars($item['icon']); ?>" aria-hidden="true"></i>
+                        <span><?php echo htmlspecialchars($item['label']); ?></span>
+                        <?php if (!empty($item['badge'])): ?>
+                            <span class="site-badge" data-badge-key="<?php echo htmlspecialchars($item['badge']); ?>" hidden>0</span>
+                        <?php endif; ?>
+                    </a>
+                    <?php if (!empty($item['children'])): ?>
+                        <ul class="site-pop site-menu" aria-label="Order status shortcuts">
+                            <?php foreach ($item['children'] as $child): ?>
+                                <li>
+                                    <a class="site-sublink" target="contentFrame" data-status="<?php echo htmlspecialchars($child['status']); ?>"
+                                        href="website/<?php echo htmlspecialchars($item['key'] . ($child['status'] !== '' ? '?status=' . $child['status'] : '')); ?>"><?php echo htmlspecialchars($child['label']); ?></a>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        </nav>
+
+        <div class="site-tools">
+            <div class="site-tool">
+                <button type="button" class="site-icon-btn" data-pop="notifyPop" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
+                    <i class="fas fa-bell" aria-hidden="true"></i>
+                    <span class="site-dot" id="notifyDot" hidden></span>
+                </button>
+                <div class="site-pop site-pop--end" id="notifyPop" hidden>
+                    <div class="site-pop-title">Needs attention</div>
+                    <div id="notifyList"><div class="site-pop-empty">You're all caught up.</div></div>
+                </div>
+            </div>
+            <div class="site-tool">
+                <button type="button" class="site-user-btn" data-pop="userPop" aria-haspopup="true" aria-expanded="false">
+                    <span class="site-avatar" aria-hidden="true"><?php echo htmlspecialchars($wa_initials); ?></span>
+                    <span class="site-user-text"><?php echo htmlspecialchars($wa_name); ?><small><?php echo htmlspecialchars($wa_role_label); ?></small></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
     <!-- Content Frame: src is set from JS (not here) so mobile visitors,
          who only ever see the notice above, never pay the cost of loading
          this desktop dashboard in the background. -->
-    <iframe id="contentFrame" class="content-frame"></iframe>
+    <div class="shell-dim" id="shellDim" aria-hidden="true"></div>
 
-    <div class="floating-nav" aria-label="Website admin sections">
-        <button class="active" data-page="website/admin_dashboard.php" onclick="loadPage(this, 'website/admin_dashboard.php')" title="Dashboard" aria-label="Dashboard">
-            <i class="fas fa-tachometer-alt" aria-hidden="true"></i>
-            <span class="tooltip">Dashboard</span>
-        </button>
-
-        <button data-page="website/admin_customers.php" onclick="loadPage(this, 'website/admin_customers.php')" title="Customers" aria-label="Customers">
-            <i class="fas fa-users" aria-hidden="true"></i>
-            <span class="tooltip">Customers</span>
-        </button>
-
-        <button data-page="website/admin_orders.php" data-badge-key="orders" onclick="loadPage(this, 'website/admin_orders.php')" title="Orders" aria-label="Orders">
-            <i class="fas fa-clipboard-list" aria-hidden="true"></i>
-            <span class="nav-badge" aria-label="pending orders"></span>
-            <span class="tooltip">Orders</span>
-        </button>
-
-        <button data-page="website/admin_pricing_estimates.php" data-badge-key="pricing" onclick="loadPage(this, 'website/admin_pricing_estimates.php')" title="Price Consultation" aria-label="Price Consultation">
-            <i class="fas fa-dollar-sign" aria-hidden="true"></i>
-            <span class="nav-badge" aria-label="pending price requests"></span>
-            <span class="tooltip">Price Consultation</span>
-        </button>
-
-        <button data-page="website/admin_products.php" onclick="loadPage(this, 'website/admin_products.php')" title="Products" aria-label="Products">
-            <i class="fas fa-box" aria-hidden="true"></i>
-            <span class="tooltip">Products</span>
-        </button>
-
-        <button data-page="website/admin_reports.php" onclick="loadPage(this, 'website/admin_reports.php')" title="Reports" aria-label="Reports">
-            <i class="fas fa-chart-bar" aria-hidden="true"></i>
-            <span class="tooltip">Reports</span>
-        </button>
-
-        <button data-page="website/admin_chat.php" data-badge-key="chats" onclick="loadPage(this, 'website/admin_chat.php')" title="Chats" aria-label="Chats">
-            <i class="fas fa-message" aria-hidden="true"></i>
-            <span class="nav-badge" aria-label="unread chats"></span>
-            <span class="tooltip">Chats</span>
-        </button>
-    </div>
+    <iframe id="contentFrame" name="contentFrame" class="content-frame" title="Website admin content"></iframe>
 
     <script>
         const WEBSITE_ADMIN_PAGE_KEY = 'lastWebsiteAdminPage';
         const DESKTOP_BREAKPOINT = 768; // keep in sync with the CSS media query above
         const DEFAULT_PAGE = 'website/admin_dashboard.php';
+        const BADGE_COUNTS_URL = 'website/get_badge_counts.php';
+        const BADGE_POLL_INTERVAL_MS = 30000;
+        // The nav links above load into the iframe; this shell remembers which page was open.
+        const WEBSITE_ADMIN_PAGES = [
+            'website/admin_dashboard.php',
+            'website/admin_customers.php',
+            'website/admin_orders.php',
+            'website/admin_pricing_estimates.php',
+            'website/admin_products.php',
+            'website/admin_reports.php',
+            'website/admin_chat.php'
+        ];
+
+        const frame = () => document.getElementById('contentFrame');
 
         function isDesktop() {
             return window.innerWidth > DESKTOP_BREAKPOINT;
-        }
-
-        function loadPage(btn, page) {
-            document.getElementById('contentFrame').src = page;
-            document.querySelectorAll('.floating-nav button').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            localStorage.setItem(WEBSITE_ADMIN_PAGE_KEY, page);
-        }
-
-        // ========== NOTIFICATION BADGES ==========
-        const BADGE_COUNTS_URL = 'website/get_badge_counts.php';
-        const BADGE_POLL_INTERVAL_MS = 30000; // keep in step with the chat heartbeat below
-
-        function setBadge(key, count) {
-            const badge = document.querySelector(`.floating-nav button[data-badge-key="${key}"] .nav-badge`);
-            if (!badge) return;
-            const n = Number(count) || 0;
-            if (n > 0) {
-                badge.textContent = n > 99 ? '99+' : n;
-                badge.style.display = 'flex';
-            } else {
-                badge.style.display = 'none';
-            }
-        }
-
-        async function refreshBadgeCounts() {
-            try {
-                const response = await fetch(BADGE_COUNTS_URL, { credentials: 'include' });
-                if (!response.ok) return;
-                const counts = await response.json();
-                setBadge('chats', counts.chats);
-                setBadge('orders', counts.orders);
-                setBadge('pricing', counts.pricing);
-            } catch (error) {
-                console.log('Badge count refresh failed');
-            }
         }
 
         function goToLastProductPage() {
@@ -415,14 +625,117 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
 
         function restoreLastWebsiteAdminPage() {
             const savedPage = localStorage.getItem(WEBSITE_ADMIN_PAGE_KEY);
-            if (!savedPage) return DEFAULT_PAGE;
+            return WEBSITE_ADMIN_PAGES.includes(savedPage) ? savedPage : DEFAULT_PAGE;
+        }
 
-            const matchingBtn = document.querySelector(`.floating-nav button[data-page="${savedPage}"]`);
-            if (!matchingBtn) return DEFAULT_PAGE; // unknown/stale value, keep the default page
+        // Highlight the nav item for whatever page the iframe is on (same origin),
+        // including when a page inside the iframe links somewhere else, and
+        // remember it to reopen after a refresh.
+        function syncNavToFrame() {
+            try {
+                const loc = frame().contentWindow.location;
+                const name = loc.pathname.split('/').pop();
+                const status = new URLSearchParams(loc.search).get('status') || '';
+                document.querySelectorAll('.site-link').forEach(a => {
+                    const on = a.dataset.page === name;
+                    a.classList.toggle('is-active', on);
+                    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+                });
+                document.querySelectorAll('.site-sublink').forEach(a => {
+                    a.classList.toggle('is-active', name === 'admin_orders.php' && a.dataset.status === status);
+                });
+                if (WEBSITE_ADMIN_PAGES.includes('website/' + name)) {
+                    localStorage.setItem(WEBSITE_ADMIN_PAGE_KEY, 'website/' + name);
+                }
+            } catch (error) {
+                // cross-origin or blocked storage: leave the highlight as it is
+            }
+        }
 
-            document.querySelectorAll('.floating-nav button').forEach(b => b.classList.remove('active'));
-            matchingBtn.classList.add('active');
-            return savedPage;
+        // ---------- notification badges + bell ----------
+        function renderNotices(counts) {
+            const orders = Number(counts.orders) || 0;
+            const pricing = Number(counts.pricing) || 0;
+            const chats = Number(counts.chats) || 0;
+            const items = [];
+            if (orders > 0) items.push(['fa-clock', orders + ' pending ' + (orders === 1 ? 'order' : 'orders'), 'website/admin_orders.php?status=pending']);
+            if (pricing > 0) items.push(['fa-file-invoice-dollar', pricing + ' pricing ' + (pricing === 1 ? 'request needs' : 'requests need') + ' a quote', 'website/admin_pricing_estimates.php']);
+            if (chats > 0) items.push(['fa-comments', chats + ' unread ' + (chats === 1 ? 'message' : 'messages'), 'website/admin_chat.php']);
+            document.getElementById('notifyList').innerHTML = items.length
+                ? items.map(i => '<a class="site-pop-item" target="contentFrame" href="' + i[2] + '"><i class="fas ' + i[0] + '" aria-hidden="true"></i><span>' + i[1] + '</span></a>').join('')
+                : '<div class="site-pop-empty">You\'re all caught up.</div>';
+            document.getElementById('notifyDot').hidden = items.length === 0;
+        }
+
+        async function refreshBadgeCounts() {
+            if (document.hidden) return;
+            try {
+                const response = await fetch(BADGE_COUNTS_URL, { credentials: 'include' });
+                if (!response.ok) return;
+                const counts = await response.json();
+                document.querySelectorAll('.site-badge[data-badge-key]').forEach(badge => {
+                    const n = Number(counts[badge.dataset.badgeKey]) || 0;
+                    badge.textContent = n > 99 ? '99+' : n;
+                    badge.hidden = n === 0;
+                });
+                renderNotices(counts);
+            } catch (error) {
+                console.log('Badge count refresh failed');
+            }
+        }
+
+        // ---------- popovers (bell, user) ----------
+        function closePops(except) {
+            document.querySelectorAll('[data-pop]').forEach(btn => {
+                const pop = document.getElementById(btn.dataset.pop);
+                if (pop && pop !== except && !pop.hidden) {
+                    pop.hidden = true;
+                    btn.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+
+        function initPops() {
+            document.addEventListener('click', function(e) {
+                const btn = e.target.closest('[data-pop]');
+                if (btn) {
+                    const pop = document.getElementById(btn.dataset.pop);
+                    const willOpen = pop.hidden;
+                    closePops(pop);
+                    pop.hidden = !willOpen;
+                    btn.setAttribute('aria-expanded', String(willOpen));
+                    return;
+                }
+                if (!e.target.closest('.site-pop')) closePops();
+                else if (e.target.closest('a.site-pop-item')) closePops();
+            });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') closePops();
+            });
+        }
+
+        function initNavLinks() {
+            // Order-status dropdown is hover-driven: close it after a pick (a sub-link OR the
+            // parent link itself), reopen on next hover.
+            document.querySelectorAll('.site-sublink, .has-menu > .site-link').forEach(link => {
+                link.addEventListener('click', function() {
+                    const item = link.closest('.site-item');
+                    const menu = item.querySelector('.site-menu');
+                    if (!menu) return;
+                    menu.style.display = 'none';
+                    item.addEventListener('mouseleave', function reset() {
+                        menu.style.display = '';
+                        this.removeEventListener('mouseleave', reset);
+                    });
+                    if (document.activeElement) document.activeElement.blur();
+                });
+            });
+            // Highlight right away on click, before the new page has loaded.
+            document.querySelectorAll('.site-link').forEach(link => {
+                link.addEventListener('click', function() {
+                    document.querySelectorAll('.site-link').forEach(a => a.classList.toggle('is-active', a === link));
+                });
+            });
         }
 
         function initWebsiteAdmin() {
@@ -430,29 +743,45 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
             // don't bother loading the (heavy, desktop-only) dashboard
             // iframe in the background at all.
             if (!isDesktop()) return;
-            document.getElementById('contentFrame').src = restoreLastWebsiteAdminPage();
+            initPops();
+            initNavLinks();
 
-            // The admin_*.php pages inside the iframe do a normal
-            // POST + redirect after actions like updating an order or
-            // pricing-request status, which reloads the iframe's document.
-            // Catching that load event (rather than only polling on a
-            // timer) is what makes the badges update right after you act,
-            // instead of waiting up to BADGE_POLL_INTERVAL_MS or needing a
-            // full page refresh.
-            document.getElementById('contentFrame').addEventListener('load', refreshBadgeCounts);
+            const contentFrame = frame();
+            const shellDim = document.getElementById('shellDim');
+            // Pages inside the iframe report modal open/close so the sidebar and
+            // top bar (which they can't reach) get dimmed too.
+            window.addEventListener('message', function(e) {
+                if (e.origin !== window.location.origin || e.source !== contentFrame.contentWindow) return;
+                const msg = e.data;
+                if (!msg || msg.type !== 'wa-modal') return;
+                if (msg.open) {
+                    closePops();
+                    shellDim.style.setProperty('--dim', String(Number(msg.dim) || 0.5));
+                }
+                shellDim.classList.toggle('open', !!msg.open);
+                document.body.classList.toggle('shell-modal-open', !!msg.open);
+            });
+            // Fires after every page change inside the iframe. Pages do a normal
+            // POST + redirect after actions (updating an order, a pricing request…),
+            // so this also keeps the badges current right after you act.
+            contentFrame.addEventListener('load', function() {
+                shellDim.classList.remove('open'); // a reload (e.g. after a form post) closes any modal
+                document.body.classList.remove('shell-modal-open');
+                syncNavToFrame();
+                refreshBadgeCounts();
+                try {
+                    // clicks inside the iframe don't reach this document, so close open menus
+                    contentFrame.contentDocument.addEventListener('click', () => closePops());
+                } catch (error) {}
+            });
+            contentFrame.src = restoreLastWebsiteAdminPage();
 
-            refreshBadgeCounts();
             setInterval(refreshBadgeCounts, BADGE_POLL_INTERVAL_MS);
         }
 
         document.addEventListener('DOMContentLoaded', initWebsiteAdmin);
-
-        // Also re-check as soon as the tab/window regains focus, so counts
-        // don't sit stale while the admin was away.
         document.addEventListener('visibilitychange', function() {
-            if (!document.hidden && isDesktop()) {
-                refreshBadgeCounts();
-            }
+            if (!document.hidden && isDesktop()) refreshBadgeCounts();
         });
     </script>
 

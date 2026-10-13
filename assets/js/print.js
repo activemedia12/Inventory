@@ -1,20 +1,26 @@
-    function printJobOrder(button) {
-      const row = button.closest('tr');
-      const order = JSON.parse(row.getAttribute('data-order'));
+function printJobOrder(button) {
+  const row = button.closest("tr");
+  const order = JSON.parse(row.getAttribute("data-order"));
 
-      const printWindow = window.open('', '', 'width=1000,height=1400');
-      if (!printWindow) return;
+  const printWindow = window.open("", "", "width=1000,height=1400");
+  if (!printWindow) return;
 
-      const paperSize = order.paper_size === 'custom' ? order.custom_paper_size : order.paper_size;
-      const bindingType = order.binding_type === 'Custom' ? order.custom_binding : order.binding_type;
-      const paperSequence = (order.paper_sequence || '').split(',').map(p => p.trim());
-      const jobOrderDate = order.job_order_date
-      ? new Date(order.job_order_date).toLocaleDateString('en-PH', {
-          year: 'numeric', month: 'long', day: 'numeric'
-          })
-      : '';
+  const paperSize =
+    order.paper_size === "custom" ? order.custom_paper_size : order.paper_size;
+  const bindingType =
+    order.binding_type === "Custom" ? order.custom_binding : order.binding_type;
+  const paperSequence = (order.paper_sequence || "")
+    .split(",")
+    .map((p) => p.trim());
+  const jobOrderDate = order.job_order_date
+    ? new Date(order.job_order_date).toLocaleDateString("en-PH", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "";
 
-      const html = `
+  const html = `
         <html>
         <head>
           <title>Print Job Order</title>
@@ -72,40 +78,40 @@
           <div class="form-template">
             <img src="../assets/images/jo4.jpg" alt="Job Order Form Template" />
             <div class="field job-order-date">${jobOrderDate}</div>
-            <div class="field client-name">${order.client_name || ''}</div>
-            <div class="field address">${order.client_address || ''}</div>
-            <div class="field tin">${order.tin || ''}</div>
-            <div class="field contact-number">${order.contact_number || ''}</div>
-            <div class="field client-by">${order.client_by || ''}</div>
-            <div class="field contact-person">${order.contact_person || ''}</div>
+            <div class="field client-name">${order.client_name || ""}</div>
+            <div class="field address">${order.client_address || ""}</div>
+            <div class="field tin">${order.tin || ""}</div>
+            <div class="field contact-number">${order.contact_number || ""}</div>
+            <div class="field client-by">${order.client_by || ""}</div>
+            <div class="field contact-person">${order.contact_person || ""}</div>
 
-            <div class="field project-name">${order.project_name || ''}</div>
-            <div class="field quantity">${order.quantity || ''}</div>
-            <div class="field product-type">${order.paper_type || ''}</div>
-            <div class="field cut-size">Cut Size: ${order.product_size || ''}</div>
-            <div class="field serial-range">${order.serial_range || ''}</div>
+            <div class="field project-name">${order.project_name || ""}</div>
+            <div class="field quantity">${order.quantity || ""}</div>
+            <div class="field product-type">${order.paper_type || ""}</div>
+            <div class="field cut-size">Cut Size: ${order.product_size || ""}</div>
+            <div class="field serial-range">${order.serial_range || ""}</div>
 
             <div class="field paper-size">${paperSize}</div>
             <div class="field copies-per-set">
-                ${order.copies_per_set || ''}
+                ${order.copies_per_set || ""}
                 ${
-                    order.copies_per_set == 1
-                    ? ' - No Duplicate'
+                  order.copies_per_set == 1
+                    ? " - No Duplicate"
                     : order.copies_per_set == 2
-                    ? ' - Duplicate'
-                    : order.copies_per_set == 3
-                    ? ' - Triplicate'
-                    : order.copies_per_set == 4
-                    ? ' - Quadruplicate'
-                    : order.copies_per_set > 4
-                    ? ` - ${order.copies_per_set} Copies`
-                    : ''
+                      ? " - Duplicate"
+                      : order.copies_per_set == 3
+                        ? " - Triplicate"
+                        : order.copies_per_set == 4
+                          ? " - Quadruplicate"
+                          : order.copies_per_set > 4
+                            ? ` - ${order.copies_per_set} Copies`
+                            : ""
                 }
             </div>
             <div class="field binding-type">${bindingType}</div>
 
-            <div class="field color-seq">${paperSequence.join('<br>')}</div>
-            <div class="field special-notes">${(order.special_instructions || '').replace(/\n/g, '<br>')}</div>
+            <div class="field color-seq">${paperSequence.join("<br>")}</div>
+            <div class="field special-notes">${(order.special_instructions || "").replace(/\n/g, "<br>")}</div>
           </div>
 
           <script>
@@ -118,7 +124,7 @@
         </html>
       `;
 
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
-    }
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+}

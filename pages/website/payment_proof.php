@@ -6,6 +6,9 @@
  *   - the customer who placed the order, or
  *   - an admin / employee.
  * Payment proofs are no longer reachable by a plain URL.
+ *
+ * Add &type=balance to stream the balance proof (the second payment on a
+ * downpayment order) instead of the proof uploaded at checkout.
  */
 session_start();
 require_once '../../config/db.php';
@@ -28,7 +31,10 @@ if (!$order_id || $order_id < 1) {
     proof_deny(400, 'Bad request.');
 }
 
-$stmt = $inventory->prepare("SELECT user_id, payment_proof FROM orders WHERE order_id = ?");
+// Only these two columns can ever be read here (fixed whitelist, never user input).
+$proof_column = (($_GET['type'] ?? '') === 'balance') ? 'balance_proof' : 'payment_proof';
+
+$stmt = $inventory->prepare("SELECT user_id, $proof_column AS proof_file FROM orders WHERE order_id = ?");
 $stmt->bind_param("i", $order_id);
 $stmt->execute();
 $order = $stmt->get_result()->fetch_assoc();
@@ -36,14 +42,14 @@ $order = $stmt->get_result()->fetch_assoc();
 $is_staff = in_array($_SESSION['role'] ?? '', ['admin', 'employee', 'super_admin'], true);
 
 // 404 (not 403) for other people's orders so order numbers can't be probed.
-if (!$order || $order['payment_proof'] === '' || $order['payment_proof'] === null) {
+if (!$order || $order['proof_file'] === '' || $order['proof_file'] === null) {
     proof_deny(404, 'Not found.');
 }
 if (!$is_staff && (int) $order['user_id'] !== (int) $_SESSION['user_id']) {
     proof_deny(404, 'Not found.');
 }
 
-$path = payment_proof_path((int) $order['user_id'], (string) $order['payment_proof']);
+$path = payment_proof_path((int) $order['user_id'], (string) $order['proof_file']);
 if ($path === null) {
     proof_deny(404, 'File not found.');
 }

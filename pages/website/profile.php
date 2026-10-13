@@ -6,6 +6,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../../config/db.php';
+require_once '../../config/security.php';
 
 // Get user and customer details
 $user_id = $_SESSION['user_id'];
@@ -34,7 +35,8 @@ $user_data = $result->fetch_assoc();
 // title from the order's first line item (order_items.product_name).
 // Adjust "oi.order_item_id" below to whatever your order_items primary key
 // is actually called if it isn't that.
-$query = "SELECT o.order_id, o.total_amount, o.status, o.payment_proof, o.created_at, o.cancellation_reason,
+$order_query = "SELECT o.order_id, o.total_amount, o.status, o.payment_proof, o.created_at, o.cancellation_reason,
+                 %s
                  (SELECT oi.product_name
                     FROM order_items oi
                    WHERE oi.order_id = o.order_id
@@ -44,10 +46,23 @@ $query = "SELECT o.order_id, o.total_amount, o.status, o.payment_proof, o.create
           FROM orders o
           WHERE o.user_id = ? 
           ORDER BY o.created_at DESC";
-$stmt = $inventory->prepare($query);
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$result = $stmt->get_result();
+// Payment columns exist only after downpayment.sql and payment_balance.sql have been run;
+// without them the page still loads, just without the balance features.
+$result = null;
+try {
+    $stmt = $inventory->prepare(sprintf($order_query, "o.is_downpayment, o.amount_due, o.amount_paid, o.balance_proof,"));
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+} catch (Throwable $e) {
+    $result = null;
+}
+if (!$result) {
+    $stmt = $inventory->prepare(sprintf($order_query, ""));
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+}
 $orders = [];
 while ($row = $result->fetch_assoc()) {
     // Build the title: first item's product name, plus "+N more" when the
@@ -60,6 +75,23 @@ while ($row = $result->fetch_assoc()) {
         $title .= ' + ' . ((int) $row['item_count'] - 1) . ' more';
     }
     $row['title'] = $title;
+
+    // Balance still owed on a downpayment order: only after the downpayment is verified
+    // (status past Pending) and until the balance is verified. Same rule as admin_orders.php.
+    $row['is_down'] = !empty($row['is_downpayment']);
+    $row['paid_so_far'] = (float) ($row['amount_paid'] ?? 0);
+    $owed = round((float) $row['total_amount'] - $row['paid_so_far'], 2);
+    if ((float) $row['total_amount'] > 0 && $row['paid_so_far'] >= (float) $row['total_amount'] - 0.004) {
+        $row['pay_label'] = 'Paid';
+        $row['pay_class'] = 'paid';
+    } elseif ($row['paid_so_far'] > 0.004) {
+        $row['pay_label'] = 'Partially paid';
+        $row['pay_class'] = 'partial';
+    } else {
+        $row['pay_label'] = 'Unpaid';
+        $row['pay_class'] = 'unpaid';
+    }
+    $row['balance_owed'] = ($row['is_down'] && !in_array($row['status'], ['pending', 'cancelled'], true) && $owed > 0.004) ? $owed : 0.0;
     $orders[] = $row;
 }
 
@@ -510,6 +542,111 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                 padding: 0 12px;
             }
         }
+
+        /* Status pills row */
+        .acct-page .order-card__badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+        .acct-page .order-pay {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .acct-page .order-pay--unpaid  { background: #eceff1; color: #455a64; }
+        .acct-page .order-pay--partial { background: #fff4d6; color: #8a5a00; }
+        .acct-page .order-pay--paid    { background: #e3f6e8; color: #1b6e3a; }
+
+        /* Balance due: clean card with a proof-of-payment uploader */
+        .acct-page .order-card__balance {
+            display: grid;
+            gap: 16px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #fff;
+            cursor: default;
+        }
+        .acct-page .bal-head { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
+        .acct-page .bal-label { display: block; margin-bottom: 2px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+        .acct-page .bal-amount { display: block; font-size: 1.6rem; line-height: 1.15; letter-spacing: -0.01em; color: var(--ink); }
+        .acct-page .bal-paid { margin: 0; font-size: 13px; color: var(--ink-soft); text-align: right; }
+        .acct-page .bal-state { display: inline-flex; align-items: center; gap: 6px; width: fit-content; padding: 4px 10px; border-radius: 6px; font-size: 12.5px; font-weight: 600; }
+        .acct-page .bal-state.is-action { background: #f3f4f6; color: #374151; }
+        .acct-page .bal-state.is-review { background: #e8f1fb; color: #1d4f8c; }
+        .acct-page .bal-section { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+        .acct-page .bal-section-title { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+        .acct-page .bal-help { margin: 0; font-size: 13px; line-height: 1.45; color: var(--ink-soft); }
+
+        /* current proof on file */
+        .acct-page .bal-current { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: #fafafa; }
+        .acct-page .bal-thumb { flex: 0 0 auto; width: 56px; height: 56px; border-radius: 8px; border: 1px solid var(--line); background: #fff center / cover no-repeat; display: grid; place-items: center; color: var(--ink-faint); font-size: 1.2rem; overflow: hidden; }
+        .acct-page .bal-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .acct-page .bal-current-body { min-width: 0; display: grid; gap: 2px; font-size: 13px; }
+        .acct-page .bal-current-body strong { font-size: 13.5px; }
+
+        /* uploader */
+        .acct-page .bal-form { display: grid; gap: 10px; margin: 0; }
+        .acct-page .bal-form[hidden], .acct-page .bal-drop[hidden], .acct-page .bal-replace[hidden] { display: none; }
+        .acct-page .bal-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+        .acct-page .bal-replace { width: fit-content; }
+        .acct-page .bal-file { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+        .acct-page .bal-drop {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+            padding: 20px 14px; text-align: center; cursor: pointer;
+            border: 1.5px dashed #c5cad3; border-radius: 10px; background: #fafbfc;
+            color: var(--ink-soft); transition: border-color .15s, background .15s;
+        }
+        .acct-page .bal-drop:hover, .acct-page .bal-drop.is-over { border-color: var(--riso-blue); background: #f3f8fd; }
+        .acct-page .bal-file:focus-visible + .bal-drop { outline: 2px solid var(--riso-blue); outline-offset: 2px; }
+        .acct-page .bal-drop i { font-size: 1.4rem; color: var(--riso-blue); }
+        .acct-page .bal-drop strong { font-size: 14px; color: var(--ink); }
+        .acct-page .bal-drop span { font-size: 12.5px; }
+
+        .acct-page .bal-preview { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+        .acct-page .bal-preview[hidden] { display: none; }
+        .acct-page .bal-preview-meta { min-width: 0; flex: 1; display: grid; gap: 2px; font-size: 12.5px; color: var(--ink-soft); }
+        .acct-page .bal-preview-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+        .acct-page .bal-remove { flex: 0 0 auto; width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink-soft); cursor: pointer; }
+        .acct-page .bal-remove:hover { color: #b32d18; border-color: #e6b4ab; }
+        .acct-page .bal-form .btn[disabled] { opacity: .5; cursor: not-allowed; }
+        .acct-page .bal-link { font-size: 13px; }
+
+        /* Phones: tidy pills; a card with a balance gets the full row instead of a half-width tile */
+        @media (max-width: 640px) {
+            .acct-page .order-list .order-card__badges { gap: 4px 6px; }
+            .acct-page .order-list .order-pay { padding: 2px 8px; font-size: 10px; letter-spacing: 0.02em; }
+
+            .acct-page .order-list .order-card.order-card--balance { grid-column: 1 / -1; gap: 12px; }
+            .acct-page .order-list .order-card--balance .order-card__top { flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 12px; }
+            .acct-page .order-list .order-card--balance .order-card__id { width: auto; flex: 1; min-width: 0; }
+            .acct-page .order-list .order-card--balance .order-card__amount { flex-shrink: 0; }
+            .acct-page .order-list .order-card--balance .order-card__foot { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
+            .acct-page .order-list .order-card--balance .order-card__open { margin-left: auto; margin-top: 0; }
+            .acct-page .order-card--balance .bal-head { align-items: flex-start; flex-direction: column; gap: 2px; }
+            .acct-page .order-card--balance .bal-paid { width: auto; }
+        }
+
+        /* Modal: balance tile */
+        .acct-page .acct-fact--balance { grid-column: span 2; }
+        .acct-page .acct-fact--balance dd { display: grid; gap: 4px; }
+        .acct-page .acct-balance__amount { font-family: var(--font-display); font-size: 1.35rem; letter-spacing: -0.01em; }
+        .acct-page .acct-balance__meta { font-size: 12.5px; font-weight: 400; color: var(--ink-soft); }
+        .acct-page .acct-balance__proof { font-size: 12.5px; font-weight: 400; }
+        .acct-page .acct-balance__proof.is-empty { font-style: italic; color: var(--ink-faint); }
+
+        @media (max-width: 640px) {
+            .acct-page .acct-fact--balance { grid-column: 1 / -1; }
+            .acct-page .order-card__balance { padding: 14px; gap: 14px; }
+            .acct-page .bal-amount { font-size: 1.35rem; }
+            .acct-page .bal-paid { text-align: left; width: 100%; }
+            .acct-page .bal-drop { padding: 16px 12px; }
+            .acct-page .bal-form .btn, .acct-page .bal-replace { width: 100%; min-height: 44px; }
+            .acct-page .bal-actions .btn { flex: 1; }
+        }
     </style>
 </head>
 
@@ -583,6 +720,15 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                     <span class="acct-notice__icon"><i class="fas fa-check"></i></span>
                     <div class="acct-notice__body">
                         <strong>Success!</strong> Your order has been placed and is pending payment verification.
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if (isset($_GET['balance_uploaded'])): ?>
+                <div class="acct-notice acct-notice--success" id="balance-message" role="status">
+                    <span class="acct-notice__icon"><i class="fas fa-check"></i></span>
+                    <div class="acct-notice__body">
+                        <strong>Balance proof uploaded.</strong> We'll check it and update your order once the balance is verified.
                     </div>
                 </div>
             <?php endif; ?>
@@ -718,8 +864,11 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                                 $proof_url    = !empty($order['payment_proof'])
                                     ? 'payment_proof.php?order_id=' . (int) $order['order_id']
                                     : '';
+                                $balance_proof_url = !empty($order['balance_proof'])
+                                    ? 'payment_proof.php?order_id=' . (int) $order['order_id'] . '&type=balance'
+                                    : '';
                             ?>
-                                <article class="order-card status-<?php echo $status_class; ?>"
+                                <article class="order-card status-<?php echo $status_class; ?><?php echo $order['balance_owed'] > 0 ? ' order-card--balance' : ''; ?>"
                                          data-order-id="<?php echo (int) $order['order_id']; ?>"
                                          data-title="<?php echo htmlspecialchars($order['title']); ?>"
                                          data-status="<?php echo $status_class; ?>"
@@ -727,20 +876,90 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                                          data-date="<?php echo htmlspecialchars($placed_text); ?>"
                                          data-total="₱<?php echo number_format($order['total_amount'], 2); ?>"
                                          data-proof="<?php echo htmlspecialchars($proof_url); ?>"
+                                         data-down="<?php echo $order['is_down'] ? '1' : '0'; ?>"
+                                         data-payment="<?php echo htmlspecialchars($order['pay_label']); ?>"
+                                         data-paid="<?php echo $order['is_down'] ? '₱' . number_format($order['paid_so_far'], 2) : ''; ?>"
+                                         data-balance="<?php echo $order['balance_owed'] > 0 ? '₱' . number_format($order['balance_owed'], 2) : ''; ?>"
+                                         data-balance-proof="<?php echo htmlspecialchars($balance_proof_url); ?>"
                                          data-items="<?php echo (int) $order['item_count']; ?>"
                                          data-cancel-reason="<?php echo htmlspecialchars($order['cancellation_reason'] ?? ''); ?>">
                                     <div class="order-card__top">
                                         <div class="order-card__id">
                                             <h3><?php echo htmlspecialchars($order['title']); ?></h3>
                                             <span class="order-card__number">Ref No. <?php echo (int) $order['order_id']; ?></span>
-                                            <span class="order-status status-<?php echo $status_class; ?>"><?php echo htmlspecialchars($status_label); ?></span>
                                         </div>
                                         <div class="order-card__amount">₱<?php echo number_format($order['total_amount'], 2); ?></div>
+                                    </div>
+                                    <div class="order-card__badges">
+                                        <span class="order-status status-<?php echo $status_class; ?>"><?php echo htmlspecialchars($status_label); ?></span>
+                                        <?php if ($status_class !== 'cancelled'): ?>
+                                            <span class="order-pay order-pay--<?php echo $order['pay_class']; ?>"><?php echo htmlspecialchars($order['pay_label']); ?></span>
+                                        <?php endif; ?>
                                     </div>
                                     <?php if ($status_class === 'cancelled' && !empty($order['cancellation_reason'])): ?>
                                         <div class="order-card__cancel-note">
                                             <i class="fas fa-ban"></i>
                                             <span><strong>Reason:</strong> <?php echo htmlspecialchars($order['cancellation_reason']); ?></span>
+                                        </div>
+                                    <?php endif; ?>
+                                    <?php if ($order['balance_owed'] > 0): ?>
+                                        <div class="order-card__balance">
+                                            <div class="bal-head">
+                                                <div>
+                                                    <span class="bal-label">Balance due</span>
+                                                    <strong class="bal-amount">₱<?php echo number_format($order['balance_owed'], 2); ?></strong>
+                                                </div>
+                                                <p class="bal-paid">₱<?php echo number_format($order['paid_so_far'], 2); ?> paid of ₱<?php echo number_format($order['total_amount'], 2); ?></p>
+                                            </div>
+                                            <?php if ($balance_proof_url !== ''): ?>
+                                                <span class="bal-state is-review"><i class="fas fa-hourglass-half" aria-hidden="true"></i> Proof received, under review</span>
+                                            <?php else: ?>
+                                                <span class="bal-state is-action"><i class="fas fa-circle-info" aria-hidden="true"></i> Payment needed</span>
+                                            <?php endif; ?>
+
+                                            <div class="bal-section">
+                                                <h4 class="bal-section-title">Proof of payment</h4>
+                                                <?php if ($balance_proof_url !== ''): ?>
+                                                    <div class="bal-current">
+                                                        <a class="bal-thumb" href="<?php echo htmlspecialchars($balance_proof_url); ?>" target="_blank" rel="noopener" aria-label="Open current balance proof">
+                                                            <img src="<?php echo htmlspecialchars($balance_proof_url); ?>" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('i'), {className: 'fas fa-file-lines'}))">
+                                                        </a>
+                                                        <div class="bal-current-body">
+                                                            <strong>Current proof</strong>
+                                                            <a href="<?php echo htmlspecialchars($balance_proof_url); ?>" target="_blank" rel="noopener" class="payment-proof-link bal-link">View full size <i class="fas fa-external-link-alt"></i></a>
+                                                        </div>
+                                                    </div>
+                                                    <p class="bal-help">We'll verify it soon. Replace it only if you uploaded the wrong file.</p>
+                                                    <button type="button" class="btn btn-secondary btn-sm bal-replace" data-bal-replace>Replace proof</button>
+                                                <?php else: ?>
+                                                    <p class="bal-help">Pay the remaining balance, then upload your proof of payment.</p>
+                                                <?php endif; ?>
+
+                                                <form action="upload_balance_proof.php" method="post" enctype="multipart/form-data" class="bal-form" data-bal-form<?php echo $balance_proof_url !== '' ? ' hidden' : ''; ?>>
+                                                    <?php echo csrf_field(); ?>
+                                                    <input type="hidden" name="order_id" value="<?php echo (int) $order['order_id']; ?>">
+                                                    <input type="file" name="balance_proof" id="balFile<?php echo (int) $order['order_id']; ?>" class="bal-file" accept="image/*,.pdf" required>
+                                                    <label class="bal-drop" for="balFile<?php echo (int) $order['order_id']; ?>">
+                                                        <i class="fas fa-cloud-arrow-up" aria-hidden="true"></i>
+                                                        <strong>Choose a file</strong>
+                                                        <span>or drag and drop &middot; JPG, PNG or PDF</span>
+                                                    </label>
+                                                    <div class="bal-preview" data-bal-preview hidden>
+                                                        <div class="bal-thumb" data-bal-thumb></div>
+                                                        <div class="bal-preview-meta">
+                                                            <span class="bal-preview-name" data-bal-name></span>
+                                                            <span data-bal-size></span>
+                                                        </div>
+                                                        <button type="button" class="bal-remove" data-bal-remove aria-label="Remove selected file"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+                                                    </div>
+                                                    <div class="bal-actions">
+                                                        <button type="submit" class="btn btn-primary btn-sm" data-bal-submit disabled><?php echo $balance_proof_url !== '' ? 'Upload new proof' : 'Upload proof'; ?></button>
+                                                        <?php if ($balance_proof_url !== ''): ?>
+                                                            <button type="button" class="btn btn-secondary btn-sm" data-bal-cancel>Cancel</button>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </form>
+                                            </div>
                                         </div>
                                     <?php endif; ?>
                                     <div class="order-card__foot">
@@ -946,7 +1165,6 @@ $order_active = $order_total - $order_completed - $order_cancelled;
         // Order of a normal order's life; "cancelled" is handled separately
         var STEPS = [
             ['pending', 'Pending'],
-            ['paid', 'Paid'],
             ['processing', 'Processing'],
             ['ready_for_pickup', 'Ready for pickup'],
             ['completed', 'Completed']
@@ -1067,10 +1285,11 @@ $order_active = $order_total - $order_completed - $order_cancelled;
             }
 
             // Progress
+            var steps = STEPS;
             progressEl.innerHTML = '';
             var current = -1;
-            STEPS.forEach(function (step, i) { if (step[0] === d.status) current = i; });
-            if (d.status === 'completed') current = STEPS.length; // every step done
+            steps.forEach(function (step, i) { if (step[0] === d.status) current = i; });
+            if (d.status === 'completed') current = steps.length; // every step done
 
             if (d.status === 'cancelled') {
                 var reasonHtml = d.cancelReason
@@ -1082,7 +1301,7 @@ $order_active = $order_total - $order_completed - $order_cancelled;
             } else if (current > -1) {
                 var list = make('ol', 'acct-tracker');
                 list.setAttribute('aria-label', 'Order progress');
-                STEPS.forEach(function (step, i) {
+                steps.forEach(function (step, i) {
                     var state = i < current ? 'is-done' : (i === current ? 'is-current' : '');
                     var item = make('li', 'acct-tracker__step ' + state,
                         '<span class="acct-tracker__dot">' + (i < current ? '<i class="fas fa-check"></i>' : (i + 1)) + '</span>' +
@@ -1093,9 +1312,9 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                 progressEl.appendChild(list);
 
                 // Phones show only the dots; this line says where the order is
-                var nowIdx = Math.min(current, STEPS.length - 1);
+                var nowIdx = Math.min(current, steps.length - 1);
                 progressEl.appendChild(make('p', 'acct-tracker__now',
-                    'Step ' + (nowIdx + 1) + ' of ' + STEPS.length + ' &middot; <strong>' + STEPS[nowIdx][1] + '</strong>'));
+                    'Step ' + (nowIdx + 1) + ' of ' + steps.length + ' &middot; <strong>' + steps[nowIdx][1] + '</strong>'));
             }
 
             // Key facts
@@ -1112,6 +1331,16 @@ $order_active = $order_total - $order_completed - $order_cancelled;
             placed.textContent = d.date || '—';
             fact('far fa-calendar', 'Placed', placed);
 
+            var total = make('dd');
+            total.textContent = d.total || '—';
+            fact('fas fa-wallet', 'Order total', total, 'acct-fact--total');
+
+            if (d.payment) {
+                var pay = make('dd');
+                pay.textContent = d.payment;
+                fact('fas fa-circle-check', 'Payment', pay);
+            }
+
             var proof = make('dd');
             if (d.proof) {
                 var link = make('a', '', 'View proof <i class="fas fa-external-link-alt" aria-hidden="true"></i>');
@@ -1123,11 +1352,32 @@ $order_active = $order_total - $order_completed - $order_cancelled;
                 proof.className = 'is-empty';
                 proof.textContent = 'Not uploaded';
             }
-            fact('fas fa-receipt', 'Payment proof', proof);
+            fact('fas fa-receipt', d.down === '1' ? 'Downpayment proof' : 'Payment proof', proof);
 
-            var total = make('dd');
-            total.textContent = d.total || '—';
-            fact('fas fa-wallet', 'Order total', total, 'acct-fact--total');
+            if (d.down === '1') {
+                if (d.balance) {
+                    // Everything about the balance in one tile: amount, how much is paid, proof status
+                    var bal = make('dd');
+                    bal.appendChild(make('span', 'acct-balance__amount', escapeHtml(d.balance)));
+                    bal.appendChild(make('span', 'acct-balance__meta', escapeHtml(d.paid || '') + ' paid of ' + escapeHtml(d.total || '')));
+                    if (d.balanceProof) {
+                        var bl = make('span', 'acct-balance__proof', 'Balance proof sent &middot; ');
+                        var blink = make('a', '', 'View proof <i class="fas fa-external-link-alt" aria-hidden="true"></i>');
+                        blink.href = d.balanceProof;
+                        blink.target = '_blank';
+                        blink.rel = 'noopener';
+                        bl.appendChild(blink);
+                        bal.appendChild(bl);
+                    } else {
+                        bal.appendChild(make('span', 'acct-balance__proof is-empty', 'Balance proof not uploaded yet'));
+                    }
+                    fact('fas fa-coins', 'Balance due', bal, 'acct-fact--balance');
+                } else if (d.paid) {
+                    var paid = make('dd');
+                    paid.textContent = d.paid;
+                    fact('fas fa-circle-check', 'Paid so far', paid);
+                }
+            }
 
             var items = parseInt(d.items, 10);
             countEl.textContent = items > 0 ? items + (items === 1 ? ' item' : ' items') : '';
@@ -1230,18 +1480,110 @@ $order_active = $order_total - $order_completed - $order_cancelled;
         // Clicking anywhere on a card (except its links/buttons) opens it too
         document.querySelectorAll('.order-card').forEach(function (card) {
             card.addEventListener('click', function (e) {
-                if (e.target.closest('a, button')) return;
+                if (e.target.closest('a, button, input, label, form')) return;
                 window.viewOrderDetails(card.dataset.orderId, card.dataset.title);
             });
         });
 
-        // Order-success banner fades away on its own
-        var banner = document.getElementById('success-message');
-        if (banner) {
-            setTimeout(function () {
-                banner.classList.add('is-leaving');
-                setTimeout(function () { banner.remove(); }, 600);
-            }, 5000);
+        // Balance proof uploader: image/PDF preview, drag and drop, remove
+        document.querySelectorAll('[data-bal-form]').forEach(function (form) {
+            var input   = form.querySelector('input[type="file"]');
+            var drop    = form.querySelector('.bal-drop');
+            var preview = form.querySelector('[data-bal-preview]');
+            var thumb   = form.querySelector('[data-bal-thumb]');
+            var nameEl  = form.querySelector('[data-bal-name]');
+            var sizeEl  = form.querySelector('[data-bal-size]');
+            var submit  = form.querySelector('[data-bal-submit]');
+            var url = null;
+            var section = form.closest('.bal-section');
+            var replaceBtn = section ? section.querySelector('[data-bal-replace]') : null;
+            var cancelBtn = form.querySelector('[data-bal-cancel]');
+
+            if (replaceBtn) {
+                replaceBtn.addEventListener('click', function () {
+                    form.hidden = false;
+                    replaceBtn.hidden = true;
+                    input.focus();
+                });
+            }
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', function () {
+                    clear();
+                    form.hidden = true;
+                    if (replaceBtn) { replaceBtn.hidden = false; replaceBtn.focus(); }
+                });
+            }
+
+            function clear() {
+                if (url) { URL.revokeObjectURL(url); url = null; }
+                input.value = '';
+                thumb.innerHTML = '';
+                preview.hidden = true;
+                drop.hidden = false;
+                submit.disabled = true;
+            }
+
+            function show(file) {
+                if (url) { URL.revokeObjectURL(url); url = null; }
+                thumb.innerHTML = '';
+                if (file.type.indexOf('image/') === 0) {
+                    url = URL.createObjectURL(file);
+                    var img = document.createElement('img');
+                    img.src = url;
+                    img.alt = 'Preview of the selected proof';
+                    thumb.appendChild(img);
+                } else {
+                    thumb.innerHTML = '<i class="fas fa-file-pdf" aria-hidden="true"></i>';
+                }
+                nameEl.textContent = file.name;
+                sizeEl.textContent = file.size >= 1048576
+                    ? (file.size / 1048576).toFixed(1) + ' MB'
+                    : Math.max(1, Math.round(file.size / 1024)) + ' KB';
+                preview.hidden = false;
+                drop.hidden = true;
+                submit.disabled = false;
+            }
+
+            input.addEventListener('change', function () {
+                if (input.files && input.files[0]) show(input.files[0]); else clear();
+            });
+            form.querySelector('[data-bal-remove]').addEventListener('click', clear);
+
+            ['dragenter', 'dragover'].forEach(function (ev) {
+                drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('is-over'); });
+            });
+            ['dragleave', 'drop'].forEach(function (ev) {
+                drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('is-over'); });
+            });
+            drop.addEventListener('drop', function (e) {
+                var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+                if (!f) return;
+                if (f.type.indexOf('image/') !== 0 && f.type !== 'application/pdf') return;
+                var dt = new DataTransfer();
+                dt.items.add(f);
+                input.files = dt.files;
+                show(f);
+            });
+        });
+
+        // Success banners (order placed, balance proof uploaded) fade away on their own
+        ['success-message', 'balance-message'].forEach(function (id) {
+            var banner = document.getElementById(id);
+            if (banner) {
+                setTimeout(function () {
+                    banner.classList.add('is-leaving');
+                    setTimeout(function () { banner.remove(); }, 600);
+                }, 5000);
+            }
+        });
+        // Drop the one-time flags from the address bar so a refresh doesn't bring the banner back
+        if (window.history && history.replaceState) {
+            var url = new URL(window.location.href);
+            if (url.searchParams.has('order_success') || url.searchParams.has('balance_uploaded')) {
+                url.searchParams.delete('order_success');
+                url.searchParams.delete('balance_uploaded');
+                history.replaceState(null, '', url.pathname + url.search + url.hash);
+            }
         }
     })();
     </script>

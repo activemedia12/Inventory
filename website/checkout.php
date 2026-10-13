@@ -112,6 +112,13 @@ $shipping = 0;
 $tax = $subtotal * ORDER_TAX_RATE;   // same constant process_order.php uses
 $total = $subtotal + $tax;
 
+// Downpayment option: the customer may pay this share of the total now.
+if (!defined('ORDER_DOWNPAYMENT_RATE')) {
+    define('ORDER_DOWNPAYMENT_RATE', 0.5);
+}
+$downpayment = round($total * ORDER_DOWNPAYMENT_RATE, 2);
+$downpayment_pct = rtrim(rtrim(number_format(ORDER_DOWNPAYMENT_RATE * 100, 2), '0'), '.');
+
 $cart_count = 0;
 $query = "SELECT SUM(ci.quantity) as total_items 
           FROM cart_items ci 
@@ -949,9 +956,12 @@ $has_items = !empty($checkout_items);
                             <img src="../assets/images/InstaPay-Logo.webp" alt="" style="height: 30px; margin: -3px 0 0 2px;">
                         </div>
                         <div class="co-amount">
-                            <span>Amount to pay</span>
-                            <strong>₱<?php echo number_format($total, 2); ?></strong>
+                            <span id="payAmountLabel">Amount to pay</span>
+                            <strong id="payAmount" data-full="<?php echo co_h(number_format($total, 2)); ?>" data-down="<?php echo co_h(number_format($downpayment, 2)); ?>">₱<?php echo number_format($total, 2); ?></strong>
                         </div>
+                        <p class="co-balance" id="payBalance" hidden>
+                            Balance of ₱<?php echo number_format($total - $downpayment, 2); ?> is paid later.
+                        </p>
 
                         <div class="co-payto">
                             <a href="../assets/images/gcash-qr.jpg" target="_blank" rel="noopener" class="co-qr" title="Open the QR code full size">
@@ -979,6 +989,17 @@ $has_items = !empty($checkout_items);
                             <?php echo csrf_field(); ?>
                             <input type="hidden" name="selected_items" value="<?php echo co_h(implode(',', $selected_items)); ?>">
                             <input type="hidden" name="total_amount" value="<?php echo co_h($total); ?>">
+
+                            <div class="co-down">
+                                <input type="checkbox" name="is_downpayment" value="1" id="isDownpayment" class="co-down__input" role="switch">
+                                <label for="isDownpayment" class="co-down__label">
+                                    <span class="co-down__track" aria-hidden="true"></span>
+                                    <span class="co-down__text">
+                                        <strong>Is this payment a downpayment?</strong>
+                                        <small>Turn on to pay <?php echo co_h($downpayment_pct); ?>% (₱<?php echo number_format($downpayment, 2); ?>) now. The balance is paid later.</small>
+                                    </span>
+                                </label>
+                            </div>
 
                             <div class="co-upload" id="uploadBox">
                                 <input type="file" name="payment_proof" id="payment_proof" accept="image/*,.pdf" class="co-upload__input" required>
@@ -1016,7 +1037,7 @@ $has_items = !empty($checkout_items);
                     </div>
 
                     <div class="co-pay__foot">
-                        <div class="co-foot-total"><span>Total</span><strong>₱<?php echo number_format($total, 2); ?></strong></div>
+                        <div class="co-foot-total"><span id="footLabel">Total</span><strong id="footAmount">₱<?php echo number_format($total, 2); ?></strong></div>
                         <button type="submit" form="checkoutForm" class="btn btn-primary co-submit" id="confirm-order-btn"<?php echo $has_items ? '' : ' disabled'; ?>>
                             <i class="fas fa-check"></i> Confirm order
                         </button>
@@ -1276,6 +1297,31 @@ $has_items = !empty($checkout_items);
                     submitBtn.innerHTML = submitHtml;
                 }
             });
+        })();
+    </script>
+    <script>
+        // Downpayment switch: changes the amount shown to pay (the server recomputes it on submit)
+        (function () {
+            'use strict';
+            var toggle  = document.getElementById('isDownpayment');
+            var amount  = document.getElementById('payAmount');
+            if (!toggle || !amount) return;
+            var label   = document.getElementById('payAmountLabel');
+            var balance = document.getElementById('payBalance');
+            var footLbl = document.getElementById('footLabel');
+            var footAmt = document.getElementById('footAmount');
+
+            function update() {
+                var down = toggle.checked;
+                var text = '₱' + (down ? amount.dataset.down : amount.dataset.full);
+                amount.textContent = text;
+                if (footAmt) footAmt.textContent = text;
+                if (label) label.textContent = down ? 'Downpayment to pay now' : 'Amount to pay';
+                if (footLbl) footLbl.textContent = down ? 'Pay now' : 'Total';
+                if (balance) balance.hidden = !down;
+            }
+            toggle.addEventListener('change', update);
+            update();
         })();
     </script>
     <script>

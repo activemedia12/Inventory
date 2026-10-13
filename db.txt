@@ -1,8 +1,61 @@
-  ALTER TABLE users MODIFY role ENUM('super_admin','admin','employee','customer') NOT NULL DEFAULT 'employee';
-  UPDATE users SET role='super_admin' WHERE username='Wizermina';
+-- Run once, before using the updated PHP files.
+-- 1) Quote rows must survive checkout (the old cascade deleted them when cart_items rows were removed).
+-- 2) New columns link a quote to the order line it became, plus a name/quantity snapshot.
+-- 3) Allow the statuses the admin page actually writes.
+ALTER TABLE pricing_requests_items
+  DROP FOREIGN KEY pricing_requests_items_ibfk_2,
+  ADD COLUMN order_item_id INT NULL AFTER cart_item_id,
+  ADD COLUMN product_name VARCHAR(100) NULL,
+  ADD COLUMN quantity INT NULL,
+  ADD KEY order_item_id (order_item_id),
+  MODIFY status ENUM('pending','reviewed','quoted','completed','approved','cancelled') DEFAULT 'pending';
 
-  UPDATE user_permissions p JOIN users u ON u.id = p.user_id
-    SET p.can_add=1, p.can_edit=1, p.can_update=1, p.can_delete=1 WHERE u.role='admin';
+ALTER TABLE orders
+  ADD COLUMN proof_amount DECIMAL(10,2) NULL AFTER payment_proof;
 
-INSERT IGNORE INTO user_permissions (user_id, can_add, can_edit, can_update, can_delete)
-SELECT id,1,1,1,1 FROM users WHERE role='admin';
+ALTER TABLE orders
+  ADD COLUMN IF NOT EXISTS proof_amount DECIMAL(10,2) NULL AFTER payment_proof,
+  ADD COLUMN IF NOT EXISTS is_downpayment TINYINT(1) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS amount_due DECIMAL(10,2) NULL;
+
+ALTER TABLE orders
+  MODIFY COLUMN status ENUM('pending','partially_paid','paid','processing','ready_for_pickup','completed','cancelled')
+  NOT NULL DEFAULT 'pending';
+
+ALTER TABLE orders
+  ADD COLUMN amount_paid DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER amount_due,
+  ADD COLUMN balance_proof VARCHAR(255) NULL AFTER payment_proof,
+  ADD COLUMN balance_proof_amount DECIMAL(10,2) NULL AFTER proof_amount;
+ 
+-- Backfill existing orders. Anything past Pending (and not cancelled) already had a payment verified.
+-- Downpayment orders that were verified before this change show a balance owed, which is the point.
+UPDATE orders
+SET amount_paid = COALESCE(amount_due, total_amount)
+WHERE status IN ('partially_paid','paid','processing','ready_for_pickup','completed');
+
+UPDATE orders SET status = 'processing', updated_at = updated_at
+WHERE status IN ('paid', 'partially_paid');
+ 
+ALTER TABLE orders
+  MODIFY COLUMN status ENUM('pending','processing','ready_for_pickup','completed','cancelled')
+  NOT NULL DEFAULT 'pending';
+ 
+-- Payment history for orders (used by admin_orders.php).
+-- Every verified payment (downpayment, full payment, remaining balance, cash) gets one row:
+-- who recorded it, when, how much was actually received, and which proof file it was based on.
+CREATE TABLE IF NOT EXISTS order_payments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    kind ENUM('downpayment', 'full', 'balance') NOT NULL,
+    method ENUM('proof', 'cash') NOT NULL DEFAULT 'proof',
+    amount_expected DECIMAL(12, 2) NOT NULL,
+    amount_received DECIMAL(12, 2) NOT NULL,
+    proof_file VARCHAR(255) NULL,
+    note VARCHAR(255) NULL,
+    verified_by INT NULL,
+    verified_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_order_payments_order (order_id)
+);
+ 
+-- Old rows with an empty amount_paid count as 0 (the code now treats them that way anyway).
+UPDATE orders SET amount_paid = 0 WHERE amount_paid IS NULL;

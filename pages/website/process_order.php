@@ -97,6 +97,13 @@ if ($total_amount <= 0) {
     order_fail('This order has no price yet. Please wait for the price quote before checking out.');
 }
 
+// Downpayment: the customer pays this share of the total now. Computed here, never trusted from the browser.
+if (!defined('ORDER_DOWNPAYMENT_RATE')) {
+    define('ORDER_DOWNPAYMENT_RATE', 0.5);
+}
+$is_downpayment = !empty($_POST['is_downpayment']) ? 1 : 0;
+$amount_due     = $is_downpayment ? round($total_amount * ORDER_DOWNPAYMENT_RATE, 2) : $total_amount;
+
 // If the page the customer saw disagrees with our number, do not charge anything unexpected.
 $client_total = isset($_POST['total_amount']) ? (float) $_POST['total_amount'] : null;
 if ($client_total === null || abs(round($client_total, 2) - $total_amount) > 0.01) {
@@ -131,13 +138,31 @@ if (isset($_FILES['payment_proof']) && $_FILES['payment_proof']['error'] !== UPL
 $inventory->begin_transaction();
 
 try {
-    $stmt = $inventory->prepare("INSERT INTO orders (user_id, total_amount, payment_proof) VALUES (?, ?, ?)");
-    $stmt->bind_param("ids", $user_id, $total_amount, $payment_proof);
+    $stmt = $inventory->prepare("INSERT INTO orders (user_id, total_amount, is_downpayment, amount_due, payment_proof) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("idids", $user_id, $total_amount, $is_downpayment, $amount_due, $payment_proof);
     $stmt->execute();
     $order_id = $inventory->insert_id;
 
     $order_items_query = "INSERT INTO order_items (order_id, product_id, product_name, product_category, unit_price, quantity, layout_option, layout_details, gsm_option, user_layout_files, design_image, size_option, custom_size, color_option, custom_color, finish_option, paper_option, binding_option) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $order_items_stmt = $inventory->prepare($order_items_query);
+
+    // Links this user's quote rows to the order line they became, and keeps a
+    // name/quantity snapshot, so admin_orders.php can compare quote vs paid
+    // after the cart rows below are deleted.
+    // Reporting only: if it can't run (e.g. pricing_fix.sql not applied yet) it
+    // is logged and skipped so the order itself is still saved.
+    $link_stmt = null;
+    try {
+        $link_stmt = $inventory->prepare(
+            "UPDATE pricing_requests_items pri
+             JOIN pricing_requests pr ON pr.id = pri.pricing_request_id
+             SET pri.order_item_id = ?, pri.product_name = ?, pri.quantity = ?
+             WHERE pri.cart_item_id = ? AND pr.user_id = ? AND pri.order_item_id IS NULL"
+        );
+    } catch (Throwable $e) {
+        error_log('process_order: quote link skipped: ' . $e->getMessage());
+        $link_stmt = null;
+    }
 
     foreach ($items as $item) {
         $order_items_stmt->bind_param(
@@ -162,6 +187,42 @@ try {
             $item['binding_option']
         );
         $order_items_stmt->execute();
+        $new_order_item_id = $inventory->insert_id;
+        if ($link_stmt) {
+            try {
+                $link_stmt->bind_param("isiii", $new_order_item_id, $item['product_name'], $item['quantity'], $item['item_id'], $user_id);
+                $link_stmt->execute();
+            } catch (Throwable $e) {
+                error_log('process_order: quote link failed: ' . $e->getMessage());
+            }
+        }
+    }
+
+    // Close pricing requests whose items are ALL being ordered now, so they
+    // leave the admin pricing page (the order shows up in admin_orders.php).
+    try {
+        $prq = $inventory->prepare(
+            "SELECT id, selected_items FROM pricing_requests
+             WHERE user_id = ? AND status IN ('pending','reviewed','quoted')"
+        );
+        $prq->bind_param("i", $user_id);
+        $prq->execute();
+        $open_requests = $prq->get_result()->fetch_all(MYSQLI_ASSOC);  // read it all before running more queries
+        $prq->close();
+
+        $close = $inventory->prepare(
+            "UPDATE pricing_requests SET status = 'completed', updated_at = NOW() WHERE id = ?"
+        );
+        foreach ($open_requests as $pr) {
+            $ids = array_map('intval', json_decode($pr['selected_items'], true) ?: []);
+            if ($ids && !array_diff($ids, $selected_items)) {
+                $close->bind_param("i", $pr['id']);
+                $close->execute();
+            }
+        }
+        $close->close();
+    } catch (Throwable $e) {
+        error_log('process_order: closing pricing requests skipped: ' . $e->getMessage());
     }
 
     // Remove the ordered items from the cart
@@ -174,11 +235,15 @@ try {
 
     $inventory->commit();
 } catch (Throwable $e) {
-    $inventory->rollback();
+    error_log('process_order failed: ' . $e->getMessage());   // log the real cause first
+    try {
+        $inventory->rollback();
+    } catch (Throwable $rollbackError) {
+        error_log('process_order rollback failed: ' . $rollbackError->getMessage());
+    }
     if ($saved_proof_path !== null && is_file($saved_proof_path)) {
         @unlink($saved_proof_path);   // don't leave an orphan file behind
     }
-    error_log('process_order failed: ' . $e->getMessage());
     order_fail('Something went wrong while saving your order. Nothing was charged. Please try again.');
 }
 
