@@ -4,7 +4,7 @@ require_once '../../config/db.php';
 require_once '../../config/security.php';
 require_once '../permissions.php';
 
-// Check if user is logged in and is admin
+// Check that the user is logged in and is staff (admin, employee or super admin)
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee', 'super_admin'])) {
     header("Location: ../../accounts/login.php");
     exit;
@@ -479,12 +479,12 @@ admin_layout_start([
                 $phone = $customer['contact_number'] ?: $customer['company_contact'];
                 $city = $customer['city'] ?: $customer['company_city'];
             ?>
-                <tr>
+                <tr class="customer-row" data-id="<?php echo (int) $customer['id']; ?>">
                     <td>
                         <div class="cell-person">
                             <span class="avatar<?php echo $is_company ? ' avatar--company' : ''; ?>" aria-hidden="true"><?php echo htmlspecialchars($initials); ?></span>
                             <div class="cell-stack">
-                                <span class="cell-main"><?php echo htmlspecialchars($display); ?></span>
+                                <button type="button" class="link-btn cell-main" data-customer-action="view" data-id="<?php echo (int) $customer['id']; ?>"><?php echo htmlspecialchars($display); ?></button>
                                 <span class="cell-sub"><?php echo htmlspecialchars($customer['username']); ?> &middot; ID <?php echo (int) $customer['id']; ?></span>
                             </div>
                         </div>
@@ -510,11 +510,8 @@ admin_layout_start([
                             <span class="text-muted">No orders yet</span>
                         <?php endif; ?>
                     </td>
-                    <td>
+                    <td class="col-actions">
                         <div class="row-actions">
-                            <button type="button" class="btn btn-info btn-sm" data-customer-action="view" data-id="<?php echo (int) $customer['id']; ?>">
-                                <i class="fas fa-eye" aria-hidden="true"></i> View
-                            </button>
                             <button type="button" class="btn btn-secondary btn-sm btn-icon" data-customer-action="edit" data-id="<?php echo (int) $customer['id']; ?>"
                                 aria-label="Edit <?php echo htmlspecialchars($display); ?>" title="Edit">
                                 <i class="fas fa-pen" aria-hidden="true"></i>

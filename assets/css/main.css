@@ -448,6 +448,67 @@ img {
   flex-shrink: 0;
 }
 
+/* Sub-branch under Home: the four printing services. Opens only while Home is
+   hovered (or has keyboard focus) in the expanded pill, and closes when the
+   pointer leaves. Each item carries the ink colour its catalog tab uses. */
+.side-nav-list .side-nav-sub {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 0 20px;
+  padding: 0 0 0 6px;
+  list-style: none;
+  border-left: 1.5px solid var(--line);
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    max-height 0.4s var(--ease),
+    margin 0.4s var(--ease),
+    opacity 0.25s var(--ease),
+    visibility 0s linear 0.4s;
+}
+
+.side-nav-list:is(.active, :hover:not(.suppress-hover))
+  .has-sub:is(:hover, :focus-within)
+  .side-nav-sub {
+  max-height: 220px;
+  margin: 2px 0 6px 20px;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    max-height 0.4s var(--ease) 0.12s,
+    margin 0.4s var(--ease) 0.12s,
+    opacity 0.3s var(--ease) 0.2s,
+    visibility 0s;
+}
+
+.side-nav-list .side-nav-sub li a {
+  padding: 7px 10px;
+  font-size: 12.5px;
+}
+
+.side-nav-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cmyk-black);
+  box-shadow: 0 0 0 1px rgba(10, 10, 10, 0.18);
+}
+
+.side-nav-dot[data-ink="cyan"] {
+  background: var(--cmyk-cyan);
+}
+
+.side-nav-dot[data-ink="magenta"] {
+  background: var(--cmyk-magenta);
+}
+
+.side-nav-dot[data-ink="yellow"] {
+  background: var(--cmyk-yellow);
+}
+
 /* Icon wrapper so notification badges anchor to the icon, not the row,
    in both the collapsed and expanded pill states */
 .side-nav-icon {
@@ -2047,6 +2108,15 @@ img {
   }
   .side-nav.is-open .side-nav-list > li:nth-child(n + 9) {
     animation-delay: 0.42s;
+  }
+
+  /* The dock is always the full pill when it is out, so show the sub-branch */
+  .side-nav.is-open .side-nav-list .side-nav-sub {
+    max-height: 260px;
+    margin: 2px 0 6px 20px;
+    opacity: 1;
+    visibility: visible;
+    transition: none;
   }
 
   /* The liquid tab: a blob of ink that wells up out of the screen edge

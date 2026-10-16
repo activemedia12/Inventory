@@ -5,6 +5,18 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin',
     exit;
 }
 
+// Used to hide the Reports tab from people without the web_finance permission
+// (the Reports page still enforces it on its own). If the permission helpers
+// can't be loaded from here, the tab simply stays visible.
+$wa_can_finance = true;
+if (is_file(__DIR__ . '/../config/db.php') && is_file(__DIR__ . '/permissions.php')) {
+    require_once __DIR__ . '/../config/db.php';
+    require_once __DIR__ . '/permissions.php';
+    if (function_exists('can')) {
+        $wa_can_finance = (bool) can('web_finance');
+    }
+}
+
 $wa_role = (string) ($_SESSION['role'] ?? 'admin');
 $wa_role_label = ucwords(str_replace('_', ' ', $wa_role));
 $wa_username = (string) ($_SESSION['username'] ?? ($_SESSION['display_name'] ?? ''));
@@ -26,9 +38,12 @@ $wa_nav = [
     ['key' => 'admin_customers.php', 'label' => 'Customers', 'icon' => 'fa-users'],
     ['key' => 'admin_products.php', 'label' => 'Products', 'icon' => 'fa-box-open'],
     ['key' => 'admin_pricing_estimates.php', 'label' => 'Pricing estimates', 'icon' => 'fa-file-invoice-dollar', 'badge' => 'pricing'],
-    ['key' => 'admin_reports.php', 'label' => 'Reports', 'icon' => 'fa-chart-line'],
+    ['key' => 'admin_reports.php', 'label' => 'Reports', 'icon' => 'fa-chart-line', 'permission' => 'web_finance'],
     ['key' => 'admin_chat.php', 'label' => 'Chat', 'icon' => 'fa-comments', 'badge' => 'chats'],
 ];
+$wa_nav = array_values(array_filter($wa_nav, function ($item) use ($wa_can_finance) {
+    return ($item['permission'] ?? '') !== 'web_finance' || $wa_can_finance;
+}));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -41,7 +56,7 @@ $wa_nav = [
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
         ::-webkit-scrollbar {
             width: 8px;
@@ -299,6 +314,74 @@ $wa_nav = [
         .site-pop-title small {
             display: block;
             font-weight: 400;
+        }
+
+        /* Notification bell: wider panel, icon chip + title/detail + count */
+        #notifyPop {
+            width: 320px;
+            padding: 6px 6px 8px;
+        }
+
+        #notifyPop .site-pop-item {
+            height: auto;
+            min-height: 52px;
+            padding: 8px 10px;
+            white-space: normal;
+        }
+
+        .site-pop-icon {
+            flex: none;
+            display: grid;
+            place-items: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-size: 13px;
+        }
+
+        .site-pop-icon--warn {
+            background: #fff3d4;
+            color: #8a5a00;
+        }
+
+        .site-pop-icon--info {
+            background: #e4eeff;
+            color: #1d5fb8;
+        }
+
+        .site-pop-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .site-pop-text strong,
+        .site-pop-text small {
+            display: block;
+        }
+
+        .site-pop-text strong {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .site-pop-text small {
+            margin-top: 1px;
+            font-size: 12px;
+            color: var(--gray);
+        }
+
+        .site-pop-count {
+            flex: none;
+            min-width: 22px;
+            padding: 0 7px;
+            border-radius: 999px;
+            background: #f1f3f7;
+            color: #4a5262;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 22px;
+            text-align: center;
         }
 
         .site-pop-empty {
@@ -570,7 +653,7 @@ $wa_nav = [
 
         <div class="site-tools">
             <div class="site-tool">
-                <button type="button" class="site-icon-btn" data-pop="notifyPop" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
+                <button type="button" class="site-icon-btn" id="notifyBtn" data-pop="notifyPop" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
                     <i class="fas fa-bell" aria-hidden="true"></i>
                     <span class="site-dot" id="notifyDot" hidden></span>
                 </button>
@@ -654,17 +737,24 @@ $wa_nav = [
 
         // ---------- notification badges + bell ----------
         function renderNotices(counts) {
-            const orders = Number(counts.orders) || 0;
-            const pricing = Number(counts.pricing) || 0;
-            const chats = Number(counts.chats) || 0;
+            const n = key => Number(counts[key]) || 0;
+            const plural = (num, one, many) => num + ' ' + (num === 1 ? one : many);
+            // [icon, tone, title, detail, count, link]. "payments" is optional: it only shows when
+            // get_badge_counts.php returns it (proofs waiting to be verified).
             const items = [];
-            if (orders > 0) items.push(['fa-clock', orders + ' pending ' + (orders === 1 ? 'order' : 'orders'), 'website/admin_orders.php?status=pending']);
-            if (pricing > 0) items.push(['fa-file-invoice-dollar', pricing + ' pricing ' + (pricing === 1 ? 'request needs' : 'requests need') + ' a quote', 'website/admin_pricing_estimates.php']);
-            if (chats > 0) items.push(['fa-comments', chats + ' unread ' + (chats === 1 ? 'message' : 'messages'), 'website/admin_chat.php']);
+            if (n('payments') > 0) items.push(['fa-file-invoice-dollar', 'warn', plural(n('payments'), 'payment proof', 'payment proofs') + ' to verify', 'Customers are waiting on you', n('payments'), 'website/admin_orders.php?status=pending']);
+            if (n('orders') > 0) items.push(['fa-clock', 'info', plural(n('orders'), 'pending order', 'pending orders'), 'Waiting for payment or review', n('orders'), 'website/admin_orders.php?status=pending']);
+            if (n('pricing') > 0) items.push(['fa-file-invoice', 'info', plural(n('pricing'), 'pricing request', 'pricing requests'), 'Needs a quote', n('pricing'), 'website/admin_pricing_estimates.php']);
+            if (n('chats') > 0) items.push(['fa-comments', 'info', plural(n('chats'), 'unread message', 'unread messages'), 'Customer chat', n('chats'), 'website/admin_chat.php']);
+            const total = items.reduce((sum, i) => sum + i[4], 0);
             document.getElementById('notifyList').innerHTML = items.length
-                ? items.map(i => '<a class="site-pop-item" target="contentFrame" href="' + i[2] + '"><i class="fas ' + i[0] + '" aria-hidden="true"></i><span>' + i[1] + '</span></a>').join('')
+                ? items.map(i => '<a class="site-pop-item" target="contentFrame" href="' + i[5] + '">'
+                    + '<span class="site-pop-icon site-pop-icon--' + i[1] + '"><i class="fas ' + i[0] + '" aria-hidden="true"></i></span>'
+                    + '<span class="site-pop-text"><strong>' + i[2] + '</strong><small>' + i[3] + '</small></span>'
+                    + '<span class="site-pop-count">' + (i[4] > 99 ? '99+' : i[4]) + '</span></a>').join('')
                 : '<div class="site-pop-empty">You\'re all caught up.</div>';
             document.getElementById('notifyDot').hidden = items.length === 0;
+            document.getElementById('notifyBtn').setAttribute('aria-label', items.length ? 'Notifications, ' + total + ' need attention' : 'Notifications');
         }
 
         async function refreshBadgeCounts() {
@@ -704,6 +794,7 @@ $wa_nav = [
                     closePops(pop);
                     pop.hidden = !willOpen;
                     btn.setAttribute('aria-expanded', String(willOpen));
+                    if (willOpen && btn.dataset.pop === 'notifyPop') refreshBadgeCounts();
                     return;
                 }
                 if (!e.target.closest('.site-pop')) closePops();

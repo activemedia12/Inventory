@@ -2,8 +2,9 @@
 session_start();
 require_once '../../config/db.php';
 require_once '../permissions.php';
+require_once 'admin_helpers.php';
 
-// Check if user is logged in and is admin
+// Check that the user is logged in and is staff (admin, employee or super admin)
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee', 'super_admin'])) {
     header("Location: ../../accounts/login.php");
     exit;
@@ -19,113 +20,90 @@ $stats = [];
 // after 00:00:00 on the last day of the month).
 $current_month_start = date('Y-m-01') . ' 00:00:00';
 $current_month_end   = date('Y-m-t') . ' 23:59:59';
+$month_range = "created_at BETWEEN '$current_month_start' AND '$current_month_end'";
 
 // Orders in these statuses are treated as "counts toward revenue" everywhere
 // in the admin panel (dashboard, reports, export) so the numbers agree.
+// This is a fixed list, so it is written straight into the SQL.
 $REVENUE_STATUSES = ['paid', 'processing', 'ready_for_pickup', 'completed'];
-$revenue_status_list = "'" . implode("','", array_map([$inventory, 'real_escape_string'], $REVENUE_STATUSES)) . "'";
+$revenue_status_list = "'" . implode("','", $REVENUE_STATUSES) . "'";
 
-// Total Orders - Current Month
-$query = "SELECT COUNT(*) as total_orders FROM orders 
-          WHERE created_at BETWEEN '$current_month_start' AND '$current_month_end'
-          AND status IN ($revenue_status_list)";
-$result = $inventory->query($query);
-$stats['total_orders'] = $result->fetch_assoc()['total_orders'];
+// Every query below goes through wa_fetch_one / wa_fetch_all: if one fails the
+// card shows 0 / an empty state and the reason is logged, the page still loads.
 
-// Total Revenue - Current Month  
+// Orders, pending and completed counts - current month
+$counts = wa_fetch_one($inventory, "SELECT
+        SUM(CASE WHEN status IN ($revenue_status_list) THEN 1 ELSE 0 END) AS total_orders,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_orders,
+        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed_orders
+    FROM orders
+    WHERE $month_range");
+$stats['total_orders'] = (int) ($counts['total_orders'] ?? 0);
+$stats['pending_orders'] = (int) ($counts['pending_orders'] ?? 0);
+$stats['completed_orders'] = (int) ($counts['completed_orders'] ?? 0);
+
+// Total Revenue - Current Month
 $stats['total_revenue'] = 0;
 if ($can_web_finance) {
-    $query = "SELECT COALESCE(SUM(total_amount), 0) as total_revenue FROM orders 
-              WHERE created_at BETWEEN '$current_month_start' AND '$current_month_end'
-              AND status IN ($revenue_status_list)";
-    $result = $inventory->query($query);
-    $stats['total_revenue'] = $result->fetch_assoc()['total_revenue'];
+    $row = wa_fetch_one($inventory, "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue FROM orders
+        WHERE $month_range AND status IN ($revenue_status_list)");
+    $stats['total_revenue'] = (float) ($row['total_revenue'] ?? 0);
 }
-
-// Pending Orders - Current Month
-$query = "SELECT COUNT(*) as pending_orders FROM orders 
-          WHERE created_at BETWEEN '$current_month_start' AND '$current_month_end'
-          AND status = 'pending'";
-$result = $inventory->query($query);
-$stats['pending_orders'] = $result->fetch_assoc()['pending_orders'];
-
-// Completed Orders - Current Month
-$query = "SELECT COUNT(*) as completed_orders FROM orders 
-          WHERE created_at BETWEEN '$current_month_start' AND '$current_month_end'
-          AND status = 'completed'";
-$result = $inventory->query($query);
-$stats['completed_orders'] = $result->fetch_assoc()['completed_orders'];
-
-// Recent Orders - Current Month
-$query = "SELECT COUNT(*) as recent_orders FROM orders 
-          WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-          AND created_at BETWEEN '$current_month_start' AND '$current_month_end'";
-$result = $inventory->query($query);
-$stats['recent_orders'] = $result->fetch_assoc()['recent_orders'];
 
 // Total Customers
-$query = "SELECT COUNT(*) as total_customers FROM users WHERE role = 'customer'";
-$result = $inventory->query($query);
-$stats['total_customers'] = $result->fetch_assoc()['total_customers'];
+$row = wa_fetch_one($inventory, "SELECT COUNT(*) AS total_customers FROM users WHERE role = 'customer'");
+$stats['total_customers'] = (int) ($row['total_customers'] ?? 0);
 
-// Top Products - Current Month
-$query = "SELECT oi.product_name, SUM(oi.quantity) as total_sold 
-          FROM order_items oi
-          JOIN orders o ON oi.order_id = o.order_id
-          WHERE o.created_at BETWEEN '$current_month_start' AND '$current_month_end'
-          AND o.status IN ($revenue_status_list)
-          GROUP BY oi.product_name 
-          ORDER BY total_sold DESC 
-          LIMIT 5";
-$top_products_result = $inventory->query($query);
-$top_products = [];
-while ($row = $top_products_result->fetch_assoc()) {
-    $top_products[] = $row;
-}
+// Top Products - Current Month. Grouped by product id so a renamed product
+// stays one row (the current name is used when the product still exists).
+$top_products = wa_fetch_all($inventory, "SELECT
+        COALESCE(MAX(p.product_name), MAX(oi.product_name)) AS product_name,
+        SUM(oi.quantity) AS total_sold
+    FROM order_items oi
+    JOIN orders o ON oi.order_id = o.order_id
+    LEFT JOIN products_offered p ON oi.product_id = p.id
+    WHERE o.created_at BETWEEN '$current_month_start' AND '$current_month_end'
+      AND o.status IN ($revenue_status_list)
+    GROUP BY COALESCE(CAST(oi.product_id AS CHAR), oi.product_name)
+    ORDER BY total_sold DESC
+    LIMIT 5");
 
-$current_year_start = date('Y-01-01');
-$query = "SELECT 
-            DATE_FORMAT(created_at, '%Y-%m') as month,
-            SUM(SUM(total_amount)) OVER (ORDER BY DATE_FORMAT(created_at, '%Y-%m')) as cumulative_revenue
-          FROM orders 
-          WHERE created_at >= '$current_year_start'
-          AND status IN ($revenue_status_list)
-          GROUP BY DATE_FORMAT(created_at, '%Y-%m')
-          ORDER BY month";
+// Cumulative revenue by month. The running total is added up here in PHP
+// instead of SQL window functions, so it works on any MySQL / MariaDB version.
+$current_year_start = date('Y-01-01') . ' 00:00:00';
 $cumulative_revenue = [];
 if ($can_web_finance) {
-    $cumulative_revenue_result = $inventory->query($query);
-    while ($row = $cumulative_revenue_result->fetch_assoc()) {
-        $cumulative_revenue[] = $row;
+    $monthly = wa_fetch_all($inventory, "SELECT
+            DATE_FORMAT(created_at, '%Y-%m') AS month,
+            SUM(total_amount) AS monthly_revenue
+        FROM orders
+        WHERE created_at >= '$current_year_start'
+          AND status IN ($revenue_status_list)
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+        ORDER BY month");
+    $running = 0.0;
+    foreach ($monthly as $m) {
+        $running += (float) $m['monthly_revenue'];
+        $cumulative_revenue[] = ['month' => $m['month'], 'cumulative_revenue' => $running];
     }
 }
 
-// Order Status Distribution
-$query = "SELECT status, COUNT(*) as count 
-          FROM orders 
-          WHERE created_at BETWEEN '$current_month_start' AND '$current_month_end'
-          GROUP BY status";
-$status_distribution_result = $inventory->query($query);
-$status_distribution = [];
-while ($row = $status_distribution_result->fetch_assoc()) {
-    $status_distribution[] = $row;
-}
+// Order Status Distribution (every status, unlike the Orders card which only counts paid or later)
+$status_distribution = wa_fetch_all($inventory, "SELECT status, COUNT(*) AS count
+    FROM orders
+    WHERE $month_range
+    GROUP BY status");
 ?>
 
 <?php
 require_once 'admin_layout.php';
 
-// Recent orders (same query as before, fetched up front so the markup can show an empty state)
-$recent_orders = [];
-$query = "SELECT o.*, u.username 
-          FROM orders o 
-          JOIN users u ON o.user_id = u.id 
-          ORDER BY o.created_at DESC 
-          LIMIT 5";
-$result = $inventory->query($query);
-while ($result && ($order = $result->fetch_assoc())) {
-    $recent_orders[] = $order;
-}
+// Recent orders. LEFT JOIN so an order from a deleted account still shows up.
+$recent_orders = wa_fetch_all($inventory, "SELECT o.*, u.username
+    FROM orders o
+    LEFT JOIN users u ON o.user_id = u.id
+    ORDER BY o.created_at DESC
+    LIMIT 5");
 
 $top_max = 0;
 foreach ($top_products as $p) {
@@ -150,7 +128,7 @@ admin_layout_start([
     <a href="admin_orders.php" class="kpi">
         <span class="kpi-label"><i class="fas fa-receipt" aria-hidden="true"></i> Orders</span>
         <span class="kpi-value"><?php echo (int) $stats['total_orders']; ?></span>
-        <span class="kpi-meta">Paid or later this month</span>
+        <span class="kpi-meta">Paid or later (excludes pending and cancelled)</span>
     </a>
     <?php if ($can_web_finance): ?>
     <a href="admin_reports.php" class="kpi">
@@ -182,7 +160,7 @@ ob_start(); ?>
 <section class="card chart-card" aria-labelledby="statusTitle">
     <div class="card-head">
         <h2 class="card-title" id="statusTitle">Order status</h2>
-        <span class="card-sub">This month</span>
+        <span class="card-sub">All statuses, this month</span>
     </div>
     <?php if (empty($status_distribution)): ?>
         <div class="empty-state"><i class="fas fa-chart-pie" aria-hidden="true"></i><h3>No orders this month</h3><p>The status mix appears once orders come in.</p></div>
@@ -240,7 +218,7 @@ ob_start(); ?>
                 <?php foreach ($recent_orders as $order): ?>
                     <tr>
                         <td><a class="cell-main" href="admin_orders.php?open=<?php echo (int) $order['order_id']; ?>">#<?php echo (int) $order['order_id']; ?></a></td>
-                        <td><?php echo htmlspecialchars($order['username']); ?></td>
+                        <td><?php echo htmlspecialchars($order['username'] ?? 'Deleted account'); ?></td>
                         <?php if ($can_web_finance): ?><td class="num">₱<?php echo number_format($order['total_amount'], 2); ?></td><?php endif; ?>
                         <td>
                             <span class="status-badge status-<?php echo htmlspecialchars($order['status']); ?>">

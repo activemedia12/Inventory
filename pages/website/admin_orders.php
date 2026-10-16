@@ -3,8 +3,9 @@ session_start();
 require_once '../../config/db.php';
 require_once '../../config/security.php';
 require_once '../permissions.php';
+require_once 'admin_helpers.php';
 
-// Check if user is logged in and is admin
+// Check that the user is logged in and is staff (admin, employee or super admin)
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee', 'super_admin'])) {
     header("Location: ../../accounts/login.php");
     exit;
@@ -45,16 +46,6 @@ function bind_dynamic(mysqli_stmt $stmt, string $types, array $params): void
     }
     array_unshift($refs, $types);
     call_user_func_array([$stmt, 'bind_param'], $refs);
-}
-
-/**
- * One label/value tile in an item's customization grid.
- */
-function cust_row(string $label, $value, bool $wide = false): void
-{
-    echo '<div class="cust-item' . ($wide ? ' cust-item--wide' : '') . '"><span class="cust-label">'
-        . htmlspecialchars($label) . '</span><span class="cust-value">'
-        . htmlspecialchars((string) $value) . '</span></div>';
 }
 
 /** "Match" / "Short" / "Over" badge comparing the amount on a payment proof with the order total. */
@@ -271,73 +262,6 @@ function render_item_customization(array $item): void
 }
 
 /**
- * Normalizes the "original design file(s)" value for one side into a plain
- * list of path strings. Accepts the new array shape (front_uploaded_files /
- * back_uploaded_files, written by save_design.php going forward) as well as
- * the old single-string shape (front_uploaded_file / back_uploaded_file)
- * still sitting in orders placed before this change. Anything else (null,
- * empty string, unexpected type) becomes an empty list.
- */
-function normalize_design_file_list($value): array
-{
-    if (is_array($value)) {
-        return array_values(array_filter($value, static function ($item) {
-            return is_string($item) && $item !== '';
-        }));
-    }
-    if (is_string($value) && $value !== '') {
-        return [$value];
-    }
-    return [];
-}
-
-function is_pdf_file(?string $name): bool
-{
-    return $name !== null && strtolower(pathinfo($name, PATHINFO_EXTENSION)) === 'pdf';
-}
-
-/**
- * First-page preview of a PDF, shown where an image thumbnail would be. The <object> ignores the mouse so a click
- * still goes to the surrounding link; browsers that can't draw PDFs inline fall back to a labelled PDF icon.
- */
-function pdf_thumb_html(string $url, string $extra_class = ''): string
-{
-    $src = $url . (strpos($url, '#') === false ? '#page=1&toolbar=0&navpanes=0&scrollbar=0&view=FitH' : '');
-    return '<span class="pdf-thumb ' . htmlspecialchars($extra_class) . '"><object data="' . htmlspecialchars($src)
-        . '" type="application/pdf" tabindex="-1" aria-hidden="true"><span class="pdf-thumb-fallback">'
-        . '<i class="fas fa-file-pdf" aria-hidden="true"></i>PDF</span></object></span>';
-}
-
-/**
- * Render one design-file tile (thumbnail opens the file, a link downloads it),
- * or a "file not found" tile. $accentVar is kept for call compatibility:
- * 'var(--primary)' marks a generated mockup, anything else an original upload.
- */
-function render_design_preview(string $file, string $label, string $accentVar = ''): void
-{
-    $path = "../../assets/uploads/" . $file;
-    $exists = file_exists($path);
-    $mock = $accentVar === 'var(--primary)';
-    $cls = 'file-tile' . ($mock ? ' file-tile--mock' : '') . ($exists ? '' : ' file-tile--missing');
-
-    echo '<div class="' . $cls . '">';
-    if ($exists) {
-        echo '<a class="file-tile-thumb" href="' . htmlspecialchars($path) . '" target="_blank" rel="noopener" title="Open ' . htmlspecialchars($label) . '">';
-        echo is_pdf_file($file)
-            ? pdf_thumb_html($path)
-            : '<img src="' . htmlspecialchars($path) . '" alt="' . htmlspecialchars($label) . '" loading="lazy">';
-        echo '</a>';
-        echo '<span class="file-tile-label">' . htmlspecialchars($label) . '</span>';
-        echo '<a class="file-tile-meta" href="' . htmlspecialchars($path) . '" download="' . htmlspecialchars(basename($file)) . '"><i class="fas fa-download" aria-hidden="true"></i> Download</a>';
-    } else {
-        echo '<span class="file-tile-thumb"><i class="fas fa-file-circle-exclamation" aria-hidden="true"></i></span>';
-        echo '<span class="file-tile-label">' . htmlspecialchars($label) . '</span>';
-        echo '<span class="file-tile-meta">File not found: ' . htmlspecialchars(basename($file)) . '</span>';
-    }
-    echo '</div>';
-}
-
-/**
  * Build the full slide-over panel body HTML for one order (ported from
  * admin_order_details.php, condensed for the panel context).
  */
@@ -446,12 +370,13 @@ function render_order_panel_html(mysqli $inventory, int $order_id, array $STATUS
     <?php [$pay_text, $pay_class] = payment_label($order); ?>
     <section class="od-section od-summary" aria-labelledby="odOverview">
         <?php if (payment_needs_review($order)): ?>
-            <div class="od-alert" role="status">
-                <i class="fas fa-bell" aria-hidden="true"></i>
-                <div>
-                    <strong><?php echo $awaiting_balance ? 'Remaining balance proof uploaded' : 'Payment proof uploaded'; ?></strong>
-                    <span>The customer is waiting for this payment to be verified. Check the proof and verify it under Payment.</span>
+            <div class="notice notice--warning" role="status">
+                <span class="notice-icon" aria-hidden="true"><i class="fas fa-file-invoice-dollar"></i></span>
+                <div class="notice-body">
+                    <strong><?php echo $awaiting_balance ? 'Remaining balance proof to verify' : 'Payment proof to verify'; ?></strong>
+                    <span>Check the uploaded proof against the <?php echo $awaiting_balance ? 'balance' : 'amount'; ?> due of <b>&#8369;<?php echo number_format($due_amount, 2); ?></b>, then verify it under Payment.</span>
                 </div>
+                <button type="button" class="btn btn-primary btn-sm notice-action" data-scroll-to="odPayment">Review proof</button>
             </div>
         <?php endif; ?>
         <div class="od-summary-head">
@@ -556,15 +481,14 @@ function render_order_panel_html(mysqli $inventory, int $order_id, array $STATUS
                         <?php endif; ?>
                     </div>
                     <?php if (!$stage_proof_ok): ?>
-                        <p class="text-muted" data-role="pv-hint"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> <?php echo $awaiting_balance
+                        <div class="notice notice--warning notice--compact" data-role="pv-hint" role="status"><span class="notice-icon" aria-hidden="true"><i class="fas fa-triangle-exclamation"></i></span><div class="notice-body"><span><?php echo $awaiting_balance
                             ? "The customer hasn't uploaded the remaining balance proof yet, so it can't be verified. Tick Paid in cash if they paid the balance at the shop."
-                            : "The customer hasn't uploaded a payment proof yet, so this payment can't be verified. You can still reject it."; ?></p>
+                            : "The customer hasn't uploaded a payment proof yet, so this payment can't be verified. You can still reject it."; ?></span></div></div>
                     <?php endif; ?>
-                    <!-- <p class="text-muted" data-role="pv-note"><?php if ($awaiting_balance): ?>Enter the amount on the remaining balance proof, then verify. If it differs from the balance due you will be asked to confirm: a short amount is recorded as received and the rest stays owed, an amount over the balance marks it Paid. The order status does not change. If the customer paid the balance in cash, tick Paid in cash instead (no proof needed; Verify balance is then switched off). To cancel this order, change its status from the orders list.<?php else: ?>Verify only when the amount on the proof matches the amount due. The order then moves to Processing<?php echo $is_down ? ' and its payment label becomes Partially paid until the balance is verified' : ' and its payment label becomes Paid'; ?>. Rejecting cancels the order; items are not returned to the cart or the pricing estimates.<?php endif; ?></p> -->
                 <?php endif; ?>
             </div>
         <?php else: ?>
-        <p class="text-muted"><i class="fas fa-circle-check" aria-hidden="true"></i> Payment settled. Nothing left to verify.</p>
+        <div class="notice notice--success notice--compact" role="status"><span class="notice-icon" aria-hidden="true"><i class="fas fa-circle-check"></i></span><div class="notice-body"><strong>Payment settled</strong><span>Nothing left to verify.</span></div></div>
         <?php endif; ?>
 
         <?php $pay_history = order_payment_history($inventory, (int) $order['order_id']);
@@ -630,25 +554,18 @@ function render_order_panel_html(mysqli $inventory, int $order_id, array $STATUS
                         $layout_files = json_decode($item['user_layout_files'], true); ?>
                         <div>
                             <div class="od-sub-title">Customer layout files</div>
-                            <?php if (is_array($layout_files) && $layout_files):
-                                foreach ($layout_files as $file_path):
-                                    $clean_path = str_replace('../../', '', $file_path);
-                                    $full_path = "../../" . $clean_path;
-                                    $file_exists = file_exists($full_path); ?>
-                                    <?php if ($file_exists): ?>
-                                        <div class="file-row">
-                                            <i class="fas fa-file-arrow-down" aria-hidden="true"></i>
-                                            <span class="file-row-name"><?php echo htmlspecialchars(basename($clean_path)); ?></span>
-                                            <a class="btn btn-secondary btn-sm" href="<?php echo htmlspecialchars($full_path); ?>" download="<?php echo htmlspecialchars(basename($clean_path)); ?>">Download</a>
-                                        </div>
-                                    <?php else: ?>
-                                        <div class="file-row is-missing">
-                                            <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-                                            <span class="file-row-name"><?php echo htmlspecialchars(basename($clean_path)); ?> (file not found)</span>
-                                        </div>
-                                    <?php endif; ?>
-                                <?php endforeach;
-                            else: ?>
+                            <?php if (is_array($layout_files) && $layout_files): ?>
+                                <div class="file-tiles">
+                                    <?php foreach (array_values($layout_files) as $n => $file_path) {
+                                        // Stored as ../../assets/uploads/user_layouts/<id>/file; the helper resolves
+                                        // inside assets/uploads and shows "file not found" for anything outside it.
+                                        $clean_path = preg_replace('#^(\.\./)+#', '', (string) $file_path);
+                                        $clean_path = preg_replace('#^assets/#', '', $clean_path);
+                                        $clean_path = preg_replace('#^uploads/#', '', $clean_path);
+                                        render_design_preview($clean_path, count($layout_files) > 1 ? 'Layout file ' . ($n + 1) : 'Layout file', '');
+                                    } ?>
+                                </div>
+                            <?php else: ?>
                                 <p class="text-muted">No valid layout files found.</p>
                             <?php endif; ?>
                         </div>
@@ -1240,9 +1157,8 @@ $tabs = ['' => 'All'] + array_map(function ($label) { return $label; }, $STATUS_
                 <th scope="col">Order</th>
                 <th scope="col">Customer</th>
                 <th scope="col">Date</th>
-                <th scope="col" class="num">Items</th>
-                <th scope="col" class="num">Amount</th>
-                <th scope="col">Proof</th>
+                <th scope="col" class="num">Total</th>
+                <th scope="col" class="col-center">Proof</th>
                 <th scope="col">Payment</th>
                 <th scope="col">Status</th>
                 <th scope="col">Actions</th>
@@ -1251,7 +1167,7 @@ $tabs = ['' => 'All'] + array_map(function ($label) { return $label; }, $STATUS_
         <tbody id="ordersTable">
             <?php if (empty($orders)): ?>
                 <tr>
-                    <td colspan="9" class="empty-cell">
+                    <td colspan="8" class="empty-cell">
                         <div class="empty-state">
                             <i class="fas fa-receipt" aria-hidden="true"></i>
                             <h3><?php echo $filters_active ? 'No orders match these filters' : 'No orders yet'; ?></h3>
@@ -1266,7 +1182,7 @@ $tabs = ['' => 'All'] + array_map(function ($label) { return $label; }, $STATUS_
                     <td>
                         <div class="cell-stack">
                             <button type="button" class="link-btn" data-open-order="<?php echo (int) $order['order_id']; ?>" aria-label="Open order <?php echo (int) $order['order_id']; ?>">#<?php echo (int) $order['order_id']; ?></button>
-                            <span class="proof-flag" data-role="proof-flag" title="<?php echo order_balance_owed($order) > 0 ? 'The customer uploaded a remaining balance proof' : 'The customer uploaded a payment proof'; ?>"<?php echo payment_needs_review($order) ? '' : ' hidden'; ?>><span class="proof-flag-dot" aria-hidden="true"></span>Proof to verify</span>
+                            <span class="cell-sub"><?php echo (int) $order['item_count']; ?> item<?php echo (int) $order['item_count'] === 1 ? '' : 's'; ?></span>
                         </div>
                     </td>
                     <td>
@@ -1277,13 +1193,17 @@ $tabs = ['' => 'All'] + array_map(function ($label) { return $label; }, $STATUS_
                     </td>
                     <td>
                         <div class="cell-stack">
-                            <span><?php echo date('M j, Y', strtotime($order['created_at'])); ?></span>
+                            <span class="cell-main"><?php echo date('M j, Y', strtotime($order['created_at'])); ?></span>
                             <span class="cell-sub"><?php echo date('g:i A', strtotime($order['created_at'])); ?></span>
                         </div>
                     </td>
-                    <td class="num"><?php echo (int) $order['item_count']; ?></td>
-                    <td class="num"><strong>&#8369;<?php echo number_format($order['total_amount'], 2); ?></strong></td>
-                    <td>
+                    <td class="num">
+                        <div class="cell-stack">
+                            <strong>&#8369;<?php echo number_format($order['total_amount'], 2); ?></strong>
+                            <span class="cell-sub"><?php echo !empty($order['is_downpayment']) ? 'Downpayment' : 'Full payment'; ?></span>
+                        </div>
+                    </td>
+                    <td class="col-center">
                         <?php if ($order['payment_proof']):
                             $proof_path = payment_proof_url((int) $order['order_id']);
                             if (payment_proof_path((int) $order['user_id'], (string) $order['payment_proof'])): ?>
@@ -1304,7 +1224,10 @@ $tabs = ['' => 'All'] + array_map(function ($label) { return $label; }, $STATUS_
                     <td>
                         <?php [$pl_text, $pl_class] = payment_label($order); $row_owed = order_balance_owed($order); ?>
                         <div class="cell-stack pay-cell">
-                            <span class="status-badge <?php echo $pl_class; ?>" data-role="payment-badge"><?php echo esc_html($pl_text); ?></span>
+                            <div class="pay-line">
+                                <span class="status-badge <?php echo $pl_class; ?>" data-role="payment-badge"><?php echo esc_html($pl_text); ?></span>
+                                <span class="proof-flag" data-role="proof-flag" title="<?php echo order_balance_owed($order) > 0 ? 'The customer uploaded a remaining balance proof' : 'The customer uploaded a payment proof'; ?>"<?php echo payment_needs_review($order) ? '' : ' hidden'; ?>><span class="proof-flag-dot" aria-hidden="true"></span>To verify</span>
+                            </div>
                             <?php if ($row_owed > 0): ?>
                                 <span class="cell-sub pay-balance">Balance &#8369;<?php echo number_format($row_owed, 2); ?></span>
                             <?php endif; ?>
@@ -1328,7 +1251,6 @@ $tabs = ['' => 'All'] + array_map(function ($label) { return $label; }, $STATUS_
                                 <?php endforeach; ?>
                             </select>
                             <button type="button" class="update-btn" data-role="update-btn" data-order-id="<?php echo (int) $order['order_id']; ?>"<?php echo $row_next ? '' : ' disabled'; ?>>Update</button>
-                            <button type="button" class="view-details" data-open-order="<?php echo (int) $order['order_id']; ?>"><i class="fas fa-eye" aria-hidden="true"></i> Details</button>
                             <input type="text" class="cancel-reason-input" data-role="cancel-reason"
                                 placeholder="Reason for cancellation" aria-label="Reason for cancelling order <?php echo (int) $order['order_id']; ?>"
                                 value="<?php echo $order['status'] === 'cancelled' ? esc_html($order['cancellation_reason'] ?? '') : ''; ?>"

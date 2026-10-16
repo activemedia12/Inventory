@@ -4,7 +4,7 @@ require_once '../../config/db.php';
 require_once '../../config/security.php';
 require_once '../permissions.php';
 
-// Check if user is logged in and is admin
+// Check that the user is logged in and is staff (admin, employee or super admin)
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee', 'super_admin'])) {
     header("Location: ../../accounts/login.php");
     exit;
@@ -13,6 +13,38 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'empl
 // CSRF protection: every POST on this page must carry this session's token.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_require();
+}
+
+/**
+ * Checks the name / category / price posted by the add and edit product forms.
+ * Returns [name, category, price, error]; error is null when everything is fine.
+ * The category must be one that already exists in the catalog (the form only
+ * offers those), and the price must be a real number from 0 to 99,999,999.99.
+ */
+function validate_product_input(mysqli $db): array
+{
+    $name = trim((string) ($_POST['product_name'] ?? ''));
+    $category = trim((string) ($_POST['category'] ?? ''));
+    $raw_price = trim((string) ($_POST['price'] ?? ''));
+
+    if ($name === '' || mb_strlen($name) > 255) {
+        return [$name, $category, 0.0, 'Enter a product name (up to 255 characters).'];
+    }
+
+    $known = [];
+    $res = $db->query("SELECT DISTINCT category FROM products_offered");
+    while ($res && ($row = $res->fetch_assoc())) {
+        $known[] = $row['category'];
+    }
+    if (!in_array($category, $known, true)) {
+        return [$name, $category, 0.0, 'Choose a category from the list.'];
+    }
+
+    if ($raw_price === '' || !is_numeric($raw_price) || (float) $raw_price < 0 || (float) $raw_price > 99999999.99) {
+        return [$name, $category, 0.0, 'Enter a valid price, for example 250.00. Prices cannot be negative.'];
+    }
+
+    return [$name, $category, round((float) $raw_price, 2), null];
 }
 
 // Function to handle product image uploads (supports single and multiple files)
@@ -234,9 +266,11 @@ if (isset($_POST['action'])) {
 
     // Permission gate (buttons stay visible; the page's own toast shows the notice)
     $needs = [
-        'add_product' => 'web_products', 'update_product' => 'web_products',
+        'add_product' => 'web_products',
+        'update_product' => 'web_products',
         'update_customization' => 'web_products',
-        'delete_product_images' => 'web_products', 'delete_single_image' => 'web_products',
+        'delete_product_images' => 'web_products',
+        'delete_single_image' => 'web_products',
         'delete_product' => 'web_delete',
     ];
     if (isset($needs[$action]) && !can($needs[$action])) {
@@ -247,9 +281,11 @@ if (isset($_POST['action'])) {
 
     switch ($action) {
         case 'add_product':
-            $product_name = trim($_POST['product_name']);
-            $category = $_POST['category'];
-            $price = $_POST['price'];
+            [$product_name, $category, $price, $input_error] = validate_product_input($inventory);
+            if ($input_error !== null) {
+                $_SESSION['error'] = $input_error;
+                break;
+            }
 
             // Check if product already exists
             $check_query = "SELECT id FROM products_offered WHERE product_name = ? AND category = ?";
@@ -299,9 +335,11 @@ if (isset($_POST['action'])) {
 
         case 'update_product':
             $product_id = $_POST['product_id'];
-            $product_name = trim($_POST['product_name']);
-            $category = $_POST['category'];
-            $price = $_POST['price'];
+            [$product_name, $category, $price, $input_error] = validate_product_input($inventory);
+            if ($input_error !== null) {
+                $_SESSION['error'] = $input_error;
+                break;
+            }
 
             // Check if product already exists (excluding current product)
             $check_query = "SELECT id FROM products_offered WHERE product_name = ? AND category = ? AND id != ?";
@@ -715,78 +753,79 @@ admin_layout_start([
         </div>
     </div>
 <?php else: ?>
-<div class="product-grid">
-    <?php foreach ($products as $product):
-        $imgs = $product['image_urls'];
-        $first = $imgs ? reset($imgs) : null;
-        $opts = [];
-        foreach (['paper' => 'Paper', 'size' => 'Size', 'finish' => 'Finish', 'layout' => 'Layout', 'binding' => 'Binding', 'gsm' => 'GSM'] as $key => $label) {
-            if (!empty($product['has_' . $key . '_option'])) $opts[] = $label;
-        }
-    ?>
-        <article class="product-card" data-name="<?php echo htmlspecialchars(mb_strtolower($product['product_name'])); ?>" data-category="<?php echo htmlspecialchars($product['category']); ?>">
-            <div class="product-media">
-                <?php if ($first): ?>
-                    <img src="<?php echo htmlspecialchars($first); ?>" alt="<?php echo htmlspecialchars($product['product_name']); ?>" loading="lazy">
-                    <span class="img-count"><i class="fas fa-images" aria-hidden="true"></i> <?php echo count($imgs); ?></span>
-                <?php else: ?>
-                    <div class="product-noimg"><i class="fas fa-image" aria-hidden="true"></i><span>No image yet</span></div>
-                <?php endif; ?>
-            </div>
-            <div class="product-body">
-                <div class="product-top">
-                    <div>
-                        <h2 class="product-name"><?php echo htmlspecialchars($product['product_name']); ?></h2>
-                        <span class="product-id">ID <?php echo (int) $product['id']; ?></span>
+    <div class="product-grid">
+        <?php foreach ($products as $product):
+            $imgs = $product['image_urls'];
+            $first = $imgs ? reset($imgs) : null;
+            $opts = [];
+            foreach (['paper' => 'Paper', 'size' => 'Size', 'finish' => 'Finish', 'layout' => 'Layout', 'binding' => 'Binding', 'gsm' => 'GSM'] as $key => $label) {
+                if (!empty($product['has_' . $key . '_option'])) $opts[] = $label;
+            }
+        ?>
+            <article class="product-card" data-name="<?php echo htmlspecialchars(mb_strtolower($product['product_name'])); ?>" data-category="<?php echo htmlspecialchars($product['category']); ?>">
+                <div class="product-media">
+                    <?php if ($first): ?>
+                        <img src="<?php echo htmlspecialchars($first); ?>" alt="<?php echo htmlspecialchars($product['product_name']); ?>" loading="lazy">
+                        <span class="img-count"><i class="fas fa-images" aria-hidden="true"></i> <?php echo count($imgs); ?></span>
+                    <?php else: ?>
+                        <div class="product-noimg"><i class="fas fa-image" aria-hidden="true"></i><span>No image yet</span></div>
+                    <?php endif; ?>
+                </div>
+                <div class="product-body">
+                    <div class="product-top">
+                        <div>
+                            <h2 class="product-name"><?php echo htmlspecialchars($product['product_name']); ?></h2>
+                            <span class="product-id">ID <?php echo (int) $product['id']; ?></span>
+                        </div>
+                        <span class="product-price">&#8369;<?php echo number_format($product['price'], 2); ?></span>
                     </div>
-                    <span class="product-price">&#8369;<?php echo number_format($product['price'], 2); ?></span>
-                </div>
-                <div><span class="category-badge"><?php echo htmlspecialchars($product['category']); ?></span></div>
-                <div class="chip-row customization-badges">
-                    <?php foreach ($opts as $o): ?><span class="customization-badge active"><?php echo $o; ?></span><?php endforeach; ?>
-                    <?php if (!$opts): ?><span class="cell-sub">No customization options</span><?php endif; ?>
-                </div>
-                <div class="chip-row">
-                    <?php if (!$first): ?>
-                        <span class="customization-badge is-danger"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> No product image</span>
-                    <?php endif; ?>
-                    <?php if ($product['category'] === 'Other Services'): ?>
-                        <?php foreach ([['Base front', $product['base_url']], ['Base back', $product['base_back_url']]] as [$label, $url]): ?>
-                            <?php if (!$url): ?><span class="customization-badge is-warn"><i class="fas fa-circle-exclamation" aria-hidden="true"></i> <?php echo $label; ?> missing</span><?php endif; ?>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
-                <?php
-                $thumbs = array_slice($imgs, 1, null, true);
-                if ($thumbs || ($product['category'] === 'Other Services' && ($product['base_url'] || $product['base_back_url']))): ?>
-                    <div class="product-thumbs">
-                        <?php foreach ($thumbs as $idx => $url): ?>
-                            <a href="<?php echo htmlspecialchars($url); ?>" target="_blank" rel="noopener" title="Product image <?php echo $idx + 1; ?>">
-                                <img class="product-thumb" src="<?php echo htmlspecialchars($url); ?>" alt="Product image <?php echo $idx + 1; ?>" loading="lazy">
-                            </a>
-                        <?php endforeach; ?>
-                        <?php if ($product['category'] === 'Other Services'): foreach ([['Base front', $product['base_url']], ['Base back', $product['base_back_url']]] as [$label, $url]): ?>
-                            <?php if ($url): ?>
-                                <a href="<?php echo htmlspecialchars($url); ?>" target="_blank" rel="noopener" title="<?php echo $label; ?> template">
-                                    <img class="product-thumb product-thumb-base" src="<?php echo htmlspecialchars($url); ?>" alt="<?php echo $label; ?> template" loading="lazy">
+                    <div><span class="category-badge"><?php echo htmlspecialchars($product['category']); ?></span></div>
+                    <div class="chip-row customization-badges">
+                        <?php foreach ($opts as $o): ?><span class="customization-badge active"><?php echo $o; ?></span><?php endforeach; ?>
+                        <?php if (!$opts): ?><span class="cell-sub">No customization options</span><?php endif; ?>
+                    </div>
+                    <div class="chip-row">
+                        <?php if (!$first): ?>
+                            <span class="customization-badge is-danger"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> No product image</span>
+                        <?php endif; ?>
+                        <?php if ($product['category'] === 'Other Services'): ?>
+                            <?php foreach ([['Base front', $product['base_url']], ['Base back', $product['base_back_url']]] as [$label, $url]): ?>
+                                <?php if (!$url): ?><span class="customization-badge is-warn"><i class="fas fa-circle-exclamation" aria-hidden="true"></i> <?php echo $label; ?> missing</span><?php endif; ?>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                    <?php
+                    $thumbs = array_slice($imgs, 1, null, true);
+                    if ($thumbs || ($product['category'] === 'Other Services' && ($product['base_url'] || $product['base_back_url']))): ?>
+                        <div class="product-thumbs">
+                            <?php foreach ($thumbs as $idx => $url): ?>
+                                <a href="<?php echo htmlspecialchars($url); ?>" target="_blank" rel="noopener" title="Product image <?php echo $idx + 1; ?>">
+                                    <img class="product-thumb" src="<?php echo htmlspecialchars($url); ?>" alt="Product image <?php echo $idx + 1; ?>" loading="lazy">
                                 </a>
-                            <?php endif; ?>
-                        <?php endforeach; endif; ?>
-                    </div>
-                <?php endif; ?>
-            </div>
-            <div class="product-foot">
-                <button type="button" class="btn btn-secondary btn-sm" data-product-action="edit" data-id="<?php echo (int) $product['id']; ?>"><i class="fas fa-pen" aria-hidden="true"></i> Edit</button>
-                <button type="button" class="btn btn-secondary btn-sm" data-product-action="options" data-id="<?php echo (int) $product['id']; ?>"><i class="fas fa-sliders" aria-hidden="true"></i> Options</button>
-                <span class="spacer"></span>
-                <button type="button" class="btn btn-ghost-danger btn-sm btn-icon" data-product-action="delete" data-id="<?php echo (int) $product['id']; ?>"
-                    data-name="<?php echo htmlspecialchars($product['product_name']); ?>" aria-label="Delete <?php echo htmlspecialchars($product['product_name']); ?>" title="Delete">
-                    <i class="fas fa-trash" aria-hidden="true"></i>
-                </button>
-            </div>
-        </article>
-    <?php endforeach; ?>
-</div>
+                            <?php endforeach; ?>
+                            <?php if ($product['category'] === 'Other Services'): foreach ([['Base front', $product['base_url']], ['Base back', $product['base_back_url']]] as [$label, $url]): ?>
+                                    <?php if ($url): ?>
+                                        <a href="<?php echo htmlspecialchars($url); ?>" target="_blank" rel="noopener" title="<?php echo $label; ?> template">
+                                            <img class="product-thumb product-thumb-base" src="<?php echo htmlspecialchars($url); ?>" alt="<?php echo $label; ?> template" loading="lazy">
+                                        </a>
+                                    <?php endif; ?>
+                            <?php endforeach;
+                            endif; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="product-foot">
+                    <button type="button" class="btn btn-secondary btn-sm" data-product-action="edit" data-id="<?php echo (int) $product['id']; ?>"><i class="fas fa-pen" aria-hidden="true"></i> Edit</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-product-action="options" data-id="<?php echo (int) $product['id']; ?>"><i class="fas fa-sliders" aria-hidden="true"></i> Options</button>
+                    <span class="spacer"></span>
+                    <button type="button" class="btn btn-ghost-danger btn-sm btn-icon" data-product-action="delete" data-id="<?php echo (int) $product['id']; ?>"
+                        data-name="<?php echo htmlspecialchars($product['product_name']); ?>" aria-label="Delete <?php echo htmlspecialchars($product['product_name']); ?>" title="Delete">
+                        <i class="fas fa-trash" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </article>
+        <?php endforeach; ?>
+    </div>
 <?php endif; ?>
 
 <div class="card" id="productsEmpty" hidden>
@@ -806,8 +845,8 @@ admin_layout_start([
         </span>
         <div class="pagination-controls">
             <a href="?page=<?php echo max(1, $page - 1); ?>"
-               class="btn <?php echo $page <= 1 ? 'btn-disabled' : ''; ?>"
-               <?php echo $page <= 1 ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>
+                class="btn <?php echo $page <= 1 ? 'btn-disabled' : ''; ?>"
+                <?php echo $page <= 1 ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>
                 <i class="fas fa-chevron-left" aria-hidden="true"></i> Prev
             </a>
             <?php
@@ -826,8 +865,8 @@ admin_layout_start([
             }
             ?>
             <a href="?page=<?php echo min($total_pages, $page + 1); ?>"
-               class="btn <?php echo $page >= $total_pages ? 'btn-disabled' : ''; ?>"
-               <?php echo $page >= $total_pages ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>
+                class="btn <?php echo $page >= $total_pages ? 'btn-disabled' : ''; ?>"
+                <?php echo $page >= $total_pages ? 'aria-disabled="true" tabindex="-1"' : ''; ?>>
                 Next <i class="fas fa-chevron-right" aria-hidden="true"></i>
             </a>
         </div>

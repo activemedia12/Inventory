@@ -782,8 +782,29 @@
     WA.pages[name] = factory;
   };
 
+  // Adds a clear (x) button to every search field. CSS hides it while empty.
+  WA.initSearchFields = function () {
+    document.querySelectorAll(".search-field").forEach(function (field) {
+      var input = field.querySelector("input");
+      if (!input || field.querySelector(".search-clear")) return;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "search-clear";
+      btn.setAttribute("aria-label", "Clear search");
+      btn.innerHTML = '<i class="fas fa-xmark" aria-hidden="true"></i>';
+      btn.addEventListener("click", function () {
+        input.value = "";
+        // Live-filter pages (products, pricing, chat) listen for "input"
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.focus();
+      });
+      field.appendChild(btn);
+    });
+  };
+
   document.addEventListener("DOMContentLoaded", function () {
     WA.flash();
+    WA.initSearchFields();
     WA.initShell();
     WA.initPaginatedTables();
     var name = document.body.getAttribute("data-page");
@@ -1420,6 +1441,12 @@
     body.addEventListener("click", function (e) {
       const retry = e.target.closest("[data-retry]");
       if (retry) openOrderPanel(retry.dataset.retry);
+      const goTo = e.target.closest("[data-scroll-to]");
+      if (goTo) {
+        const target = body.querySelector("#" + goTo.dataset.scrollTo);
+        if (target)
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
       const saveProof = e.target.closest('[data-role="save-proof"]');
       if (saveProof) submitProofAmount(saveProof);
       const verify = e.target.closest('[data-role="verify-payment"]');
@@ -1515,7 +1542,23 @@
           return;
         }
         const update = e.target.closest('[data-role="update-btn"]');
-        if (update) submitStatusUpdate(Number(update.dataset.orderId), update);
+        if (update) {
+          submitStatusUpdate(Number(update.dataset.orderId), update);
+          return;
+        }
+        // Clicking anywhere else on a row opens its details. Links, buttons,
+        // form controls and the Actions cell keep their own behavior, and
+        // selecting text with the mouse does not count as a click.
+        if (
+          e.target.closest(
+            "a, button, select, input, textarea, label, td.col-actions",
+          )
+        )
+          return;
+        if (window.getSelection && String(window.getSelection()).trim() !== "")
+          return;
+        const row = e.target.closest("tr.order-row");
+        if (row) openOrderPanel(row.id.replace("order-row-", ""));
       });
       table.addEventListener("change", function (e) {
         if (e.target.matches('[data-role="status-select"]'))
@@ -1801,7 +1844,22 @@
     // Row actions (data attributes instead of inline handlers)
     document.addEventListener("click", function (e) {
       const btn = e.target.closest("[data-customer-action]");
-      if (!btn) return;
+      if (!btn) {
+        // Clicking anywhere else on a customer row opens the customer's details.
+        // Links, buttons, form controls and the Actions cell keep their own
+        // behavior, and selecting text with the mouse does not count as a click.
+        if (
+          e.target.closest(
+            "a, button, select, input, textarea, label, td.col-actions",
+          )
+        )
+          return;
+        if (window.getSelection && String(window.getSelection()).trim() !== "")
+          return;
+        const row = e.target.closest("tr.customer-row");
+        if (row) viewCustomerDetails(Number(row.dataset.id));
+        return;
+      }
       const id = Number(btn.dataset.id);
       if (btn.dataset.customerAction === "view") viewCustomerDetails(id);
       else if (btn.dataset.customerAction === "edit") editCustomer(id);
@@ -2483,6 +2541,16 @@
       }
     }
 
+    // ---------- Click an item's estimate to use it as the price ----------
+    function useEstimate(btn) {
+      const row = btn.closest(".item-price-row");
+      const input = row && row.querySelector(".item-price-input");
+      if (!input) return;
+      input.value = btn.dataset.amount || "";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.focus();
+    }
+
     // ---------- "Split evenly" quick action ----------
     function fillEvenPrices(btn) {
       const form = btn.closest("form");
@@ -2769,13 +2837,29 @@
     });
     document.addEventListener("click", function (e) {
       const t = e.target.closest("[data-pricing-action]");
-      if (!t) return;
+      if (!t) {
+        // Clicking anywhere else on a request row opens its details. Links, buttons,
+        // form controls and the Actions cell keep their own behavior, and selecting
+        // text with the mouse does not count as a click.
+        if (
+          e.target.closest(
+            "a, button, select, input, textarea, label, td.col-actions",
+          )
+        )
+          return;
+        if (window.getSelection && String(window.getSelection()).trim() !== "")
+          return;
+        const row = e.target.closest("tr.request-row");
+        if (row) viewRequestDetails(Number(row.id.replace("request-row-", "")));
+        return;
+      }
       const id = Number(t.dataset.id);
       const action = t.dataset.pricingAction;
       if (action === "toggle") toggleQuoteRow(id, t);
       else if (action === "details") viewRequestDetails(id);
       else if (action === "delete") confirmDeleteRequest(id, t);
       else if (action === "split") fillEvenPrices(t);
+      else if (action === "use-estimate") useEstimate(t);
     });
     const clearBtn = document.getElementById("clearRequestFilters");
     if (clearBtn) clearBtn.addEventListener("click", clearFilters);
@@ -2981,6 +3065,7 @@
     let selectedCustomer = null;
     let searchTimeout = null;
     let refreshInterval;
+    let lastMessagesHash = null;
     let customerSearchInitialized = false;
 
     function confirmDeleteConversation() {
@@ -3243,30 +3328,34 @@
         const shouldRestoreScroll =
           scrollHeight - scrollPosition - containerHeight > 50;
 
-        // Refresh the page to get new messages
+        // Ask the small endpoint for just the message list (not the whole page)
         const response = await fetch(
-          `admin_chat.php?conversation=${conversationId}&refresh=true`,
+          `admin_chat.php?ajax=messages&conversation=${encodeURIComponent(conversationId)}`,
+          { credentials: "same-origin" },
         );
-        const text = await response.text();
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!data || !data.success) return;
 
-        // Parse the new messages section
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, "text/html");
-        const newMessages = doc.querySelector(".chat-messages");
+        // Nothing changed since the last check: leave the list (and scroll position) alone
+        if (lastMessagesHash === data.hash) return;
+        const firstLoad = lastMessagesHash === null;
+        lastMessagesHash = data.hash;
 
-        if (newMessages) {
+        {
           const currentMessageCount = messagesContainer.querySelectorAll(
             ".message-container, .system-message",
           ).length;
 
           // Update the messages
-          messagesContainer.innerHTML = newMessages.innerHTML;
+          messagesContainer.innerHTML = data.html;
 
           // Check if new messages were added
           const newMessageCount = messagesContainer.querySelectorAll(
             ".message-container, .system-message",
           ).length;
-          const hasNewMessages = newMessageCount > currentMessageCount;
+          const hasNewMessages =
+            !firstLoad && newMessageCount > currentMessageCount;
 
           if (shouldRestoreScroll && !hasNewMessages) {
             // Restore previous scroll position

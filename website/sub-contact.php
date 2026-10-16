@@ -23,7 +23,15 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
     <!-- Side Pill Navigation -->
     <nav class="side-nav" id="sideNav" aria-label="Primary">
         <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
-            <li><a href="sub-main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li class="has-sub">
+                <a href="main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a>
+                <ul class="side-nav-sub" aria-label="Printing services">
+                    <li><a href="main.php#offset" data-service="offset"><span class="side-nav-dot" data-ink="black" aria-hidden="true"></span><span class="side-nav-label">Offset Printing</span></a></li>
+                    <li><a href="main.php#digital" data-service="digital"><span class="side-nav-dot" data-ink="cyan" aria-hidden="true"></span><span class="side-nav-label">Digital Printing</span></a></li>
+                    <li><a href="main.php#riso" data-service="riso"><span class="side-nav-dot" data-ink="magenta" aria-hidden="true"></span><span class="side-nav-label">RISO Printing</span></a></li>
+                    <li><a href="main.php#other" data-service="other"><span class="side-nav-dot" data-ink="yellow" aria-hidden="true"></span><span class="side-nav-label">Other Services</span></a></li>
+                </ul>
+            </li>
             <li><a href="sub-ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
             <li><a href="sub-about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
             <li><a href="sub-contact.php" class="active"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
@@ -172,7 +180,7 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
                         <i class="fas fa-chevron-down"></i>
                     </div>
                     <div class="faq-answer">
-                        <p>We accept most common file formats including PDF, AI, EPS, PSD, JPG, PNG, and TIFF. For best results, we recommend vector files (AI, EPS) or high-resolution PDFs (300 DPI). If you're unsure about your files, our team can help you prepare them for printing.</p>
+                        <p>We accept most common file formats including PDF, JPG, JPEG, PNG, and PSD. For best results, we recommend vector files (PNG, PSD) or high-resolution PDFs (300 DPI). If you're unsure about your files, our team can help you prepare them for printing.</p>
                     </div>
                 </div>
 

@@ -3,8 +3,73 @@ session_start();
 require_once '../../config/db.php';
 require_once '../../config/security.php';
 require_once '../permissions.php';
+require_once 'admin_helpers.php';
 
-// Check if user is logged in and is admin
+/**
+ * Customer's estimated price for each item of a request: item_id => amount or null.
+ * The cart row's price column is read, and it is only trusted when it adds up to the
+ * request's estimated total (a line total, or a unit price x quantity). A request with a
+ * single item simply uses the request estimate. When nothing can be trusted the item
+ * shows no estimate instead of a wrong one.
+ */
+function pricing_item_estimates(array $rows, float $request_total, int $expected_count): array
+{
+    $out = array_fill_keys(array_keys($rows), null);
+    if (!$rows) {
+        return $out;
+    }
+    if ($expected_count === 1 && count($rows) === 1) {
+        return [array_key_first($rows) => round($request_total, 2)];
+    }
+
+    $candidates = [];
+    $sets = [
+        'line' => ['estimated_price', 'estimated_total', 'total_price', 'line_total', 'subtotal', 'total', 'price'],
+        'unit' => ['estimated_unit_price', 'unit_price', 'price'],
+    ];
+    foreach ($sets as $kind => $cols) {
+        foreach ($cols as $col) {
+            $vals = [];
+            foreach ($rows as $id => $r) {
+                if (!isset($r[$col]) || !is_numeric($r[$col])) {
+                    continue 2;
+                }
+                $v = (float) $r[$col];
+                if ($kind === 'unit') {
+                    $v *= max((int) ($r['quantity'] ?? 1), 1);
+                }
+                $vals[$id] = round($v, 2);
+            }
+            // A plain 'price' column could be a unit price or a line total, so it is only trusted when it adds up.
+            $candidates[] = ['vals' => $vals, 'sure' => $col !== 'price'];
+        }
+    }
+
+    $complete = count($rows) === $expected_count;
+    foreach ($candidates as $c) {
+        if ($complete && abs(array_sum($c['vals']) - $request_total) < 0.01) {
+            return $c['vals'];
+        }
+    }
+    // Some items of the request are gone (already ordered or removed), so the sum can't be checked.
+    if (!$complete) {
+        foreach ($candidates as $c) {
+            if ($c['sure']) {
+                return $c['vals'];
+            }
+        }
+    }
+    // Last resort: the product's catalog price (products_offered.price, the same "From" price
+    // sub-main.php shows) x quantity. This is a base price, so it ignores size/finish/paper options.
+    foreach ($rows as $id => $r) {
+        if (isset($r['product_price']) && is_numeric($r['product_price'])) {
+            $out[$id] = round((float) $r['product_price'] * max((int) ($r['quantity'] ?? 1), 1), 2);
+        }
+    }
+    return $out;
+}
+
+// Check that the user is logged in and is staff (admin, employee or super admin)
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee', 'super_admin'])) {
     header("Location: ../../accounts/login.php");
     exit;
@@ -19,50 +84,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Request details drawer: same-file AJAX endpoint, mirrors admin_orders.php
 // (?ajax=get_order_details) so both pages share the .slide-panel / .od-* styles.
 // ---------------------------------------------------------------------
-function cust_row(string $label, $value, bool $wide = false): void
-{
-    echo '<div class="cust-item' . ($wide ? ' cust-item--wide' : '') . '"><span class="cust-label">'
-        . htmlspecialchars($label) . '</span><span class="cust-value">'
-        . htmlspecialchars((string) $value) . '</span></div>';
-}
-
-function normalize_design_file_list($value): array
-{
-    if (is_array($value)) {
-        return array_values(array_filter($value, static function ($item) {
-            return is_string($item) && $item !== '';
-        }));
-    }
-    if (is_string($value) && $value !== '') {
-        return [$value];
-    }
-    return [];
-}
-
-function render_design_preview(string $file, string $label, string $accentVar = ''): void
-{
-    $path = "../../assets/uploads/" . $file;
-    $exists = file_exists($path);
-    $mock = $accentVar === 'var(--primary)';
-    $cls = 'file-tile' . ($mock ? ' file-tile--mock' : '') . ($exists ? '' : ' file-tile--missing');
-
-    echo '<div class="' . $cls . '">';
-    if ($exists) {
-        echo '<a class="file-tile-thumb" href="' . htmlspecialchars($path) . '" target="_blank" rel="noopener" title="Open ' . htmlspecialchars($label) . '">';
-        echo is_pdf_file($file)
-            ? pdf_thumb_html($path)
-            : '<img src="' . htmlspecialchars($path) . '" alt="' . htmlspecialchars($label) . '" loading="lazy">';
-        echo '</a>';
-        echo '<span class="file-tile-label">' . htmlspecialchars($label) . '</span>';
-        echo '<a class="file-tile-meta" href="' . htmlspecialchars($path) . '" download="' . htmlspecialchars(basename($file)) . '"><i class="fas fa-download" aria-hidden="true"></i> Download</a>';
-    } else {
-        echo '<span class="file-tile-thumb"><i class="fas fa-file-circle-exclamation" aria-hidden="true"></i></span>';
-        echo '<span class="file-tile-label">' . htmlspecialchars($label) . '</span>';
-        echo '<span class="file-tile-meta">File not found: ' . htmlspecialchars(basename($file)) . '</span>';
-    }
-    echo '</div>';
-}
-
 function render_item_customization(array $item): void
 {
     $category = $item['product_category'] ?? '';
@@ -132,7 +153,7 @@ function render_request_panel_html(mysqli $inventory, int $request_id): string
     if ($item_ids) {
         $ph = implode(',', array_fill(0, count($item_ids), '?'));
         $types = str_repeat('i', count($item_ids));
-        $full_sql = "SELECT ci.*, p.product_name, p.category AS product_category,
+        $full_sql = "SELECT ci.*, p.product_name, p.price AS product_price, p.category AS product_category,
                             po.option_name AS paper_option_name, fo.option_name AS finish_option_name,
                             bo.option_name AS binding_option_name, lo.option_name AS layout_option_name,
                             ts.size_name AS tshirt_size_name, tc.color_name AS tshirt_color_name,
@@ -153,7 +174,7 @@ function render_request_panel_html(mysqli $inventory, int $request_id): string
                      LEFT JOIN mug_size_options ms ON (p.category = 'Other Services' AND p.product_name = 'Mug' AND ci.size_option = ms.id)
                      LEFT JOIN mug_color_options mc ON (p.category = 'Other Services' AND p.product_name = 'Mug' AND ci.color_option = mc.id)
                      WHERE ci.item_id IN ($ph)";
-        $plain_sql = "SELECT ci.*, p.product_name FROM cart_items ci JOIN products_offered p ON ci.product_id = p.id WHERE ci.item_id IN ($ph)";
+        $plain_sql = "SELECT ci.*, p.product_name, p.price AS product_price FROM cart_items ci JOIN products_offered p ON ci.product_id = p.id WHERE ci.item_id IN ($ph)";
         foreach ([$full_sql, $plain_sql] as $sql) {
             try {
                 $istmt = $inventory->prepare($sql);
@@ -207,9 +228,12 @@ function render_request_panel_html(mysqli $inventory, int $request_id): string
     $final = (float) $req['final_price'];
     $diff = $final - $estimated;
     $units = 0;
+    $est_rows = [];
     foreach ($items as $it) {
         $units += (int) ($it['quantity'] ?? 0);
+        $est_rows[(int) $it['item_id']] = $it;
     }
+    $item_estimates = pricing_item_estimates($est_rows, $estimated, count($items));
 
     ob_start();
     ?>
@@ -229,7 +253,7 @@ function render_request_panel_html(mysqli $inventory, int $request_id): string
     <section class="od-section" aria-labelledby="odQuote">
         <h3 class="od-title" id="odQuote">Quote</h3>
         <dl class="od-money">
-            <div class="od-money-tile"><dt>Customer's estimate</dt><dd>&#8369;<?php echo number_format($estimated, 2); ?></dd></div>
+            <div class="od-money-tile"><dt>Customer's price expectation</dt><dd>&#8369;<?php echo number_format($estimated, 2); ?></dd></div>
             <div class="od-money-tile<?php echo $has_final ? ' is-due' : ''; ?>"><dt>Final quote</dt><dd><?php echo $has_final ? '&#8369;' . number_format($final, 2) : 'Not set'; ?></dd></div>
             <?php if ($has_final): ?>
                 <div class="od-money-tile"><dt>Difference</dt><dd><?php echo $diff == 0 ? 'No change' : ($diff > 0 ? '+' : '-') . '&#8369;' . number_format(abs($diff), 2); ?></dd></div>
@@ -269,13 +293,24 @@ function render_request_panel_html(mysqli $inventory, int $request_id): string
             $iid = (int) $item['item_id'];
             $line_price = $quoted[$iid] ?? null;
         ?>
+            <?php
+            $est = $item_estimates[$iid] ?? null;
+            $qty = (int) $item['quantity'];
+            ?>
             <article class="od-item">
                 <header class="od-item-head">
                     <div>
                         <div class="od-item-name"><?php echo htmlspecialchars($item['product_name']); ?></div>
-                        <div class="od-item-sub"><?php echo !empty($item['product_category']) ? htmlspecialchars($item['product_category']) . ' &middot; ' : ''; ?>Qty <?php echo (int) $item['quantity']; ?></div>
+                        <div class="od-item-sub"><?php echo !empty($item['product_category']) ? htmlspecialchars($item['product_category']) : ''; ?></div>
+                        <div class="od-item-qty"><span class="qty-chip qty-chip--lg"><span class="qty-x">&times;</span><?php echo $qty; ?></span> <span class="od-item-qty-label">unit<?php echo $qty === 1 ? '' : 's'; ?> ordered</span></div>
                     </div>
-                    <div class="od-item-total"><?php echo $line_price !== null ? '&#8369;' . number_format((float) $line_price, 2) : '<span class="text-muted">Not priced</span>'; ?></div>
+                    <div class="od-item-prices">
+                        <div class="od-price-line"><span>Base Price</span><strong><?php echo $est !== null ? '&#8369;' . number_format($est, 2) : '<span class="text-muted">&mdash;</span>'; ?></strong></div>
+                        <div class="od-price-line is-quote"><span>Your quote</span><strong><?php echo $line_price !== null ? '&#8369;' . number_format((float) $line_price, 2) : '<span class="text-muted">Not priced</span>'; ?></strong></div>
+                        <?php if ($est !== null && $line_price !== null && abs((float) $line_price - $est) >= 0.005): $d = (float) $line_price - $est; ?>
+                            <div class="od-price-diff <?php echo $d > 0 ? 'is-up' : 'is-down'; ?>"><?php echo $d > 0 ? '+' : '-'; ?>&#8369;<?php echo number_format(abs($d), 2); ?> vs estimate</div>
+                        <?php endif; ?>
+                    </div>
                 </header>
                 <div class="od-item-body">
                     <?php
@@ -293,24 +328,18 @@ function render_request_panel_html(mysqli $inventory, int $request_id): string
                         $layout_files = json_decode($item['user_layout_files'], true); ?>
                         <div>
                             <div class="od-sub-title">Customer layout files</div>
-                            <?php if (is_array($layout_files) && $layout_files):
-                                foreach ($layout_files as $file_path):
-                                    $clean_path = str_replace('../../', '', $file_path);
-                                    $full_path = "../../" . $clean_path; ?>
-                                    <?php if (file_exists($full_path)): ?>
-                                        <div class="file-row">
-                                            <i class="fas fa-file-arrow-down" aria-hidden="true"></i>
-                                            <span class="file-row-name"><?php echo htmlspecialchars(basename($clean_path)); ?></span>
-                                            <a class="btn btn-secondary btn-sm" href="<?php echo htmlspecialchars($full_path); ?>" download="<?php echo htmlspecialchars(basename($clean_path)); ?>">Download</a>
-                                        </div>
-                                    <?php else: ?>
-                                        <div class="file-row is-missing">
-                                            <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-                                            <span class="file-row-name"><?php echo htmlspecialchars(basename($clean_path)); ?> (file not found)</span>
-                                        </div>
-                                    <?php endif; ?>
-                                <?php endforeach;
-                            else: ?>
+                            <?php if (is_array($layout_files) && $layout_files): ?>
+                                <div class="file-tiles">
+                                    <?php foreach (array_values($layout_files) as $n => $file_path) {
+                                        // Stored as ../../assets/uploads/user_layouts/<id>/file; the helper resolves
+                                        // inside assets/uploads and shows "file not found" for anything outside it.
+                                        $clean_path = preg_replace('#^(\.\./)+#', '', (string) $file_path);
+                                        $clean_path = preg_replace('#^assets/#', '', $clean_path);
+                                        $clean_path = preg_replace('#^uploads/#', '', $clean_path);
+                                        render_design_preview($clean_path, count($layout_files) > 1 ? 'Layout file ' . ($n + 1) : 'Layout file', '');
+                                    } ?>
+                                </div>
+                            <?php else: ?>
                                 <p class="text-muted">No valid layout files found.</p>
                             <?php endif; ?>
                         </div>
@@ -396,113 +425,141 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             exit;
         }
-        $request_id = $_POST['request_id'];
-        $new_status = $_POST['status'];
-        $admin_notes = $_POST['admin_notes'];
+        $is_ajax = isset($_POST['ajax']);
+        $fail = function (string $msg) use ($is_ajax) {
+            if ($is_ajax) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['success' => false, 'message' => $msg]);
+            } else {
+                $_SESSION['error'] = $msg;
+                header("Location: admin_pricing_estimates.php");
+            }
+            exit;
+        };
+
+        $request_id = (int) ($_POST['request_id'] ?? 0);
+        $new_status = (string) ($_POST['status'] ?? '');
+        $admin_notes = trim((string) ($_POST['admin_notes'] ?? ''));
         // Per-item prices entered by the admin: item_price[item_id] => price.
         $item_prices = isset($_POST['item_price']) && is_array($_POST['item_price']) ? $_POST['item_price'] : [];
 
-        // Get the pricing request details
-        $request_query = "SELECT * FROM pricing_requests WHERE id = ?";
-        $request_stmt = $inventory->prepare($request_query);
+        // Only the statuses the form offers are accepted.
+        if (!in_array($new_status, ['pending', 'quoted', 'cancelled'], true)) {
+            $fail('Choose a valid status.');
+        }
+
+        // The request must exist.
+        $request_stmt = $inventory->prepare("SELECT * FROM pricing_requests WHERE id = ?");
         $request_stmt->bind_param("i", $request_id);
         $request_stmt->execute();
         $request_data = $request_stmt->get_result()->fetch_assoc();
+        if ($request_id < 1 || !$request_data) {
+            $fail('Pricing request not found.');
+        }
 
-        // Update pricing_requests_items table for ALL status changes
-        $selected_items = json_decode($request_data['selected_items'], true);
-
-        $final_price = 0; // recomputed below as the sum of each item's price
-        $returned_item_prices = []; // item_id => price actually saved, sent back to the browser
-
-        if (is_array($selected_items)) {
-            $item_count = max(count($selected_items), 1);
-
-            foreach ($selected_items as $item_id) {
-                // Check if record already exists in pricing_requests_items, and
-                // remember whatever price was already quoted for it (if any).
-                $check_query = "SELECT id, quoted_price FROM pricing_requests_items WHERE pricing_request_id = ? AND cart_item_id = ?";
-                $check_stmt = $inventory->prepare($check_query);
-                $check_stmt->bind_param("ii", $request_id, $item_id);
-                $check_stmt->execute();
-                $check_result = $check_stmt->get_result();
-                $existing_item = $check_result->fetch_assoc(); // null if this item has no row yet
-
-                // Decide the price for THIS item, in order of priority:
-                // 1) a price the admin explicitly typed on this save
-                // 2) whatever price was already quoted for it previously
-                // 3) if it's being quoted for the very first time with no
-                //    price at all, fall back to an even split of the
-                //    estimated total so it doesn't show as free
-                // 4) otherwise (e.g. being cancelled/left pending and never
-                //    priced), leave it unpriced rather than inventing a number
-                if (isset($item_prices[$item_id]) && $item_prices[$item_id] !== '') {
-                    $price_per_item = (float) $item_prices[$item_id];
-                } elseif ($existing_item && $existing_item['quoted_price'] !== null) {
-                    $price_per_item = (float) $existing_item['quoted_price'];
-                } elseif ($new_status === 'quoted') {
-                    $price_per_item = $request_data['estimated_total'] / $item_count;
-                } else {
-                    $price_per_item = null;
-                }
-                $final_price += $price_per_item ?? 0;
-                $returned_item_prices[$item_id] = $price_per_item;
-
-                if ($existing_item) {
-                    // Update existing record - ALWAYS update status and admin_notes
-                    $update_item_query = "UPDATE pricing_requests_items SET status = ?, admin_notes = ?, quoted_price = ?, updated_at = NOW() WHERE pricing_request_id = ? AND cart_item_id = ?";
-                    $update_item_stmt = $inventory->prepare($update_item_query);
-                    $update_item_stmt->bind_param("ssdii", $new_status, $admin_notes, $price_per_item, $request_id, $item_id);
-                    $update_item_stmt->execute();
-                    error_log("DEBUG: Updated pricing_requests_items record for item $item_id with status $new_status and price " . var_export($price_per_item, true));
-                } else {
-                    // Insert new record
-                    $insert_pricing_item = "INSERT INTO pricing_requests_items (pricing_request_id, cart_item_id, admin_notes, quoted_price, status) 
-                                            VALUES (?, ?, ?, ?, ?)";
-                    $stmt2 = $inventory->prepare($insert_pricing_item);
-                    $stmt2->bind_param("iisds", $request_id, $item_id, $admin_notes, $price_per_item, $new_status);
-                    $stmt2->execute();
-                    error_log("DEBUG: Inserted new pricing_requests_items record for item $item_id with status $new_status and price " . var_export($price_per_item, true));
-                }
-
-                // Update cart_items table for quoted status (use estimated price if no final price entered)
-                if ($new_status === 'quoted') {
-                    $update_cart_query = "UPDATE cart_items SET quoted_price = ?, price_updated_by_admin = 1, price_updated_at = NOW() WHERE item_id = ?";
-                    $update_stmt = $inventory->prepare($update_cart_query);
-                    $update_stmt->bind_param("di", $price_per_item, $item_id);
-                    $update_stmt->execute();
-                    error_log("DEBUG: Updated cart item $item_id with price $price_per_item (status: $new_status)");
-                } else if ($new_status === 'cancelled') {
-                    // For cancelled status, clear the admin price flag but
-                    // leave any previously-quoted price untouched - the
-                    // cancellation shouldn't rewrite pricing history.
-                    $update_cart_query = "UPDATE cart_items SET price_updated_by_admin = 0 WHERE item_id = ?";
-                    $update_stmt = $inventory->prepare($update_cart_query);
-                    $update_stmt->bind_param("i", $item_id);
-                    $update_stmt->execute();
-                    error_log("DEBUG: Marked cart item $item_id as not admin priced (cancelled)");
-                }
+        // Every typed price must be a real, non-negative amount.
+        foreach ($item_prices as $typed) {
+            $typed = trim((string) $typed);
+            if ($typed === '') {
+                continue;
+            }
+            if (!is_numeric($typed) || (float) $typed < 0 || (float) $typed > 99999999.99) {
+                $fail('Enter valid prices, for example 1250.00. Prices cannot be negative.');
             }
         }
 
-        // Update the main pricing_requests table. final_price is now the
-        // sum of the individual item prices above, not a value the admin
-        // typed in separately, so it can never drift from what each item
-        // actually shows.
-        $query = "UPDATE pricing_requests SET status = ?, final_price = ?, admin_notes = ?, updated_at = NOW() WHERE id = ?";
-        $stmt = $inventory->prepare($query);
-        $stmt->bind_param("sdsi", $new_status, $final_price, $admin_notes, $request_id);
-        $success = $stmt->execute();
+        $selected_items = json_decode((string) $request_data['selected_items'], true);
+        $final_price = 0; // recomputed below as the sum of each item's price
+        $returned_item_prices = []; // item_id => price actually saved, sent back to the browser
+
+        // Everything below is saved together or not at all, so a failure
+        // half-way never leaves some items quoted and the request not.
+        try {
+            $inventory->begin_transaction();
+
+            if (is_array($selected_items)) {
+                $item_count = max(count($selected_items), 1);
+
+                foreach ($selected_items as $item_id) {
+                    $item_id = (int) $item_id;
+
+                    // Check if record already exists in pricing_requests_items, and
+                    // remember whatever price was already quoted for it (if any).
+                    $check_stmt = $inventory->prepare("SELECT id, quoted_price FROM pricing_requests_items WHERE pricing_request_id = ? AND cart_item_id = ?");
+                    $check_stmt->bind_param("ii", $request_id, $item_id);
+                    $check_stmt->execute();
+                    $existing_item = $check_stmt->get_result()->fetch_assoc(); // null if this item has no row yet
+
+                    // Decide the price for THIS item, in order of priority:
+                    // 1) a price the admin explicitly typed on this save
+                    // 2) whatever price was already quoted for it previously
+                    // 3) if it's being quoted for the very first time with no
+                    //    price at all, fall back to an even split of the
+                    //    estimated total so it doesn't show as free
+                    // 4) otherwise (e.g. being cancelled/left pending and never
+                    //    priced), leave it unpriced rather than inventing a number
+                    if (isset($item_prices[$item_id]) && trim((string) $item_prices[$item_id]) !== '') {
+                        $price_per_item = round((float) $item_prices[$item_id], 2);
+                    } elseif ($existing_item && $existing_item['quoted_price'] !== null) {
+                        $price_per_item = (float) $existing_item['quoted_price'];
+                    } elseif ($new_status === 'quoted') {
+                        $price_per_item = round((float) $request_data['estimated_total'] / $item_count, 2);
+                    } else {
+                        $price_per_item = null;
+                    }
+                    $final_price += $price_per_item ?? 0;
+                    $returned_item_prices[$item_id] = $price_per_item;
+
+                    if ($existing_item) {
+                        $item_stmt = $inventory->prepare("UPDATE pricing_requests_items SET status = ?, admin_notes = ?, quoted_price = ?, updated_at = NOW() WHERE pricing_request_id = ? AND cart_item_id = ?");
+                        $item_stmt->bind_param("ssdii", $new_status, $admin_notes, $price_per_item, $request_id, $item_id);
+                    } else {
+                        $item_stmt = $inventory->prepare("INSERT INTO pricing_requests_items (pricing_request_id, cart_item_id, admin_notes, quoted_price, status) VALUES (?, ?, ?, ?, ?)");
+                        $item_stmt->bind_param("iisds", $request_id, $item_id, $admin_notes, $price_per_item, $new_status);
+                    }
+                    $item_stmt->execute();
+
+                    // Update cart_items table for quoted status
+                    if ($new_status === 'quoted') {
+                        $cart_stmt = $inventory->prepare("UPDATE cart_items SET quoted_price = ?, price_updated_by_admin = 1, price_updated_at = NOW() WHERE item_id = ?");
+                        $cart_stmt->bind_param("di", $price_per_item, $item_id);
+                        $cart_stmt->execute();
+                    } elseif ($new_status === 'cancelled') {
+                        // Clear the admin price flag but leave any previously
+                        // quoted price untouched: cancelling shouldn't rewrite
+                        // pricing history.
+                        $cart_stmt = $inventory->prepare("UPDATE cart_items SET price_updated_by_admin = 0 WHERE item_id = ?");
+                        $cart_stmt->bind_param("i", $item_id);
+                        $cart_stmt->execute();
+                    }
+                }
+            }
+
+            // final_price is the sum of the individual item prices above, so it
+            // can never drift from what each item actually shows.
+            $stmt = $inventory->prepare("UPDATE pricing_requests SET status = ?, final_price = ?, admin_notes = ?, updated_at = NOW() WHERE id = ?");
+            $stmt->bind_param("sdsi", $new_status, $final_price, $admin_notes, $request_id);
+            $stmt->execute();
+            $inventory->commit();
+            $success = true;
+        } catch (Throwable $e) {
+            try {
+                $inventory->rollback();
+            } catch (Throwable $ignored) {
+            }
+            error_log('update_pricing_status failed: ' . $e->getMessage());
+            $success = false;
+        }
 
         // AJAX callers (the inline row form) get JSON back and update the
         // row in place; anything still POSTing the old-fashioned way falls
         // back to the session-flash + redirect behavior below.
-        if (isset($_POST['ajax'])) {
+        if ($is_ajax) {
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode([
                 'success' => $success,
-                'message' => $success ? "Pricing request #$request_id updated successfully!" : 'Failed to update pricing request!',
-                'request_id' => (int) $request_id,
+                'message' => $success ? "Pricing request #$request_id updated successfully!" : 'Failed to update pricing request. Nothing was changed.',
+                'request_id' => $request_id,
                 'status' => $new_status,
                 'status_label' => ucfirst($new_status),
                 'final_price' => $final_price,
@@ -515,7 +572,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($success) {
             $_SESSION['message'] = "Pricing request #$request_id updated successfully!";
         } else {
-            $_SESSION['error'] = "Failed to update pricing request!";
+            $_SESSION['error'] = "Failed to update pricing request. Nothing was changed.";
         }
 
         header("Location: admin_pricing_estimates.php");
@@ -562,7 +619,7 @@ if (!empty($all_item_ids)) {
     $placeholders = implode(',', array_fill(0, count($all_item_ids), '?'));
     $types = str_repeat('i', count($all_item_ids));
 
-    $item_query = "SELECT ci.item_id, p.product_name, ci.quantity
+    $item_query = "SELECT ci.*, p.product_name, p.price AS product_price
                     FROM cart_items ci
                     JOIN products_offered p ON ci.product_id = p.id
                     WHERE ci.item_id IN ($placeholders)";
@@ -574,6 +631,7 @@ if (!empty($all_item_ids)) {
         $item_info[(int) $row['item_id']] = [
             'product_name' => $row['product_name'],
             'quantity'     => (int) $row['quantity'],
+            'row'          => $row,
         ];
     }
 
@@ -732,7 +790,7 @@ admin_layout_start([
                 $rid = (int) $request['id'];
             ?>
                 <tr class="request-row" id="request-row-<?php echo $rid; ?>" data-status="<?php echo htmlspecialchars($request['status']); ?>">
-                    <td><strong>#<?php echo $rid; ?></strong></td>
+                    <td><button type="button" class="link-btn" data-pricing-action="details" data-id="<?php echo $rid; ?>" aria-label="Open request <?php echo $rid; ?>">#<?php echo $rid; ?></button></td>
                     <td>
                         <div class="cell-stack">
                             <span class="cell-main"><?php echo htmlspecialchars($customer_name); ?></span>
@@ -777,14 +835,11 @@ admin_layout_start([
                             <span class="cell-sub"><?php echo date('g:i A', strtotime($request['request_date'])); ?></span>
                         </div>
                     </td>
-                    <td>
+                    <td class="col-actions">
                         <div class="row-actions">
                             <button type="button" class="btn btn-primary btn-sm" data-pricing-action="toggle" data-id="<?php echo $rid; ?>"
                                 aria-expanded="false" aria-controls="request-edit-<?php echo $rid; ?>">
                                 <i class="fas fa-calculator" aria-hidden="true"></i> <span data-label>Quote</span>
-                            </button>
-                            <button type="button" class="view-details" data-pricing-action="details" data-id="<?php echo $rid; ?>" title="View full request details">
-                                <i class="fas fa-eye" aria-hidden="true"></i> Details
                             </button>
                         </div>
                     </td>
@@ -802,22 +857,42 @@ admin_layout_start([
                                             <i class="fas fa-divide" aria-hidden="true"></i> Split evenly
                                         </button>
                                     </div>
+                                    <?php
+                                    $req_rows = [];
+                                    foreach ($selected_items as $sel_id) {
+                                        if (isset($item_info[(int) $sel_id])) {
+                                            $req_rows[(int) $sel_id] = $item_info[(int) $sel_id]['row'];
+                                        }
+                                    }
+                                    $item_estimates = pricing_item_estimates($req_rows, (float) $request['estimated_total'], count($selected_items));
+                                    ?>
                                     <div class="item-price-list">
                                         <?php if (!$selected_items): ?>
                                             <p class="text-muted">This request has no items.</p>
+                                        <?php else: ?>
+                                            <div class="item-price-head" aria-hidden="true">
+                                                <span>Item</span><span>Qty</span><span>Base Price</span><span>Your price</span>
+                                            </div>
                                         <?php endif; ?>
                                         <?php foreach ($selected_items as $iid):
                                             $iid = (int) $iid;
                                             if (!isset($item_info[$iid])) { continue; } // item already ordered/removed
-                                            $info = $item_info[$iid] ?? null;
-                                            $label = $info ? $info['product_name'] . ' ×' . $info['quantity'] : ('Item #' . $iid);
+                                            $info = $item_info[$iid];
                                             $prefill = $existing_item_prices[$rid][$iid] ?? '';
+                                            $est = $item_estimates[$iid] ?? null;
                                         ?>
                                             <div class="item-price-row">
-                                                <label class="item-price-label" for="price-<?php echo $rid; ?>-<?php echo $iid; ?>" title="<?php echo htmlspecialchars($label); ?>"><?php echo htmlspecialchars($label); ?></label>
+                                                <label class="item-price-label" for="price-<?php echo $rid; ?>-<?php echo $iid; ?>" title="<?php echo htmlspecialchars($info['product_name']); ?>"><?php echo htmlspecialchars($info['product_name']); ?></label>
+                                                <span class="qty-chip" title="Quantity ordered"><span class="qty-x">&times;</span><?php echo (int) $info['quantity']; ?></span>
+                                                <?php if ($est !== null): ?>
+                                                    <button type="button" class="est-btn" data-pricing-action="use-estimate" data-amount="<?php echo htmlspecialchars(number_format($est, 2, '.', '')); ?>" title="Click to use this estimate as your price">&#8369;<?php echo number_format($est, 2); ?></button>
+                                                <?php else: ?>
+                                                    <span class="text-muted est-none" title="No per-item estimate is stored for this request">&mdash;</span>
+                                                <?php endif; ?>
                                                 <input type="number" id="price-<?php echo $rid; ?>-<?php echo $iid; ?>" name="item_price[<?php echo $iid; ?>]" class="price-input item-price-input"
                                                     data-item-id="<?php echo $iid; ?>"
                                                     placeholder="0.00" step="0.01" min="0"
+                                                    aria-label="Your price for <?php echo htmlspecialchars($info['product_name']); ?>, quantity <?php echo (int) $info['quantity']; ?>"
                                                     value="<?php echo $prefill !== '' ? htmlspecialchars($prefill) : ''; ?>">
                                             </div>
                                         <?php endforeach; ?>
@@ -827,7 +902,7 @@ admin_layout_start([
                                 <div>
                                     <h3 class="quote-col-title">Quote summary</h3>
                                     <div class="quote-summary">
-                                        <div class="quote-line"><span>Customer's estimate</span><strong>&#8369;<?php echo number_format($request['estimated_total'], 2); ?></strong></div>
+                                        <div class="quote-line"><span>Customer's price expectation</span><strong>&#8369;<?php echo number_format($request['estimated_total'], 2); ?></strong></div>
                                         <div class="quote-line is-total"><span>Quoted total</span><span class="computed-total">&#8369;<?php echo number_format(array_sum($existing_item_prices[$rid] ?? []), 2); ?></span></div>
                                     </div>
                                     <p class="quote-diff" aria-live="polite"></p>
@@ -905,21 +980,4 @@ admin_layout_start([
 <script src="../../assets/js/website_admin.js"></script>
 </body>
 
-</htmlfunction is_pdf_file(?string $name): bool
-{
-    return $name !== null && strtolower(pathinfo($name, PATHINFO_EXTENSION)) === 'pdf';
-}
-
-/**
- * First-page preview of a PDF, shown where an image thumbnail would be. The <object> ignores the mouse so a click
- * still goes to the surrounding link; browsers that can't draw PDFs inline fall back to a labelled PDF icon.
- */
-function pdf_thumb_html(string $url, string $extra_class = ''): string
-{
-    $src = $url . (strpos($url, '#') === false ? '#page=1&toolbar=0&navpanes=0&scrollbar=0&view=FitH' : '');
-    return '<span class="pdf-thumb ' . htmlspecialchars($extra_class) . '"><object data="' . htmlspecialchars($src)
-        . '" type="application/pdf" tabindex="-1" aria-hidden="true"><span class="pdf-thumb-fallback">'
-        . '<i class="fas fa-file-pdf" aria-hidden="true"></i>PDF</span></object></span>';
-}
-
->
+</html>

@@ -206,6 +206,35 @@ $has_items = !empty($checkout_items);
             display: none;
         }
 
+        /* PDF layout file: same size, radius and hover as an image tile */
+        .co-tile__pdf {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            width: 84px;
+            height: 84px;
+            border-radius: var(--r-sm);
+            background: var(--paper-white);
+            border: 1px solid var(--line);
+            color: var(--riso-red);
+            font-size: 22px;
+            transition: var(--transition);
+        }
+
+        .co-tile__pdf span {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            color: var(--ink-soft);
+        }
+
+        .co-tile a:hover.co-tile__pdf {
+            border-color: var(--ink);
+            box-shadow: var(--shadow-sm);
+        }
+
         /* Copy button next to the GCash number */
         .co-gcash dd {
             display: flex;
@@ -545,7 +574,15 @@ $has_items = !empty($checkout_items);
     <!-- Side Pill Navigation -->
     <nav class="side-nav" id="sideNav" aria-label="Primary">
         <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
-            <li><a href="main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li class="has-sub">
+                <a href="main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a>
+                <ul class="side-nav-sub" aria-label="Printing services">
+                    <li><a href="main.php#offset" data-service="offset"><span class="side-nav-dot" data-ink="black" aria-hidden="true"></span><span class="side-nav-label">Offset Printing</span></a></li>
+                    <li><a href="main.php#digital" data-service="digital"><span class="side-nav-dot" data-ink="cyan" aria-hidden="true"></span><span class="side-nav-label">Digital Printing</span></a></li>
+                    <li><a href="main.php#riso" data-service="riso"><span class="side-nav-dot" data-ink="magenta" aria-hidden="true"></span><span class="side-nav-label">RISO Printing</span></a></li>
+                    <li><a href="main.php#other" data-service="other"><span class="side-nav-dot" data-ink="yellow" aria-hidden="true"></span><span class="side-nav-label">Other Services</span></a></li>
+                </ul>
+            </li>
             <li><a href="ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
             <li><a href="about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
             <li><a href="contact.php"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
@@ -843,6 +880,30 @@ $has_items = !empty($checkout_items);
                                             $tiles[] = ['Back Mockup', $backMockup, 'fa-image'];
                                         }
                                     }
+
+                                    // ---- Uploaded layout files (User Layout option) ----
+                                    // Stored as e.g. ../../assets/uploads/user_layouts/5/layout_x.png
+                                    // -> keep the part after assets/uploads/ so it works from this page.
+                                    $layout_tiles = [];
+                                    if (!empty($item['user_layout_files'])) {
+                                        $layout_raw = json_decode($item['user_layout_files'], true);
+                                        if (is_array($layout_raw)) {
+                                            $layout_raw = array_values(array_filter($layout_raw, 'is_string'));
+                                            foreach ($layout_raw as $n => $stored) {
+                                                $pos = strpos($stored, 'assets/uploads/');
+                                                $rel = $pos === false ? '' : substr($stored, $pos + strlen('assets/uploads/'));
+                                                if (strpos($rel, '..') !== false) {
+                                                    $rel = '';
+                                                }
+                                                $layout_tiles[] = [
+                                                    count($layout_raw) > 1 ? 'Layout ' . ($n + 1) : 'Layout file',
+                                                    $rel,
+                                                    basename($stored),
+                                                    strtolower(pathinfo($stored, PATHINFO_EXTENSION)) === 'pdf',
+                                                ];
+                                            }
+                                        }
+                                    }
                                 ?>
                                     <article class="co-item" data-ink="<?php echo $ink; ?>">
                                         <div class="co-item__image">
@@ -870,7 +931,7 @@ $has_items = !empty($checkout_items);
 
                                         <div class="co-item__total">₱<?php echo number_format($item['actual_price'] * $item['quantity'], 2); ?></div>
 
-                                        <?php if (!empty($chips) || !empty($tiles)): ?>
+                                        <?php if (!empty($chips) || !empty($tiles) || !empty($layout_tiles)): ?>
                                             <div class="co-item__extras">
                                                 <?php if (!empty($chips)): ?>
                                                     <div class="co-details">
@@ -903,6 +964,33 @@ $has_items = !empty($checkout_items);
                                                                         <div class="co-tile__missing" title="Preview not available"><i class="fas <?php echo $tile[2]; ?>"></i></div>
                                                                     <?php endif; ?>
                                                                     <figcaption><?php echo co_h($tile[0]); ?></figcaption>
+                                                                </figure>
+                                                            <?php endforeach; ?>
+                                                        </div>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <?php if (!empty($layout_tiles)): ?>
+                                                    <div class="co-design">
+                                                        <div class="co-design__title">
+                                                            <span><i class="fas fa-file-upload"></i> Your uploaded layout file<?php echo count($layout_tiles) > 1 ? 's' : ''; ?></span>
+                                                        </div>
+                                                        <div class="co-design__tiles">
+                                                            <?php foreach ($layout_tiles as $lt):
+                                                                $lt_path   = '../assets/uploads/' . $lt[1];
+                                                                $lt_exists = $lt[1] !== '' && file_exists($lt_path);
+                                                            ?>
+                                                                <figure class="co-tile">
+                                                                    <?php if ($lt_exists && $lt[3]): ?>
+                                                                        <a class="co-tile__pdf" href="<?php echo co_h($lt_path); ?>" target="_blank" rel="noopener" title="<?php echo co_h($lt[2]); ?>"><i class="fas fa-file-pdf"></i><span>PDF</span></a>
+                                                                    <?php elseif ($lt_exists): ?>
+                                                                        <a href="<?php echo co_h($lt_path); ?>" target="_blank" rel="noopener" title="<?php echo co_h($lt[2]); ?>">
+                                                                            <img src="<?php echo co_h($lt_path); ?>" alt="<?php echo co_h($lt[0]); ?>" loading="lazy">
+                                                                        </a>
+                                                                    <?php else: ?>
+                                                                        <div class="co-tile__missing" title="<?php echo co_h($lt[2]); ?> (file not found)"><i class="fas <?php echo $lt[3] ? 'fa-file-pdf' : 'fa-file-image'; ?>"></i></div>
+                                                                    <?php endif; ?>
+                                                                    <figcaption><?php echo co_h($lt[0]); ?></figcaption>
                                                                 </figure>
                                                             <?php endforeach; ?>
                                                         </div>

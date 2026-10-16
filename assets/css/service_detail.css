@@ -467,6 +467,39 @@ textarea.pd-input {
   color: var(--ink-faint);
 }
 
+/* Thumbnail (JPEG/PNG) or PDF icon at the start of each uploaded-file row */
+.pd-filelist__item {
+  gap: 10px;
+}
+
+.pd-filelist__thumb {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper-dim);
+  overflow: hidden;
+}
+
+.pd-filelist__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pd-filelist__item .pd-filelist__thumb i {
+  font-size: 22px;
+  color: var(--ink-faint);
+}
+
+.pd-filelist__item .pd-filelist__thumb i.is-pdf {
+  color: var(--riso-red);
+}
+
 /* ---------- Option chips (JS hooks: .option-button / .selected) ---------- */
 .pd-page .button-options {
   display: flex;

@@ -104,7 +104,15 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
     <!-- Side Pill Navigation -->
     <nav class="side-nav" id="sideNav" aria-label="Primary">
         <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
-            <li><a href="main.php" class="active"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li class="has-sub">
+                <a href="main.php" class="active"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a>
+                <ul class="side-nav-sub" aria-label="Printing services">
+                    <li><a href="#services" data-service="offset"><span class="side-nav-dot" data-ink="black" aria-hidden="true"></span><span class="side-nav-label">Offset Printing</span></a></li>
+                    <li><a href="#services" data-service="digital"><span class="side-nav-dot" data-ink="cyan" aria-hidden="true"></span><span class="side-nav-label">Digital Printing</span></a></li>
+                    <li><a href="#services" data-service="riso"><span class="side-nav-dot" data-ink="magenta" aria-hidden="true"></span><span class="side-nav-label">RISO Printing</span></a></li>
+                    <li><a href="#services" data-service="other"><span class="side-nav-dot" data-ink="yellow" aria-hidden="true"></span><span class="side-nav-label">Other Services</span></a></li>
+                </ul>
+            </li>
             <li><a href="ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
             <li><a href="about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
             <li><a href="contact.php"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
@@ -529,7 +537,7 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
                     <?php
                     if ($result->num_rows > 0) {
                         while ($row = $result->fetch_assoc()) {
-                            echo '<div class="product-card" data-category="' . $row["category"] . '">';
+                            echo '<div class="product-card" data-category="' . $row["category"] . '" data-price="' . (float) $row["price"] . '">';
                             echo '  <div class="product-image">';
                             echo '    <a href="../pages/website/service_detail.php?id=' . $row['id'] . '">';
                             echo '      <img src="../assets/images/services/service-' . $row['id'] . '.jpg" alt="' . $row["product_name"] . '">';
@@ -676,6 +684,19 @@ $cart_count = $row['total_items'] ? $row['total_items'] : 0;
     </footer>
 
     <script src="../assets/js/main.js"></script>
+    <script>
+        // Home > printing services sub-branch: open the matching catalog tab and scroll to it
+        document.querySelectorAll('.side-nav-sub a[data-service]').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                var section = document.getElementById('services');
+                if (!section) return; // not on the home page: let the link behave normally
+                e.preventDefault();
+                var tab = document.querySelector('.catalog-tab[data-target="' + link.dataset.service + '"]');
+                if (tab) tab.click();
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+    </script>
     <script>
         // Chat functionality with auto-scroll improvements
         let currentConversationId = null;

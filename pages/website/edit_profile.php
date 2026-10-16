@@ -93,7 +93,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     province = ?, 
                     zip_code = ? 
                     WHERE user_id = ?";
-                
+
                 $update_stmt = $inventory->prepare($update_query);
                 $update_stmt->bind_param(
                     "sssisssssssi",
@@ -123,7 +123,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $error = "Failed to update profile. Please try again.";
                 }
                 $update_stmt->close();
-                
             } catch (Exception $e) {
                 $inventory->rollback();
                 $error = "An error occurred: " . $e->getMessage();
@@ -176,7 +175,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     lot_or_room_no = ?, 
                     zip_code = ? 
                     WHERE user_id = ?";
-                
+
                 $update_stmt = $inventory->prepare($update_query);
                 $update_stmt->bind_param(
                     "sssssssssssi",
@@ -206,7 +205,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $error = "Failed to update profile. Please try again.";
                 }
                 $update_stmt->close();
-                
             } catch (Exception $e) {
                 $inventory->rollback();
                 $error = "An error occurred: " . $e->getMessage();
@@ -232,10 +230,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $field_errors['confirm_password'] = "New passwords do not match";
         }
 
-        if (empty($field_errors['current_password'] ?? null) && 
-            empty($field_errors['new_password'] ?? null) && 
-            empty($field_errors['confirm_password'] ?? null)) {
-            
+        if (
+            empty($field_errors['current_password'] ?? null) &&
+            empty($field_errors['new_password'] ?? null) &&
+            empty($field_errors['confirm_password'] ?? null)
+        ) {
+
             // Verify current password
             $check_query = "SELECT password FROM users WHERE id = ?";
             $check_stmt = $inventory->prepare($check_query);
@@ -337,9 +337,9 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
     $error  = $field_errors[$name] ?? null;
     $err_id = $o['id'] . '-error';
     $input  = '<input type="' . htmlspecialchars($o['type']) . '"'
-            . ' id="' . htmlspecialchars($o['id']) . '"'
-            . ' name="' . htmlspecialchars($name) . '"'
-            . ' class="form-input' . ($error ? ' error' : '') . '"';
+        . ' id="' . htmlspecialchars($o['id']) . '"'
+        . ' name="' . htmlspecialchars($name) . '"'
+        . ' class="form-input' . ($error ? ' error' : '') . '"';
 
     if (!$o['password']) {
         $input .= ' value="' . htmlspecialchars((string) $value) . '"';
@@ -366,20 +366,20 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
 
     echo '<div class="form-group' . ($o['span'] ? ' ' . htmlspecialchars($o['span']) : '') . '">';
     echo '<label class="form-label" for="' . htmlspecialchars($o['id']) . '">' . htmlspecialchars($label)
-       . ($o['required'] ? ' <span class="required">*</span>' : '') . '</label>';
+        . ($o['required'] ? ' <span class="required">*</span>' : '') . '</label>';
 
     if ($o['password']) {
         echo '<div class="password-input-container">' . $input
-           . '<button type="button" class="password-toggle" aria-label="Show or hide password"'
-           . ' onclick="togglePassword(\'' . htmlspecialchars($o['id']) . '\', this)">'
-           . '<i class="fas fa-eye"></i></button></div>';
+            . '<button type="button" class="password-toggle" aria-label="Show or hide password"'
+            . ' onclick="togglePassword(\'' . htmlspecialchars($o['id']) . '\', this)">'
+            . '<i class="fas fa-eye"></i></button></div>';
     } else {
         echo $input;
     }
 
     if ($error) {
         echo '<div class="error-message" id="' . htmlspecialchars($err_id) . '">'
-           . '<i class="fas fa-exclamation-circle"></i> ' . htmlspecialchars($error) . '</div>';
+            . '<i class="fas fa-exclamation-circle"></i> ' . htmlspecialchars($error) . '</div>';
     }
     if ($o['help'] !== '') {
         echo '<div class="form-help">' . htmlspecialchars($o['help']) . '</div>';
@@ -390,6 +390,7 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -409,8 +410,15 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
            bar that respects the home indicator. Tablet/desktop
            layouts are untouched (everything below is <= 720px).
         ========================================================= */
-        .acct-page .rail-nav { scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-        .acct-page .rail-nav::-webkit-scrollbar { display: none; }
+        .acct-page .rail-nav {
+            scroll-snap-type: x proximity;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .acct-page .rail-nav::-webkit-scrollbar {
+            display: none;
+        }
 
         /* The scroll-reveal (.hide/.show) leaves transform + filter on the section,
            and any transformed/filtered ancestor turns position:fixed into
@@ -421,51 +429,143 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
             filter: none;
         }
 
-        .savebar-nav { display: none; }
+        .savebar-nav {
+            display: none;
+        }
 
         @media (max-width: 720px) {
-            .acct-hero { padding: 96px 0 12px; }
-            .acct-hero__texture { display: none; }
-            .acct-hero-title { margin-bottom: 8px; font-size: clamp(1.75rem, 8vw, 2.2rem); }
-            .acct-hero-sub { margin-bottom: 10px; font-size: 0.95rem; line-height: 1.5; }
-            .acct-backlink { display: inline-flex; align-items: center; min-height: 44px; }
-            .acct-main { padding: 4px 0 48px; }
-            .acct-layout--edit { gap: 14px; }
+            .acct-hero {
+                padding: 96px 0 12px;
+            }
+
+            .acct-hero__texture {
+                display: none;
+            }
+
+            .acct-hero-title {
+                margin-bottom: 8px;
+                font-size: clamp(1.75rem, 8vw, 2.2rem);
+            }
+
+            .acct-hero-sub {
+                margin-bottom: 10px;
+                font-size: 0.95rem;
+                line-height: 1.5;
+            }
+
+            .acct-backlink {
+                display: inline-flex;
+                align-items: center;
+                min-height: 44px;
+            }
+
+            .acct-main {
+                padding: 4px 0 48px;
+            }
+
+            .acct-layout--edit {
+                gap: 14px;
+            }
 
             /* --- identity card: slim, avatar left, badges beneath --- */
-            .acct-page .rail-card { padding: 14px 16px 12px; }
-            .acct-page .rail-id { gap: 12px; margin-bottom: 10px; }
-            .acct-page .rail-id .acct-avatar { width: 46px; height: 46px; font-size: 1rem; }
-            .acct-page .rail-id .acct-avatar::after { inset: -4px; }
-            .acct-page .rail-id h2 { font-size: 1rem; }
-            .acct-page .rail-id span { font-size: 13px; }
-            .acct-page .acct-badges { gap: 6px; }
-            .acct-page .acct-badge { padding: 4px 10px; font-size: 12px; }
-            .acct-page .rail-verify { min-height: 44px; margin-top: 10px; }
+            .acct-page .rail-card {
+                padding: 14px 16px 12px;
+            }
+
+            .acct-page .rail-id {
+                gap: 12px;
+                margin-bottom: 10px;
+            }
+
+            .acct-page .rail-id .acct-avatar {
+                width: 46px;
+                height: 46px;
+                font-size: 1rem;
+            }
+
+            .acct-page .rail-id .acct-avatar::after {
+                inset: -4px;
+            }
+
+            .acct-page .rail-id h2 {
+                font-size: 1rem;
+            }
+
+            .acct-page .rail-id span {
+                font-size: 13px;
+            }
+
+            .acct-page .acct-badges {
+                gap: 6px;
+            }
+
+            .acct-page .acct-badge {
+                padding: 4px 10px;
+                font-size: 12px;
+            }
+
+            .acct-page .rail-verify {
+                min-height: 44px;
+                margin-top: 10px;
+            }
 
             /* --- section nav now lives inside the floating save bar --- */
-            .acct-page .rail-nav { display: none; }
+            .acct-page .rail-nav {
+                display: none;
+            }
 
             /* --- form cards --- */
-            .acct-form-col { gap: 14px; }
+            .acct-form-col {
+                gap: 14px;
+            }
+
             .acct-page .form-card {
                 scroll-margin-top: 16px;
                 padding: 18px 16px 20px;
                 border-left-width: 3px;
             }
-            .acct-page .form-card__head { gap: 12px; margin-bottom: 16px; padding-bottom: 14px; }
-            .acct-page .form-card__icon { width: 38px; height: 38px; font-size: 15px; }
-            .acct-page .form-card__head h2 { font-size: 1.08rem; }
-            .acct-page .form-card__head p { font-size: 13px; line-height: 1.4; }
+
+            .acct-page .form-card__head {
+                gap: 12px;
+                margin-bottom: 16px;
+                padding-bottom: 14px;
+            }
+
+            .acct-page .form-card__icon {
+                width: 38px;
+                height: 38px;
+                font-size: 15px;
+            }
+
+            .acct-page .form-card__head h2 {
+                font-size: 1.08rem;
+            }
+
+            .acct-page .form-card__head p {
+                font-size: 13px;
+                line-height: 1.4;
+            }
 
             /* one column by default, short fields sit in pairs */
-            .acct-page .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+            .acct-page .form-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 16px 12px;
+            }
+
             .acct-page .form-group,
             .acct-page .form-group.col-2,
-            .acct-page .form-group.full-width { grid-column: 1 / -1; }
-            .acct-page .form-group.m-half { grid-column: span 1; }
+            .acct-page .form-group.full-width {
+                grid-column: 1 / -1;
+            }
 
-            .acct-page .form-label { margin-bottom: 6px; font-size: 13px; }
+            .acct-page .form-group.m-half {
+                grid-column: span 1;
+            }
+
+            .acct-page .form-label {
+                margin-bottom: 6px;
+                font-size: 13px;
+            }
 
             /* 16px stops iOS zooming on focus; 48px is a comfortable tap target */
             .acct-page .form-input,
@@ -476,7 +576,12 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                 -webkit-appearance: none;
                 appearance: none;
             }
-            .acct-page .form-select { padding-right: 38px; background-position: right 14px center; }
+
+            .acct-page .form-select {
+                padding-right: 38px;
+                background-position: right 14px center;
+            }
+
             .acct-page input[type="date"].form-input {
                 display: block;
                 width: 100%;
@@ -484,16 +589,44 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                 text-align: left;
                 line-height: 1.2;
             }
-            .acct-page input[type="date"].form-input::-webkit-date-and-time-value { text-align: left; min-height: 1.2em; }
-            .acct-page .password-input-container .form-input { padding-right: 52px; }
-            .acct-page .password-toggle { right: 4px; width: 44px; height: 44px; font-size: 16px; }
+
+            .acct-page input[type="date"].form-input::-webkit-date-and-time-value {
+                text-align: left;
+                min-height: 1.2em;
+            }
+
+            .acct-page .password-input-container .form-input {
+                padding-right: 52px;
+            }
+
+            .acct-page .password-toggle {
+                right: 4px;
+                width: 44px;
+                height: 44px;
+                font-size: 16px;
+            }
+
             .acct-page .form-help,
             .acct-page .error-message,
-            .acct-page .age-display { font-size: 12.5px; line-height: 1.4; }
+            .acct-page .age-display {
+                font-size: 12.5px;
+                line-height: 1.4;
+            }
 
             /* --- notices --- */
-            .acct-notice { align-items: flex-start; gap: 10px; padding: 12px 14px; margin-bottom: 12px; font-size: 14px; }
-            .acct-notice__body a { display: inline-block; margin-top: 2px; padding: 6px 0; }
+            .acct-notice {
+                align-items: flex-start;
+                gap: 10px;
+                padding: 12px 14px;
+                margin-bottom: 12px;
+                font-size: 14px;
+            }
+
+            .acct-notice__body a {
+                display: inline-block;
+                margin-top: 2px;
+                padding: 6px 0;
+            }
 
             /* --- save bar: floats over the form while scrolling, then settles
                into its natural spot at the end of the form (above the footer) --- */
@@ -509,12 +642,14 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                 border-radius: var(--r-lg);
                 box-shadow: 0 10px 30px rgba(20, 17, 12, 0.22), 0 2px 6px rgba(20, 17, 12, 0.10);
             }
+
             .savebar-nav {
                 display: grid;
                 grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 6px;
                 width: 100%;
             }
+
             .savebar-nav a {
                 display: flex;
                 align-items: center;
@@ -531,14 +666,30 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                 color: var(--ink-soft);
                 -webkit-tap-highlight-color: transparent;
             }
-            .savebar-nav a .rail-nav__num { width: 20px; height: 20px; font-size: 10.5px; }
+
+            .savebar-nav a .rail-nav__num {
+                width: 20px;
+                height: 20px;
+                font-size: 10.5px;
+            }
+
             .savebar-nav a.is-active {
                 background: var(--ink);
                 border-color: var(--ink);
                 color: var(--paper-white);
             }
-            .acct-savebar__status { width: 100%; justify-content: center; font-size: 13px; }
-            .acct-savebar__actions { width: 100%; gap: 10px; }
+
+            .acct-savebar__status {
+                width: 100%;
+                justify-content: center;
+                font-size: 13px;
+            }
+
+            .acct-savebar__actions {
+                width: 100%;
+                gap: 10px;
+            }
+
             .acct-savebar .btn {
                 flex: 1;
                 min-height: 48px;
@@ -546,15 +697,29 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                 justify-content: center;
                 font-size: 15px;
             }
-            .acct-savebar .btn-primary { flex: 1.6; }
+
+            .acct-savebar .btn-primary {
+                flex: 1.6;
+            }
 
         }
 
         @media (max-width: 380px) {
-            .acct-page .form-grid { grid-template-columns: minmax(0, 1fr); }
-            .acct-page .form-group.m-half { grid-column: 1 / -1; }
-            .acct-page .form-card { padding: 16px 14px 18px; }
-            .savebar-nav a .rail-nav__num { display: none; }
+            .acct-page .form-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .acct-page .form-group.m-half {
+                grid-column: 1 / -1;
+            }
+
+            .acct-page .form-card {
+                padding: 16px 14px 18px;
+            }
+
+            .savebar-nav a .rail-nav__num {
+                display: none;
+            }
         }
     </style>
 </head>
@@ -563,7 +728,15 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
     <!-- Side Pill Navigation -->
     <nav class="side-nav" id="sideNav" aria-label="Primary">
         <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
-            <li><a href="../../website/main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li class="has-sub">
+                <a href="../../website/main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a>
+                <ul class="side-nav-sub" aria-label="Printing services">
+                    <li><a href="../../website/main.php#offset" data-service="offset"><span class="side-nav-dot" data-ink="black" aria-hidden="true"></span><span class="side-nav-label">Offset Printing</span></a></li>
+                    <li><a href="../../website/main.php#digital" data-service="digital"><span class="side-nav-dot" data-ink="cyan" aria-hidden="true"></span><span class="side-nav-label">Digital Printing</span></a></li>
+                    <li><a href="../../website/main.php#riso" data-service="riso"><span class="side-nav-dot" data-ink="magenta" aria-hidden="true"></span><span class="side-nav-label">RISO Printing</span></a></li>
+                    <li><a href="../../website/main.php#other" data-service="other"><span class="side-nav-dot" data-ink="yellow" aria-hidden="true"></span><span class="side-nav-label">Other Services</span></a></li>
+                </ul>
+            </li>
             <li><a href="../../website/ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
             <li><a href="../../website/about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
             <li><a href="../../website/contact.php"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
@@ -725,11 +898,11 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                                 <div class="form-group col-2 m-half">
                                     <label class="form-label" for="birthdate">Birthdate</label>
                                     <input type="date"
-                                           name="birthdate"
-                                           id="birthdate"
-                                           class="form-input"
-                                           value="<?php echo htmlspecialchars($user_data['birthdate'] ?? ''); ?>"
-                                           onchange="calculateAgeFromDate()">
+                                        name="birthdate"
+                                        id="birthdate"
+                                        class="form-input"
+                                        value="<?php echo htmlspecialchars($user_data['birthdate'] ?? ''); ?>"
+                                        onchange="calculateAgeFromDate()">
                                     <div id="ageDisplay" class="age-display" aria-live="polite"><?php if (!empty($user_data['age'])): ?>Age: <?php echo htmlspecialchars($user_data['age']); ?> years old<?php endif; ?></div>
                                 </div>
 
@@ -830,17 +1003,26 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                         <div class="form-grid">
                             <?php
                             acct_field('current_password', 'Current Password', '', $field_errors, [
-                                'type' => 'password', 'password' => true, 'id' => 'currentPassword',
-                                'span' => 'col-2', 'autocomplete' => 'current-password',
+                                'type' => 'password',
+                                'password' => true,
+                                'id' => 'currentPassword',
+                                'span' => 'col-2',
+                                'autocomplete' => 'current-password',
                             ]);
                             acct_field('new_password', 'New Password', '', $field_errors, [
-                                'type' => 'password', 'password' => true, 'id' => 'newPassword',
-                                'span' => 'col-2', 'autocomplete' => 'new-password',
+                                'type' => 'password',
+                                'password' => true,
+                                'id' => 'newPassword',
+                                'span' => 'col-2',
+                                'autocomplete' => 'new-password',
                                 'help' => 'Must be at least 8 characters long',
                             ]);
                             acct_field('confirm_password', 'Confirm New Password', '', $field_errors, [
-                                'type' => 'password', 'password' => true, 'id' => 'confirmPassword',
-                                'span' => 'col-2', 'autocomplete' => 'new-password',
+                                'type' => 'password',
+                                'password' => true,
+                                'id' => 'confirmPassword',
+                                'span' => 'col-2',
+                                'autocomplete' => 'new-password',
                                 'enterkeyhint' => 'done',
                             ]);
                             ?>
@@ -1000,8 +1182,13 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
             // If the server sent the form back with errors, bring the first one into view
             const firstServerError = document.querySelector('.form-input.error, .form-select.error');
             if (firstServerError) {
-                firstServerError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                firstServerError.focus({ preventScroll: true });
+                firstServerError.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+                firstServerError.focus({
+                    preventScroll: true
+                });
             }
         });
 
@@ -1096,7 +1283,9 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                     links.forEach(l => l.classList.remove('is-active'));
                     (byId[entry.target.id] || []).forEach(l => l.classList.add('is-active'));
                 });
-            }, { rootMargin: '-20% 0px -60% 0px' });
+            }, {
+                rootMargin: '-20% 0px -60% 0px'
+            });
 
             Object.keys(byId).forEach(id => spy.observe(document.getElementById(id)));
         }
@@ -1107,7 +1296,10 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
                 const target = document.querySelector(link.getAttribute('href'));
                 if (!target) return;
                 e.preventDefault();
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
                 document.querySelectorAll('.rail-nav a, .savebar-nav a').forEach(l => l.classList.remove('is-active'));
                 document.querySelectorAll('a[href="' + link.getAttribute('href') + '"]').forEach(l => l.classList.add('is-active'));
             });
@@ -1118,7 +1310,10 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
             if (!window.matchMedia('(max-width: 720px)').matches) return;
             if (!e.target.matches('.form-input, .form-select')) return;
             setTimeout(function() {
-                e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                e.target.scrollIntoView({
+                    block: 'center',
+                    behavior: 'smooth'
+                });
             }, 300);
         });
 
@@ -1813,6 +2008,7 @@ function acct_field($name, $label, $value, array $field_errors = [], array $opts
         window.deleteConversation = deleteConversation;
     </script>
 </body>
+
 </html>
 
 <?php

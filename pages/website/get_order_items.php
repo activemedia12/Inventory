@@ -542,6 +542,28 @@ function oi_layout_files($raw)
     font-size: 18px;
 }
 
+.order-items-list .design-pdf {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 68px;
+    height: 68px;
+    border-radius: var(--r-sm);
+    background: var(--paper-white);
+    border: 1.5px solid var(--line);
+    color: var(--riso-red);
+    font-size: 18px;
+}
+
+.order-items-list .design-pdf span {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+}
+
 .order-items-list .design-label {
     margin-top: 4px;
     font-size: 10.5px;
@@ -911,27 +933,28 @@ if (isset($_GET['order_id'])) {
                                     <div class="oi-block__title">
                                         <i class="fas fa-file-upload" aria-hidden="true"></i> Your uploaded layout file<?php echo count($layout_files) > 1 ? 's' : ''; ?>
                                     </div>
-                                    <ul class="oi-files">
-                                        <?php foreach ($layout_files as $lf):
-                                            $lf_url  = oi_layout_file_url($lf);
-                                            $lf_name = basename($lf);
-                                            $lf_ext  = strtolower(pathinfo($lf_name, PATHINFO_EXTENSION));
-                                            $lf_icon = $lf_ext === 'pdf' ? 'fa-file-pdf' : 'fa-file-image';
+                                    <div class="design-previews">
+                                        <?php foreach ($layout_files as $n => $lf):
+                                            $lf_url   = oi_layout_file_url($lf);
+                                            $lf_name  = basename($lf);
+                                            $lf_is_pdf = strtolower(pathinfo($lf_name, PATHINFO_EXTENSION)) === 'pdf';
+                                            $lf_ok    = $lf_url && strpos($lf_url, '..', 6) === false && file_exists($lf_url);
+                                            $lf_label = count($layout_files) > 1 ? 'Layout ' . ($n + 1) : 'Layout file';
                                         ?>
-                                            <li>
-                                                <?php if ($lf_url && file_exists($lf_url)): ?>
-                                                    <a class="oi-file" href="<?php echo oi_h($lf_url); ?>" target="_blank" rel="noopener">
-                                                        <i class="fas <?php echo $lf_icon; ?>" aria-hidden="true"></i> <?php echo oi_h($lf_name); ?>
+                                            <figure class="design-preview">
+                                                <?php if ($lf_ok && $lf_is_pdf): ?>
+                                                    <a class="design-pdf" href="<?php echo oi_h($lf_url); ?>" target="_blank" rel="noopener" title="<?php echo oi_h($lf_name); ?>" aria-label="Open <?php echo oi_h($lf_name); ?>"><i class="fas fa-file-pdf" aria-hidden="true"></i><span>PDF</span></a>
+                                                <?php elseif ($lf_ok): ?>
+                                                    <a href="<?php echo oi_h($lf_url); ?>" target="_blank" rel="noopener" title="<?php echo oi_h($lf_name); ?>" aria-label="Open <?php echo oi_h($lf_name); ?> full size">
+                                                        <img src="<?php echo oi_h($lf_url); ?>" alt="<?php echo oi_h($lf_label); ?>" loading="lazy">
                                                     </a>
                                                 <?php else: ?>
-                                                    <span class="oi-file">
-                                                        <i class="fas <?php echo $lf_icon; ?>" aria-hidden="true"></i> <?php echo oi_h($lf_name); ?>
-                                                        <small>(file not found)</small>
-                                                    </span>
+                                                    <div class="design-missing" title="<?php echo oi_h($lf_name); ?> (file not found)"><i class="fas <?php echo $lf_is_pdf ? 'fa-file-pdf' : 'fa-file-image'; ?>" aria-hidden="true"></i></div>
                                                 <?php endif; ?>
-                                            </li>
+                                                <figcaption class="design-label"><?php echo oi_h($lf_label); ?></figcaption>
+                                            </figure>
                                         <?php endforeach; ?>
-                                    </ul>
+                                    </div>
                                 </div>
                             <?php endif; ?>
 

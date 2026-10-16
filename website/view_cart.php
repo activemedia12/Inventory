@@ -488,6 +488,26 @@ function cart_layout_file_url($stored_path)
     return '../' . substr($stored_path, $pos);
 }
 
+// One tile for an uploaded layout file: thumbnail for JPEG/PNG, a PDF tile for PDFs,
+// or the dashed "missing" tile. Same markup as cart_design_tile() so it matches the page.
+function cart_layout_tile($label, $stored_path)
+{
+    $url = cart_layout_file_url($stored_path);
+    $name = basename($stored_path);
+    $is_pdf = strtolower(pathinfo($name, PATHINFO_EXTENSION)) === 'pdf';
+    $exists = $url && strpos($url, '..', 3) === false && file_exists($url);
+
+    echo '<figure class="design-tile">';
+    if ($exists && $is_pdf) {
+        echo '<a class="design-pdf" href="' . cart_h($url) . '" target="_blank" rel="noopener" title="' . cart_h($name) . '"><i class="fas fa-file-pdf"></i><span>PDF</span></a>';
+    } elseif ($exists) {
+        echo '<a href="' . cart_h($url) . '" target="_blank" rel="noopener" title="' . cart_h($name) . '"><img src="' . cart_h($url) . '" alt="' . cart_h($label) . '" loading="lazy"></a>';
+    } else {
+        echo '<div class="design-missing" title="' . cart_h($name) . ' (file not found)"><i class="fas ' . ($is_pdf ? 'fa-file-pdf' : 'fa-file-image') . '"></i></div>';
+    }
+    echo '<figcaption>' . cart_h($label) . '</figcaption></figure>';
+}
+
 function cart_layout_files_list($raw)
 {
     $files = json_decode($raw, true);
@@ -1454,6 +1474,35 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             font-size: 20px;
         }
 
+        /* PDF layout file: same size, radius and hover as an image tile */
+        .design-pdf {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            width: 92px;
+            height: 92px;
+            border-radius: var(--r-sm);
+            background: var(--paper-white);
+            border: 1px solid var(--line);
+            color: var(--riso-red);
+            font-size: 22px;
+            transition: var(--transition);
+        }
+
+        .design-pdf span {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            color: var(--ink-soft);
+        }
+
+        .design-tile a:hover.design-pdf {
+            border-color: var(--ink);
+            box-shadow: var(--shadow-sm);
+        }
+
         .design-tile figcaption {
             margin-top: 6px;
             text-align: center;
@@ -2095,7 +2144,15 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
     <!-- Side Pill Navigation -->
     <nav class="side-nav" id="sideNav" aria-label="Primary">
         <ul class="side-nav-list<?php echo $navOpen ? ' active' : ' suppress-hover'; ?>">
-            <li><a href="main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a></li>
+            <li class="has-sub">
+                <a href="main.php"><i class="fas fa-home"></i><span class="side-nav-label">Home</span></a>
+                <ul class="side-nav-sub" aria-label="Printing services">
+                    <li><a href="main.php#offset" data-service="offset"><span class="side-nav-dot" data-ink="black" aria-hidden="true"></span><span class="side-nav-label">Offset Printing</span></a></li>
+                    <li><a href="main.php#digital" data-service="digital"><span class="side-nav-dot" data-ink="cyan" aria-hidden="true"></span><span class="side-nav-label">Digital Printing</span></a></li>
+                    <li><a href="main.php#riso" data-service="riso"><span class="side-nav-dot" data-ink="magenta" aria-hidden="true"></span><span class="side-nav-label">RISO Printing</span></a></li>
+                    <li><a href="main.php#other" data-service="other"><span class="side-nav-dot" data-ink="yellow" aria-hidden="true"></span><span class="side-nav-label">Other Services</span></a></li>
+                </ul>
+            </li>
             <li><a href="ai_image.php"><i class="fas fa-robot"></i><span class="side-nav-label">AI Services</span></a></li>
             <li><a href="about.php"><i class="fas fa-info-circle"></i><span class="side-nav-label">About</span></a></li>
             <li><a href="contact.php"><i class="fas fa-phone"></i><span class="side-nav-label">Contact</span></a></li>
@@ -2406,25 +2463,12 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
                                                     <div class="custom-design-title">
                                                         <i class="fas fa-file-upload"></i> Your uploaded layout file<?php echo count($layout_files) > 1 ? 's' : ''; ?>
                                                     </div>
-                                                    <ul class="design-files" style="list-style:none;padding:0;margin:0;">
-                                                        <?php foreach ($layout_files as $lf):
-                                                            $url = cart_layout_file_url($lf);
-                                                            $name = basename($lf);
-                                                            $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-                                                            $icon = $ext === 'pdf' ? 'fa-file-pdf' : 'fa-file-image';
-                                                        ?>
-                                                            <li style="margin-bottom:4px;">
-                                                                <?php if ($url && file_exists($url)): ?>
-                                                                    <a href="<?php echo cart_h($url); ?>" target="_blank" rel="noopener">
-                                                                        <i class="fas <?php echo cart_h($icon); ?>"></i> <?php echo cart_h($name); ?>
-                                                                    </a>
-                                                                <?php else: ?>
-                                                                    <i class="fas <?php echo cart_h($icon); ?>"></i> <?php echo cart_h($name); ?>
-                                                                    <small style="color:#999;">(file not found)</small>
-                                                                <?php endif; ?>
-                                                            </li>
-                                                        <?php endforeach; ?>
-                                                    </ul>
+                                                    <div class="design-previews">
+                                                        <?php foreach (array_values($layout_files) as $n => $lf) {
+                                                            if (!is_string($lf)) continue;
+                                                            cart_layout_tile(count($layout_files) > 1 ? 'Layout ' . ($n + 1) : 'Layout file', $lf);
+                                                        } ?>
+                                                    </div>
                                                 </div>
                                             <?php endif; ?>
 

@@ -3,8 +3,9 @@ session_start();
 require_once '../../config/db.php';
 require_once '../../config/security.php';
 require_once '../permissions.php';
+require_once 'admin_helpers.php';
 
-// Check if user is logged in and is admin
+// Check that the user is logged in and is staff (admin, employee or super admin)
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee', 'super_admin'])) {
     header("Location: ../../accounts/login.php");
     exit;
@@ -66,14 +67,11 @@ $types = 'ss';
 // and the CSV export) all agree on the same number. 'pending' orders are not
 // yet paid for, so they are excluded here.
 $REVENUE_STATUSES = ['paid', 'processing', 'ready_for_pickup', 'completed'];
-$revenue_status_sql = "'" . implode("','", array_map([$inventory, 'real_escape_string'], $REVENUE_STATUSES)) . "'";
+// Fixed list, so it is written straight into the SQL.
+$revenue_status_sql = "'" . implode("','", $REVENUE_STATUSES) . "'";
 
-// Get sales report data
 // Get sales report data
 if ($report_type === 'sales') {
-    // Debug: Check what dates are being used
-    error_log("Date range: $start_date to $end_date");
-
     // Total sales with COALESCE to handle NULL values
     $sales_query = "SELECT 
         COUNT(*) as total_orders,
@@ -97,9 +95,6 @@ if ($report_type === 'sales') {
     if ($sales_result) {
         $sales_data = $sales_result->fetch_assoc();
 
-        // Debug output (remove in production)
-        echo "<!-- Sales Data: " . print_r($sales_data, true) . " -->";
-
         // Ensure we have values even if NULL
         $sales_data = [
             'total_orders' => $sales_data['total_orders'] ?? 0,
@@ -115,7 +110,7 @@ if ($report_type === 'sales') {
             'avg_order_value' => 0,
             'unique_customers' => 0
         ];
-        echo "<!-- Query Error: " . $sales_stmt->error . " -->";
+        error_log('Sales report query failed: ' . $sales_stmt->error);
     }
 
     // Daily sales trend
@@ -136,15 +131,18 @@ if ($report_type === 'sales') {
     $daily_sales = $daily_sales_result ? $daily_sales_result->fetch_all(MYSQLI_ASSOC) : [];
 
     // Top products
+    // Grouped by product id so a renamed product stays one row (the current
+    // name is used when the product still exists).
     $top_products_query = "SELECT 
-        oi.product_name,
+        COALESCE(MAX(p.product_name), MAX(oi.product_name)) as product_name,
         COALESCE(SUM(oi.quantity), 0) as total_sold,
         COALESCE(SUM(oi.quantity * oi.unit_price), 0) as total_revenue
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.order_id
+        LEFT JOIN products_offered p ON oi.product_id = p.id
         WHERE o.created_at BETWEEN ? AND ? 
         AND o.status IN ($revenue_status_sql)
-        GROUP BY oi.product_name
+        GROUP BY COALESCE(CAST(oi.product_id AS CHAR), oi.product_name)
         ORDER BY total_sold DESC
         LIMIT 10";
 
@@ -185,13 +183,13 @@ if ($report_type === 'customers') {
 
     // Top customers
     $top_customers_query = "SELECT 
-        u.username,
-        pc.first_name,
-        pc.last_name,
+        MAX(u.username) as username,
+        MAX(pc.first_name) as first_name,
+        MAX(pc.last_name) as last_name,
         COUNT(o.order_id) as order_count,
         SUM(o.total_amount) as total_spent
         FROM orders o
-        JOIN users u ON o.user_id = u.id
+        LEFT JOIN users u ON o.user_id = u.id
         LEFT JOIN personal_customers pc ON u.id = pc.user_id
         WHERE $date_condition AND o.status IN ($revenue_status_sql)
         GROUP BY o.user_id
@@ -301,7 +299,7 @@ if ($report_type === 'sales') {
         'headers' => ['Customer', 'Username', 'Orders', 'Total Spent'],
         'rows' => array_map(
             function ($c) {
-                return [trim($c['first_name'] . ' ' . $c['last_name']), $c['username'], $c['order_count'], round((float) $c['total_spent'], 2)];
+                return [trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? '')), $c['username'] ?? 'Deleted account', $c['order_count'], round((float) $c['total_spent'], 2)];
             },
             $top_customers
         ),
@@ -452,12 +450,12 @@ $toggle_btn = '<button type="button" class="btn btn-secondary detail-toggle-btn"
                     <thead><tr><th scope="col">Customer</th><th scope="col" class="num">Orders</th><th scope="col" class="num">Total spent</th></tr></thead>
                     <tbody>
                         <?php foreach ($top_customers as $customer):
-                            $cname = trim($customer['first_name'] . ' ' . $customer['last_name']); ?>
+                            $cname = trim(($customer['first_name'] ?? '') . ' ' . ($customer['last_name'] ?? '')); $uname = $customer['username'] ?? 'Deleted account'; ?>
                             <tr>
                                 <td>
                                     <div class="cell-stack">
-                                        <span class="cell-main"><?php echo htmlspecialchars($cname !== '' ? $cname : $customer['username']); ?></span>
-                                        <?php if ($cname !== ''): ?><span class="cell-sub"><?php echo htmlspecialchars($customer['username']); ?></span><?php endif; ?>
+                                        <span class="cell-main"><?php echo htmlspecialchars($cname !== '' ? $cname : $uname); ?></span>
+                                        <?php if ($cname !== ''): ?><span class="cell-sub"><?php echo htmlspecialchars($uname); ?></span><?php endif; ?>
                                     </div>
                                 </td>
                                 <td class="num"><?php echo (int) $customer['order_count']; ?></td>

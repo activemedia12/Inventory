@@ -5,7 +5,7 @@ require_once '../../config/security.php';
 require_once '../permissions.php';
 require_once '../../config/ChatController.php';
 
-// Check if user is logged in and is admin
+// Check that the user is logged in and is staff (admin, employee or super admin)
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'employee', 'super_admin'])) {
     header("Location: ../../accounts/login.php");
     exit;
@@ -16,51 +16,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_require();
 }
 
-$customers = [];
-try {
-    $search = isset($_GET['search']) ? trim($_GET['search']) : '';
-
-    if (!empty($search)) {
-        // With search functionality
-        $search_term = "%{$search}%";
-        $stmt = $inventory->prepare("
-            SELECT u.id, u.username, u.email, 
-                   COALESCE(p.display_name, u.username) as display_name
-            FROM users u
-            LEFT JOIN profiles p ON u.id = p.user_id
-            WHERE u.role = 'customer'
-            AND (
-                u.username LIKE ? OR 
-                u.email LIKE ? OR
-                p.display_name LIKE ? OR
-                u.id LIKE ?
-            )
-            ORDER BY COALESCE(p.display_name, u.username) ASC
-            LIMIT 100
-        ");
-        $stmt->bind_param("ssss", $search_term, $search_term, $search_term, $search_term);
-    } else {
-        // Without search (original)
-        $stmt = $inventory->prepare("
-            SELECT u.id, u.username, u.email, 
-                   COALESCE(p.display_name, u.username) as display_name
-            FROM users u
-            LEFT JOIN profiles p ON u.id = p.user_id
-            WHERE u.role = 'customer'
-            ORDER BY COALESCE(p.display_name, u.username) ASC
-            LIMIT 100
-        ");
+/** Markup for the message list. Used by the page itself and by the small refresh endpoint below. */
+function render_chat_messages(array $messages, int $viewer_id): string
+{
+    ob_start();
+    if (empty($messages)) {
+        echo '<div class="system-message">No messages yet. Say hello to start the conversation.</div>';
+        return ob_get_clean();
     }
-
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    while ($row = $result->fetch_assoc()) {
-        $customers[] = $row;
+    $last_day = '';
+    foreach ($messages as $msg) {
+        $day = date('Y-m-d', strtotime($msg['created_at']));
+        if ($day !== $last_day) {
+            $last_day = $day;
+            echo '<div class="day-divider">' . ($day === date('Y-m-d') ? 'Today' : date('M j, Y', strtotime($msg['created_at']))) . '</div>';
+        }
+        if ($msg['message_type'] === 'system') {
+            echo '<div class="system-message">' . htmlspecialchars($msg['message']) . '</div>';
+            continue;
+        }
+        $mine = $msg['sender_id'] == $viewer_id;
+        echo '<div class="message-container ' . ($mine ? 'sent' : 'received') . '">';
+        if (!$mine) {
+            echo '<div class="message-sender">' . htmlspecialchars($msg['sender_display_name'] ?? $msg['sender_username']) . '</div>';
+        }
+        echo '<div class="message-bubble">' . nl2br(htmlspecialchars($msg['message'])) . '</div>';
+        echo '<div class="message-time">' . date('g:i A', strtotime($msg['created_at']));
+        if ($mine && $msg['is_read']) {
+            echo ' <span class="read"><i class="fas fa-check-double" aria-hidden="true"></i> Read</span>';
+        }
+        echo '</div></div>';
     }
-} catch (Exception $e) {
-    // Handle error
-    error_log("Error fetching customers: " . $e->getMessage());
+    return ob_get_clean();
 }
 
 $user_id = $_SESSION['user_id'];
@@ -69,9 +56,30 @@ $role = $_SESSION['role'];
 // Initialize chat controller
 $chatController = new ChatController($inventory);
 
+// Small endpoint for the live refresh: returns only the message list for one
+// conversation (not the whole page) plus a hash so the browser can skip
+// redrawing when nothing changed.
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'messages') {
+    header('Content-Type: application/json; charset=utf-8');
+    $poll_id = (int) ($_GET['conversation'] ?? 0);
+    if ($poll_id < 1) {
+        echo json_encode(['success' => false]);
+        exit;
+    }
+    $poll_messages = $chatController->getConversationMessages($poll_id, $user_id);
+    $poll_html = render_chat_messages($poll_messages, (int) $user_id);
+    echo json_encode([
+        'success' => true,
+        'hash' => md5($poll_html),
+        'count' => count($poll_messages),
+        'html' => $poll_html,
+    ]);
+    exit;
+}
+
 // Handle conversation deletion
 if (isset($_POST['delete_conversation']) && isset($_POST['conversation_id'])) {
-    $conversation_id = $_POST['conversation_id'];
+    $conversation_id = (int) $_POST['conversation_id'];
 
     if (!can('web_delete')) {
         $_SESSION['chat_error'] = permission_denied_message('web_delete');
@@ -89,7 +97,7 @@ if (isset($_POST['delete_conversation']) && isset($_POST['conversation_id'])) {
             exit;
         } else {
             $_SESSION['chat_error'] = $result['message'];
-            header("Location: admin_chat.php?conversation=" . $conversation_id);
+            header("Location: admin_chat.php?conversation=" . urlencode((string) $conversation_id));
             exit;
         }
     } else {
@@ -105,14 +113,14 @@ if (isset($_POST['create_conversation'])) {
         header("Location: admin_chat.php");
         exit;
     }
-    $customer_id = $_POST['customer_id'];
+    $customer_id = (int) ($_POST['customer_id'] ?? 0);
     $title = $_POST['title'] ?? 'Support Conversation';
 
     // Always use current admin's ID (not employee)
     $result = $chatController->startConversation($customer_id, $user_id, $title);
     if ($result['success']) {
         $_SESSION['chat_message'] = "Conversation created successfully!";
-        header("Location: admin_chat.php?conversation=" . $result['conversation_id']);
+        header("Location: admin_chat.php?conversation=" . (int) $result['conversation_id']);
         exit;
     } else {
         $_SESSION['chat_error'] = $result['message'];
@@ -121,8 +129,13 @@ if (isset($_POST['create_conversation'])) {
 
 // Handle message sending
 if (isset($_POST['send_message']) && isset($_POST['conversation_id'])) {
-    $conversation_id = $_POST['conversation_id'];
-    $message = $_POST['message'];
+    $conversation_id = (int) $_POST['conversation_id'];
+    $message = trim((string) ($_POST['message'] ?? ''));
+    if ($message === '') {
+        $_SESSION['chat_error'] = 'Type a message first.';
+        header("Location: admin_chat.php?conversation=" . urlencode((string) $conversation_id));
+        exit;
+    }
 
     if (!can('web_chat')) {
         $_SESSION['chat_error'] = permission_denied_message('web_chat');
@@ -132,7 +145,7 @@ if (isset($_POST['send_message']) && isset($_POST['conversation_id'])) {
 
     $result = $chatController->sendMessage($conversation_id, $user_id, $message);
     if ($result['success']) {
-        header("Location: admin_chat.php?conversation=" . $conversation_id);
+        header("Location: admin_chat.php?conversation=" . urlencode((string) $conversation_id));
         exit;
     } else {
         $_SESSION['chat_error'] = $result['message'];
@@ -147,7 +160,7 @@ $unread_count = $chatController->getUnreadCount($user_id);
 $current_conversation = null;
 $current_messages = [];
 if (isset($_GET['conversation'])) {
-    $current_conversation_id = $_GET['conversation'];
+    $current_conversation_id = (int) $_GET['conversation'];
     $current_messages = $chatController->getConversationMessages($current_conversation_id, $user_id);
 
     // Get conversation info
@@ -201,7 +214,7 @@ if (isset($_POST['toggle_status']) && isset($_POST['status_action'])) {
     $_SESSION['chat_manual_offline'] = ($newStatus == 0);
 
     $_SESSION['chat_message'] = "Status updated to " . ($newStatus ? "Online" : "Offline") . "!";
-    header("Location: admin_chat.php" . (isset($_GET['conversation']) ? "?conversation=" . $_GET['conversation'] : ""));
+    header("Location: admin_chat.php" . (isset($_GET['conversation']) ? "?conversation=" . (int) $_GET['conversation'] : ""));
     exit;
 }
 
@@ -246,7 +259,6 @@ admin_layout_start([
     'subtitle' => $unread_count > 0 ? $unread_count . ' unread ' . ($unread_count === 1 ? 'message' : 'messages') : 'Support conversations with customers',
     'actions' => $actions,
     'fill' => true,
-    'chat_unread' => $unread_count,
 ]);
 ?>
 
@@ -289,7 +301,7 @@ admin_layout_start([
                             <?php endif; ?>
                         </span>
                         <?php if (!empty($conv['last_message'])): ?>
-                            <span class="conversation-last-message"><?php echo htmlspecialchars(substr($conv['last_message'], 0, 50)); ?><?php echo strlen($conv['last_message']) > 50 ? '...' : ''; ?></span>
+                            <span class="conversation-last-message"><?php echo htmlspecialchars(mb_substr($conv['last_message'], 0, 50)); ?><?php echo mb_strlen($conv['last_message']) > 50 ? '...' : ''; ?></span>
                         <?php endif; ?>
                         <span class="conversation-meta"><?php echo date('M j, g:i A', strtotime($conv['last_message_time'] ?? $conv['updated_at'])); ?></span>
                     </a>
@@ -318,33 +330,7 @@ admin_layout_start([
             </header>
 
             <div class="chat-messages" id="chatMessages" role="log" aria-live="polite" aria-label="Messages">
-                <?php if (empty($current_messages)): ?>
-                    <div class="system-message">No messages yet. Say hello to start the conversation.</div>
-                <?php else: ?>
-                    <?php $last_day = ''; foreach ($current_messages as $msg):
-                        $day = date('Y-m-d', strtotime($msg['created_at']));
-                        if ($day !== $last_day):
-                            $last_day = $day; ?>
-                            <div class="day-divider"><?php echo $day === date('Y-m-d') ? 'Today' : date('M j, Y', strtotime($msg['created_at'])); ?></div>
-                        <?php endif; ?>
-                        <?php if ($msg['message_type'] === 'system'): ?>
-                            <div class="system-message"><?php echo htmlspecialchars($msg['message']); ?></div>
-                        <?php else: ?>
-                            <div class="message-container <?php echo $msg['sender_id'] == $user_id ? 'sent' : 'received'; ?>">
-                                <?php if ($msg['sender_id'] != $user_id): ?>
-                                    <div class="message-sender"><?php echo htmlspecialchars($msg['sender_display_name'] ?? $msg['sender_username']); ?></div>
-                                <?php endif; ?>
-                                <div class="message-bubble"><?php echo nl2br(htmlspecialchars($msg['message'])); ?></div>
-                                <div class="message-time">
-                                    <?php echo date('g:i A', strtotime($msg['created_at'])); ?>
-                                    <?php if ($msg['sender_id'] == $user_id && $msg['is_read']): ?>
-                                        <span class="read"><i class="fas fa-check-double" aria-hidden="true"></i> Read</span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        <?php endif; ?>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+                <?php echo render_chat_messages($current_messages, (int) $user_id); ?>
             </div>
 
             <div class="chat-input-area">

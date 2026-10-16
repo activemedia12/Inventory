@@ -303,6 +303,58 @@ document.addEventListener("DOMContentLoaded", function () {
     activateCatalogTab(window.location.hash.slice(1));
   }
 
+  // Arriving from another page (e.g. contact.php -> main.php#offset): the
+  // browser's own hash-jump runs before the intro's JS-set height and the
+  // fonts settle, and #offset/#digital/... are hidden tab panels anyway, so
+  // it lands in the wrong place (or nowhere). Jump to the services section
+  // ourselves once layout has settled, and re-aim while it's still shifting.
+  (function () {
+    var hash = window.location.hash.slice(1);
+    if (["offset", "digital", "riso", "other"].indexOf(hash) === -1) return;
+
+    var cancelled = false;
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+    ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (evt) {
+      window.addEventListener(
+        evt,
+        function () {
+          cancelled = true;
+        },
+        { once: true, passive: true },
+      );
+    });
+
+    // offsetTop ignores transforms, so the .hide slide-in offset isn't counted
+    function pageTop(el) {
+      var y = 0;
+      while (el) {
+        y += el.offsetTop;
+        el = el.offsetParent;
+      }
+      return y;
+    }
+
+    function jump() {
+      if (cancelled) return;
+      var target = document.getElementById("services");
+      if (!target) return;
+      // "instant" overrides the global `* { scroll-behavior: smooth }`
+      window.scrollTo({ top: pageTop(target), behavior: "instant" });
+    }
+
+    function start() {
+      jump();
+      [150, 400, 900].forEach(function (ms) {
+        setTimeout(jump, ms);
+      });
+      if (document.fonts && document.fonts.ready)
+        document.fonts.ready.then(jump);
+    }
+
+    if (document.readyState === "complete") start();
+    else window.addEventListener("load", start);
+  })();
+
   // Filtering functionality for All Services section
   const categoryFilter = document.getElementById("category-filter");
   const sortFilter = document.getElementById("sort-filter");
@@ -433,6 +485,19 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // Numeric price of a card: the data-price attribute when present, otherwise
+  // the number inside text like "From ₱1,234.00" (every non-numeric character,
+  // including the "From", the peso sign and all thousands commas, is dropped).
+  function getCardPrice(card) {
+    let raw = card.getAttribute("data-price");
+    if (raw === null || raw === "") {
+      const priceEl = card.querySelector(".product-price");
+      raw = priceEl ? priceEl.textContent : "";
+    }
+    const value = parseFloat(String(raw).replace(/[^0-9.]/g, ""));
+    return Number.isNaN(value) ? 0 : value;
+  }
+
   function sortByPrice(cards, order) {
     const container = document.querySelector(
       ".all-services-section .products-grid",
@@ -440,18 +505,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Sort cards by price
     cards.sort((a, b) => {
-      const priceA = parseFloat(
-        a
-          .querySelector(".product-price")
-          .textContent.replace("₱", "")
-          .replace(",", ""),
-      );
-      const priceB = parseFloat(
-        b
-          .querySelector(".product-price")
-          .textContent.replace("₱", "")
-          .replace(",", ""),
-      );
+      const priceA = getCardPrice(a);
+      const priceB = getCardPrice(b);
 
       return order === "asc" ? priceA - priceB : priceB - priceA;
     });
