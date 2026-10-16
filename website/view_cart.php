@@ -52,8 +52,10 @@ $query = "SELECT p.id, p.product_name, p.price AS unit_price, p.category AS prod
           LEFT JOIN finish_options fo ON ci.finish_option = fo.id
           LEFT JOIN binding_options bo ON ci.binding_option = bo.id
           LEFT JOIN layout_options lo ON ci.layout_option = lo.id
-          LEFT JOIN pricing_requests_items pri ON ci.item_id = pri.cart_item_id
-          LEFT JOIN pricing_requests pr2 ON pr2.cart_id = c.cart_id AND pr2.status = 'pending'
+          LEFT JOIN pricing_requests_items pri ON pri.id = (
+                SELECT MAX(pri2.id) FROM pricing_requests_items pri2 WHERE pri2.cart_item_id = ci.item_id
+          )
+          LEFT JOIN pricing_requests pr2 ON pr2.id = pri.pricing_request_id AND pr2.status = 'pending'
           WHERE c.user_id = ?
           ORDER BY ci.added_at DESC";
 
@@ -94,8 +96,9 @@ foreach ($cart_items as $item) {
         $selected_total += $actual_price * $item['quantity'];
         if ($item_is_confirmed) {
             $selected_confirmed_count++;
-        } else {
-            // Only items still awaiting a store-confirmed price should go into a new request
+        } elseif (strtolower((string)($item['pricing_status'] ?? '')) !== 'pending') {
+            // Only items still awaiting a store-confirmed price, and not already sitting
+            // in another pending request, should go into a new request
             $unconfirmed_selected_items[] = $item['item_id'];
             $unconfirmed_selected_total += $item['unit_price'] * $item['quantity'];
         }
@@ -111,8 +114,8 @@ $selected_all_confirmed = (count($selected_items) > 0 && $selected_confirmed_cou
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_pricing'])) {
     if (empty($selected_items)) {
         echo "<script>alert('Please select at least one item to request pricing.');</script>";
-    } elseif ($selected_all_confirmed) {
-        echo "<script>alert('All of your selected items already have a confirmed price. There\'s nothing left to request.');</script>";
+    } elseif (empty($unconfirmed_selected_items)) {
+        echo "<script>alert('All of your selected items either have a confirmed price or are already waiting for a quote. There\'s nothing new to request.');</script>";
     } else {
         error_log("=== PRICING REQUEST SUBMISSION START ===");
         error_log("User ID: $user_id");
@@ -196,58 +199,36 @@ function sendPricingRequestNotification($user_id, $selected_items, $total_estima
         $cart_data = $cart_result->fetch_assoc();
         $cart_id = $cart_data['cart_id'];
 
-        // Check if a pricing request already exists for this cart
-        $check_query = "SELECT id FROM pricing_requests WHERE cart_id = ? AND status = 'pending'";
-        $check_stmt = $inventory->prepare($check_query);
-        $check_stmt->bind_param("i", $cart_id);
-        $check_stmt->execute();
-        $check_result = $check_stmt->get_result();
+        // Every submission gets its own pricing_requests row (its own request id),
+        // so an earlier pending request is never overwritten by a later one.
+        $query = "INSERT INTO pricing_requests (user_id, cart_id, selected_items, estimated_total) VALUES (?, ?, ?, ?)";
+        error_log("Query: $query");
 
-        if ($check_result->num_rows > 0) {
-            // Update existing pricing request instead of creating new one
-            $update_query = "UPDATE pricing_requests SET selected_items = ?, estimated_total = ?, request_date = NOW() WHERE cart_id = ? AND status = 'pending'";
-            $update_stmt = $inventory->prepare($update_query);
-            $update_stmt->bind_param("sdi", $items_json, $total_estimate, $cart_id);
-            $execute_result = $update_stmt->execute();
-
-            if (!$execute_result) {
-                error_log("ERROR: Update failed: " . $update_stmt->error);
-                return false;
-            }
-
-            $request_id = $check_result->fetch_assoc()['id'];
-            error_log("SUCCESS: Existing pricing request updated with ID: $request_id");
-        } else {
-            // Create new pricing request
-            $query = "INSERT INTO pricing_requests (user_id, cart_id, selected_items, estimated_total) VALUES (?, ?, ?, ?)";
-            error_log("Query: $query");
-
-            $stmt = $inventory->prepare($query);
-            if (!$stmt) {
-                error_log("ERROR: Prepare failed: " . $inventory->error);
-                return false;
-            }
-            error_log("Statement prepared successfully");
-
-            // Bind parameters
-            $bind_result = $stmt->bind_param("iisd", $user_id, $cart_id, $items_json, $total_estimate);
-            if (!$bind_result) {
-                error_log("ERROR: Bind failed: " . $stmt->error);
-                return false;
-            }
-            error_log("Parameters bound successfully");
-
-            // Execute
-            $execute_result = $stmt->execute();
-            if (!$execute_result) {
-                error_log("ERROR: Execute failed: " . $stmt->error);
-                return false;
-            }
-            error_log("Execute successful");
-
-            $request_id = $inventory->insert_id;
-            error_log("SUCCESS: New pricing request created with ID: $request_id");
+        $stmt = $inventory->prepare($query);
+        if (!$stmt) {
+            error_log("ERROR: Prepare failed: " . $inventory->error);
+            return false;
         }
+        error_log("Statement prepared successfully");
+
+        // Bind parameters
+        $bind_result = $stmt->bind_param("iisd", $user_id, $cart_id, $items_json, $total_estimate);
+        if (!$bind_result) {
+            error_log("ERROR: Bind failed: " . $stmt->error);
+            return false;
+        }
+        error_log("Parameters bound successfully");
+
+        // Execute
+        $execute_result = $stmt->execute();
+        if (!$execute_result) {
+            error_log("ERROR: Execute failed: " . $stmt->error);
+            return false;
+        }
+        error_log("Execute successful");
+
+        $request_id = $inventory->insert_id;
+        error_log("SUCCESS: New pricing request created with ID: $request_id");
 
         // Make sure every selected item has a pricing_requests_items row as
         // soon as the request is submitted, rather than only getting one the
@@ -855,7 +836,7 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             color: var(--ink-faint);
         }
 
-        .toolbar-count + .expand-all-btn {
+        .toolbar-count+.expand-all-btn {
             margin-left: 0;
         }
 
@@ -2212,8 +2193,8 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
             <span class="section-eyebrow"><span class="reg-mark"></span> Order review</span>
             <h1 class="cart-hero-title">Your print <span class="registered" data-text="cart.">cart.</span></h1>
             <p class="cart-hero-sub"><?php echo !empty($cart_items)
-                ? 'Pick the jobs you want to move forward, then send them to our team. We confirm the final price before anything goes to checkout.'
-                : 'Jobs you add from the service pages show up here for review before checkout.'; ?></p>
+                                            ? 'Pick the jobs you want to move forward, then send them to our team. We confirm the final price before anything goes to checkout.'
+                                            : 'Jobs you add from the service pages show up here for review before checkout.'; ?></p>
 
             <?php if (!empty($cart_items)): ?>
                 <div class="cart-meta">
@@ -2339,207 +2320,207 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
 
                                         <div class="cart-item-panel" id="item-panel-<?php echo (int)$row['item_id']; ?>">
                                             <div class="cart-item-panel__inner">
-                                        <div class="cart-item-info">
-                                            <span class="item-group"><?php echo cart_h($row['product_group']); ?></span>
-                                            <h3><a href="../pages/website/service_detail.php?id=<?php echo (int)$row['id']; ?>"><?php echo cart_h($row['product_name']); ?></a></h3>
+                                                <div class="cart-item-info">
+                                                    <span class="item-group"><?php echo cart_h($row['product_group']); ?></span>
+                                                    <h3><a href="../pages/website/service_detail.php?id=<?php echo (int)$row['id']; ?>"><?php echo cart_h($row['product_name']); ?></a></h3>
 
-                                            <div class="price-display">
-                                                <?php if ($has_admin_price): ?>
-                                                    <p class="price">
-                                                        <span class="was">₱<?php echo number_format($row['unit_price'], 2); ?></span>₱<?php echo number_format($actual_price, 2); ?>
-                                                    </p>
-                                                    <span class="admin-price-notice"><i class="fas fa-check-circle"></i> Price confirmed by store</span>
-                                                <?php else: ?>
-                                                    <p class="price">₱<?php echo number_format($actual_price, 2); ?></p>
-                                                    <span class="estimate-tag">Estimate</span>
-                                                <?php endif; ?>
-                                                <span class="price-unit">each</span>
-                                            </div>
-
-                                            <?php if (!empty($row['admin_notes'])): ?>
-                                                <div class="admin-notes-section">
-                                                    <div class="admin-notes-header">
-                                                        <i class="fas fa-sticky-note"></i>
-                                                        <span>Note from our team</span>
-                                                        <?php if ($status_class !== ''): ?>
-                                                            <span class="pricing-status badge <?php echo $status_class; ?>"><?php echo ucfirst($status_class); ?></span>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                    <div class="admin-notes-content"><?php echo htmlspecialchars($row['admin_notes']); ?></div>
-                                                </div>
-                                            <?php endif; ?>
-
-                                            <?php if ($status === 'cancelled'): ?>
-                                                <div class="pricing-status-alert cancelled">
-                                                    <i class="fas fa-ban"></i>
-                                                    <strong>Pricing request cancelled</strong>
-                                                    <p>Your pricing request for this item has been cancelled. Contact us for details, or remove the item from your cart.</p>
-                                                </div>
-                                            <?php elseif ($status === 'pending'):
-                                                $item_eta = cart_item_quote_eta_text($row['quote_request_date'] ?? null);
-                                            ?>
-                                                <div class="pricing-status-alert pending">
-                                                    <i class="fas fa-hourglass-half"></i>
-                                                    <strong>Quote in progress</strong>
-                                                    <p>
-                                                        <?php if ($item_eta): ?>
-                                                            Expect this item to be quoted on or before <strong><?php echo cart_h($item_eta); ?></strong>.
+                                                    <div class="price-display">
+                                                        <?php if ($has_admin_price): ?>
+                                                            <p class="price">
+                                                                <span class="was">₱<?php echo number_format($row['unit_price'], 2); ?></span>₱<?php echo number_format($actual_price, 2); ?>
+                                                            </p>
+                                                            <span class="admin-price-notice"><i class="fas fa-check-circle"></i> Price confirmed by store</span>
                                                         <?php else: ?>
-                                                            We're working on this one — expect a quote within 1 business day.
+                                                            <p class="price">₱<?php echo number_format($actual_price, 2); ?></p>
+                                                            <span class="estimate-tag">Estimate</span>
                                                         <?php endif; ?>
-                                                    </p>
-                                                </div>
-                                            <?php endif; ?>
+                                                        <span class="price-unit">each</span>
+                                                    </div>
 
-                                            <?php
-                                            $productGroup       = strtolower($row['product_group']);
-                                            $isPrintingProduct  = in_array($productGroup, ['riso', 'offset', 'digital', 'riso printing', 'offset printing', 'digital printing']);
-                                            $hasSpecs = !empty($row['layout_option']) || !empty($row['gsm_option']) || !empty($row['finish_option']) || !empty($row['paper_option']) || !empty($row['binding_option']) || !empty($row['size_option']);
+                                                    <?php if (!empty($row['admin_notes'])): ?>
+                                                        <div class="admin-notes-section">
+                                                            <div class="admin-notes-header">
+                                                                <i class="fas fa-sticky-note"></i>
+                                                                <span>Note from our team</span>
+                                                                <?php if ($status_class !== ''): ?>
+                                                                    <span class="pricing-status badge <?php echo $status_class; ?>"><?php echo ucfirst($status_class); ?></span>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                            <div class="admin-notes-content"><?php echo htmlspecialchars($row['admin_notes']); ?></div>
+                                                        </div>
+                                                    <?php endif; ?>
 
-                                            if ($isPrintingProduct && $hasSpecs):
-                                            ?>
-                                                <div class="printing-details">
-                                                    <div class="details-row">
-                                                        <?php if (!empty($row['size_option'])): ?>
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">Size</span>
-                                                                <span class="detail-value">
-                                                                    <?php echo htmlspecialchars($row['size_option']); ?>
-                                                                    <?php if (!empty($row['custom_size'])): ?>
-                                                                        <small>Custom: <?php echo htmlspecialchars($row['custom_size']); ?></small>
+                                                    <?php if ($status === 'cancelled'): ?>
+                                                        <div class="pricing-status-alert cancelled">
+                                                            <i class="fas fa-ban"></i>
+                                                            <strong>Pricing request cancelled</strong>
+                                                            <p>Your pricing request for this item has been cancelled. Contact us for details, or remove the item from your cart.</p>
+                                                        </div>
+                                                    <?php elseif ($status === 'pending'):
+                                                        $item_eta = cart_item_quote_eta_text($row['quote_request_date'] ?? null);
+                                                    ?>
+                                                        <div class="pricing-status-alert pending">
+                                                            <i class="fas fa-hourglass-half"></i>
+                                                            <strong>Quote in progress</strong>
+                                                            <p>
+                                                                <?php if ($item_eta): ?>
+                                                                    Expect this item to be quoted on or before <strong><?php echo cart_h($item_eta); ?></strong>.
+                                                                <?php else: ?>
+                                                                    We're working on this one — expect a quote within 1 business day.
+                                                                <?php endif; ?>
+                                                            </p>
+                                                        </div>
+                                                    <?php endif; ?>
+
+                                                    <?php
+                                                    $productGroup       = strtolower($row['product_group']);
+                                                    $isPrintingProduct  = in_array($productGroup, ['riso', 'offset', 'digital', 'riso printing', 'offset printing', 'digital printing']);
+                                                    $hasSpecs = !empty($row['layout_option']) || !empty($row['gsm_option']) || !empty($row['finish_option']) || !empty($row['paper_option']) || !empty($row['binding_option']) || !empty($row['size_option']);
+
+                                                    if ($isPrintingProduct && $hasSpecs):
+                                                    ?>
+                                                        <div class="printing-details">
+                                                            <div class="details-row">
+                                                                <?php if (!empty($row['size_option'])): ?>
+                                                                    <div class="detail-item">
+                                                                        <span class="detail-label">Size</span>
+                                                                        <span class="detail-value">
+                                                                            <?php echo htmlspecialchars($row['size_option']); ?>
+                                                                            <?php if (!empty($row['custom_size'])): ?>
+                                                                                <small>Custom: <?php echo htmlspecialchars($row['custom_size']); ?></small>
+                                                                            <?php endif; ?>
+                                                                        </span>
+                                                                    </div>
+                                                                <?php endif; ?>
+
+                                                                <?php if (!empty($row['finish_option_name'])): ?>
+                                                                    <div class="detail-item">
+                                                                        <span class="detail-label">Finish</span>
+                                                                        <span class="detail-value"><?php echo htmlspecialchars($row['finish_option_name']); ?></span>
+                                                                    </div>
+                                                                <?php endif; ?>
+
+                                                                <?php if (!empty($row['paper_option_name'])): ?>
+                                                                    <div class="detail-item">
+                                                                        <span class="detail-label">Paper</span>
+                                                                        <span class="detail-value"><?php echo htmlspecialchars($row['paper_option_name']); ?></span>
+                                                                    </div>
+                                                                <?php endif; ?>
+
+                                                                <?php if (!empty($row['binding_option_name'])): ?>
+                                                                    <div class="detail-item">
+                                                                        <span class="detail-label">Binding</span>
+                                                                        <span class="detail-value"><?php echo htmlspecialchars($row['binding_option_name']); ?></span>
+                                                                    </div>
+                                                                <?php endif; ?>
+
+                                                                <?php if (!empty($row['layout_option_name'])): ?>
+                                                                    <div class="detail-item">
+                                                                        <span class="detail-label">Layout type</span>
+                                                                        <span class="detail-value">
+                                                                            <?php echo htmlspecialchars($row['layout_option_name']); ?>
+                                                                            <?php if (!empty($row['layout_details'])): ?>
+                                                                                <small>Details: <?php echo htmlspecialchars($row['layout_details']); ?></small>
+                                                                            <?php endif; ?>
+                                                                        </span>
+                                                                    </div>
+                                                                <?php endif; ?>
+
+                                                                <?php if (!empty($row['gsm_option'])): ?>
+                                                                    <div class="detail-item">
+                                                                        <span class="detail-label">GSM</span>
+                                                                        <span class="detail-value"><?php echo htmlspecialchars($row['gsm_option']); ?></span>
+                                                                    </div>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                        </div>
+                                                    <?php endif; ?>
+
+                                                    <?php
+                                                    $layout_files = !empty($row['user_layout_files']) ? cart_layout_files_list($row['user_layout_files']) : [];
+                                                    if (!empty($layout_files)):
+                                                    ?>
+                                                        <div class="custom-design">
+                                                            <div class="custom-design-title">
+                                                                <i class="fas fa-file-upload"></i> Your uploaded layout file<?php echo count($layout_files) > 1 ? 's' : ''; ?>
+                                                            </div>
+                                                            <div class="design-previews">
+                                                                <?php foreach (array_values($layout_files) as $n => $lf) {
+                                                                    if (!is_string($lf)) continue;
+                                                                    cart_layout_tile(count($layout_files) > 1 ? 'Layout ' . ($n + 1) : 'Layout file', $lf);
+                                                                } ?>
+                                                            </div>
+                                                        </div>
+                                                    <?php endif; ?>
+
+                                                    <?php
+                                                    $design = !empty($row['design_image']) ? cart_parse_design($row['design_image']) : null;
+                                                    $has_designs = $design && ($design['front_mockup'] !== '' || $design['back_mockup'] !== '' || $design['uploaded_file'] !== '' || $design['front_uploaded_file'] !== '' || $design['back_uploaded_file'] !== '');
+
+                                                    if ($has_designs):
+                                                        $upType = $design['upload_type'];
+                                                    ?>
+                                                        <div class="custom-design">
+                                                            <div class="custom-design-title">
+                                                                <i class="fas fa-palette"></i> Your custom design
+                                                                <small><?php echo $upType === 'single' ? 'Same design on both sides' : 'Different designs for front and back'; ?></small>
+                                                            </div>
+
+                                                            <div class="design-previews">
+                                                                <?php
+                                                                if ($upType === 'single' && $design['uploaded_file'] !== '') {
+                                                                    cart_design_tile('Original file', $design['uploaded_file']);
+                                                                }
+                                                                if ($design['front_uploaded_file'] !== '') {
+                                                                    cart_design_tile('Front original', $design['front_uploaded_file']);
+                                                                }
+                                                                if ($design['back_uploaded_file'] !== '') {
+                                                                    cart_design_tile('Back original', $design['back_uploaded_file']);
+                                                                }
+                                                                if ($design['front_mockup'] !== '') {
+                                                                    cart_design_tile('Front mockup', $design['front_mockup'], 'fa-image');
+                                                                }
+                                                                if ($design['back_mockup'] !== '') {
+                                                                    cart_design_tile('Back mockup', $design['back_mockup'], 'fa-image');
+                                                                }
+                                                                ?>
+                                                            </div>
+
+                                                            <div class="design-files">
+                                                                <strong>Upload type:</strong> <?php echo cart_h(ucfirst($upType)); ?>
+                                                                <?php if ($upType === 'single' && $design['uploaded_file'] !== ''): ?>
+                                                                    &nbsp;&middot;&nbsp; <strong>File:</strong> <?php echo cart_h(basename($design['uploaded_file'])); ?>
+                                                                <?php endif; ?>
+                                                                <?php if ($upType === 'separate'): ?>
+                                                                    <?php if ($design['front_uploaded_file'] !== ''): ?>
+                                                                        &nbsp;&middot;&nbsp; <strong>Front:</strong> <?php echo cart_h(basename($design['front_uploaded_file'])); ?>
                                                                     <?php endif; ?>
-                                                                </span>
-                                                            </div>
-                                                        <?php endif; ?>
-
-                                                        <?php if (!empty($row['finish_option_name'])): ?>
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">Finish</span>
-                                                                <span class="detail-value"><?php echo htmlspecialchars($row['finish_option_name']); ?></span>
-                                                            </div>
-                                                        <?php endif; ?>
-
-                                                        <?php if (!empty($row['paper_option_name'])): ?>
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">Paper</span>
-                                                                <span class="detail-value"><?php echo htmlspecialchars($row['paper_option_name']); ?></span>
-                                                            </div>
-                                                        <?php endif; ?>
-
-                                                        <?php if (!empty($row['binding_option_name'])): ?>
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">Binding</span>
-                                                                <span class="detail-value"><?php echo htmlspecialchars($row['binding_option_name']); ?></span>
-                                                            </div>
-                                                        <?php endif; ?>
-
-                                                        <?php if (!empty($row['layout_option_name'])): ?>
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">Layout type</span>
-                                                                <span class="detail-value">
-                                                                    <?php echo htmlspecialchars($row['layout_option_name']); ?>
-                                                                    <?php if (!empty($row['layout_details'])): ?>
-                                                                        <small>Details: <?php echo htmlspecialchars($row['layout_details']); ?></small>
+                                                                    <?php if ($design['back_uploaded_file'] !== ''): ?>
+                                                                        &nbsp;&middot;&nbsp; <strong>Back:</strong> <?php echo cart_h(basename($design['back_uploaded_file'])); ?>
                                                                     <?php endif; ?>
-                                                                </span>
+                                                                <?php endif; ?>
                                                             </div>
-                                                        <?php endif; ?>
-
-                                                        <?php if (!empty($row['gsm_option'])): ?>
-                                                            <div class="detail-item">
-                                                                <span class="detail-label">GSM</span>
-                                                                <span class="detail-value"><?php echo htmlspecialchars($row['gsm_option']); ?></span>
-                                                            </div>
-                                                        <?php endif; ?>
-                                                    </div>
+                                                        </div>
+                                                    <?php endif; ?>
                                                 </div>
-                                            <?php endif; ?>
 
-                                            <?php
-                                            $layout_files = !empty($row['user_layout_files']) ? cart_layout_files_list($row['user_layout_files']) : [];
-                                            if (!empty($layout_files)):
-                                            ?>
-                                                <div class="custom-design">
-                                                    <div class="custom-design-title">
-                                                        <i class="fas fa-file-upload"></i> Your uploaded layout file<?php echo count($layout_files) > 1 ? 's' : ''; ?>
+                                                <div class="cart-item-actions">
+                                                    <div class="quantity-controls">
+                                                        <button type="button" class="quantity-btn decrease" aria-label="Decrease quantity"><i class="fas fa-minus"></i></button>
+                                                        <input type="number" name="quantity" class="quantity-input" value="<?php echo (int)$row['quantity']; ?>" min="1" aria-label="Quantity">
+                                                        <button type="button" class="quantity-btn increase" aria-label="Increase quantity"><i class="fas fa-plus"></i></button>
                                                     </div>
-                                                    <div class="design-previews">
-                                                        <?php foreach (array_values($layout_files) as $n => $lf) {
-                                                            if (!is_string($lf)) continue;
-                                                            cart_layout_tile(count($layout_files) > 1 ? 'Layout ' . ($n + 1) : 'Layout file', $lf);
-                                                        } ?>
+
+                                                    <div class="item-subtotal">
+                                                        <span class="item-subtotal__label">Subtotal</span>
+                                                        <span class="subtotal-amount">₱<?php echo number_format($item_total, 2); ?></span>
                                                     </div>
+
+                                                    <button type="button" class="remove-btn">
+                                                        <i class="fas fa-trash"></i> Remove
+                                                    </button>
+                                                    <input type="hidden" name="item_id" value="<?php echo cart_h($row['item_id']); ?>">
                                                 </div>
-                                            <?php endif; ?>
-
-                                            <?php
-                                            $design = !empty($row['design_image']) ? cart_parse_design($row['design_image']) : null;
-                                            $has_designs = $design && ($design['front_mockup'] !== '' || $design['back_mockup'] !== '' || $design['uploaded_file'] !== '' || $design['front_uploaded_file'] !== '' || $design['back_uploaded_file'] !== '');
-
-                                            if ($has_designs):
-                                                $upType = $design['upload_type'];
-                                            ?>
-                                                <div class="custom-design">
-                                                    <div class="custom-design-title">
-                                                        <i class="fas fa-palette"></i> Your custom design
-                                                        <small><?php echo $upType === 'single' ? 'Same design on both sides' : 'Different designs for front and back'; ?></small>
-                                                    </div>
-
-                                                    <div class="design-previews">
-                                                        <?php
-                                                        if ($upType === 'single' && $design['uploaded_file'] !== '') {
-                                                            cart_design_tile('Original file', $design['uploaded_file']);
-                                                        }
-                                                        if ($design['front_uploaded_file'] !== '') {
-                                                            cart_design_tile('Front original', $design['front_uploaded_file']);
-                                                        }
-                                                        if ($design['back_uploaded_file'] !== '') {
-                                                            cart_design_tile('Back original', $design['back_uploaded_file']);
-                                                        }
-                                                        if ($design['front_mockup'] !== '') {
-                                                            cart_design_tile('Front mockup', $design['front_mockup'], 'fa-image');
-                                                        }
-                                                        if ($design['back_mockup'] !== '') {
-                                                            cart_design_tile('Back mockup', $design['back_mockup'], 'fa-image');
-                                                        }
-                                                        ?>
-                                                    </div>
-
-                                                    <div class="design-files">
-                                                        <strong>Upload type:</strong> <?php echo cart_h(ucfirst($upType)); ?>
-                                                        <?php if ($upType === 'single' && $design['uploaded_file'] !== ''): ?>
-                                                            &nbsp;&middot;&nbsp; <strong>File:</strong> <?php echo cart_h(basename($design['uploaded_file'])); ?>
-                                                        <?php endif; ?>
-                                                        <?php if ($upType === 'separate'): ?>
-                                                            <?php if ($design['front_uploaded_file'] !== ''): ?>
-                                                                &nbsp;&middot;&nbsp; <strong>Front:</strong> <?php echo cart_h(basename($design['front_uploaded_file'])); ?>
-                                                            <?php endif; ?>
-                                                            <?php if ($design['back_uploaded_file'] !== ''): ?>
-                                                                &nbsp;&middot;&nbsp; <strong>Back:</strong> <?php echo cart_h(basename($design['back_uploaded_file'])); ?>
-                                                            <?php endif; ?>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
-
-                                        <div class="cart-item-actions">
-                                            <div class="quantity-controls">
-                                                <button type="button" class="quantity-btn decrease" aria-label="Decrease quantity"><i class="fas fa-minus"></i></button>
-                                                <input type="number" name="quantity" class="quantity-input" value="<?php echo (int)$row['quantity']; ?>" min="1" aria-label="Quantity">
-                                                <button type="button" class="quantity-btn increase" aria-label="Increase quantity"><i class="fas fa-plus"></i></button>
-                                            </div>
-
-                                            <div class="item-subtotal">
-                                                <span class="item-subtotal__label">Subtotal</span>
-                                                <span class="subtotal-amount">₱<?php echo number_format($item_total, 2); ?></span>
-                                            </div>
-
-                                            <button type="button" class="remove-btn">
-                                                <i class="fas fa-trash"></i> Remove
-                                            </button>
-                                            <input type="hidden" name="item_id" value="<?php echo cart_h($row['item_id']); ?>">
-                                        </div>
                                             </div>
                                         </div>
                                     </article>
@@ -2563,52 +2544,52 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
                                 </button>
 
                                 <div class="summary-details" id="summaryDetails">
-                                <div class="summary-details__inner">
-                                <h2 class="summary-title">Order summary</h2>
+                                    <div class="summary-details__inner">
+                                        <h2 class="summary-title">Order summary</h2>
 
-                                <?php if ($total_selected_items === 0): ?>
-                                    <p class="summary-empty">Select the jobs you want to quote or check out to see your totals.</p>
-                                <?php endif; ?>
+                                        <?php if ($total_selected_items === 0): ?>
+                                            <p class="summary-empty">Select the jobs you want to quote or check out to see your totals.</p>
+                                        <?php endif; ?>
 
-                                <?php if ($items_with_admin_prices > 0): ?>
-                                    <div class="pricing-status-alert success">
-                                        <i class="fas fa-check-circle"></i>
-                                        <strong><?php echo $items_with_admin_prices; ?> selected item<?php echo $items_with_admin_prices === 1 ? ' has' : 's have'; ?> confirmed pricing</strong>
-                                        <p>Ready for checkout at the store-approved price.</p>
-                                    </div>
-                                <?php endif; ?>
+                                        <?php if ($items_with_admin_prices > 0): ?>
+                                            <div class="pricing-status-alert success">
+                                                <i class="fas fa-check-circle"></i>
+                                                <strong><?php echo $items_with_admin_prices; ?> selected item<?php echo $items_with_admin_prices === 1 ? ' has' : 's have'; ?> confirmed pricing</strong>
+                                                <p>Ready for checkout at the store-approved price.</p>
+                                            </div>
+                                        <?php endif; ?>
 
-                                <?php if (!$all_prices_updated && $total_selected_items > 0): ?>
-                                    <div class="pricing-status-alert warning">
-                                        <i class="fas fa-clock"></i>
-                                        <strong>Waiting for price confirmation</strong>
-                                        <p>
-                                            <?php if ($items_with_admin_prices > 0): ?>
-                                                <?php echo $total_selected_items - $items_with_admin_prices; ?> of your <?php echo $total_selected_items; ?> selected items are still waiting for the store to confirm pricing.
-                                            <?php else: ?>
-                                                All <?php echo $total_selected_items; ?> selected items are waiting for the store to confirm pricing.
-                                            <?php endif; ?>
-                                            Checkout opens once every selected item is confirmed.
-                                        </p>
-                                    </div>
-                                <?php endif; ?>
+                                        <?php if (!$all_prices_updated && $total_selected_items > 0): ?>
+                                            <div class="pricing-status-alert warning">
+                                                <i class="fas fa-clock"></i>
+                                                <strong>Waiting for price confirmation</strong>
+                                                <p>
+                                                    <?php if ($items_with_admin_prices > 0): ?>
+                                                        <?php echo $total_selected_items - $items_with_admin_prices; ?> of your <?php echo $total_selected_items; ?> selected items are still waiting for the store to confirm pricing.
+                                                    <?php else: ?>
+                                                        All <?php echo $total_selected_items; ?> selected items are waiting for the store to confirm pricing.
+                                                    <?php endif; ?>
+                                                    Checkout opens once every selected item is confirmed.
+                                                </p>
+                                            </div>
+                                        <?php endif; ?>
 
-                                <div class="summary-rows">
-                                    <div class="summary-row">
-                                        <span>Subtotal (<span id="selected-count"><?php echo $total_selected_items; ?></span> items)</span>
-                                        <span id="subtotal-amount">₱<?php echo number_format($selected_total, 2); ?></span>
-                                    </div>
-                                    <div class="summary-row">
-                                        <span>Tax (3%)</span>
-                                        <span id="tax-amount">₱<?php echo number_format($selected_tax, 2); ?></span>
-                                    </div>
-                                    <div class="summary-row total">
-                                        <span>Total</span>
-                                        <span id="total-amount">₱<?php echo number_format($selected_grand, 2); ?></span>
-                                    </div>
-                                </div>
+                                        <div class="summary-rows">
+                                            <div class="summary-row">
+                                                <span>Subtotal (<span id="selected-count"><?php echo $total_selected_items; ?></span> items)</span>
+                                                <span id="subtotal-amount">₱<?php echo number_format($selected_total, 2); ?></span>
+                                            </div>
+                                            <div class="summary-row">
+                                                <span>Tax (3%)</span>
+                                                <span id="tax-amount">₱<?php echo number_format($selected_tax, 2); ?></span>
+                                            </div>
+                                            <div class="summary-row total">
+                                                <span>Total</span>
+                                                <span id="total-amount">₱<?php echo number_format($selected_grand, 2); ?></span>
+                                            </div>
+                                        </div>
 
-                                </div>
+                                    </div>
                                 </div>
 
                                 <div class="cart-buttons">
@@ -3199,10 +3180,10 @@ if ($total_selected_items > 0) $current_step = $can_checkout ? 3 : 2;
 
             const dockMsg = document.getElementById('dock-msg');
             if (dockMsg) {
-                dockMsg.textContent = selectedCount === 0 ? 'Select the items you want to check out'
-                    : canCheckout ? 'All selected items have confirmed pricing'
-                    : confirmedCount > 0 ? `${confirmedCount} of ${selectedCount} selected items have confirmed pricing`
-                    : 'No selected items have confirmed pricing yet';
+                dockMsg.textContent = selectedCount === 0 ? 'Select the items you want to check out' :
+                    canCheckout ? 'All selected items have confirmed pricing' :
+                    confirmedCount > 0 ? `${confirmedCount} of ${selectedCount} selected items have confirmed pricing` :
+                    'No selected items have confirmed pricing yet';
             }
 
             const checkoutBtn = document.querySelector('.checkout-btn');
