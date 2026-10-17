@@ -334,27 +334,27 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
     <link rel="stylesheet" href="../assets/css/pages/dashboard.css" />
     <link rel="stylesheet" href="../assets/css/pages/dashboard_fx.css" />
-  <style>
-    .nav-menu li a[href="website_admin.php"] {
-      display: flex;
-      align-items: center;
-    }
+    <style>
+        .nav-menu li a[href="website_admin.php"] {
+            display: flex;
+            align-items: center;
+        }
 
-    .website-nav-badge {
-      display: none;
-      margin-left: auto;
-      min-width: 18px;
-      height: 18px;
-      padding: 0 5px;
-      border-radius: 999px;
-      background: #ef4444;
-      color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      line-height: 18px;
-      text-align: center;
-    }
-  </style>
+        .website-nav-badge {
+            display: none;
+            margin-left: auto;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: #ef4444;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 18px;
+            text-align: center;
+        }
+    </style>
 </head>
 
 <body>
@@ -369,6 +369,7 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
                 <li><a href="products.php" onclick="goToLastProductPage()"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
                 <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
                 <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+                <li><a href="quotation.php"><i class="fas fa-calculator"></i> <span>Quotation</span></a></li>
                 <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
                 <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span><span class="website-nav-badge" id="websiteNavBadge"></span></a></li>
                 <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
@@ -668,203 +669,203 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
         </div>
 
         <?php if ($can_view_finance): ?>
-        <?php
-        // Scope to current month only
-        $missing_costs = (int)($inventory->query("
+            <?php
+            // Scope to current month only
+            $missing_costs = (int)($inventory->query("
     SELECT COUNT(*) AS cnt FROM job_orders
     WHERE MONTH(log_date) = MONTH(CURDATE()) AND YEAR(log_date) = YEAR(CURDATE())
     AND (grand_total IS NULL OR grand_total <= 0)
 ")->fetch_assoc()['cnt'] ?? 0);
 
-        $missing_revenue = (int)($inventory->query("
+            $missing_revenue = (int)($inventory->query("
     SELECT COUNT(*) AS cnt FROM job_orders
     WHERE MONTH(log_date) = MONTH(CURDATE()) AND YEAR(log_date) = YEAR(CURDATE())
     AND grand_total > 0
     AND (total_cost IS NULL OR total_cost <= 0)
 ")->fetch_assoc()['cnt'] ?? 0);
 
-        $notice_parts = [];
-        if ($missing_costs > 0)    $notice_parts[] = "<strong>{$missing_costs}</strong> job" . ($missing_costs != 1 ? 's' : '') . " missing production cost";
-        if ($missing_revenue > 0)  $notice_parts[] = "<strong>{$missing_revenue}</strong> job" . ($missing_revenue != 1 ? 's' : '') . " missing selling price";
-        ?>
-        <?php if (!empty($notice_parts)): ?>
-            <div style="display:flex; align-items:center; gap:10px; background:var(--warning-bg); border-left:3px solid var(--warning); padding:10px 16px; border-radius:6px; font-size:13px; margin-bottom:20px;">
-                <i class="fas fa-exclamation-triangle" style="color:var(--warning); flex-shrink:0;"></i>
-                <span style="color:var(--warning);">
-                    This month: <?= implode(' &amp; ', $notice_parts) ?> -
-                    <a href="job_orders.php" style="color:var(--primary); font-weight:600;">complete them to see accurate figures</a>
-                </span>
-            </div>
-        <?php endif; ?>
-
-        <!-- Financial Summary Cards -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h2 style="font-size: 20px;"><i class="fas fa-chart-line" style="margin-right: 10px; color: var(--primary);"></i>Financial Performance</h2>
-        </div>
-
-        <div class="finance-grid">
-            <?php foreach (
-                [
-                    ['data' => $weekly_finance,  'class' => 'week',  'icon' => 'fa-calendar-week', 'label' => 'This Week'],
-                    ['data' => $monthly_finance, 'class' => 'month', 'icon' => 'fa-calendar-alt',  'label' => 'This Month'],
-                    ['data' => $yearly_finance,  'class' => 'year',  'icon' => 'fa-calendar',       'label' => 'This Year'],
-                ] as $card
-            ):
-                $f = $card['data'];
-                $has_data = $f['jobs'] > 0;
+            $notice_parts = [];
+            if ($missing_costs > 0)    $notice_parts[] = "<strong>{$missing_costs}</strong> job" . ($missing_costs != 1 ? 's' : '') . " missing production cost";
+            if ($missing_revenue > 0)  $notice_parts[] = "<strong>{$missing_revenue}</strong> job" . ($missing_revenue != 1 ? 's' : '') . " missing selling price";
             ?>
-                <div class="finance-card <?= $card['class'] ?>">
-                    <div class="finance-header">
-                        <span class="finance-title">
-                            <i class="fas <?= $card['icon'] ?>"></i> <?= $card['label'] ?>
-                        </span>
-                        <span class="finance-badge"><?= $f['total_jobs'] ?> Job<?= $f['total_jobs'] != 1 ? 's' : '' ?></span>
-                    </div>
-
-                    <?php if (!$has_data && $f['total_jobs'] == 0): ?>
-                        <!-- No jobs at all -->
-                        <div style="text-align:center; padding: 20px 0; color: var(--gray); font-size: 13px;">
-                            <i class="fas fa-inbox" style="font-size: 24px; opacity: 0.3; display: block; margin-bottom: 8px;"></i>
-                            No job orders <?= strtolower($card['label']) ?>
-                        </div>
-
-                    <?php elseif (!$has_data && $f['excluded'] > 0): ?>
-                        <!-- Jobs exist but none are priced yet -->
-                        <div style="text-align:center; padding: 16px 0; color: var(--gray); font-size: 13px;">
-                            <i class="fas fa-clock" style="font-size: 24px; color: var(--warning); display: block; margin-bottom: 8px;"></i>
-                            <strong style="color: var(--dark);"><?= $f['excluded'] ?> job<?= $f['excluded'] != 1 ? 's' : '' ?> logged</strong><br>
-                            <span style="font-size: 12px;">Awaiting cost &amp; price entry</span>
-                            <br><br>
-                            <a href="job_orders.php" style="font-size: 12px; color: var(--primary); font-weight: 600;">
-                                &rarr; Enter missing data
-                            </a>
-                        </div>
-
-                    <?php else: ?>
-                        <!-- Has complete financial data -->
-                        <div class="finance-row">
-                            <span class="finance-label">Revenue:</span>
-                            <span class="finance-value">&#8369; <?= number_format($f['revenue'], 2) ?></span>
-                        </div>
-                        <div class="finance-row">
-                            <span class="finance-label">Expenses:</span>
-                            <span class="finance-value">&#8369; <?= number_format($f['expenses'], 2) ?></span>
-                        </div>
-                        <div class="finance-profit">
-                            <span>Profit:</span>
-                            <span class="<?= $f['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
-                                &#8369; <?= number_format($f['profit'], 2) ?>
-                                <small>(<?= number_format($f['profit_percent'], 1) ?>% margin)</small>
-                            </span>
-                        </div>
-                        <?php if ($f['excluded'] > 0): ?>
-                            <div style="margin-top: 8px; font-size: 11px; color: var(--gray); border-top: 1px solid var(--light-gray); padding-top: 8px;">
-                                <i class="fas fa-info-circle"></i>
-                                <?= $f['jobs'] ?> of <?= $f['total_jobs'] ?> jobs priced &mdash;
-                                <a href="job_orders.php" style="color: var(--primary);"><?= $f['excluded'] ?> incomplete</a>
-                            </div>
-                        <?php endif; ?>
-                    <?php endif; ?>
+            <?php if (!empty($notice_parts)): ?>
+                <div style="display:flex; align-items:center; gap:10px; background:var(--warning-bg); border-left:3px solid var(--warning); padding:10px 16px; border-radius:6px; font-size:13px; margin-bottom:20px;">
+                    <i class="fas fa-exclamation-triangle" style="color:var(--warning); flex-shrink:0;"></i>
+                    <span style="color:var(--warning);">
+                        This month: <?= implode(' &amp; ', $notice_parts) ?> -
+                        <a href="job_orders.php" style="color:var(--primary); font-weight:600;">complete them to see accurate figures</a>
+                    </span>
                 </div>
-            <?php endforeach; ?>
-        </div>
+            <?php endif; ?>
 
-        <!-- Monthly Breakdown -->
-        <div class="monthly-breakdown">
-            <div class="section-header">
-                <div class="section-title">
-                    <i class="fas fa-chart-bar"></i>
-                    Monthly Breakdown <?= date('Y') ?>
-                </div>
-                <a href="job_orders.php" class="view-all">View All Jobs <i class="fas fa-arrow-right"></i></a>
+            <!-- Financial Summary Cards -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 style="font-size: 20px;"><i class="fas fa-chart-line" style="margin-right: 10px; color: var(--primary);"></i>Financial Performance</h2>
             </div>
 
-            <div class="monthly-grid">
-                <?php
-                $current_month = date('n');
-                foreach ($monthly_breakdown as $index => $month):
-                    $is_current = ($index == $current_month);
+            <div class="finance-grid">
+                <?php foreach (
+                    [
+                        ['data' => $weekly_finance,  'class' => 'week',  'icon' => 'fa-calendar-week', 'label' => 'This Week'],
+                        ['data' => $monthly_finance, 'class' => 'month', 'icon' => 'fa-calendar-alt',  'label' => 'This Month'],
+                        ['data' => $yearly_finance,  'class' => 'year',  'icon' => 'fa-calendar',       'label' => 'This Year'],
+                    ] as $card
+                ):
+                    $f = $card['data'];
+                    $has_data = $f['jobs'] > 0;
                 ?>
-                    <div class="month-card" style="<?= $is_current ? 'border: 2px solid var(--primary);' : '' ?>">
-                        <div class="month-name">
-                            <?= $month['month'] ?>
-                            <?php if ($is_current): ?>
-                                <span style="font-size: 10px; background: var(--primary); color: white; padding: 2px 6px; border-radius: 10px; margin-left: 5px;">Current</span>
-                            <?php endif; ?>
+                    <div class="finance-card <?= $card['class'] ?>">
+                        <div class="finance-header">
+                            <span class="finance-title">
+                                <i class="fas <?= $card['icon'] ?>"></i> <?= $card['label'] ?>
+                            </span>
+                            <span class="finance-badge"><?= $f['total_jobs'] ?> Job<?= $f['total_jobs'] != 1 ? 's' : '' ?></span>
                         </div>
-                        <?php if ($month['jobs'] == 0): ?>
-                            <div style="font-size: 12px; color: var(--gray); margin-top: 8px; font-style: italic;">No complete data</div>
+
+                        <?php if (!$has_data && $f['total_jobs'] == 0): ?>
+                            <!-- No jobs at all -->
+                            <div style="text-align:center; padding: 20px 0; color: var(--gray); font-size: 13px;">
+                                <i class="fas fa-inbox" style="font-size: 24px; opacity: 0.3; display: block; margin-bottom: 8px;"></i>
+                                No job orders <?= strtolower($card['label']) ?>
+                            </div>
+
+                        <?php elseif (!$has_data && $f['excluded'] > 0): ?>
+                            <!-- Jobs exist but none are priced yet -->
+                            <div style="text-align:center; padding: 16px 0; color: var(--gray); font-size: 13px;">
+                                <i class="fas fa-clock" style="font-size: 24px; color: var(--warning); display: block; margin-bottom: 8px;"></i>
+                                <strong style="color: var(--dark);"><?= $f['excluded'] ?> job<?= $f['excluded'] != 1 ? 's' : '' ?> logged</strong><br>
+                                <span style="font-size: 12px;">Awaiting cost &amp; price entry</span>
+                                <br><br>
+                                <a href="job_orders.php" style="font-size: 12px; color: var(--primary); font-weight: 600;">
+                                    &rarr; Enter missing data
+                                </a>
+                            </div>
+
                         <?php else: ?>
-                            <div class="month-stat">
-                                <span class="label">Jobs:</span>
-                                <span class="value"><?= $month['jobs'] ?></span>
+                            <!-- Has complete financial data -->
+                            <div class="finance-row">
+                                <span class="finance-label">Revenue:</span>
+                                <span class="finance-value">&#8369; <?= number_format($f['revenue'], 2) ?></span>
                             </div>
-                            <div class="month-stat">
-                                <span class="label">Revenue:</span>
-                                <span class="value">₱ <?= number_format($month['revenue'], 0) ?></span>
+                            <div class="finance-row">
+                                <span class="finance-label">Expenses:</span>
+                                <span class="finance-value">&#8369; <?= number_format($f['expenses'], 2) ?></span>
                             </div>
-                            <div class="month-stat">
-                                <span class="label">Expenses:</span>
-                                <span class="value">₱ <?= number_format($month['expenses'], 0) ?></span>
-                            </div>
-                            <div class="month-stat">
-                                <span class="label">Profit:</span>
-                                <span class="value <?= $month['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
-                                    ₱ <?= number_format($month['profit'], 0) ?>
+                            <div class="finance-profit">
+                                <span>Profit:</span>
+                                <span class="<?= $f['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                                    &#8369; <?= number_format($f['profit'], 2) ?>
+                                    <small>(<?= number_format($f['profit_percent'], 1) ?>% margin)</small>
                                 </span>
                             </div>
-                            <div class="month-stat">
-                                <span class="label">Margin:</span>
-                                <span class="value <?= $month['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
-                                    <?= number_format($month['profit_percent'], 1) ?>%
-                                </span>
-                            </div>
+                            <?php if ($f['excluded'] > 0): ?>
+                                <div style="margin-top: 8px; font-size: 11px; color: var(--gray); border-top: 1px solid var(--light-gray); padding-top: 8px;">
+                                    <i class="fas fa-info-circle"></i>
+                                    <?= $f['jobs'] ?> of <?= $f['total_jobs'] ?> jobs priced &mdash;
+                                    <a href="job_orders.php" style="color: var(--primary);"><?= $f['excluded'] ?> incomplete</a>
+                                </div>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
             </div>
-        </div>
 
-        <!-- Yearly Summary -->
-        <?php if (!empty($yearly_summary)): ?>
-            <div class="monthly-breakdown" style="margin-top: 20px;">
+            <!-- Monthly Breakdown -->
+            <div class="monthly-breakdown">
                 <div class="section-header">
                     <div class="section-title">
-                        <i class="fas fa-history"></i>
-                        Yearly Performance Summary
+                        <i class="fas fa-chart-bar"></i>
+                        Monthly Breakdown <?= date('Y') ?>
                     </div>
+                    <a href="job_orders.php" class="view-all">View All Jobs <i class="fas fa-arrow-right"></i></a>
                 </div>
 
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Year</th>
-                            <th>Jobs</th>
-                            <th>Revenue</th>
-                            <th>Expenses</th>
-                            <th>Profit</th>
-                            <th>Net Margin</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($yearly_summary as $year): ?>
-                            <tr>
-                                <td><strong><?= $year['year'] ?></strong></td>
-                                <td><?= $year['total_jobs'] ?></td>
-                                <td>₱ <?= number_format($year['total_revenue'], 2) ?></td>
-                                <td>₱ <?= number_format($year['total_expenses'], 2) ?></td>
-                                <td class="<?= $year['total_profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
-                                    ₱ <?= number_format($year['total_profit'], 2) ?>
-                                </td>
-                                <td class="<?= $year['total_profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
-                                    <?= number_format($year['profit_percent'], 1) ?>%
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                <div class="monthly-grid">
+                    <?php
+                    $current_month = date('n');
+                    foreach ($monthly_breakdown as $index => $month):
+                        $is_current = ($index == $current_month);
+                    ?>
+                        <div class="month-card" style="<?= $is_current ? 'border: 2px solid var(--primary);' : '' ?>">
+                            <div class="month-name">
+                                <?= $month['month'] ?>
+                                <?php if ($is_current): ?>
+                                    <span style="font-size: 10px; background: var(--primary); color: white; padding: 2px 6px; border-radius: 10px; margin-left: 5px;">Current</span>
+                                <?php endif; ?>
+                            </div>
+                            <?php if ($month['jobs'] == 0): ?>
+                                <div style="font-size: 12px; color: var(--gray); margin-top: 8px; font-style: italic;">No complete data</div>
+                            <?php else: ?>
+                                <div class="month-stat">
+                                    <span class="label">Jobs:</span>
+                                    <span class="value"><?= $month['jobs'] ?></span>
+                                </div>
+                                <div class="month-stat">
+                                    <span class="label">Revenue:</span>
+                                    <span class="value">₱ <?= number_format($month['revenue'], 0) ?></span>
+                                </div>
+                                <div class="month-stat">
+                                    <span class="label">Expenses:</span>
+                                    <span class="value">₱ <?= number_format($month['expenses'], 0) ?></span>
+                                </div>
+                                <div class="month-stat">
+                                    <span class="label">Profit:</span>
+                                    <span class="value <?= $month['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                                        ₱ <?= number_format($month['profit'], 0) ?>
+                                    </span>
+                                </div>
+                                <div class="month-stat">
+                                    <span class="label">Margin:</span>
+                                    <span class="value <?= $month['profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                                        <?= number_format($month['profit_percent'], 1) ?>%
+                                    </span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
             </div>
-        <?php endif; ?>
+
+            <!-- Yearly Summary -->
+            <?php if (!empty($yearly_summary)): ?>
+                <div class="monthly-breakdown" style="margin-top: 20px;">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <i class="fas fa-history"></i>
+                            Yearly Performance Summary
+                        </div>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>Jobs</th>
+                                <th>Revenue</th>
+                                <th>Expenses</th>
+                                <th>Profit</th>
+                                <th>Net Margin</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($yearly_summary as $year): ?>
+                                <tr>
+                                    <td><strong><?= $year['year'] ?></strong></td>
+                                    <td><?= $year['total_jobs'] ?></td>
+                                    <td>₱ <?= number_format($year['total_revenue'], 2) ?></td>
+                                    <td>₱ <?= number_format($year['total_expenses'], 2) ?></td>
+                                    <td class="<?= $year['total_profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                                        ₱ <?= number_format($year['total_profit'], 2) ?>
+                                    </td>
+                                    <td class="<?= $year['total_profit'] >= 0 ? 'profit-positive' : 'profit-negative' ?>">
+                                        <?= number_format($year['profit_percent'], 1) ?>%
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
         <?php endif; /* can_view_finance */ ?>
     </div>
 
@@ -895,41 +896,46 @@ $username = ucfirst(strtolower(htmlspecialchars($_SESSION['username'])));
 
     <script src="../assets/js/pages/dashboard.js"></script>
     <script src="../assets/js/pages/dashboard_fx.js"></script>
-  <script>
-    // Badge on the sidebar's "Website" link: same counts (unread chats,
-    // pending orders, pending price-consultation requests) that drive the
-    // per-section badges inside website_admin.php, summed into one number.
-    (function () {
-      function setWebsiteNavBadge(count) {
-        var badge = document.getElementById('websiteNavBadge');
-        if (!badge) return;
-        var n = Number(count) || 0;
-        if (n > 0) {
-          badge.textContent = n > 99 ? '99+' : n;
-          badge.style.display = 'inline-block';
-        } else {
-          badge.style.display = 'none';
-        }
-      }
+    <script>
+        // Badge on the sidebar's "Website" link: same counts (unread chats,
+        // pending orders, pending price-consultation requests) that drive the
+        // per-section badges inside website_admin.php, summed into one number.
+        (function() {
+            function setWebsiteNavBadge(count) {
+                var badge = document.getElementById('websiteNavBadge');
+                if (!badge) return;
+                var n = Number(count) || 0;
+                if (n > 0) {
+                    badge.textContent = n > 99 ? '99+' : n;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
 
-      function refreshWebsiteNavBadge() {
-        fetch('website/get_badge_counts.php', { credentials: 'include' })
-          .then(function (res) { return res.ok ? res.json() : null; })
-          .then(function (counts) {
-            if (!counts) return;
-            setWebsiteNavBadge((counts.chats || 0) + (counts.orders || 0) + (counts.pricing || 0));
-          })
-          .catch(function () { /* leave the badge as-is on a failed fetch */ });
-      }
+            function refreshWebsiteNavBadge() {
+                fetch('website/get_badge_counts.php', {
+                        credentials: 'include'
+                    })
+                    .then(function(res) {
+                        return res.ok ? res.json() : null;
+                    })
+                    .then(function(counts) {
+                        if (!counts) return;
+                        setWebsiteNavBadge((counts.chats || 0) + (counts.orders || 0) + (counts.pricing || 0));
+                    })
+                    .catch(function() {
+                        /* leave the badge as-is on a failed fetch */ });
+            }
 
-      refreshWebsiteNavBadge();
-      setInterval(refreshWebsiteNavBadge, 30000);
-      document.addEventListener('visibilitychange', function () {
-        if (!document.hidden) refreshWebsiteNavBadge();
-      });
-    })();
-  </script>
-<?php permission_notice(); ?>
+            refreshWebsiteNavBadge();
+            setInterval(refreshWebsiteNavBadge, 30000);
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) refreshWebsiteNavBadge();
+            });
+        })();
+    </script>
+    <?php permission_notice(); ?>
 </body>
 
 </html>

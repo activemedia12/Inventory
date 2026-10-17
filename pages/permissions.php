@@ -33,6 +33,9 @@ function permission_groups(): array
       'manage_prices' => ['Manage prices',         'can_manage_prices'],
       'manage_types'  => ['Manage product types',  'can_manage_types'],
     ],
+    'Quotation' => [
+      'save_presets'  => ['Save & delete quotation presets', 'can_save_presets'],
+    ],
     'Website section' => [
       'web_orders'    => ['Update website order status',              'can_web_orders'],
       'web_pricing'   => ['Respond to price requests',                'can_web_pricing'],
@@ -49,15 +52,26 @@ function permission_groups(): array
 function permission_verbs(): array
 {
   return [
-    'add' => 'add records', 'edit' => 'edit records', 'update' => 'update records', 'delete' => 'delete records',
+    'add' => 'add records',
+    'edit' => 'edit records',
+    'update' => 'update records',
+    'delete' => 'delete records',
     'view_finance' => 'view financial performance',
-    'add_job' => 'add job orders', 'edit_job' => 'edit job orders', 'delete_job' => 'delete job orders',
-    'enter_expenses' => 'enter expenses', 'job_total_cost' => 'enter a job total cost',
+    'add_job' => 'add job orders',
+    'edit_job' => 'edit job orders',
+    'delete_job' => 'delete job orders',
+    'enter_expenses' => 'enter expenses',
+    'job_total_cost' => 'enter a job total cost',
     'billing_info' => 'save billing info',
-    'manage_prices' => 'manage prices', 'manage_types' => 'manage product types',
-    'web_orders' => 'update website orders', 'web_pricing' => 'respond to price requests',
-    'web_products' => 'add or edit website products', 'web_customers' => 'edit website customers',
-    'web_chat' => 'start or reply to website chats', 'web_delete' => 'delete website records',
+    'manage_prices' => 'manage prices',
+    'manage_types' => 'manage product types',
+    'save_presets' => 'save or delete quotation presets',
+    'web_orders' => 'update website orders',
+    'web_pricing' => 'respond to price requests',
+    'web_products' => 'add or edit website products',
+    'web_customers' => 'edit website customers',
+    'web_chat' => 'start or reply to website chats',
+    'web_delete' => 'delete website records',
     'web_finance' => 'view website revenue and reports',
   ];
 }
@@ -77,6 +91,12 @@ function permission_columns(): array
     foreach ($items as $key => [$label, $col]) $map[$key] = $col;
   }
   return $map;
+}
+
+/** Columns that start OFF for everyone, including existing admins (super admin opts users in). */
+function permission_default_off(): array
+{
+  return ['can_save_presets'];
 }
 
 /**
@@ -105,7 +125,7 @@ function ensure_permission_schema(mysqli $db): void
   foreach (permission_columns() as $col) {
     if (isset($have[$col])) continue;
     $db->query("ALTER TABLE user_permissions ADD `$col` TINYINT(1) NOT NULL DEFAULT 0");
-    if (!in_array($col, $base, true)) {
+    if (!in_array($col, $base, true) && !in_array($col, permission_default_off(), true)) {
       $db->query("INSERT INTO user_permissions (user_id, `$col`) SELECT id, 1 FROM users WHERE role = 'admin' ON DUPLICATE KEY UPDATE `$col` = 1");
     }
   }
@@ -177,13 +197,13 @@ function permission_notice(): void
   static $done = false;
   if ($done) return;
   $done = true;
-  ?>
+?>
   <div id="permToast" role="alert" style="position:fixed;top:20px;right:20px;z-index:99999;display:none;max-width:340px;background:#fff;border-left:4px solid #ff4d4f;box-shadow:0 6px 24px rgba(0,0,0,.18);border-radius:8px;padding:14px 18px;font:14px/1.4 Inter,system-ui,sans-serif;color:#1c1e21;">
     <strong style="display:block;margin-bottom:2px;"><i class="fas fa-lock" style="color:#ff4d4f;margin-right:6px;"></i>Permission required</strong>
     <span id="permToastMsg"></span>
   </div>
   <script>
-    (function () {
+    (function() {
       var timer;
       var verbs = <?= json_encode(permission_verbs()) ?>;
 
@@ -193,12 +213,14 @@ function permission_notice(): void
           "You don't have permission to " + (verbs[action] || action) + '. Ask a super admin to turn it on.';
         toast.style.display = 'block';
         clearTimeout(timer);
-        timer = setTimeout(function () { toast.style.display = 'none'; }, 3500);
+        timer = setTimeout(function() {
+          toast.style.display = 'none';
+        }, 3500);
       }
       window.showNoPermission = showNoPermission;
 
       // Capture phase: runs before row-click handlers, confirm() prompts, and form submits.
-      document.addEventListener('click', function (e) {
+      document.addEventListener('click', function(e) {
         var el = e.target.closest('[data-denied]');
         if (!el) return;
         e.preventDefault();
@@ -207,5 +229,5 @@ function permission_notice(): void
       }, true);
     })();
   </script>
-  <?php
+<?php
 }

@@ -197,6 +197,7 @@ $is_admin = in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'], true);
         </li>
         <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
         <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+        <li><a href="quotation.php"><i class="fas fa-calculator"></i> <span>Quotation</span></a></li>
         <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
         <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span><span class="website-nav-badge" id="websiteNavBadge"></span></a></li>
         <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
@@ -266,7 +267,7 @@ $is_admin = in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'], true);
           <input type="text" name="product_group" placeholder="Size (e.g. A4)" title="Paper Size" required>
           <input type="text" name="product_name" placeholder="Name (e.g. White)" title="Paper Name" required>
           <input type="number" step="0.01" name="unit_price" placeholder="₱0.00" title="Unit Price" required>
-          <button type="submit" class="btn" title="Add Paper"<?= deny_attr('add') ?>><i class="fas fa-save"></i> Add</button>
+          <button type="submit" class="btn" title="Add Paper" <?= deny_attr('add') ?>><i class="fas fa-save"></i> Add</button>
         </form>
       </div>
     </div>
@@ -325,7 +326,7 @@ $is_admin = in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'], true);
     // Badge on the sidebar's "Website" link: same counts (unread chats,
     // pending orders, pending price-consultation requests) that drive the
     // per-section badges inside website_admin.php, summed into one number.
-    (function () {
+    (function() {
       function setWebsiteNavBadge(count) {
         var badge = document.getElementById('websiteNavBadge');
         if (!badge) return;
@@ -339,23 +340,29 @@ $is_admin = in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'], true);
       }
 
       function refreshWebsiteNavBadge() {
-        fetch('website/get_badge_counts.php', { credentials: 'include' })
-          .then(function (res) { return res.ok ? res.json() : null; })
-          .then(function (counts) {
+        fetch('website/get_badge_counts.php', {
+            credentials: 'include'
+          })
+          .then(function(res) {
+            return res.ok ? res.json() : null;
+          })
+          .then(function(counts) {
             if (!counts) return;
             setWebsiteNavBadge((counts.chats || 0) + (counts.orders || 0) + (counts.pricing || 0));
           })
-          .catch(function () { /* leave the badge as-is on a failed fetch */ });
+          .catch(function() {
+            /* leave the badge as-is on a failed fetch */
+          });
       }
 
       refreshWebsiteNavBadge();
       setInterval(refreshWebsiteNavBadge, 30000);
-      document.addEventListener('visibilitychange', function () {
+      document.addEventListener('visibilitychange', function() {
         if (!document.hidden) refreshWebsiteNavBadge();
       });
     })();
   </script>
-<?php permission_notice(); ?>
+  <?php permission_notice(); ?>
 </body>
 
 </html>

@@ -101,27 +101,27 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <link rel="stylesheet" href="../assets/css/pages/insuances.css">
     <link rel="stylesheet" href="../assets/css/pages/products_fx.css">
-  <style>
-    .nav-menu li a[href="website_admin.php"] {
-      display: flex;
-      align-items: center;
-    }
+    <style>
+        .nav-menu li a[href="website_admin.php"] {
+            display: flex;
+            align-items: center;
+        }
 
-    .website-nav-badge {
-      display: none;
-      margin-left: auto;
-      min-width: 18px;
-      height: 18px;
-      padding: 0 5px;
-      border-radius: 999px;
-      background: #ef4444;
-      color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      line-height: 18px;
-      text-align: center;
-    }
-  </style>
+        .website-nav-badge {
+            display: none;
+            margin-left: auto;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: #ef4444;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 18px;
+            text-align: center;
+        }
+    </style>
 </head>
 
 <body>
@@ -155,6 +155,7 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                 </li>
                 <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
                 <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+                <li><a href="quotation.php"><i class="fas fa-calculator"></i> <span>Quotation</span></a></li>
                 <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
                 <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span><span class="website-nav-badge" id="websiteNavBadge"></span></a></li>
                 <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
@@ -217,7 +218,7 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                 <form method="POST" class="inline-add-form">
                     <input type="text" name="item_name" required placeholder="Item name (e.g., Staples - 10.65mm)" title="Item Name">
                     <input type="text" name="description" placeholder="Description (optional)" title="Description — don't use this to specify the item type">
-                    <button type="submit" class="btn" title="Add Consumable"<?= deny_attr('add') ?>><i class="fas fa-save"></i> Add</button>
+                    <button type="submit" class="btn" title="Add Consumable" <?= deny_attr('add') ?>><i class="fas fa-save"></i> Add</button>
                 </form>
             </div>
         </div>
@@ -268,8 +269,8 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                                         <td><?= htmlspecialchars($item['latest_used_to'] ?? '-') ?></td>
                                     <?php endif; ?>
                                     <td class="action-cell">
-                                        <a href="edit_insuance.php?id=<?= $item['item_id'] ?>" title="Edit" onclick="event.stopPropagation()"<?= deny_attr('edit') ?>><i class="fas fa-edit"></i></a>
-                                        <a href="delete_insuance.php?id=<?= $item['item_id'] ?>" onclick="event.stopPropagation(); return confirm('Are you sure you want to delete this item?');" title="Delete"<?= deny_attr('delete') ?>><i class="fas fa-trash"></i></a>
+                                        <a href="edit_insuance.php?id=<?= $item['item_id'] ?>" title="Edit" onclick="event.stopPropagation()" <?= deny_attr('edit') ?>><i class="fas fa-edit"></i></a>
+                                        <a href="delete_insuance.php?id=<?= $item['item_id'] ?>" onclick="event.stopPropagation(); return confirm('Are you sure you want to delete this item?');" title="Delete" <?= deny_attr('delete') ?>><i class="fas fa-trash"></i></a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -319,7 +320,7 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
                             <input name="description" id="description" placeholder="Optional notes...">
                         </div>
                     </div>
-                    <button type="submit" class="btn" style="margin: 20px 0;"<?= deny_attr('update') ?>>
+                    <button type="submit" class="btn" style="margin: 20px 0;" <?= deny_attr('update') ?>>
                         <i class="fas fa-save"></i> Submit Usage
                     </button>
                 </form>
@@ -367,41 +368,46 @@ $out_of_stock = count(array_filter($insuance_stock, fn($i) => $i['current_stock'
     </div>
     <script src="../assets/js/pages/insuances.js"></script>
     <script src="../assets/js/pages/products_fx.js"></script>
-  <script>
-    // Badge on the sidebar's "Website" link: same counts (unread chats,
-    // pending orders, pending price-consultation requests) that drive the
-    // per-section badges inside website_admin.php, summed into one number.
-    (function () {
-      function setWebsiteNavBadge(count) {
-        var badge = document.getElementById('websiteNavBadge');
-        if (!badge) return;
-        var n = Number(count) || 0;
-        if (n > 0) {
-          badge.textContent = n > 99 ? '99+' : n;
-          badge.style.display = 'inline-block';
-        } else {
-          badge.style.display = 'none';
-        }
-      }
+    <script>
+        // Badge on the sidebar's "Website" link: same counts (unread chats,
+        // pending orders, pending price-consultation requests) that drive the
+        // per-section badges inside website_admin.php, summed into one number.
+        (function() {
+            function setWebsiteNavBadge(count) {
+                var badge = document.getElementById('websiteNavBadge');
+                if (!badge) return;
+                var n = Number(count) || 0;
+                if (n > 0) {
+                    badge.textContent = n > 99 ? '99+' : n;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
 
-      function refreshWebsiteNavBadge() {
-        fetch('website/get_badge_counts.php', { credentials: 'include' })
-          .then(function (res) { return res.ok ? res.json() : null; })
-          .then(function (counts) {
-            if (!counts) return;
-            setWebsiteNavBadge((counts.chats || 0) + (counts.orders || 0) + (counts.pricing || 0));
-          })
-          .catch(function () { /* leave the badge as-is on a failed fetch */ });
-      }
+            function refreshWebsiteNavBadge() {
+                fetch('website/get_badge_counts.php', {
+                        credentials: 'include'
+                    })
+                    .then(function(res) {
+                        return res.ok ? res.json() : null;
+                    })
+                    .then(function(counts) {
+                        if (!counts) return;
+                        setWebsiteNavBadge((counts.chats || 0) + (counts.orders || 0) + (counts.pricing || 0));
+                    })
+                    .catch(function() {
+                        /* leave the badge as-is on a failed fetch */ });
+            }
 
-      refreshWebsiteNavBadge();
-      setInterval(refreshWebsiteNavBadge, 30000);
-      document.addEventListener('visibilitychange', function () {
-        if (!document.hidden) refreshWebsiteNavBadge();
-      });
-    })();
-  </script>
-<?php permission_notice(); ?>
+            refreshWebsiteNavBadge();
+            setInterval(refreshWebsiteNavBadge, 30000);
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) refreshWebsiteNavBadge();
+            });
+        })();
+    </script>
+    <?php permission_notice(); ?>
 </body>
 
 </html>

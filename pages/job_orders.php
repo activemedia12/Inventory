@@ -14,7 +14,8 @@ $cut_size_map = ['1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, '1/
 // Renders one repeatable "paper group" block (Paper Type / Size / Cut Size /
 // Copies per Set + its own color sequence). Used both for the default blank
 // group and to re-render previously-submitted groups after a validation error.
-function render_paper_group_html($idx, $group, $cut_size_map, $inventory) {
+function render_paper_group_html($idx, $group, $cut_size_map, $inventory)
+{
   $pg_type   = $group['paper_type'] ?? '';
   $pg_size   = $group['paper_size'] ?? '';
   $pg_custom = $group['custom_paper_size'] ?? '';
@@ -22,7 +23,7 @@ function render_paper_group_html($idx, $group, $cut_size_map, $inventory) {
   $pg_copies = $group['copies_per_set'] ?? '';
   $pg_seq    = $group['paper_sequence'] ?? [];
   ob_start();
-  ?>
+?>
   <div class="paper-group" data-group-index="<?= $idx ?>" data-presize='<?= htmlspecialchars(json_encode($pg_size), ENT_QUOTES) ?>' data-preseq='<?= htmlspecialchars(json_encode($pg_seq), ENT_QUOTES) ?>' style="border:1px solid var(--light-gray,#e2e2e2);border-radius:10px;padding:14px 16px;margin-bottom:12px;position:relative;">
     <button type="button" class="removePaperGroupBtn" title="Remove this paper type" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:15px;">
       <i class="fas fa-times-circle"></i>
@@ -66,7 +67,7 @@ function render_paper_group_html($idx, $group, $cut_size_map, $inventory) {
       <div class="pg-sequence-container"></div>
     </div>
   </div>
-  <?php
+<?php
   return ob_get_clean();
 }
 
@@ -805,7 +806,8 @@ if ($search_priced) {
 
 // Small helper to group a fetched row into the client → date → project
 // nested structure a given status bucket uses.
-function group_job_order_row(array &$bucket, array $row): void {
+function group_job_order_row(array &$bucket, array $row): void
+{
   $client = $row['client_name'];
   $date = $row['log_date'];
   $project_key = strtolower(trim($row['project_name']));
@@ -927,7 +929,8 @@ $total_results = $active_total + $completed_total;
 // Builds one removable chip per applied filter, so people can see at a
 // glance what's narrowing the list and drop a single one — instead of the
 // all-or-nothing "Clear Filters" link being the only way back.
-function remove_filter_url(array $keys) {
+function remove_filter_url(array $keys)
+{
   $q = $_GET;
   foreach ($keys as $k) unset($q[$k]);
   unset($q['completed_page']); // filtered set changed, back to page 1
@@ -1000,7 +1003,10 @@ if ($search_print_type !== '') {
   } else {
     $pt_label = 'Print Type';
     foreach ($active_product_types as $pt) {
-      if ('pt_' . $pt['id'] === $search_print_type) { $pt_label = $pt['name']; break; }
+      if ('pt_' . $pt['id'] === $search_print_type) {
+        $pt_label = $pt['name'];
+        break;
+      }
     }
   }
   $active_filter_chips[] = ['label' => htmlspecialchars($pt_label), 'url' => remove_filter_url(['search_print_type'])];
@@ -1149,6 +1155,7 @@ if (!empty($displayed_job_ids)) {
         <li><a href="products.php"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
         <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
         <li><a href="job_orders.php" class="active"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+        <li><a href="quotation.php"><i class="fas fa-calculator"></i> <span>Quotation</span></a></li>
         <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
         <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span><span class="website-nav-badge" id="websiteNavBadge"></span></a></li>
         <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
@@ -1475,7 +1482,7 @@ if (!empty($displayed_job_ids)) {
                       </div>
                     </label>
                   <?php endforeach; ?>
-                  <a href="product_types.php" class="btn" style="text-decoration:none; align-self:center;"<?= deny_attr('manage_types') ?>>
+                  <a href="product_types.php" class="btn" style="text-decoration:none; align-self:center;" <?= deny_attr('manage_types') ?>>
                     <i class="fas fa-tags"></i> Manage
                   </a>
                 </div>
@@ -1500,17 +1507,17 @@ if (!empty($displayed_job_ids)) {
             <div class="form-group">
               <label style="display:block;margin-bottom:8px;">Paper Types Used *</label>
               <div id="paper-groups-container"><?php
-                $prefill_groups = $prefill['paper_group'] ?? null;
-                if (is_array($prefill_groups) && !empty($prefill_groups)) {
-                  $gi = 0;
-                  foreach ($prefill_groups as $g) {
-                    echo render_paper_group_html($gi, $g, $cut_size_map, $inventory);
-                    $gi++;
-                  }
-                } else {
-                  echo render_paper_group_html(0, [], $cut_size_map, $inventory);
-                }
-              ?></div>
+                                                $prefill_groups = $prefill['paper_group'] ?? null;
+                                                if (is_array($prefill_groups) && !empty($prefill_groups)) {
+                                                  $gi = 0;
+                                                  foreach ($prefill_groups as $g) {
+                                                    echo render_paper_group_html($gi, $g, $cut_size_map, $inventory);
+                                                    $gi++;
+                                                  }
+                                                } else {
+                                                  echo render_paper_group_html(0, [], $cut_size_map, $inventory);
+                                                }
+                                                ?></div>
               <button type="button" id="addPaperGroupBtn" class="btn btn-outline" style="margin-top:6px;">
                 <i class="fas fa-plus"></i> Add Another Paper Type
               </button>
@@ -1592,7 +1599,7 @@ if (!empty($displayed_job_ids)) {
             </div>
           </fieldset>
 
-          <button id="mainsubBtn" type="submit" class="btn"<?= deny_attr('add_job') ?>><i class="fas fa-save"></i>Submit Job Order</button>
+          <button id="mainsubBtn" type="submit" class="btn" <?= deny_attr('add_job') ?>><i class="fas fa-save"></i>Submit Job Order</button>
           <button type="button" id="clearFormBtn" class="btn btn-outline" style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger);margin-left:8px;"><i class="fas fa-eraser"></i> Clear Form</button>
         </form>
       </div>
@@ -2152,7 +2159,7 @@ if (!empty($displayed_job_ids)) {
     // Badge on the sidebar's "Website" link: same counts (unread chats,
     // pending orders, pending price-consultation requests) that drive the
     // per-section badges inside website_admin.php, summed into one number.
-    (function () {
+    (function() {
       function setWebsiteNavBadge(count) {
         var badge = document.getElementById('websiteNavBadge');
         if (!badge) return;
@@ -2166,23 +2173,28 @@ if (!empty($displayed_job_ids)) {
       }
 
       function refreshWebsiteNavBadge() {
-        fetch('website/get_badge_counts.php', { credentials: 'include' })
-          .then(function (res) { return res.ok ? res.json() : null; })
-          .then(function (counts) {
+        fetch('website/get_badge_counts.php', {
+            credentials: 'include'
+          })
+          .then(function(res) {
+            return res.ok ? res.json() : null;
+          })
+          .then(function(counts) {
             if (!counts) return;
             setWebsiteNavBadge((counts.chats || 0) + (counts.orders || 0) + (counts.pricing || 0));
           })
-          .catch(function () { /* leave the badge as-is on a failed fetch */ });
+          .catch(function() {
+            /* leave the badge as-is on a failed fetch */ });
       }
 
       refreshWebsiteNavBadge();
       setInterval(refreshWebsiteNavBadge, 30000);
-      document.addEventListener('visibilitychange', function () {
+      document.addEventListener('visibilitychange', function() {
         if (!document.hidden) refreshWebsiteNavBadge();
       });
     })();
   </script>
-<?php permission_notice(); ?>
+  <?php permission_notice(); ?>
 </body>
 
 </html>

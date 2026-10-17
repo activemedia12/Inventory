@@ -1,0 +1,3674 @@
+/* =====================================================================
+   Quotation Simulator — page styles
+   Sits on top of job_orders.css (shared sidebar/header shell). Every colour
+   falls back to a sensible value if a shared variable isn't defined, so the
+   page keeps the same theme as the rest of the system.
+   Motion language (easing, hover-lift, spring toggles, animated panels,
+   toasts, modals) is shared with manage_users.
+   ===================================================================== */
+
+.quote-page,
+.q-float {
+  --q-primary: var(--primary, #4f5eff);
+  --q-primary-soft: var(
+    --primary-light,
+    var(--primary-bg, rgba(79, 94, 255, 0.1))
+  );
+  --q-text: var(--dark, #1c1e21);
+  --q-muted: var(--gray, #6b7280);
+  --q-line: var(--light-gray, #e5e7eb);
+  --q-soft: var(--light, #f6f7fb);
+  --q-card: var(--card-bg, #fff);
+  --q-danger: var(--danger, #ef4444);
+  --q-warn: var(--warning, #f59e0b);
+  --q-good: #16a34a;
+  --q-on: #16a34a;
+  --q-on-light: #22c55e;
+  --q-track-off: #cbd5e1;
+  --q-row-hover: #fafbff;
+  --q-glow: rgba(79, 94, 255, 0.35);
+  --q-ring: rgba(79, 94, 255, 0.14);
+  --q-radius: 12px;
+  --q-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --q-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .quote-page,
+  .q-float {
+    --q-glow: color-mix(in srgb, var(--q-primary) 35%, transparent);
+    --q-ring: color-mix(in srgb, var(--q-primary) 14%, transparent);
+  }
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.quote-page * {
+  box-sizing: border-box;
+}
+.quote-page small {
+  color: var(--q-muted);
+  font-weight: 400;
+}
+
+.quote-page .header-date {
+  margin-top: 5px;
+  color: var(--gray, #6b7280);
+  font-size: 14px;
+}
+.quote-page .header-date i {
+  margin-right: 5px;
+}
+
+/* ---------------------------------------------------------------------
+   Page entrance (same staggered fade-up as manage_users)
+   --------------------------------------------------------------------- */
+@keyframes q-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes q-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes q-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.quote-page > .header,
+.quote-page .q-stats .stat-card,
+.quote-page > .q-presets,
+.quote-page .q-nav,
+.quote-page .q-form > .q-section,
+.quote-page .q-price-card,
+.quote-page .q-cost-grid > .q-section,
+.quote-page .q-result-card,
+.quote-page .q-actions,
+.quote-page > .q-wide-card,
+.quote-page > .q-group-label {
+  animation: q-fade-up 0.5s var(--q-ease) backwards;
+}
+.quote-page .q-stats .stat-card:nth-child(1) {
+  animation-delay: 0.04s;
+}
+.quote-page .q-stats .stat-card:nth-child(2) {
+  animation-delay: 0.08s;
+}
+.quote-page .q-stats .stat-card:nth-child(3) {
+  animation-delay: 0.12s;
+}
+.quote-page .q-stats .stat-card:nth-child(4) {
+  animation-delay: 0.16s;
+}
+.quote-page > .q-presets {
+  animation-delay: 0.02s;
+}
+.quote-page .q-nav {
+  animation-delay: 0.24s;
+}
+.quote-page .q-form > .q-section:nth-of-type(1) {
+  animation-delay: 0.28s;
+}
+.quote-page .q-form > .q-section:nth-of-type(2) {
+  animation-delay: 0.32s;
+}
+.quote-page .q-form > .q-section:nth-of-type(3) {
+  animation-delay: 0.36s;
+}
+.quote-page .q-form > .q-section:nth-of-type(4) {
+  animation-delay: 0.4s;
+}
+.quote-page .q-form > .q-section:nth-of-type(5) {
+  animation-delay: 0.44s;
+}
+.quote-page .q-form > .q-section:nth-of-type(6) {
+  animation-delay: 0.48s;
+}
+.quote-page .q-form > .q-section:nth-of-type(7) {
+  animation-delay: 0.52s;
+}
+.quote-page .q-price-card {
+  animation-delay: 0.2s;
+}
+.quote-page .q-result-card {
+  animation-delay: 0.3s;
+}
+.quote-page .q-actions {
+  animation-delay: 0.38s;
+}
+.quote-page > .q-wide-card {
+  animation-delay: 0.5s;
+}
+
+/* ── Header badge ─────────────────────────────────────────────────── */
+.q-sim-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--q-primary-soft);
+  color: var(--q-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------
+   Live summary cards (sit at the top of the sticky price workbench)
+   Selling price is the featured card; expenses / profit / margin sit under it.
+   --------------------------------------------------------------------- */
+.quote-page .q-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+.quote-page .q-stats .stat-card {
+  background: var(--q-card);
+  border: 1px solid var(--q-line);
+  border-radius: var(--q-radius);
+  padding: 12px 14px;
+  min-width: 0;
+  transition:
+    transform 0.25s var(--q-ease),
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+.quote-page .q-stats .stat-card:hover {
+  transform: translateY(-3px);
+  border-color: #d3d7ff;
+  box-shadow: 0 10px 24px -10px var(--q-glow);
+}
+.quote-page .q-stats .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.quote-page .q-stats .card-header > div:first-child {
+  min-width: 0;
+}
+.quote-page .q-stats .stat-label {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--q-muted);
+}
+.quote-page .q-stats .stat-card h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--q-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+.quote-page .q-stats .card-icon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: var(--q-primary-soft);
+  color: var(--q-primary);
+  transition:
+    transform 0.4s var(--q-spring),
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+.quote-page .q-stats .stat-card:hover .card-icon {
+  background-color: var(--q-primary);
+  color: #fff;
+}
+.quote-page .q-stat-sub {
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px dashed var(--q-line);
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--q-muted);
+  overflow-wrap: anywhere;
+}
+
+/* featured: selling price */
+.quote-page .q-stats #statFinal {
+  grid-column: 1 / -1;
+  padding: 16px 20px 14px;
+  background: linear-gradient(135deg, var(--q-primary), #7c3aed);
+  border-color: transparent;
+}
+.quote-page .q-stats #statFinal .stat-label {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.quote-page .q-stats #statFinal h3 {
+  color: #fff;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.quote-page .q-stats #statFinal.is-empty h3 {
+  color: rgba(255, 255, 255, 0.7);
+}
+.quote-page .q-stats #statFinal .card-icon {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+.quote-page .q-stats #statFinal:hover .card-icon {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+.quote-page .q-stats #statFinal .q-stat-sub {
+  border-top-color: rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* supporting cards: icon dropped, value tinted by profit tone */
+.quote-page .q-stats .stat-card:not(#statFinal) .card-icon {
+  display: none;
+}
+.quote-page .stat-card[data-tone="good"] {
+  border-color: rgba(22, 163, 74, 0.35);
+}
+.quote-page .stat-card[data-tone="warn"] {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+.quote-page .stat-card[data-tone="bad"] {
+  border-color: rgba(239, 68, 68, 0.45);
+}
+.quote-page .q-stats .stat-card[data-tone="good"] h3 {
+  color: var(--q-good);
+}
+.quote-page .q-stats .stat-card[data-tone="warn"] h3 {
+  color: #b45309;
+}
+.quote-page .q-stats .stat-card[data-tone="bad"] h3 {
+  color: var(--q-danger);
+}
+.quote-page .q-stats .stat-card.is-empty h3 {
+  color: var(--q-muted);
+  font-weight: 600;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────── */
+.q-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid var(--q-line);
+  background: var(--q-card);
+  color: var(--q-text);
+  font:
+    600 13px Inter,
+    system-ui,
+    sans-serif;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s var(--q-ease),
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+.q-btn:hover:not(:disabled) {
+  background: var(--q-soft);
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -4px rgba(20, 23, 31, 0.2);
+}
+.q-btn:active:not(:disabled) {
+  transform: scale(0.96);
+  box-shadow: none;
+}
+.q-btn:focus-visible,
+.q-section-head:focus-visible,
+.q-navchip:focus-visible,
+.q-type-card:focus-visible,
+.q-opt:focus-visible,
+.q-seg button:focus-visible,
+.q-link:focus-visible {
+  outline: 2px solid var(--q-primary);
+  outline-offset: 2px;
+}
+.q-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.q-btn i {
+  transition: transform 0.3s var(--q-spring);
+}
+.q-btn:hover:not(:disabled) i {
+  transform: scale(1.12);
+}
+.q-btn-primary {
+  background: var(--q-primary);
+  border-color: var(--q-primary);
+  color: #fff;
+}
+.q-btn-primary:hover:not(:disabled) {
+  background: var(--q-primary);
+  filter: brightness(1.08);
+  border-color: var(--q-primary);
+  box-shadow: 0 8px 18px -6px var(--q-glow);
+}
+.q-btn-danger {
+  color: var(--q-danger);
+  border-color: #fecaca;
+}
+.q-btn-danger:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+.q-btn-danger-solid {
+  background: var(--q-danger);
+  border-color: var(--q-danger);
+  color: #fff;
+}
+.q-btn-danger-solid:hover:not(:disabled) {
+  background: var(--q-danger);
+  border-color: var(--q-danger);
+  filter: brightness(0.92);
+  box-shadow: 0 8px 18px -6px rgba(217, 70, 60, 0.6);
+}
+.q-btn-ghost {
+  border-style: dashed;
+  color: var(--q-muted);
+  background: transparent;
+  margin-top: 4px;
+}
+.q-btn-ghost:hover:not(:disabled) {
+  color: var(--q-primary);
+  border-color: var(--q-primary);
+  background: var(--q-primary-soft);
+}
+.q-btn.loading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+.q-btn.loading i {
+  display: none;
+}
+.q-btn.loading::before {
+  content: "";
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  animation: q-spin 0.6s linear infinite;
+}
+.q-x {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--q-danger);
+  font-size: 15px;
+  padding: 4px;
+  line-height: 1;
+  border-radius: 50%;
+  transition:
+    transform 0.25s var(--q-spring),
+    background-color 0.15s ease;
+}
+.q-x:hover {
+  background: rgba(239, 68, 68, 0.1);
+  transform: scale(1.12);
+}
+.q-link {
+  background: none;
+  border: none;
+  color: var(--q-primary);
+  font:
+    600 12.5px Inter,
+    sans-serif;
+  cursor: pointer;
+  padding: 3px 7px;
+  border-radius: 5px;
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+.q-link:hover {
+  background: var(--q-primary-soft);
+}
+.q-link:active {
+  transform: scale(0.92);
+}
+.q-link-danger {
+  color: var(--q-danger);
+}
+.q-link-danger:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* ---------------------------------------------------------------------
+   Presets toolbar
+   --------------------------------------------------------------------- */
+.quote-page .q-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin-bottom: 14px;
+  background: var(--q-card);
+  border: 1px solid var(--q-line);
+  border-radius: var(--q-radius);
+}
+.q-presets-label {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--q-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.q-presets-label i {
+  color: var(--q-primary);
+}
+.q-presets select {
+  min-width: 220px;
+  flex: 1 1 220px;
+  max-width: 420px;
+}
+.q-presets-spacer {
+  flex: 1 1 0;
+}
+
+/* dismissible notice (same collapse animation as manage_users alerts) */
+.q-notes {
+  position: relative;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px 12px 16px;
+  margin-bottom: 14px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--q-text);
+  overflow: hidden;
+  animation: q-pop-in 0.35s var(--q-ease);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    max-height 0.35s ease,
+    margin 0.35s ease,
+    padding 0.35s ease;
+}
+.q-notes > i {
+  color: var(--q-warn);
+  margin-top: 3px;
+}
+.q-notes > div {
+  flex: 1;
+}
+.q-notes ul {
+  margin: 4px 0 0 18px;
+  padding: 0;
+}
+.q-notes.dismissing {
+  opacity: 0;
+  transform: translateY(-8px);
+  max-height: 0 !important;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.q-notes-close {
+  margin-left: auto;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
+}
+.q-notes-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.07);
+}
+.q-notes-close i {
+  margin: 0;
+  color: inherit;
+}
+
+/* ---------------------------------------------------------------------
+   Layout
+   --------------------------------------------------------------------- */
+.q-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 440px;
+  gap: 22px;
+  align-items: start;
+}
+.q-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  counter-reset: qstep;
+}
+/* Price workbench: KPIs + selling-price controls + actions stay put while
+   the form scrolls. No inner scroll areas, so nothing can spill out of it. */
+.q-results {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 2px;
+  margin: -2px;
+}
+.q-results > .q-stats,
+.q-results > .q-price-card,
+.q-results > .q-actions {
+  flex: none;
+}
+
+/* Production costs: Printing (narrower) + Labor (wider) on one row,
+   Other expenses spanning the full width underneath. */
+.q-cost-grid {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch; /* Printing and Labor end up the same height */
+}
+.q-cost-grid > .q-section.is-collapsed {
+  align-self: start; /* a collapsed card keeps just its header height */
+}
+.q-cost-grid > #qs-expenses {
+  grid-column: 1 / -1;
+}
+/* Printing is the narrow card: keep its option grids to one column */
+#qs-printing .q-opts {
+  grid-template-columns: minmax(0, 1fr);
+}
+#qs-printing .q-panel {
+  padding: 12px 14px;
+}
+.q-cost-grid > #qs-printing .q-section-body,
+.q-cost-grid > #qs-labor .q-section-body {
+  padding: 2px 16px 18px;
+}
+/* Labor: compact two-line rows by default; full table once the card is wide */
+#qs-labor {
+  container-type: inline-size;
+}
+#qs-labor .q-labor-head {
+  display: none;
+}
+#qs-labor .q-labor-row {
+  grid-template-columns: minmax(0, 1fr) 96px;
+  gap: 2px 10px;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--q-line);
+}
+#qs-labor .q-labor-row:last-child {
+  border-bottom: 0;
+}
+#qs-labor .q-labor-row small {
+  text-align: left;
+}
+#qs-labor .q-labor-row b {
+  text-align: right;
+}
+@container (min-width: 400px) {
+  #qs-labor .q-labor-head {
+    display: grid;
+  }
+  #qs-labor .q-labor-head,
+  #qs-labor .q-labor-row {
+    grid-template-columns: minmax(0, 1fr) 84px 76px 88px;
+    gap: 8px;
+  }
+  #qs-labor .q-labor-row {
+    padding: 4px 0;
+    border-bottom: 0;
+  }
+  #qs-labor .q-labor-row small {
+    text-align: left;
+  }
+}
+@media (max-width: 760px) {
+  .q-cost-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@property --q-edge {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e5e7eb;
+}
+/* =====================================================================
+   Production costs — adaptive L-layout
+   ---------------------------------------------------------------------
+   Three cards: Printing, Labor and Other expenses. "Other expenses" is
+   always an L: a TAB (its header + quick-add) that fills the pocket next
+   to the taller top card, and a BODY that runs the full width underneath.
+   Whichever top card is taller spans both rows, so the grid never has a
+   hole in it, whatever the printing type or however many expenses exist.
+
+     standard printing      Printing is short -> Labor is the tall card
+                            ┌────────┬──────────────┐
+                            │Printing│              │
+                            ├────────┤    Labor     │
+                            │ tab    │              │
+                            ├────────┴──────────────┤
+                            │  Other expenses body  │
+                            └───────────────────────┘
+
+     Digital / Riso         Printing is tall -> it takes the left column
+                            and the L flips sideways (tab under Labor)
+                            ┌──────────────┬────────┐
+                            │              │ Labor  │
+                            │   Printing   ├────────┤
+                            │              │  tab   │
+                            ├──────────────┴────────┤
+                            │  Other expenses body  │
+                            └───────────────────────┘
+
+   The whole layout is driven by the custom properties on .q-cost-grid,
+   so each state below only changes a few variables.
+   Needs CSS subgrid; older browsers get the simple fallback further down.
+   ===================================================================== */
+@media (min-width: 761px) {
+  @supports (grid-template-columns: subgrid) {
+    .q-cost-grid {
+      --q-fillet: 14px; /* radius of the smooth inner corner */
+      /* default orientation: Printing short, Labor tall */
+      --q-cols: 260px minmax(0, 1fr);
+      --q-rows: auto 1fr auto;
+      --q-p-col: 1;
+      --q-p-row: 1;
+      --q-l-col: 2;
+      --q-l-row: 1 / 3;
+      --q-tab-col: 1;
+      --q-body-radius: 0 var(--q-radius) var(--q-radius) var(--q-radius);
+      --q-fillet-left: auto;
+      --q-fillet-right: calc(-1 * var(--q-fillet) - 1px);
+      --q-fillet-at: calc(100% - 1px) 0;
+
+      grid-template-columns: var(--q-cols);
+      grid-template-rows: var(--q-rows);
+      row-gap: 0;
+    }
+
+    /* ── Digital / Riso selected: Printing grows tall ─────────────── */
+    .q-cost-grid:where(
+      :has(
+        #digitalSection:not([style*="none"]),
+        #risoSection:not([style*="none"])
+      )
+    ) {
+      --q-cols: minmax(0, 1.15fr) minmax(0, 1fr); /* fluid, never overflows */
+    }
+    /* ...and, while Printing is open, the L flips (:where keeps this rule's
+       specificity low so the folded-card states below can override it): Printing spans the left
+       column, Labor sits top-right and the tab drops in right under it.
+       Labor (row 1) is the card that soaks up any spare height. */
+    .q-cost-grid:where(
+      :has(
+        #digitalSection:not([style*="none"]),
+        #risoSection:not([style*="none"])
+      ):not(:has(> #qs-printing.is-collapsed))
+    ) {
+      --q-rows: 1fr auto auto;
+      --q-p-col: 1;
+      --q-p-row: 1 / 3;
+      --q-l-col: 2;
+      --q-l-row: 1;
+      --q-tab-col: 2;
+      --q-body-radius: var(--q-radius) 0 var(--q-radius) var(--q-radius);
+      --q-fillet-left: calc(-1 * var(--q-fillet) - 1px);
+      --q-fillet-right: auto;
+      --q-fillet-at: 1px 0;
+    }
+    /* A folded Labor card keeps header height, so the tab soaks up the rest */
+    .q-cost-grid:has(> #qs-labor.is-collapsed) {
+      --q-rows: auto 1fr auto;
+    }
+    /* A folded "Other expenses" is just a slim full-width bar under a
+       plain two-card row (nothing left to L around) */
+    .q-cost-grid:has(> #qs-expenses.is-collapsed) {
+      --q-rows: auto auto auto;
+      --q-p-row: 1;
+      --q-l-row: 1;
+    }
+
+    /* ── the three cards ──────────────────────────────────────────── */
+    .q-cost-grid > #qs-printing {
+      grid-column: var(--q-p-col);
+      grid-row: var(--q-p-row);
+      margin-bottom: 16px;
+    }
+    .q-cost-grid > #qs-labor {
+      grid-column: var(--q-l-col);
+      grid-row: var(--q-l-row);
+      margin-bottom: 16px;
+    }
+    /* a stretched card keeps its content tidy: Labor's manual override
+       is pinned to the bottom edge, so spare height reads as intentional */
+    .q-cost-grid > #qs-labor:not(.is-collapsed) {
+      display: flex;
+      flex-direction: column;
+    }
+    .q-cost-grid > #qs-labor:not(.is-collapsed) > .q-collapse {
+      flex: 1 1 auto;
+    }
+    .q-cost-grid > #qs-labor:not(.is-collapsed) .q-section-body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+    .q-cost-grid > #qs-labor:not(.is-collapsed) .q-labor {
+      margin-bottom: 14px;
+    }
+    .q-cost-grid > #qs-labor:not(.is-collapsed) .q-section-body > .q-grid {
+      margin-top: auto;
+      padding-top: 14px;
+      border-top: 1px dashed var(--q-line);
+    }
+
+    /* the section itself becomes an invisible frame; head + body are the card.
+       --q-edge is the one border colour shared by head, body and the curved
+       inner corner, so hover/transition changes stay perfectly in sync. */
+    .q-cost-grid > #qs-expenses {
+      --q-edge: var(--q-line);
+      grid-column: 1 / -1;
+      grid-row: 2 / 4;
+      display: grid;
+      grid-template-columns: subgrid;
+      grid-template-rows: subgrid;
+      align-self: stretch;
+      background: none;
+      border: 0;
+      border-radius: 0;
+      pointer-events: none;
+      transition: --q-edge 0.25s ease;
+    }
+    .q-cost-grid > #qs-expenses:hover {
+      --q-edge: #d9dcf5;
+    }
+    /* the tab = title + quick-add; it carries the card look so the pocket
+       beside the taller card is used instead of left blank */
+    .q-cost-grid #qs-expenses > .q-expenses-tab {
+      grid-column: var(--q-tab-col);
+      grid-row: 1;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-self: stretch;
+      pointer-events: auto;
+      background: var(--q-card);
+      border: 1px solid var(--q-edge);
+      border-bottom-color: transparent; /* open: the tab flows into the body */
+      border-radius: var(--q-radius) var(--q-radius) 0 0;
+      transition:
+        border-color 0.25s ease,
+        border-radius 0.4s var(--q-ease);
+    }
+    .q-cost-grid #qs-expenses .q-expenses-tab > .q-section-head {
+      align-items: flex-start;
+      padding: 16px 20px 12px;
+      border-radius: 0;
+      background: none;
+    }
+    .q-cost-grid #qs-expenses .q-expenses-tab > .q-tab-collapse {
+      flex: 1 1 auto;
+    }
+    /* seam cover: hides the body's top border under the tab */
+    .q-cost-grid #qs-expenses > .q-expenses-tab::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -2px;
+      height: 3px;
+      background: var(--q-card);
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    /* concave fillet: rounds the inside corner where the tab's edge meets
+       the top of the body. It sits on whichever side of the tab faces the
+       body's open top edge (right in the default layout, left when flipped) */
+    .q-cost-grid #qs-expenses > .q-expenses-tab::before {
+      content: "";
+      position: absolute;
+      left: var(--q-fillet-left);
+      right: var(--q-fillet-right);
+      bottom: -2px;
+      width: calc(var(--q-fillet) + 1px);
+      height: var(--q-fillet);
+      pointer-events: none;
+      background: radial-gradient(
+        circle at var(--q-fillet-at),
+        transparent calc(var(--q-fillet) - 1.25px),
+        var(--q-edge) calc(var(--q-fillet) - 0.75px),
+        var(--q-edge) calc(var(--q-fillet) - 0.25px),
+        var(--q-card) calc(var(--q-fillet) + 0.25px)
+      );
+      transition: opacity 0.25s ease;
+    }
+    .q-cost-grid #qs-expenses .q-tab-body {
+      padding: 0 20px 14px;
+    }
+    .q-cost-grid #qs-expenses > .q-collapse {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      pointer-events: auto;
+      background: var(--q-card);
+      border: 1px solid var(--q-edge);
+      border-radius: var(--q-body-radius);
+      transition:
+        grid-template-rows 0.4s var(--q-ease),
+        border-color 0.25s ease,
+        border-radius 0.4s var(--q-ease);
+    }
+    .q-cost-grid #qs-expenses > .q-collapse .q-section-body {
+      padding-top: 16px;
+    }
+    .q-cost-grid #qs-expenses > .q-collapse #itemizedList:not(:empty) {
+      margin-bottom: 12px;
+    }
+    .q-cost-grid #qs-expenses > .q-collapse #addItemBtn {
+      margin-bottom: 16px;
+    }
+    .q-cost-grid #qs-expenses > .q-collapse .q-switch-list {
+      margin-top: 0;
+    }
+
+    /* collapsed: a normal rounded header spanning the full width, folding
+       back smoothly */
+    .q-cost-grid #qs-expenses.is-collapsed > .q-expenses-tab {
+      grid-column: 1 / -1;
+      align-self: start;
+      border-bottom-color: var(--q-edge);
+      border-radius: var(--q-radius);
+    }
+    .q-cost-grid #qs-expenses.is-collapsed .q-expenses-tab > .q-section-head {
+      align-items: center;
+      padding-bottom: 16px;
+    }
+    .q-cost-grid #qs-expenses.is-collapsed > .q-expenses-tab::before,
+    .q-cost-grid #qs-expenses.is-collapsed > .q-expenses-tab::after {
+      opacity: 0;
+    }
+    /* the folded body must leave no trace: no border, fill, size or margin */
+    .q-cost-grid #qs-expenses.is-collapsed > .q-collapse {
+      /* border-width only: the "border: 0" shorthand reset the colour to the
+         text colour (black), which then faded in as a dark flash on open */
+      border-width: 0;
+      border-color: transparent;
+      background: none;
+      box-shadow: none;
+      height: 0;
+      min-height: 0;
+      margin: 0;
+      overflow: hidden;
+      visibility: hidden;
+    }
+  }
+
+  /* No subgrid (very old browsers): no L, but still no holes. Digital / Riso
+     gives Printing the left column; Labor and Other expenses stack beside it. */
+  @supports not (grid-template-columns: subgrid) {
+    .q-cost-grid:has(
+      #digitalSection:not([style*="none"]),
+      #risoSection:not([style*="none"])
+    ) {
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    }
+    .q-cost-grid:has(
+        #digitalSection:not([style*="none"]),
+        #risoSection:not([style*="none"])
+      )
+      > #qs-printing {
+      grid-column: 1;
+      grid-row: 1 / span 2;
+    }
+    .q-cost-grid:has(
+        #digitalSection:not([style*="none"]),
+        #risoSection:not([style*="none"])
+      )
+      > #qs-labor {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .q-cost-grid:has(
+        #digitalSection:not([style*="none"]),
+        #risoSection:not([style*="none"])
+      )
+      > #qs-expenses {
+      grid-column: 2;
+      grid-row: 2;
+    }
+  }
+}
+
+/* "Other expenses" tab wrapper in the plain (non-L) layout */
+.q-expenses-tab > .q-tab-collapse .q-tab-body {
+  padding: 0 20px 10px;
+}
+#qs-expenses .q-tab-body .q-sub {
+  display: block;
+  margin: 0 0 8px;
+}
+/* the dropdown must be able to float outside the tab while it is open */
+#qs-expenses:not(.is-collapsed) .q-tab-collapse > .q-collapse-inner {
+  overflow: visible;
+}
+
+/* "Quick add an expense" dropdown (the chips live inside it as menu items) */
+.q-chip-menu {
+  position: relative;
+}
+.q-chip-trigger {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--q-line);
+  border-radius: 10px;
+  background: var(--q-card);
+  color: var(--q-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease;
+}
+.q-chip-trigger::-webkit-details-marker {
+  display: none;
+}
+.q-chip-trigger i:first-child {
+  margin-right: 6px;
+  font-size: 11px;
+}
+.q-chip-trigger:hover,
+.q-chip-menu[open] > .q-chip-trigger {
+  border-color: var(--q-primary);
+  color: var(--q-primary);
+}
+.q-chip-menu[open] > .q-chip-trigger {
+  box-shadow: 0 0 0 4px var(--q-ring);
+}
+.q-chip-caret {
+  font-size: 11px;
+  transition: transform 0.3s var(--q-spring);
+}
+.q-chip-menu[open] .q-chip-caret {
+  transform: rotate(180deg);
+}
+.q-chip-menu > .q-chips {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--q-card);
+  border: 1px solid var(--q-line);
+  border-radius: 12px;
+  box-shadow: 0 14px 30px -12px rgba(20, 23, 31, 0.28);
+  transform-origin: top center;
+  animation: q-menu-in 0.2s var(--q-ease);
+}
+.q-chip-menu:not([open]) > .q-chips {
+  display: none;
+}
+.q-chip-menu .q-chip {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 12.5px;
+  background: transparent;
+}
+.q-chip-menu .q-chip:hover {
+  background: var(--q-primary-soft);
+}
+.q-chip-menu > .q-chips:empty::before {
+  content: "No quick items";
+  padding: 8px 10px;
+  font-size: 12.5px;
+  color: var(--q-muted);
+}
+@keyframes q-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+/* group dividers ("The job", "Production costs", …) */
+.q-group-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 2px -4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--q-muted);
+}
+.q-group-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--q-line);
+}
+.quote-page > .q-group-wide {
+  margin: 30px 2px 0;
+}
+.quote-page > .q-group-wide + .q-wide-card {
+  margin: 12px 0 12px 0;
+}
+
+/* section navigator (filter-chip style) */
+.q-nav {
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--q-card);
+  border: 1px solid var(--q-line);
+  border-radius: var(--q-radius);
+  box-shadow: 0 6px 18px -12px rgba(20, 23, 31, 0.3);
+}
+.q-nav-chips {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.q-nav-chips::-webkit-scrollbar {
+  display: none;
+}
+.q-navchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--q-line);
+  background: var(--q-card);
+  color: var(--q-muted);
+  font:
+    600 12.5px Inter,
+    sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s var(--q-spring);
+}
+.q-navchip i {
+  font-size: 11px;
+}
+.q-navchip:hover {
+  border-color: #c7cbff;
+  color: var(--q-primary);
+}
+.q-navchip:active {
+  transform: scale(0.94);
+}
+.q-navchip.active {
+  background: var(--q-primary);
+  border-color: var(--q-primary);
+  color: #fff;
+  box-shadow: 0 4px 12px -4px var(--q-glow);
+}
+.q-nav-toggle {
+  flex: none;
+  white-space: nowrap;
+}
+.q-nav-toggle i {
+  margin-right: 4px;
+  transition: transform 0.3s var(--q-spring);
+}
+.q-nav-toggle.is-collapsed i {
+  transform: rotate(180deg);
+}
+
+/* ---------------------------------------------------------------------
+   Section cards (collapsible, animated like the permission panels)
+   --------------------------------------------------------------------- */
+.quote-page .q-section {
+  background: var(--q-card);
+  border: 1px solid var(--q-line);
+  border-radius: var(--q-radius);
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  scroll-margin-top: 84px;
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+.quote-page .q-section:hover {
+  border-color: #d9dcf5;
+}
+.q-section-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--q-radius);
+  color: var(--q-text);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+.q-section-icon {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  background: var(--q-primary-soft);
+  color: var(--q-primary);
+  transition:
+    transform 0.4s var(--q-spring),
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+.q-section-head:hover .q-section-icon {
+  background: var(--q-primary);
+  color: #fff;
+}
+.q-section-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.q-section-step {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--q-primary);
+}
+.q-section-step:empty {
+  display: none;
+}
+.q-form .q-section-step::before {
+  counter-increment: qstep;
+  content: "Step " counter(qstep);
+}
+.q-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.q-section-hint {
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.q-section-chevron {
+  flex: none;
+  color: var(--q-muted);
+  font-size: 12px;
+  transition:
+    transform 0.4s var(--q-spring),
+    color 0.2s ease;
+}
+.q-section-head:hover .q-section-chevron {
+  color: var(--q-primary);
+}
+.q-section.is-collapsed .q-section-chevron {
+  transform: rotate(-90deg);
+}
+.q-count {
+  flex: none;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--q-soft);
+  color: var(--q-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+.q-count.has-items {
+  background: var(--q-primary-soft);
+  color: var(--q-primary);
+}
+.q-count.bump {
+  animation: q-bump 0.4s var(--q-spring);
+}
+@keyframes q-bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.q-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.4s var(--q-ease);
+}
+.q-section.is-collapsed .q-collapse {
+  grid-template-rows: 0fr;
+}
+.q-collapse-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.q-section.is-collapsed .q-collapse-inner {
+  visibility: hidden;
+  transition: visibility 0s 0.4s;
+}
+.q-section-body {
+  padding: 2px 22px 22px;
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.3s ease,
+    transform 0.4s var(--q-ease);
+}
+.q-section.is-collapsed .q-section-body {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+.q-wide-card {
+  margin-top: 20px;
+}
+
+/* ── Form fields ──────────────────────────────────────────────────── */
+.q-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px 16px;
+  margin-bottom: 14px;
+}
+.q-grid:last-child {
+  margin-bottom: 0;
+}
+.q-wide {
+  grid-column: 1 / -1;
+}
+.q-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.q-field label,
+.q-sub {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--q-muted);
+}
+.q-sub {
+  display: block;
+  margin: 4px 0 8px;
+}
+.q-req {
+  color: var(--q-danger);
+}
+
+.quote-page .q-field input:not([type="checkbox"]),
+.quote-page .q-field select,
+.quote-page .q-field textarea,
+.quote-page .q-presets select,
+.quote-page .q-seq-row select,
+.quote-page .q-item-row input,
+.quote-page .q-labor-row input,
+.quote-page .q-cmp-name {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--q-line);
+  border-radius: 8px;
+  background: var(--q-card);
+  color: var(--q-text);
+  font:
+    400 13.5px Inter,
+    system-ui,
+    sans-serif;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+.quote-page .q-field input:not([type="checkbox"]):hover,
+.quote-page .q-field select:hover,
+.quote-page .q-presets select:hover,
+.quote-page .q-seq-row select:hover,
+.quote-page .q-item-row input:hover,
+.quote-page .q-labor-row input:hover {
+  border-color: #cbd5e1;
+}
+.quote-page input:not([type="checkbox"]):focus,
+.quote-page select:focus,
+.quote-page textarea:focus {
+  outline: none;
+  border-color: var(--q-primary);
+  box-shadow: 0 0 0 4px var(--q-ring);
+}
+.quote-page select:disabled {
+  background: var(--q-soft);
+  color: var(--q-muted);
+  cursor: not-allowed;
+}
+.q-inline {
+  display: flex;
+  gap: 8px;
+}
+.quote-page .q-inline select {
+  width: 72px;
+  flex: none;
+  padding-left: 10px;
+  padding-right: 6px;
+}
+.quote-page .q-inline input:not([type="checkbox"]) {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+}
+.q-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--q-muted);
+  line-height: 1.5;
+}
+.q-hint:empty {
+  display: none;
+}
+.q-error {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--q-danger);
+  font-size: 12.5px;
+  font-weight: 600;
+  animation: q-pop-in 0.3s var(--q-ease);
+}
+
+/* ── ON / OFF switches (same spring switch as manage_users) ────────── */
+.q-switch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.quote-page .q-check {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 14px;
+  border: 1px solid var(--q-line);
+  border-radius: 10px;
+  background: var(--q-card);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--q-text);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+.quote-page .q-check:hover {
+  background: var(--q-soft);
+  border-color: #d3d7ff;
+}
+.q-check-text {
+  min-width: 0;
+  line-height: 1.4;
+}
+.q-check-text small {
+  display: block;
+  font-size: 12px;
+}
+.q-field-switch {
+  justify-content: flex-end;
+}
+
+.quote-page .q-check input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  flex: none;
+  order: 2;
+  width: 46px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--q-track-off);
+  box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.2);
+  cursor: pointer;
+  transition:
+    background 0.3s ease,
+    box-shadow 0.35s ease;
+}
+.quote-page .q-check input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow:
+    0 2px 5px rgba(15, 23, 42, 0.32),
+    0 0 0 1px rgba(15, 23, 42, 0.04);
+  transition:
+    transform 0.45s var(--q-spring),
+    width 0.2s ease,
+    box-shadow 0.25s ease;
+}
+.quote-page .q-check input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  background: center / 11px no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2316a34a' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7'/%3E%3C/svg%3E");
+  opacity: 0;
+  transform: translateX(0) scale(0.4);
+  transition:
+    transform 0.45s var(--q-spring),
+    opacity 0.2s ease;
+}
+.quote-page .q-check input[type="checkbox"]:checked {
+  background: linear-gradient(135deg, var(--q-on-light), var(--q-on));
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.15),
+    0 4px 12px -3px rgba(22, 163, 74, 0.55);
+}
+.quote-page .q-check input[type="checkbox"]:checked::before {
+  transform: translateX(20px);
+}
+.quote-page .q-check input[type="checkbox"]:checked::after {
+  opacity: 1;
+  transform: translateX(20px) scale(1);
+  transition-delay: 0.08s;
+}
+.quote-page .q-check input[type="checkbox"]:active::before {
+  width: 26px;
+}
+.quote-page .q-check input[type="checkbox"]:checked:active::before {
+  transform: translateX(14px);
+}
+.quote-page .q-check input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--q-primary);
+  outline-offset: 3px;
+}
+.quote-page .q-check input[type="checkbox"]:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+@keyframes q-ring-on {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 11px rgba(34, 197, 94, 0);
+  }
+}
+@keyframes q-ring-off {
+  0% {
+    box-shadow: 0 0 0 0 rgba(100, 116, 139, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 9px rgba(100, 116, 139, 0);
+  }
+}
+.quote-page .q-check input.pop-on {
+  animation: q-ring-on 0.55s ease-out;
+}
+.quote-page .q-check input.pop-off {
+  animation: q-ring-off 0.45s ease-out;
+}
+
+/* ── Print-type cards ─────────────────────────────────────────────── */
+.q-type-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  padding-top: 4px;
+}
+.q-type-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 64px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1.5px solid var(--q-line);
+  background: var(--q-card);
+  color: var(--q-muted);
+  text-align: center;
+  font:
+    600 11.5px Inter,
+    sans-serif;
+  animation: q-fade-up 0.45s var(--q-ease) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s var(--q-ease);
+}
+.q-type-card i {
+  font-size: 17px;
+  transition: transform 0.4s var(--q-spring);
+}
+.q-type-card:hover {
+  border-color: var(--q-primary);
+  color: var(--q-primary);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px -12px var(--q-glow);
+}
+.q-type-card:hover i {
+  transform: scale(1.12);
+}
+.q-type-card:active {
+  transform: scale(0.96);
+}
+.q-type-card.active {
+  border-color: var(--q-primary);
+  background: var(--q-primary-soft);
+  color: var(--q-primary);
+  box-shadow: 0 6px 16px -8px var(--q-glow);
+}
+.q-type-card::after {
+  content: "\f00c";
+  font-family: "Font Awesome 6 Free", "Font Awesome 5 Free", sans-serif;
+  font-weight: 900;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7px;
+  background: var(--q-primary);
+  color: #fff;
+  opacity: 0;
+  transform: scale(0.4);
+  transition:
+    opacity 0.2s ease,
+    transform 0.4s var(--q-spring);
+}
+.q-type-card.active::after {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Paper groups ─────────────────────────────────────────────────── */
+.q-group {
+  position: relative;
+  border: 1px solid var(--q-line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  background: var(--q-soft);
+}
+.q-group.q-enter,
+.q-item-row.q-enter {
+  animation: q-pop-in 0.4s var(--q-ease);
+}
+.q-leaving {
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(14px);
+  max-height: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-width: 0 !important;
+  transition:
+    opacity 0.25s ease,
+    transform 0.3s ease,
+    max-height 0.35s ease,
+    margin 0.35s ease,
+    padding 0.35s ease,
+    border-width 0.35s ease;
+}
+.q-group .q-field input,
+.q-group .q-field select {
+  background: var(--q-card);
+}
+.q-group-x {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 1;
+}
+.q-seq {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.q-seq-row {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--q-muted);
+  font-weight: 600;
+}
+.q-np-paper {
+  margin-top: 16px;
+  padding: 16px 18px;
+  background: var(--q-soft);
+  border-radius: 12px;
+}
+.q-np-paper .q-group {
+  background: var(--q-card);
+}
+.q-details {
+  margin-top: 12px;
+  font-size: 13px;
+}
+.q-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--q-text);
+  padding: 6px 0;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.15s ease;
+}
+.q-details summary::-webkit-details-marker {
+  display: none;
+}
+.q-details summary::before {
+  content: "\f054";
+  font-family: "Font Awesome 6 Free", "Font Awesome 5 Free", sans-serif;
+  font-weight: 900;
+  font-size: 9px;
+  color: var(--q-muted);
+  transition: transform 0.3s var(--q-spring);
+}
+.q-details[open] summary::before {
+  transform: rotate(90deg);
+}
+.q-details summary:hover {
+  color: var(--q-primary);
+}
+.q-details > :not(summary) {
+  margin-top: 8px;
+}
+.q-form .q-details[open] > :not(summary) {
+  animation: q-pop-in 0.35s var(--q-ease);
+}
+
+/* ── Segmented control + option rows (printing / selling) ─────────── */
+.q-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background: var(--q-soft);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+.q-seg button {
+  border: none;
+  background: transparent;
+  padding: 7px 13px;
+  border-radius: 7px;
+  cursor: pointer;
+  font:
+    600 12.5px Inter,
+    sans-serif;
+  color: var(--q-muted);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.25s ease,
+    transform 0.2s var(--q-spring);
+}
+.q-seg button:hover {
+  color: var(--q-text);
+}
+.q-seg button:active {
+  transform: scale(0.94);
+}
+.q-seg button.active {
+  background: var(--q-card);
+  color: var(--q-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+.q-panel {
+  margin: 8px 0 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--q-line);
+  border-radius: 12px;
+  background: var(--q-soft);
+  animation: q-pop-in 0.35s var(--q-ease);
+}
+.q-panel-title {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.q-panel-title i {
+  color: var(--q-primary);
+}
+.q-opts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.q-opt {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--q-line);
+  border-radius: 8px;
+  background: var(--q-card);
+  cursor: pointer;
+  font:
+    500 12.5px Inter,
+    sans-serif;
+  color: var(--q-text);
+  text-align: left;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    transform 0.2s var(--q-ease),
+    box-shadow 0.25s ease;
+}
+.q-opt:hover {
+  border-color: var(--q-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px -8px var(--q-glow);
+}
+.q-opt:active {
+  transform: scale(0.97);
+}
+.q-opt.active {
+  border-color: var(--q-primary);
+  background: var(--q-primary-soft);
+}
+.q-opt b {
+  color: var(--q-primary);
+  white-space: nowrap;
+}
+.q-riso-row {
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.q-riso-row .q-seg {
+  margin-bottom: 4px;
+}
+
+/* ── Labor + itemized ─────────────────────────────────────────────── */
+.q-labor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.q-labor-head,
+.q-labor-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1.2fr) 110px 90px 100px;
+  gap: 10px;
+  align-items: center;
+}
+.q-labor-head {
+  padding: 0 0 6px;
+  border-bottom: 1px solid var(--q-line);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--q-muted);
+}
+.q-labor-head span:last-child {
+  text-align: right;
+}
+.q-labor-row {
+  padding: 4px 0;
+  font-size: 13px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+.q-labor-row:hover {
+  background: var(--q-row-hover);
+}
+.q-labor-task {
+  font-weight: 600;
+}
+.q-labor-row b {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.q-item-row {
+  display: grid;
+  grid-template-columns: 1fr 140px 28px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.q-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 10px;
+}
+.q-chip {
+  border: 1px dashed #cbd5e1;
+  background: var(--q-card);
+  color: var(--q-muted);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font:
+    600 12px Inter,
+    sans-serif;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    background-color 0.2s ease,
+    transform 0.2s var(--q-spring);
+}
+.q-chip:hover {
+  border-color: var(--q-primary);
+  color: var(--q-primary);
+  background: var(--q-primary-soft);
+}
+.q-chip:active {
+  transform: scale(0.94);
+}
+
+/* ---------------------------------------------------------------------
+   Results panel
+   --------------------------------------------------------------------- */
+/* Selling-price controls card */
+.quote-page .q-price-card {
+  background: var(--q-card);
+  border: 1px solid var(--q-line);
+  border-radius: var(--q-radius);
+  padding: 0;
+  margin: 0;
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+.quote-page .q-price-card:hover {
+  border-color: #d9dcf5;
+}
+.q-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--q-line);
+}
+.q-panel-head .q-section-icon {
+  width: 34px;
+  height: 34px;
+  font-size: 14px;
+}
+.q-price-body {
+  padding: 16px 18px 18px;
+}
+.q-price-body .q-seg {
+  display: flex;
+  width: 100%;
+}
+.q-price-body #sellModes button {
+  flex: 1 1 auto;
+  padding: 7px 8px;
+  white-space: nowrap;
+}
+.q-price-body #sellInputs:empty {
+  display: none;
+}
+.q-price-adjust {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--q-line);
+}
+.q-price-adjust .q-sub {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Cost breakdown card (scrolls inside the sticky column) */
+.quote-page .q-result-card {
+  background: var(--q-card);
+  border: 1px solid var(--q-line);
+  border-radius: var(--q-radius);
+  padding: 0;
+  overflow: hidden;
+}
+.q-result-hint {
+  font-size: 11.5px;
+}
+.q-result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--q-line);
+}
+.q-result-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.q-result-title i {
+  color: var(--q-primary);
+}
+.q-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--q-soft);
+  color: var(--q-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+.q-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.q-live[data-state="ready"] {
+  background: rgba(22, 163, 74, 0.12);
+  color: var(--q-good);
+}
+.q-live[data-state="ready"] .q-live-dot {
+  animation: q-live-pulse 1.8s ease-out infinite;
+}
+@keyframes q-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+  }
+}
+
+.q-empty {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--q-muted);
+}
+.q-empty i {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 28px;
+  color: var(--q-primary);
+  opacity: 0.55;
+}
+.q-empty p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.q-neg {
+  color: var(--q-danger);
+}
+.q-warns {
+  list-style: none;
+  margin: 0;
+  padding: 10px 16px;
+  background: rgba(245, 158, 11, 0.09);
+  border-bottom: 1px solid var(--q-line);
+  font-size: 12.5px;
+}
+.q-warns li {
+  padding: 3px 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.q-warns i {
+  color: var(--q-warn);
+  margin-top: 3px;
+}
+.q-breakdown {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.q-breakdown td {
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--q-line);
+  vertical-align: top;
+  transition: background-color 0.2s ease;
+}
+.q-breakdown tr:not(.head):hover td {
+  background: var(--q-row-hover);
+}
+.q-breakdown td:last-child {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.q-breakdown td small {
+  display: block;
+  font-size: 11.5px;
+  margin-top: 1px;
+}
+.q-breakdown tr.head td {
+  background: var(--q-soft);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--q-muted);
+  padding: 7px 16px;
+}
+.q-breakdown tr.total td {
+  font-weight: 700;
+  background: var(--q-soft);
+}
+.q-result-card .q-details {
+  margin: 0;
+  padding: 4px 16px 10px;
+  border-top: 1px solid var(--q-line);
+}
+.q-result-card .q-details summary {
+  padding: 8px 0;
+}
+.q-mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.q-mini-table td {
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--q-line);
+}
+.q-mini-table td:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+.q-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.q-actions .q-actions-main {
+  grid-column: 1 / -1;
+  padding: 11px 14px;
+}
+.q-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 6px;
+}
+.q-pill.good {
+  background: rgba(22, 163, 74, 0.12);
+  color: var(--q-good);
+}
+.q-pill.bad {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--q-danger);
+}
+
+/* ── Tables (tiers / comparison) — same look as the users table ───── */
+.q-table-scroll {
+  overflow-x: auto;
+}
+.q-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 620px;
+}
+.q-table th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--q-muted);
+  background: transparent;
+  border-bottom: 1px solid var(--q-line);
+  white-space: nowrap;
+}
+.q-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #eee;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+  transition: background-color 0.2s ease;
+}
+.q-table tbody tr:hover td {
+  background: var(--q-row-hover);
+}
+.q-table tr.current td {
+  background: var(--q-primary-soft);
+}
+.q-table tr.q-row-in {
+  animation: q-fade-up 0.45s var(--q-ease) backwards;
+}
+.q-table small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+}
+.q-nowrap {
+  white-space: nowrap;
+}
+.q-cmp-name {
+  max-width: 200px;
+  font-weight: 600;
+}
+.q-table-empty {
+  padding: 28px 12px;
+  text-align: center;
+  color: var(--q-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.q-table-empty i {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 24px;
+  opacity: 0.5;
+}
+
+/* ---------------------------------------------------------------------
+   Toasts (stacked, spring-in, progress bar — as in manage_users)
+   --------------------------------------------------------------------- */
+.q-toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 11000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+.q-toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+  max-width: 360px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--dark, #1c1e21);
+  color: #fff;
+  font:
+    500 13px Inter,
+    sans-serif;
+  box-shadow: 0 12px 30px -8px rgba(20, 23, 31, 0.45);
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(28px) scale(0.95);
+  transition:
+    transform 0.45s var(--q-spring),
+    opacity 0.25s ease;
+}
+.q-toast.show {
+  opacity: 1;
+  transform: none;
+}
+.q-toast.hide {
+  opacity: 0;
+  transform: translateX(28px) scale(0.95);
+}
+.q-toast i {
+  font-size: 16px;
+}
+.q-toast-success {
+  background: #14532d;
+}
+.q-toast-error {
+  background: #991b1b;
+}
+.q-toast-warn {
+  background: #92400e;
+}
+.q-toast-info {
+  background: #1e3a8a;
+}
+.q-toast-success i {
+  color: #86efac;
+}
+.q-toast-error i {
+  color: #fecaca;
+}
+.q-toast-warn i {
+  color: #fde68a;
+}
+.q-toast-info i {
+  color: #bfdbfe;
+}
+@keyframes q-bar {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+.q-toast-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.4);
+  transform-origin: left;
+  animation: q-bar linear forwards;
+}
+
+/* ---------------------------------------------------------------------
+   Modals (spring card + icon pop, focus-trapped — as in manage_users)
+   --------------------------------------------------------------------- */
+.q-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(20, 23, 31, 0.45);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.25s ease,
+    visibility 0s 0.25s;
+}
+.q-modal.q-modal-top {
+  z-index: 10100;
+}
+.q-modal.open {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.25s ease;
+}
+.q-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  padding: 28px 26px 22px;
+  border-radius: 14px;
+  background: var(--q-card, #fff);
+  text-align: center;
+  box-shadow: 0 24px 60px -12px rgba(20, 23, 31, 0.35);
+  opacity: 0;
+  transform: translateY(18px) scale(0.93);
+  transition:
+    transform 0.45s var(--q-spring),
+    opacity 0.25s ease;
+}
+.q-modal.open .q-modal-card {
+  opacity: 1;
+  transform: none;
+}
+.q-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--q-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    transform 0.25s var(--q-spring);
+}
+.q-modal-close:hover {
+  background: var(--q-soft);
+  transform: rotate(90deg);
+}
+.q-modal-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: var(--q-primary-soft);
+  color: var(--q-primary);
+  transform: scale(0.5);
+  transition: transform 0.5s var(--q-spring) 0.1s;
+}
+.q-modal.open .q-modal-icon {
+  transform: none;
+}
+.q-modal-icon.danger {
+  background: var(--danger-bg, rgba(239, 68, 68, 0.12));
+  color: var(--q-danger);
+}
+.q-modal-card h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--q-text);
+}
+.q-modal-sub {
+  margin: 0 0 18px;
+  color: var(--q-muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.q-modal-sub strong {
+  color: var(--q-text);
+}
+.q-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+.q-modal-form .q-hint {
+  margin-top: 0;
+}
+.q-modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+.q-modal-actions .q-btn {
+  flex: 1;
+  padding: 10px 16px;
+}
+
+/* ---------------------------------------------------------------------
+   Mobile summary bar + responsive
+   --------------------------------------------------------------------- */
+.q-mini-bar {
+  display: none;
+}
+
+/* short desktop screens: don't pin the column, just scroll the page */
+@media (min-width: 1181px) and (max-height: 820px) {
+  .q-results {
+    position: static;
+  }
+}
+
+@media (max-width: 1180px) {
+  .q-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* un-wrap the aside so its cards can be re-ordered around the form:
+     KPIs + selling-price controls first, then the form, then the breakdown */
+  .q-results {
+    display: contents;
+  }
+  .q-results > .q-stats {
+    order: -3;
+  }
+  .q-results > .q-price-card {
+    order: -2;
+  }
+  .q-form {
+    order: 0;
+  }
+  .q-results > .q-actions {
+    order: 2;
+  }
+  .q-nav {
+    top: 8px;
+  }
+  .q-mini-bar:not(:empty) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 900;
+    padding: 10px 18px;
+    background: var(--dark, #111827);
+    color: #fff;
+    box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.2);
+  }
+  .q-mini-bar small {
+    display: block;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .q-mini-bar b {
+    font-size: 15px;
+  }
+  .q-mini-bar b.good {
+    color: #4ade80;
+  }
+  .q-mini-bar b.warn {
+    color: #fbbf24;
+  }
+  .q-mini-bar b.bad {
+    color: #f87171;
+  }
+  .quote-page {
+    padding-bottom: 80px;
+  }
+  .q-toast-stack {
+    bottom: 76px;
+  }
+}
+@media (max-width: 768px) {
+  .q-toast-stack {
+    left: 16px;
+    right: 16px;
+  }
+  .q-toast {
+    max-width: none;
+  }
+  .q-nav-toggle span {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .quote-page .q-stats {
+    gap: 8px;
+  }
+  .quote-page .q-stats .stat-card {
+    padding: 11px 12px;
+  }
+  .quote-page .q-stats .stat-card h3 {
+    font-size: 15px;
+  }
+  .quote-page .q-stats #statFinal {
+    padding: 14px 16px 12px;
+  }
+  .quote-page .q-stats #statFinal h3 {
+    font-size: 26px;
+  }
+  .quote-page .q-stats .card-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+  }
+  .q-price-body {
+    padding: 14px 14px 16px;
+  }
+  .q-price-body #sellModes button {
+    flex: 1 1 45%;
+  }
+  .q-section-head {
+    padding: 14px 16px;
+  }
+  .q-section-body {
+    padding: 2px 16px 18px;
+  }
+  .q-labor-head {
+    display: none;
+  }
+  .q-labor-row {
+    grid-template-columns: 1fr 90px;
+  }
+  .q-labor-row small,
+  .q-labor-row b {
+    text-align: left;
+  }
+  .q-seq-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .q-sim-badge {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .quote-page .q-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .quote-page .q-stats #statMargin {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Respect reduced-motion preferences
+   --------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .quote-page *,
+  .q-modal,
+  .q-modal *,
+  .q-toast-stack * {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+}
+
+/* ── Print for: Customer / Employee ───────────────────────────────── */
+.q-print-for {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 2px 0;
+}
+.q-print-for-label {
+  font:
+    700 11.5px Inter,
+    sans-serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--q-muted);
+}
+.q-print-for .q-seg {
+  margin: 0;
+  flex-wrap: nowrap;
+}
+.q-print-for .q-seg button {
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+.q-print-for .q-seg button i {
+  margin-right: 5px;
+  font-size: 11px;
+}
+.q-xnotes {
+  margin-top: 12px;
+}
+.q-xnotes textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 64px;
+}
+.q-xnotes label small {
+  font-weight: 500;
+  color: var(--q-muted);
+}
+
+/* ── Customer-facing quote sheet (screen: hidden, print: only thing shown) ── */
+#quotePrintArea {
+  display: none;
+}
+/* ---------------------------------------------------------------------
+   Cost breakdown: floating panel. No backdrop, so the price workbench
+   stays clickable while it is open. Draggable by its header.
+   --------------------------------------------------------------------- */
+#btnBreakdown.is-active {
+  background: var(--q-primary-soft);
+  border-color: var(--q-primary);
+  color: var(--q-primary);
+}
+.q-float {
+  position: fixed;
+  top: 92px;
+  left: 16px;
+  width: 600px;
+  max-width: calc(100vw - 16px);
+  z-index: 950;
+  display: flex;
+  flex-direction: column;
+  background: var(--q-card);
+  color: var(--q-text);
+  font-family: inherit;
+  border: 1px solid var(--q-line);
+  border-radius: 16px;
+  box-shadow:
+    0 28px 60px -18px rgba(20, 23, 31, 0.38),
+    0 6px 16px -8px rgba(20, 23, 31, 0.2);
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(14px) scale(0.98);
+  transition:
+    opacity 0.22s ease,
+    transform 0.4s var(--q-spring, cubic-bezier(0.2, 0.9, 0.3, 1.2)),
+    visibility 0s 0.22s;
+}
+.q-float.open {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 0.22s ease,
+    transform 0.4s var(--q-spring, cubic-bezier(0.2, 0.9, 0.3, 1.2));
+}
+.q-float.is-dragging {
+  transition: none;
+  user-select: none;
+}
+.q-float-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px 13px 16px;
+  background: linear-gradient(135deg, var(--q-primary-soft), var(--q-soft));
+  border-bottom: 1px solid var(--q-line);
+  cursor: grab;
+  touch-action: none;
+}
+.q-float.is-dragging .q-float-head {
+  cursor: grabbing;
+}
+.q-float-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--q-primary);
+  color: #fff;
+  font-size: 15px;
+  box-shadow: 0 6px 14px -6px var(--q-primary);
+}
+.q-float-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.q-float-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+.q-float-titles small {
+  color: var(--q-muted);
+  font-size: 11.5px;
+}
+.q-float-grip {
+  margin-left: auto;
+  color: var(--q-muted);
+  opacity: 0.5;
+}
+.q-float-close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--q-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.q-float-close:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+.q-float-body {
+  overflow-y: auto;
+  padding: 18px;
+}
+.q-float .q-empty {
+  padding: 26px 16px;
+}
+.q-float .q-warns {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 10px;
+}
+
+/* summary tiles */
+.q-bd-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.q-bd-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 13px 15px;
+  border: 1px solid var(--q-line);
+  border-radius: 12px;
+  background: var(--q-soft);
+}
+.q-bd-tile small {
+  color: var(--q-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.q-bd-tile b {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.q-bd-tile span {
+  color: var(--q-muted);
+  font-size: 11.5px;
+}
+.q-bd-tile:first-child {
+  background: var(--q-primary-soft);
+  border-color: transparent;
+}
+.q-bd-tile:first-child b {
+  color: var(--q-primary);
+}
+.q-bd-tile[data-tone="good"] b {
+  color: var(--q-good);
+}
+.q-bd-tile[data-tone="warn"] b {
+  color: var(--q-warn);
+}
+.q-bd-tile[data-tone="bad"] b {
+  color: var(--q-danger);
+}
+
+/* where the money goes */
+.q-bd-mix {
+  padding: 14px 16px;
+  border: 1px solid var(--q-line);
+  border-radius: 12px;
+}
+.q-bd-mixhead {
+  margin-bottom: 10px;
+  color: var(--q-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.q-bd-bar {
+  display: flex;
+  height: 10px;
+  gap: 2px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.q-bd-bar span {
+  min-width: 3px;
+  transition: width 0.4s ease;
+}
+.q-bd-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 12px;
+  color: var(--q-muted);
+  font-size: 11.5px;
+}
+.q-bd-legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 5px;
+  border-radius: 50%;
+}
+.q-bd-legend b {
+  color: inherit;
+  font-weight: 700;
+}
+.q-bd-bar .c0,
+.q-bd-legend .c0 {
+  background: #4f5eff;
+}
+.q-bd-bar .c1,
+.q-bd-legend .c1 {
+  background: #0ea5e9;
+}
+.q-bd-bar .c2,
+.q-bd-legend .c2 {
+  background: #14b8a6;
+}
+.q-bd-bar .c3,
+.q-bd-legend .c3 {
+  background: #f59e0b;
+}
+.q-bd-bar .c4,
+.q-bd-legend .c4 {
+  background: #ec4899;
+}
+.q-bd-bar .c5,
+.q-bd-legend .c5 {
+  background: #8b5cf6;
+}
+
+/* two balanced columns: Expenses | Selling price + cost mix */
+.q-bd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.q-bd-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.q-bd-card {
+  border: 1px solid var(--q-line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.q-bd-card .q-breakdown td {
+  padding: 11px 16px;
+}
+.q-bd-card .q-breakdown tr.head td {
+  padding: 9px 16px;
+  text-align: left;
+}
+.q-bd-card .q-breakdown tr:last-child td {
+  border-bottom: 0;
+}
+.q-bd-card.is-price .q-breakdown tr.total td {
+  padding: 14px 16px;
+  background: var(--q-primary-soft);
+  color: var(--q-primary);
+  font-size: 15px;
+}
+
+/* collapsible extras (paper per layer, stock check) */
+.q-bd-extra {
+  grid-column: 1 / -1;
+  border: 1px solid var(--q-line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.q-bd-extra .q-details {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.q-bd-extra .q-details + .q-details {
+  border-top: 1px solid var(--q-line);
+}
+.q-bd-extra .q-details summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.q-bd-extra .q-details summary:hover {
+  background: var(--q-soft);
+}
+.q-bd-extra .q-details > .q-mini-table {
+  width: calc(100% - 32px);
+  margin: 0 16px 12px;
+}
+.q-bd-extra .q-mini-table td {
+  padding: 8px 0;
+}
+.q-bd-extra .q-mini-table td:not(:first-child):not(:last-child) {
+  padding: 8px 12px;
+  color: var(--q-muted);
+}
+
+/* live-update highlight on a figure that just changed */
+.q-flash {
+  border-radius: 5px;
+  animation: q-bd-flash 0.9s ease-out;
+}
+@keyframes q-bd-flash {
+  0% {
+    background: var(--q-primary-soft);
+    box-shadow: 0 0 0 4px var(--q-primary-soft);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+.q-bd-tile b {
+  display: inline-block;
+}
+
+/* narrow screens: the price workbench is stacked above the form, so the
+   panel becomes a bottom sheet instead of a floating window */
+.q-float.is-sheet {
+  top: auto !important;
+  left: 8px !important;
+  right: 8px;
+  bottom: 8px;
+  width: auto !important;
+  max-height: 55vh !important;
+}
+.q-float.is-sheet .q-float-head {
+  cursor: default;
+}
+.q-float.is-sheet .q-float-grip {
+  display: none;
+}
+@media (max-width: 560px) {
+  .q-bd-tiles {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Short bond paper = US Letter (8.5 × 11 in) */
+@page {
+  size: letter;
+  margin: 12mm 14mm;
+}
+@media print {
+  body > *:not(#quotePrintArea) {
+    display: none !important;
+  }
+  #quotePrintArea {
+    display: block !important;
+    padding: 0;
+    font-family: Inter, Arial, sans-serif;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: #1c1c1c;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Letterhead */
+  .qp-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    padding-bottom: 16px;
+    margin-bottom: 22px;
+    border-bottom: 1px solid #1c1c1c;
+  }
+  .qp-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .qp-logo {
+    height: 58px;
+    width: auto;
+    max-width: 96px;
+    object-fit: contain;
+  }
+  .qp-co {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+  }
+  .qp-sub {
+    margin-top: 3px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #666;
+  }
+  .qp-doc {
+    text-align: right;
+    flex: none;
+  }
+  .qp-doc h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 300;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+  }
+  .qp-meta {
+    margin-top: 8px;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: #555;
+  }
+  .qp-meta b {
+    color: #1c1c1c;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+
+  /* Prepared for + project details */
+  .qp-cols2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 28px;
+    margin-bottom: 22px;
+  }
+  .qp-label {
+    margin-bottom: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #777;
+  }
+  .qp-strong {
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .qp-muted {
+    color: #999;
+  }
+  .qp-kv {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .qp-kv td {
+    padding: 3px 0;
+    vertical-align: top;
+  }
+  .qp-kv td:first-child {
+    width: 38%;
+    color: #777;
+  }
+  .qp-kv td:last-child {
+    font-weight: 600;
+  }
+
+  /* Items */
+  .qp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  .qp-table th {
+    padding: 8px 8px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #555;
+    border-top: 1px solid #1c1c1c;
+    border-bottom: 1px solid #1c1c1c;
+  }
+  .qp-table td {
+    padding: 12px 8px;
+    vertical-align: top;
+    border-bottom: 1px solid #e3e3e3;
+  }
+  .qp-table .r,
+  .qp-totals .r,
+  .qp-mini .r {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .qp-spec {
+    margin-top: 3px;
+    font-size: 11.5px;
+    color: #555;
+  }
+
+  /* Totals */
+  .qp-totals {
+    width: 54%;
+    margin: 10px 0 0 auto;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    break-inside: avoid;
+  }
+  .qp-totals td {
+    padding: 5px 8px;
+  }
+  .qp-totals .qp-disc td {
+    color: #1c1c1c;
+  }
+  .qp-totals .qp-disc span {
+    color: #666;
+    font-size: 11.5px;
+  }
+  .qp-totals tr.tot td {
+    padding-top: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    border-top: 1px solid #1c1c1c;
+  }
+  .qp-totals .qp-save td {
+    padding-top: 2px;
+    text-align: right;
+    font-size: 11px;
+    color: #666;
+  }
+
+  /* Notes / terms / signatures */
+  .qp-block {
+    margin-top: 22px;
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: #444;
+    break-inside: avoid;
+  }
+  .qp-block p {
+    margin: 0;
+  }
+  .qp-sign {
+    display: flex;
+    gap: 48px;
+    margin-top: 48px;
+    break-inside: avoid;
+  }
+  .qp-sign > div {
+    flex: 1;
+  }
+  .qp-line {
+    display: block;
+    height: 26px;
+    border-bottom: 1px solid #1c1c1c;
+  }
+  .qp-sign small {
+    display: block;
+    margin-top: 5px;
+    font-size: 10.5px;
+    color: #666;
+  }
+  .qp-thanks {
+    margin-top: 26px;
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: #888;
+  }
+
+  /* Employee copy: two short-bond sheets only (customer sheet + one costing sheet),
+     so everything is tightened. */
+  .qp-emp {
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .qp-emp .qp-head {
+    padding-bottom: 14px;
+    margin-bottom: 20px;
+  }
+  .qp-emp .qp-logo {
+    height: 56px;
+  }
+  .qp-emp .qp-co {
+    font-size: 18px;
+  }
+  .qp-emp .qp-doc h1 {
+    font-size: 20px;
+  }
+  .qp-emp .qp-meta {
+    margin-top: 6px;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .qp-emp .qp-cols2 {
+    margin-bottom: 20px;
+  }
+  .qp-emp .qp-table td {
+    padding: 11px 8px;
+  }
+  .qp-emp .qp-totals td {
+    padding: 5px 8px;
+  }
+  .qp-emp .qp-block {
+    margin-top: 18px;
+    font-size: 12.5px;
+  }
+  .qp-emp .qp-sign {
+    margin-top: 44px;
+  }
+  .qp-emp .qp-thanks {
+    display: none;
+  }
+
+  .qp-internal {
+    break-before: page;
+    break-inside: avoid;
+    font-size: 13.5px;
+  }
+  .qp-int-banner {
+    padding: 7px 10px;
+    margin-bottom: 14px;
+    background: #1c1c1c;
+    color: #fff;
+    text-align: center;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .qp-int-title {
+    margin-bottom: 12px;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .qp-int-title span {
+    margin-left: 8px;
+    font-size: 13.5px;
+    font-weight: 400;
+    color: #666;
+  }
+  .qp-int-title em {
+    float: right;
+    font-style: normal;
+    font-size: 11.5px;
+    font-weight: 400;
+    color: #999;
+  }
+  .qp-kv2 {
+    display: block;
+    column-count: 4;
+    column-gap: 14px;
+    margin-bottom: 12px;
+    padding: 9px 10px;
+    border: 1px solid #d5d5d5;
+    font-size: 13px;
+  }
+  .qp-kv2 tbody {
+    display: block;
+  }
+  .qp-kv2 tr {
+    display: block;
+    break-inside: avoid;
+    padding: 3px 0;
+  }
+  .qp-kv2 td {
+    display: block;
+    padding: 0;
+  }
+  .qp-kv2 td:first-child {
+    width: auto;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .qp-tiles {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .qp-tiles > div {
+    padding: 8px 10px;
+    border: 1px solid #d5d5d5;
+  }
+  .qp-tiles small {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #777;
+  }
+  .qp-tiles b {
+    font-size: 15.5px;
+  }
+  .qp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 26px;
+    align-items: start;
+  }
+  .qp-blk {
+    break-inside: avoid;
+  }
+  .qp-internal h3 {
+    margin: 16px 0 5px;
+    padding-bottom: 3px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #555;
+    border-bottom: 1px solid #1c1c1c;
+  }
+  .qp-mini {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    break-inside: avoid;
+  }
+  .qp-mini td {
+    padding: 5px 4px;
+    vertical-align: top;
+    border-bottom: 1px solid #e6e6e6;
+  }
+  .qp-mini small {
+    color: #777;
+  }
+  .qp-mini .qp-pc {
+    width: 42px;
+    color: #777;
+  }
+  .qp-mini tr.tot td {
+    font-weight: 700;
+    border-top: 1px solid #1c1c1c;
+  }
+  .qp-inotes {
+    margin: 0;
+    line-height: 1.5;
+  }
+}
+
+/* =====================================================================
+   Digital / Riso printing panels, matching the Paper Cost page:
+   Digital = indigo accent, Riso = warm amber accent with a left rule.
+   Boxed panel + uppercase title, small uppercase field labels, bordered
+   tab buttons, full-width colour toggle, check-circle price rows with a
+   price pill, and the amber back-to-back bar.
+   (Scoped to the two containers the page script fills in.)
+   ===================================================================== */
+#digitalSection {
+  --dr-accent: var(--q-primary);
+  --dr-accent-soft: var(--q-primary-soft);
+  --dr-line: var(--q-line);
+  --dr-bg: var(--q-soft);
+  --dr-pill: var(--q-soft);
+  --dr-radio: #cdd1d8;
+}
+#risoSection {
+  --dr-accent: #b6790a;
+  --dr-accent-soft: #fdf2df;
+  --dr-line: #f0e0bb;
+  --dr-bg: #fffaf0;
+  --dr-pill: #fffaf0;
+  --dr-radio: #e3d3ae;
+}
+:is(#digitalSection, #risoSection) .q-panel {
+  margin: 14px 0 16px;
+  padding: 16px;
+  border: 1px solid var(--q-line);
+  border-radius: 10px;
+  background: var(--dr-bg);
+}
+#risoSection .q-panel {
+  border-left: 3px solid var(--dr-accent);
+}
+:is(#digitalSection, #risoSection) .q-panel-title {
+  margin-bottom: 14px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--dr-accent);
+  gap: 6px;
+}
+:is(#digitalSection, #risoSection) .q-panel-title i {
+  color: var(--dr-accent);
+}
+:is(#digitalSection, #risoSection) .q-panel-title::after {
+  content: "options";
+}
+
+/* small uppercase field labels ("Color mode", "Paper type") */
+#digitalSection .q-seg {
+  position: relative;
+  margin-top: 30px;
+}
+#digitalSection .q-seg::before {
+  position: absolute;
+  top: -19px;
+  left: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--q-muted);
+  white-space: nowrap;
+}
+#digitalSection .q-seg:has(> button:nth-child(2):last-child)::before {
+  content: "Color mode";
+}
+#digitalSection .q-seg:not(:has(> button:nth-child(2):last-child))::before {
+  content: "Paper type";
+}
+
+/* paper / size tabs: separate bordered buttons, accent fill when active */
+:is(#digitalSection, #risoSection) .q-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin-bottom: 14px;
+  background: none;
+  border-radius: 0;
+}
+:is(#digitalSection, #risoSection) .q-seg button {
+  padding: 7px 14px;
+  border: 1px solid var(--dr-line);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--q-muted);
+  font-weight: 500;
+  box-shadow: none;
+}
+:is(#digitalSection, #risoSection) .q-seg button:hover:not(.active) {
+  border-color: var(--dr-accent);
+  color: var(--dr-accent);
+}
+:is(#digitalSection, #risoSection) .q-seg button.active {
+  background: var(--dr-accent);
+  border-color: var(--dr-accent);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+/* two-option group (Colored / Black & White) = full-width joined toggle */
+:is(#digitalSection, #risoSection)
+  .q-seg:has(> button:nth-child(2):last-child) {
+  flex-wrap: nowrap;
+  gap: 0;
+  width: 100%;
+  border: 1px solid var(--dr-line);
+  border-radius: 8px;
+  background: #fff;
+}
+:is(#digitalSection, #risoSection)
+  .q-seg:has(> button:nth-child(2):last-child)
+  > button:first-child {
+  border-radius: 7px 0 0 7px;
+}
+:is(#digitalSection, #risoSection)
+  .q-seg:has(> button:nth-child(2):last-child)
+  > button:last-child {
+  border-radius: 0 7px 7px 0;
+}
+:is(#digitalSection, #risoSection)
+  .q-seg:has(> button:nth-child(2):last-child)
+  > button {
+  flex: 1;
+  padding: 9px 12px;
+  border: 0;
+  font-size: 13px;
+}
+:is(#digitalSection, #risoSection)
+  .q-seg:has(> button:nth-child(2):last-child)
+  > button
+  + button {
+  border-left: 1px solid var(--dr-line);
+}
+:is(#digitalSection, #risoSection)
+  .q-riso-row
+  .q-seg:has(> button:nth-child(2):last-child) {
+  width: auto;
+}
+
+/* price rows: check-circle, label, price pill */
+:is(#digitalSection, #risoSection) .q-opts {
+  gap: 8px;
+  margin-bottom: 12px;
+}
+:is(#digitalSection, #risoSection) .q-opt {
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--dr-line);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+}
+:is(#digitalSection, #risoSection) .q-opt:hover {
+  border-color: var(--dr-accent);
+  background: var(--dr-accent-soft);
+  transform: none;
+  box-shadow: none;
+}
+:is(#digitalSection, #risoSection) .q-opt.active {
+  border-color: var(--dr-accent);
+  background: var(--dr-accent-soft);
+}
+:is(#digitalSection, #risoSection) .q-opt::before {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background: var(--dr-radio);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='8' cy='8' r='6.6'/%3E%3Cpath d='M5.3 8.2l1.9 1.9 3.5-3.9'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='8' cy='8' r='6.6'/%3E%3Cpath d='M5.3 8.2l1.9 1.9 3.5-3.9'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  transition:
+    background-color 0.2s ease,
+    transform 0.35s var(--q-spring);
+}
+:is(#digitalSection, #risoSection) .q-opt.active::before {
+  background: var(--dr-accent);
+  transform: scale(1.18);
+}
+:is(#digitalSection, #risoSection) .q-opt b {
+  margin-left: auto;
+  min-width: 78px;
+  padding: 4px 10px;
+  border: 1px solid var(--dr-line);
+  border-radius: 6px;
+  background: var(--dr-pill);
+  color: var(--dr-accent);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+}
+
+/* back-to-back: the amber bar from Paper Cost */
+:is(#digitalSection, #risoSection) .q-check {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border: 1px solid #f5dfa9;
+  border-radius: 8px;
+  background: #fdf2df;
+  color: #b6790a;
+  font-weight: 500;
+}
+:is(#digitalSection, #risoSection) .q-check:hover {
+  background: #fcebc8;
+  border-color: #efd28c;
+}
+:is(#digitalSection, #risoSection) .q-check small {
+  color: #b6790a;
+}

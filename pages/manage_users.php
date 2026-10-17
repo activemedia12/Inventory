@@ -198,6 +198,7 @@ $perm_total = count($perm_cols);
         </li>
         <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
         <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+        <li><a href="quotation.php"><i class="fas fa-calculator"></i> <span>Quotation</span></a></li>
         <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
         <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
         <li class="active"><a href="manage_users.php"><i class="fas fa-user-shield"></i> <span>Manage Users</span></a></li>
@@ -397,7 +398,9 @@ $perm_total = count($perm_cols);
                                     <?= $isSuper ? 'disabled' : '' ?>>
                                   <span class="slider">
                                     <span class="thumb">
-                                      <svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" pathLength="1"/></svg>
+                                      <svg class="check" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M3.5 8.5l3 3 6-7" pathLength="1" />
+                                      </svg>
                                       <span class="spin"></span>
                                     </span>
                                   </span>
@@ -465,20 +468,41 @@ $perm_total = count($perm_cols);
   <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
   <script>
-    (function () {
+    (function() {
       'use strict';
 
       var CSRF = <?= json_encode($csrf) ?>;
       var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      function $(sel, ctx) { return (ctx || document).querySelector(sel); }
-      function $$(sel, ctx) { return [].slice.call((ctx || document).querySelectorAll(sel)); }
-      function restart(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
-      function haptic() { if (navigator.vibrate) { try { navigator.vibrate(8); } catch (e) {} } }
+      function $(sel, ctx) {
+        return (ctx || document).querySelector(sel);
+      }
+
+      function $$(sel, ctx) {
+        return [].slice.call((ctx || document).querySelectorAll(sel));
+      }
+
+      function restart(el, cls) {
+        el.classList.remove(cls);
+        void el.offsetWidth;
+        el.classList.add(cls);
+      }
+
+      function haptic() {
+        if (navigator.vibrate) {
+          try {
+            navigator.vibrate(8);
+          } catch (e) {}
+        }
+      }
 
       /* ── Toasts ── */
       var stack = $('#toastStack');
-      var TOAST_ICONS = { success: 'fa-check-circle', error: 'fa-exclamation-circle', info: 'fa-info-circle' };
+      var TOAST_ICONS = {
+        success: 'fa-check-circle',
+        error: 'fa-exclamation-circle',
+        info: 'fa-info-circle'
+      };
 
       function showToast(msg, type) {
         type = type || 'error';
@@ -491,23 +515,32 @@ $perm_total = count($perm_cols);
         t.querySelector('.toast-bar').style.animationDuration = life + 'ms';
         stack.appendChild(t);
         while (stack.children.length > 4) stack.removeChild(stack.firstChild);
-        requestAnimationFrame(function () { requestAnimationFrame(function () { t.classList.add('show'); }); });
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            t.classList.add('show');
+          });
+        });
 
         var timer = setTimeout(hide, life);
+
         function hide() {
           clearTimeout(timer);
           t.classList.remove('show');
           t.classList.add('hide');
-          setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 400);
+          setTimeout(function() {
+            if (t.parentNode) t.parentNode.removeChild(t);
+          }, 400);
         }
         t.addEventListener('click', hide);
       }
 
       /* ── Permission counts / meters ── */
       function updateGroupCounts(row) {
-        $$('.perm-group', row).forEach(function (g) {
+        $$('.perm-group', row).forEach(function(g) {
           var boxes = $$('input[data-perm]', g);
-          var on = boxes.filter(function (b) { return b.checked; }).length;
+          var on = boxes.filter(function(b) {
+            return b.checked;
+          }).length;
           var badge = $('.perm-group-count', g);
           if (badge) badge.textContent = on + '/' + boxes.length;
         });
@@ -517,7 +550,9 @@ $perm_total = count($perm_cols);
         var row = document.getElementById('perm-row-' + userId);
         if (!row) return;
         var boxes = $$('input[data-perm]', row);
-        var on = boxes.filter(function (b) { return b.checked; }).length;
+        var on = boxes.filter(function(b) {
+          return b.checked;
+        }).length;
         var label = document.getElementById('perm-count-' + userId);
         var meter = document.getElementById('perm-meter-' + userId);
         if (label && label.textContent !== String(on)) {
@@ -528,7 +563,9 @@ $perm_total = count($perm_cols);
         updateGroupCounts(row);
       }
 
-      $$('.perm-row').forEach(function (row) { updateGroupCounts(row); });
+      $$('.perm-row').forEach(function(row) {
+        updateGroupCounts(row);
+      });
 
       /* ── The switch ── */
       function pop(box) {
@@ -553,14 +590,22 @@ $perm_total = count($perm_cols);
           value: wanted ? '1' : '0'
         });
 
-        return fetch('manage_users.php', { method: 'POST', body: body, credentials: 'include' })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
+        return fetch('manage_users.php', {
+            method: 'POST',
+            body: body,
+            credentials: 'include'
+          })
+          .then(function(r) {
+            return r.json();
+          })
+          .then(function(data) {
             if (!data.ok) throw new Error(data.error || 'Failed');
             return true;
           })
-          .catch(function () { return false; })
-          .then(function (ok) {
+          .catch(function() {
+            return false;
+          })
+          .then(function(ok) {
             sw.classList.remove('saving');
             if (ok) {
               restart(item, 'saved');
@@ -577,8 +622,8 @@ $perm_total = count($perm_cols);
           });
       }
 
-      $$('.switch input[data-perm]').forEach(function (box) {
-        box.addEventListener('change', function () {
+      $$('.switch input[data-perm]').forEach(function(box) {
+        box.addEventListener('change', function() {
           haptic();
           pop(box);
           savePerm(box);
@@ -589,7 +634,7 @@ $perm_total = count($perm_cols);
       var lastFocus = null;
       var activeModal = null;
 
-      document.addEventListener('click', function (e) {
+      document.addEventListener('click', function(e) {
         var t = e.target;
 
         // expand / collapse permissions
@@ -609,19 +654,23 @@ $perm_total = count($perm_cols);
         if (bulk) {
           var target = bulk.dataset.bulk === 'on';
           var group = bulk.closest('.perm-group');
-          var changed = $$('input[data-perm]:not(:disabled)', group).filter(function (b) { return b.checked !== target; });
+          var changed = $$('input[data-perm]:not(:disabled)', group).filter(function(b) {
+            return b.checked !== target;
+          });
           if (!changed.length) return;
           haptic();
-          Promise.all(changed.map(function (b, i) {
-            return new Promise(function (resolve) {
-              setTimeout(function () {
+          Promise.all(changed.map(function(b, i) {
+            return new Promise(function(resolve) {
+              setTimeout(function() {
                 b.checked = target;
                 pop(b);
                 savePerm(b, true).then(resolve);
               }, reduceMotion ? 0 : i * 55);
             });
-          })).then(function (results) {
-            var failed = results.filter(function (r) { return !r; }).length;
+          })).then(function(results) {
+            var failed = results.filter(function(r) {
+              return !r;
+            }).length;
             if (failed) showToast(failed + ' permission' + (failed > 1 ? 's' : '') + ' could not be saved.', 'error');
             else showToast((target ? 'Enabled ' : 'Disabled ') + results.length + ' permission' + (results.length > 1 ? 's' : ''), 'success');
           });
@@ -660,8 +709,8 @@ $perm_total = count($perm_cols);
       });
 
       /* ── Role select: show busy state, then submit ── */
-      $$('.role-select').forEach(function (sel) {
-        sel.addEventListener('change', function () {
+      $$('.role-select').forEach(function(sel) {
+        sel.addEventListener('change', function() {
           sel.classList.add('busy');
           sel.form.submit();
         });
@@ -674,7 +723,9 @@ $perm_total = count($perm_cols);
         modal.classList.add('open');
         modal.setAttribute('aria-hidden', 'false');
         document.body.classList.add('modal-open');
-        setTimeout(function () { if (focusEl) focusEl.focus(); }, 80);
+        setTimeout(function() {
+          if (focusEl) focusEl.focus();
+        }, 80);
       }
 
       function closeModal() {
@@ -686,16 +737,27 @@ $perm_total = count($perm_cols);
         if (lastFocus && lastFocus.focus) lastFocus.focus();
       }
 
-      document.addEventListener('keydown', function (e) {
+      document.addEventListener('keydown', function(e) {
         if (activeModal) {
-          if (e.key === 'Escape') { closeModal(); return; }
+          if (e.key === 'Escape') {
+            closeModal();
+            return;
+          }
           if (e.key === 'Tab') { // keep focus inside the modal
             var f = $$('button:not(:disabled), input:not([type=hidden]):not(:disabled)', activeModal)
-              .filter(function (el) { return el.offsetParent !== null; });
+              .filter(function(el) {
+                return el.offsetParent !== null;
+              });
             if (!f.length) return;
-            var first = f[0], last = f[f.length - 1];
-            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+            var first = f[0],
+              last = f[f.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+              e.preventDefault();
+              last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+              e.preventDefault();
+              first.focus();
+            }
           }
           return;
         }
@@ -714,17 +776,22 @@ $perm_total = count($perm_cols);
       var resetSubmit = $('#resetSubmit');
 
       function updateStrength() {
-        var v = pw.value, level = '', hint = 'Use at least 6 characters.';
+        var v = pw.value,
+          level = '',
+          hint = 'Use at least 6 characters.';
         if (v.length) {
           if (v.length < 6) {
             level = 'weak';
             hint = (6 - v.length) + ' more character' + (6 - v.length > 1 ? 's' : '') + ' to go';
           } else if (v.length >= 12 && /[a-z]/.test(v) && /[A-Z]/.test(v) && /\d/.test(v) && /[^A-Za-z0-9]/.test(v)) {
-            level = 'strong'; hint = 'Strong password';
+            level = 'strong';
+            hint = 'Strong password';
           } else if (v.length >= 10 && /[A-Za-z]/.test(v) && /\d/.test(v)) {
-            level = 'good'; hint = 'Good password';
+            level = 'good';
+            hint = 'Good password';
           } else {
-            level = 'fair'; hint = 'Okay — add length, numbers or symbols to strengthen it';
+            level = 'fair';
+            hint = 'Okay — add length, numbers or symbols to strengthen it';
           }
         }
         pwMeter.dataset.level = level;
@@ -734,7 +801,7 @@ $perm_total = count($perm_cols);
 
       pw.addEventListener('input', updateStrength);
 
-      $('#pwToggle').addEventListener('click', function () {
+      $('#pwToggle').addEventListener('click', function() {
         var show = pw.type === 'password';
         pw.type = show ? 'text' : 'password';
         this.innerHTML = '<i class="fas ' + (show ? 'fa-eye-slash' : 'fa-eye') + '"></i>';
@@ -742,12 +809,15 @@ $perm_total = count($perm_cols);
         pw.focus();
       });
 
-      $('#resetForm').addEventListener('submit', function (e) {
-        if (pw.value.length < 6) { e.preventDefault(); return; }
+      $('#resetForm').addEventListener('submit', function(e) {
+        if (pw.value.length < 6) {
+          e.preventDefault();
+          return;
+        }
         resetSubmit.classList.add('loading');
       });
 
-      $('#deleteForm').addEventListener('submit', function () {
+      $('#deleteForm').addEventListener('submit', function() {
         $('.mu-btn-danger', this).classList.add('loading');
       });
 
@@ -761,9 +831,9 @@ $perm_total = count($perm_cols);
       function applyFilter() {
         var q = searchInput.value.trim().toLowerCase();
         var shown = 0;
-        userRows.forEach(function (r) {
+        userRows.forEach(function(r) {
           var match = (!q || r.dataset.username.indexOf(q) > -1) &&
-                      (activeRole === 'all' || r.dataset.role === activeRole);
+            (activeRole === 'all' || r.dataset.role === activeRole);
           r.classList.toggle('is-hidden', !match);
           document.getElementById('perm-row-' + r.dataset.id).classList.toggle('is-hidden', !match);
           if (match) shown++;
@@ -773,19 +843,27 @@ $perm_total = count($perm_cols);
       }
 
       searchInput.addEventListener('input', applyFilter);
-      searchInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') { searchInput.value = ''; applyFilter(); searchInput.blur(); }
+      searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          searchInput.value = '';
+          applyFilter();
+          searchInput.blur();
+        }
       });
-      $('#searchForm').addEventListener('submit', function (e) { e.preventDefault(); });
-      $('#searchClear').addEventListener('click', function () {
+      $('#searchForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+      });
+      $('#searchClear').addEventListener('click', function() {
         searchInput.value = '';
         applyFilter();
         searchInput.focus();
       });
 
-      $$('#roleFilters .chip').forEach(function (chip) {
-        chip.addEventListener('click', function () {
-          $$('#roleFilters .chip').forEach(function (c) { c.classList.remove('active'); });
+      $$('#roleFilters .chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          $$('#roleFilters .chip').forEach(function(c) {
+            c.classList.remove('active');
+          });
           chip.classList.add('active');
           activeRole = chip.dataset.filter;
           applyFilter();
@@ -800,21 +878,27 @@ $perm_total = count($perm_cols);
         el.style.maxHeight = el.offsetHeight + 'px';
         void el.offsetWidth;
         el.classList.add('dismissing');
-        setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 450);
+        setTimeout(function() {
+          if (el.parentNode) el.parentNode.removeChild(el);
+        }, 450);
       }
 
       var flash = $('#flash-message');
       if (flash) {
         var ms = parseInt(flash.dataset.timeout, 10) || 0;
-        if (ms) setTimeout(function () { dismissAlert(flash); }, ms);
+        if (ms) setTimeout(function() {
+          dismissAlert(flash);
+        }, ms);
       }
 
       /* ── Count-up for the stat cards ── */
-      $$('[data-count]').forEach(function (el) {
+      $$('[data-count]').forEach(function(el) {
         var end = parseInt(el.dataset.count, 10) || 0;
         if (reduceMotion || end === 0) return;
-        var start = null, dur = 700;
+        var start = null,
+          dur = 700;
         el.textContent = '0';
+
         function tick(ts) {
           if (start === null) start = ts;
           var p = Math.min((ts - start) / dur, 1);

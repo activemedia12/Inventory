@@ -198,6 +198,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
         <li><a href="products.php"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
         <li><a href="delivery.php" class="active"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
         <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+        <li><a href="quotation.php"><i class="fas fa-calculator"></i> <span>Quotation</span></a></li>
         <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
         <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span><span class="website-nav-badge" id="websiteNavBadge"></span></a></li>
         <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
@@ -396,7 +397,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
         </div>
 
         <div class="form-actions">
-          <button type="submit" class="btn"<?= deny_attr('add') ?>>
+          <button type="submit" class="btn" <?= deny_attr('add') ?>>
             <i class="fas fa-save"></i> Save Delivery
           </button>
           <button type="button" class="btn btn-outline" onclick="clearDeliveryForm()">
@@ -537,7 +538,7 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
     // Badge on the sidebar's "Website" link: same counts (unread chats,
     // pending orders, pending price-consultation requests) that drive the
     // per-section badges inside website_admin.php, summed into one number.
-    (function () {
+    (function() {
       function setWebsiteNavBadge(count) {
         var badge = document.getElementById('websiteNavBadge');
         if (!badge) return;
@@ -551,23 +552,28 @@ $insuance_names = $inventory->query("SELECT DISTINCT item_name FROM insuances OR
       }
 
       function refreshWebsiteNavBadge() {
-        fetch('website/get_badge_counts.php', { credentials: 'include' })
-          .then(function (res) { return res.ok ? res.json() : null; })
-          .then(function (counts) {
+        fetch('website/get_badge_counts.php', {
+            credentials: 'include'
+          })
+          .then(function(res) {
+            return res.ok ? res.json() : null;
+          })
+          .then(function(counts) {
             if (!counts) return;
             setWebsiteNavBadge((counts.chats || 0) + (counts.orders || 0) + (counts.pricing || 0));
           })
-          .catch(function () { /* leave the badge as-is on a failed fetch */ });
+          .catch(function() {
+            /* leave the badge as-is on a failed fetch */ });
       }
 
       refreshWebsiteNavBadge();
       setInterval(refreshWebsiteNavBadge, 30000);
-      document.addEventListener('visibilitychange', function () {
+      document.addEventListener('visibilitychange', function() {
         if (!document.hidden) refreshWebsiteNavBadge();
       });
     })();
   </script>
-<?php permission_notice(); ?>
+  <?php permission_notice(); ?>
 </body>
 
 </html>

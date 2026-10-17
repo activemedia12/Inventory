@@ -237,6 +237,7 @@ $active = $_GET['tab'] ?? 'manpower-rates';
         </li>
         <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
         <li class="active"><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+        <li><a href="quotation.php"><i class="fas fa-calculator"></i> <span>Quotation</span></a></li>
         <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
         <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
         <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
@@ -248,496 +249,496 @@ $active = $_GET['tab'] ?? 'manpower-rates';
   </div>
 
   <div class="main-content">
-  <div class="container">
+    <div class="container">
 
-    <header class="page-header">
-      <div class="page-title">
-        <h1><i class="fas fa-tags"></i> Manage Price Lists</h1>
-        <div class="breadcrumb">
-          <a href="job_orders.php">Job Orders</a> <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+      <header class="page-header">
+        <div class="page-title">
+          <h1><i class="fas fa-tags"></i> Manage Price Lists</h1>
+          <div class="breadcrumb">
+            <a href="job_orders.php">Job Orders</a> <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+            <?php if ($job_id): ?>
+              <a href="paper_cost.php?id=<?= $job_id ?>">Cost Calculator</a> <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+            <?php endif; ?>
+            <span>Manage Price Lists</span>
+          </div>
+        </div>
+        <div class="page-header-actions">
           <?php if ($job_id): ?>
-            <a href="paper_cost.php?id=<?= $job_id ?>">Cost Calculator</a> <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+            <a href="paper_cost.php?id=<?= $job_id ?>" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Back</a>
           <?php endif; ?>
-          <span>Manage Price Lists</span>
-        </div>
-      </div>
-      <div class="page-header-actions">
-        <?php if ($job_id): ?>
-          <a href="paper_cost.php?id=<?= $job_id ?>" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Back</a>
-        <?php endif; ?>
-        <button type="submit" form="masterForm" class="btn btn-primary">
-          <i class="fas fa-check-circle"></i> Save All Changes
-        </button>
-      </div>
-    </header>
-
-    <?php if ($saved): ?>
-      <div class="alert-success-custom">
-        <i class="fas fa-check-circle" style="font-size:16px"></i>
-        Price list updated successfully!
-        <button style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--success);font-size:18px" onclick="this.parentElement.remove()">×</button>
-      </div>
-      <script>
-        setTimeout(() => document.querySelector('.alert-success-custom')?.remove(), 3000);
-      </script>
-    <?php endif; ?>
-
-    <div class="price-shell">
-    <!-- Tab Navigation -->
-    <div class="price-tabs-wrapper">
-      <div class="price-tabs" id="priceTabs">
-        <?php
-        $tabs = [
-          'manpower-rates'  => ['icon' => 'bi-people-fill',     'label' => 'Manpower Rates'],
-          'paper-prices'    => ['icon' => 'bi-file-earmark',    'label' => 'Carbonless Paper'],
-          'cut-prices'      => ['icon' => 'bi-scissors',        'label' => 'Ordinary Paper'],
-          'special-prices'  => ['icon' => 'bi-gem',             'label' => 'Special Paper'],
-          'printing-types'  => ['icon' => 'bi-printer-fill',    'label' => 'Printing Types'],
-          'digital-prices'  => ['icon' => 'bi-display',         'label' => 'Digital Printing', 'badge_class' => 'digital'],
-          'riso-prices'     => ['icon' => 'bi-printer',          'label' => 'Riso Printing',     'badge_class' => 'digital'],
-        ];
-        foreach ($tabs as $id => $t):
-        ?>
-          <button class="tab-btn <?= $active === $id ? 'active' : '' ?>"
-            data-tab="<?= $id ?>" onclick="switchTab('<?= $id ?>')">
-            <i class="<?= $t['icon'] ?>"></i>
-            <?= $t['label'] ?>
+          <button type="submit" form="masterForm" class="btn btn-primary">
+            <i class="fas fa-check-circle"></i> Save All Changes
           </button>
-        <?php endforeach; ?>
-      </div>
-    </div>
-
-    <form id="masterForm" method="post">
-      <input type="hidden" name="active_tab" id="activeTabInput" value="<?= htmlspecialchars($active) ?>">
-      <?php if ($job_id): ?><input type="hidden" name="job_id_ref" value="<?= $job_id ?>"><?php endif; ?>
-
-      <div class="price-tab-content">
-
-      <!-- ── MANPOWER RATES ── -->
-      <div class="tab-content-pane <?= $active === 'manpower-rates' ? 'active' : '' ?>" id="tab-manpower-rates">
-        <div class="price-card">
-          <div class="price-card-header">
-            <h6>
-              <div class="card-icon"><i class="bi bi-people-fill"></i></div>Manpower Rates
-            </h6>
-            <span style="font-size:11.5px;color:var(--text-muted)"><?= count($manpower_rates) ?> tasks</span>
-          </div>
-          <div class="table-scroll">
-            <table class="price-table">
-              <thead>
-                <tr>
-                  <th>Task Name</th>
-                  <th>Daily Rate (₱)</th>
-                  <th>Hourly Rate (₱)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php foreach ($manpower_rates as $row): ?>
-                  <tr>
-                    <td>
-                      <div style="font-weight:600"><?= htmlspecialchars($row['task_name']) ?></div>
-                      <input type="hidden" name="manpower[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
-                    </td>
-                    <td>
-                      <input type="number" step="0.01" min="0" name="manpower[<?= $row['id'] ?>][daily_rate]"
-                        value="<?= $row['daily_rate'] ?>" class="form-control" required>
-                    </td>
-                    <td>
-                      <input type="number" step="0.01" min="0" name="manpower[<?= $row['id'] ?>][hourly_rate]"
-                        value="<?= $row['hourly_rate'] ?>" class="form-control" required>
-                    </td>
-                  </tr>
-                <?php endforeach; ?>
-              </tbody>
-            </table>
-          </div>
         </div>
-      </div>
+      </header>
 
-      <!-- ── CARBONLESS PAPER ── -->
-      <div class="tab-content-pane <?= $active === 'paper-prices' ? 'active' : '' ?>" id="tab-paper-prices">
-        <div class="price-card">
-          <div class="price-card-header">
-            <h6>
-              <div class="card-icon"><i class="bi bi-file-earmark"></i></div>Carbonless Paper Prices
-            </h6>
-            <span style="font-size:11.5px;color:var(--text-muted)"><?= count($paper_prices) ?> entries</span>
-          </div>
-          <div class="table-scroll">
-            <table class="price-table">
-              <thead>
-                <tr>
-                  <th>Paper Type</th>
-                  <th>Original (₱)</th>
-                  <th>Discounted (₱)</th>
-                  <th>Short (₱)</th>
-                  <th>Long (₱)</th>
-                  <th>Per Sheet (₱)</th>
-                  <th>Cutting (₱)</th>
-                  <th>Effective Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php foreach ($paper_prices as $row): ?>
-                  <tr>
-                    <td>
-                      <?= htmlspecialchars($row['paper_type']) ?>
-                      <input type="hidden" name="paper[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
-                      <input type="hidden" name="paper[<?= $row['id'] ?>][paper_type]" value="<?= htmlspecialchars($row['paper_type']) ?>">
-                    </td>
-                    <td><input type="number" step="0.01" min="0" name="paper[<?= $row['id'] ?>][orig_price]" value="<?= $row['orig_price'] ?>" class="form-control form-control-sm" required></td>
-                    <td><input type="number" step="0.01" min="0" name="paper[<?= $row['id'] ?>][disc_price]" value="<?= $row['disc_price'] ?>" class="form-control form-control-sm" required></td>
-                    <td><input type="number" step="0.01" min="0" name="paper[<?= $row['id'] ?>][short_price]" value="<?= $row['short_price'] ?>" class="form-control form-control-sm" required></td>
-                    <td><input type="number" step="0.01" min="0" name="paper[<?= $row['id'] ?>][long_price]" value="<?= $row['long_price'] ?>" class="form-control form-control-sm" required></td>
-                    <td>
-                      <input type="number" step="0.0001" min="0" name="paper[<?= $row['id'] ?>][price_per_sheet]"
-                        value="<?= htmlspecialchars($row['price_per_sheet'] ?? '') ?>" class="form-control form-control-sm" placeholder="0.0000">
-                      <?php if (($row['price_per_sheet'] ?? 0) <= 0): ?>
-                        <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px">Auto: ₱<?= number_format($row['disc_price'] / 500, 4) ?></div>
-                      <?php endif; ?>
-                    </td>
-                    <td><input type="number" step="0.01" min="0" name="paper[<?= $row['id'] ?>][cutting_cost]" value="<?= $row['cutting_cost'] ?>" class="form-control form-control-sm" required></td>
-                    <td><input type="date" name="paper[<?= $row['id'] ?>][effective_date]" value="<?= $row['effective_date'] ?>" class="form-control form-control-sm" required></td>
-                  </tr>
-                <?php endforeach; ?>
-              </tbody>
-            </table>
-          </div>
+      <?php if ($saved): ?>
+        <div class="alert-success-custom">
+          <i class="fas fa-check-circle" style="font-size:16px"></i>
+          Price list updated successfully!
+          <button style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--success);font-size:18px" onclick="this.parentElement.remove()">×</button>
         </div>
-      </div>
+        <script>
+          setTimeout(() => document.querySelector('.alert-success-custom')?.remove(), 3000);
+        </script>
+      <?php endif; ?>
 
-      <!-- ── ORDINARY PAPER ── -->
-      <div class="tab-content-pane <?= $active === 'cut-prices' ? 'active' : '' ?>" id="tab-cut-prices">
-        <div class="price-card">
-          <div class="price-card-header">
-            <h6>
-              <div class="card-icon"><i class="bi bi-scissors"></i></div>Ordinary Paper Prices
-            </h6>
-            <span style="font-size:11.5px;color:var(--text-muted)"><?= count($ordinary_prices) ?> products</span>
-          </div>
-          <div class="table-scroll">
-            <table class="price-table">
-              <thead>
-                <tr>
-                  <th>Paper Name</th>
-                  <th>Size / Group</th>
-                  <th>Price / Ream (₱)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php foreach ($ordinary_prices as $row): ?>
-                  <tr>
-                    <td>
-                      <?= htmlspecialchars($row['product_name']) ?>
-                      <input type="hidden" name="ordinary[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
-                    </td>
-                    <td>
-                      <span class="badge-pill">
-                        <?= htmlspecialchars($row['product_group']) ?>
-                      </span>
-                    </td>
-                    <td>
-                      <input type="number" step="0.01" min="0" name="ordinary[<?= $row['id'] ?>][unit_price]"
-                        value="<?= htmlspecialchars($row['unit_price']) ?>" class="form-control" required>
-                    </td>
-                  </tr>
-                <?php endforeach; ?>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── SPECIAL PAPER ── -->
-      <div class="tab-content-pane <?= $active === 'special-prices' ? 'active' : '' ?>" id="tab-special-prices">
-        <div class="price-card">
-          <div class="price-card-header">
-            <h6>
-              <div class="card-icon"><i class="bi bi-gem"></i></div>Special Paper Prices
-            </h6>
-            <span style="font-size:11.5px;color:var(--text-muted)"><?= count($special_prices) ?> products</span>
-          </div>
-          <div class="table-scroll">
-            <table class="price-table">
-              <thead>
-                <tr>
-                  <th>Paper Name</th>
-                  <th>Size / Group</th>
-                  <th>Price / Sheet (₱)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php foreach ($special_prices as $row): ?>
-                  <tr>
-                    <td>
-                      <?= htmlspecialchars($row['product_name']) ?>
-                      <input type="hidden" name="special[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
-                    </td>
-                    <td>
-                      <span class="badge-pill">
-                        <?= htmlspecialchars($row['product_group']) ?>
-                      </span>
-                    </td>
-                    <td>
-                      <input type="number" step="0.0001" min="0" name="special[<?= $row['id'] ?>][unit_price]"
-                        value="<?= htmlspecialchars($row['unit_price']) ?>" class="form-control" required>
-                    </td>
-                  </tr>
-                <?php endforeach; ?>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── PRINTING TYPES ── -->
-      <div class="tab-content-pane <?= $active === 'printing-types' ? 'active' : '' ?>" id="tab-printing-types">
-        <div class="price-card">
-          <div class="price-card-header">
-            <h6>
-              <div class="card-icon"><i class="bi bi-printer-fill"></i></div>Printing Types
-            </h6>
-            <span style="font-size:11.5px;color:var(--text-muted)"><?= count($printing_types) ?> types</span>
-          </div>
-          <div class="table-scroll">
-            <table class="price-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Base Cost (₱)</th>
-                  <th>Per Sheet (₱)</th>
-                  <th>Apply to Paper?</th>
-                  <th>Effective Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php foreach ($printing_types as $row):
-                  $isDigital = stripos($row['name'], 'digital') !== false;
-                  $isRiso = stripos($row['name'], 'riso') !== false;
-                ?>
-                  <tr <?= ($isDigital || $isRiso) ? 'style="background:#f8faff"' : '' ?>>
-                    <td>
-                      <span style="font-weight:600"><?= htmlspecialchars($row['name']) ?></span>
-                      <?php if ($isDigital): ?>
-                        <div style="margin-top:3px">
-                        </div>
-                      <?php elseif ($isRiso): ?>
-                        <div style="margin-top:3px">
-                        </div>
-                      <?php endif; ?>
-                      <input type="hidden" name="printing[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
-                    </td>
-                    <?php if ($isDigital || $isRiso): ?>
-                      <td colspan="3" style="text-align:center;color:var(--text-muted);font-size:12.5px;font-style:italic">
-                        - not used for <?= $isDigital ? 'Digital' : 'Riso' ?> printing -
-                        <input type="hidden" name="printing[<?= $row['id'] ?>][base_cost]" value="<?= $row['base_cost'] ?>">
-                        <input type="hidden" name="printing[<?= $row['id'] ?>][per_sheet_cost]" value="<?= $row['per_sheet_cost'] ?>">
-                        <input type="hidden" name="printing[<?= $row['id'] ?>][apply_to_paper_cost]" value="0">
-                      </td>
-                    <?php else: ?>
-                      <td><input type="number" step="0.01" min="0" name="printing[<?= $row['id'] ?>][base_cost]" value="<?= $row['base_cost'] ?>" class="form-control form-control-sm" required></td>
-                      <td><input type="number" step="0.0001" min="0" name="printing[<?= $row['id'] ?>][per_sheet_cost]" value="<?= $row['per_sheet_cost'] ?>" class="form-control form-control-sm" required></td>
-                      <td>
-                        <div class="form-check form-switch d-flex justify-content-center">
-                          <input class="form-check-input" type="checkbox" name="printing[<?= $row['id'] ?>][apply_to_paper_cost]" value="1" <?= $row['apply_to_paper_cost'] ? 'checked' : '' ?>>
-                        </div>
-                      </td>
-                    <?php endif; ?>
-                    <td><input type="date" name="printing[<?= $row['id'] ?>][effective_date]" value="<?= $row['effective_date'] ?>" class="form-control form-control-sm" required></td>
-                  </tr>
-                <?php endforeach; ?>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── DIGITAL PRINTING PRICES ── -->
-      <div class="tab-content-pane <?= $active === 'digital-prices' ? 'active' : '' ?>" id="tab-digital-prices">
-
-        <!-- Info banner -->
-        <div class="section-banner">
-          <div class="icon"><i class="bi bi-display"></i></div>
-          <div>
-            <div class="title">Digital Printing Price Matrix</div>
-            <div class="sub">Set per-paper prices for each digital printing option. Back-to-back printing doubles the price automatically in the calculator.</div>
+      <div class="price-shell">
+        <!-- Tab Navigation -->
+        <div class="price-tabs-wrapper">
+          <div class="price-tabs" id="priceTabs">
+            <?php
+            $tabs = [
+              'manpower-rates'  => ['icon' => 'bi-people-fill',     'label' => 'Manpower Rates'],
+              'paper-prices'    => ['icon' => 'bi-file-earmark',    'label' => 'Carbonless Paper'],
+              'cut-prices'      => ['icon' => 'bi-scissors',        'label' => 'Ordinary Paper'],
+              'special-prices'  => ['icon' => 'bi-gem',             'label' => 'Special Paper'],
+              'printing-types'  => ['icon' => 'bi-printer-fill',    'label' => 'Printing Types'],
+              'digital-prices'  => ['icon' => 'bi-display',         'label' => 'Digital Printing', 'badge_class' => 'digital'],
+              'riso-prices'     => ['icon' => 'bi-printer',          'label' => 'Riso Printing',     'badge_class' => 'digital'],
+            ];
+            foreach ($tabs as $id => $t):
+            ?>
+              <button class="tab-btn <?= $active === $id ? 'active' : '' ?>"
+                data-tab="<?= $id ?>" onclick="switchTab('<?= $id ?>')">
+                <i class="<?= $t['icon'] ?>"></i>
+                <?= $t['label'] ?>
+              </button>
+            <?php endforeach; ?>
           </div>
         </div>
 
-        <?php
-        $paperTypes = [
-          'bond'    => ['icon' => 'bi-file-earmark',  'label' => 'Bond Paper'],
-          'photo'   => ['icon' => 'bi-image',          'label' => 'Photo Paper'],
-          'glossy'  => ['icon' => 'bi-stars',          'label' => 'C2S Glossy Paper'],
-          'sticker' => ['icon' => 'bi-tag',            'label' => 'Sticker Paper'],
-        ];
-        $firstPt = array_key_first($paperTypes);
-        ?>
+        <form id="masterForm" method="post">
+          <input type="hidden" name="active_tab" id="activeTabInput" value="<?= htmlspecialchars($active) ?>">
+          <?php if ($job_id): ?><input type="hidden" name="job_id_ref" value="<?= $job_id ?>"><?php endif; ?>
 
-        <!-- Paper type sub-tabs -->
-        <div class="digital-paper-tabs mb-4">
-          <?php foreach ($paperTypes as $ptKey => $ptInfo): ?>
-            <button type="button" class="dp-tab-btn <?= $ptKey === $firstPt ? 'active' : '' ?>"
-              data-dptab="<?= $ptKey ?>" onclick="switchDpTab('<?= $ptKey ?>')">
-              <i class="<?= $ptInfo['icon'] ?>"></i> <?= $ptInfo['label'] ?>
-            </button>
-          <?php endforeach; ?>
-        </div>
+          <div class="price-tab-content">
 
-        <?php foreach ($paperTypes as $ptKey => $ptInfo): ?>
-          <div class="dp-content <?= $ptKey === $firstPt ? 'active' : '' ?>" id="dptab-<?= $ptKey ?>">
-            <div class="price-card">
-              <div class="price-card-header">
-                <h6>
-                  <div class="card-icon"><i class="<?= $ptInfo['icon'] ?>"></i></div>
-                  <?= $ptInfo['label'] ?> - Prices per Paper
-                </h6>
-                <span style="font-size:11.5px;color:var(--text-muted)">Edit prices below - click Save All when done</span>
-              </div>
-              <div class="card-body" style="padding:20px">
-                <div class="color-mode-grid">
-                  <?php foreach (['colored' => ['label' => '🎨 Colored', 'class' => 'colored'], 'bw' => ['label' => '⬛ Black & White', 'class' => 'bw']] as $cmKey => $cmInfo): ?>
-                    <div class="cm-panel">
-                      <div class="cm-panel-header <?= $cmInfo['class'] ?>">
-                        <?= $cmInfo['label'] ?>
-                      </div>
-
-                      <?php if ($ptKey === 'bond'): ?>
-                        <?php foreach (['short' => 'Short (8.5×11 in)', 'long' => 'Long (8.5×13 in)'] as $sizeKey => $sizeLabel): ?>
-                          <div class="dp-size-header"><?= $sizeLabel ?></div>
-                          <?php
-                          $ctLabels = ['text_only' => 'Text Only', 'image_text' => 'Image with Text', 'image_only' => 'Image Only'];
-                          foreach ($ctLabels as $ctKey => $ctLabel):
-                            // Find DB row
-                            $dbRow = null;
-                            foreach ($digital_rows as $dr) {
-                              if ($dr['paper_type'] === $ptKey && $dr['color_mode'] === $cmKey && $dr['size_label'] === $sizeKey && $dr['content_type'] === $ctKey) {
-                                $dbRow = $dr;
-                                break;
-                              }
-                            }
-                            $price = $dbRow ? $dbRow['price_per_paper'] : 0;
-                            $rowId = $dbRow ? $dbRow['id'] : 0;
-                          ?>
-                            <div class="dp-row">
-                              <div class="dp-row-label"><?= $ctLabel ?></div>
-                              <?php if ($rowId): ?>
-                                <div class="dp-price-wrapper">
-                                  <span class="dp-peso">₱</span>
-                                  <input type="number" step="0.01" min="0"
-                                    name="digital[<?= $rowId ?>][price]"
-                                    value="<?= number_format($price, 2, '.', '') ?>"
-                                    class="dp-price-input" required>
-                                </div>
-                              <?php else: ?>
-                                <span style="font-size:11px;color:var(--text-muted)">N/A</span>
-                              <?php endif; ?>
-                            </div>
-                          <?php endforeach; ?>
-                        <?php endforeach; ?>
-
-                      <?php else: ?>
-                        <?php
-                        $rows = $digital_indexed[$ptKey][$cmKey] ?? [];
-                        foreach ($rows as $dr):
-                        ?>
-                          <div class="dp-row">
-                            <div class="dp-row-label"><?= htmlspecialchars($dr['size_label']) ?></div>
-                            <div class="dp-price-wrapper">
-                              <span class="dp-peso">₱</span>
-                              <input type="number" step="0.01" min="0"
-                                name="digital[<?= $dr['id'] ?>][price]"
-                                value="<?= number_format($dr['price_per_paper'], 2, '.', '') ?>"
-                                class="dp-price-input" required>
-                            </div>
-                          </div>
-                        <?php endforeach; ?>
-                        <?php if (empty($rows)): ?>
-                          <div style="padding:14px;font-size:12px;color:var(--text-muted);text-align:center">No entries found</div>
-                        <?php endif; ?>
-                      <?php endif; ?>
-
-                    </div><!-- /cm-panel -->
-                  <?php endforeach; ?>
-                </div><!-- /color-mode-grid -->
+            <!-- ── MANPOWER RATES ── -->
+            <div class="tab-content-pane <?= $active === 'manpower-rates' ? 'active' : '' ?>" id="tab-manpower-rates">
+              <div class="price-card">
+                <div class="price-card-header">
+                  <h6>
+                    <div class="card-icon"><i class="bi bi-people-fill"></i></div>Manpower Rates
+                  </h6>
+                  <span style="font-size:11.5px;color:var(--text-muted)"><?= count($manpower_rates) ?> tasks</span>
+                </div>
+                <div class="table-scroll">
+                  <table class="price-table">
+                    <thead>
+                      <tr>
+                        <th>Task Name</th>
+                        <th>Daily Rate (₱)</th>
+                        <th>Hourly Rate (₱)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <?php foreach ($manpower_rates as $row): ?>
+                        <tr>
+                          <td>
+                            <div style="font-weight:600"><?= htmlspecialchars($row['task_name']) ?></div>
+                            <input type="hidden" name="manpower[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
+                          </td>
+                          <td>
+                            <input type="number" step="0.01" min="0" name="manpower[<?= $row['id'] ?>][daily_rate]"
+                              value="<?= $row['daily_rate'] ?>" class="form-control" required>
+                          </td>
+                          <td>
+                            <input type="number" step="0.01" min="0" name="manpower[<?= $row['id'] ?>][hourly_rate]"
+                              value="<?= $row['hourly_rate'] ?>" class="form-control" required>
+                          </td>
+                        </tr>
+                      <?php endforeach; ?>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div><!-- /dp-content -->
-        <?php endforeach; ?>
 
-      </div><!-- /tab-digital-prices -->
+            <!-- ── CARBONLESS PAPER ── -->
+            <div class="tab-content-pane <?= $active === 'paper-prices' ? 'active' : '' ?>" id="tab-paper-prices">
+              <div class="price-card">
+                <div class="price-card-header">
+                  <h6>
+                    <div class="card-icon"><i class="bi bi-file-earmark"></i></div>Carbonless Paper Prices
+                  </h6>
+                  <span style="font-size:11.5px;color:var(--text-muted)"><?= count($paper_prices) ?> entries</span>
+                </div>
+                <div class="table-scroll">
+                  <table class="price-table">
+                    <thead>
+                      <tr>
+                        <th>Paper Type</th>
+                        <th>Original (₱)</th>
+                        <th>Discounted (₱)</th>
+                        <th>Short (₱)</th>
+                        <th>Long (₱)</th>
+                        <th>Per Sheet (₱)</th>
+                        <th>Cutting (₱)</th>
+                        <th>Effective Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <?php foreach ($paper_prices as $row): ?>
+                        <tr>
+                          <td>
+                            <?= htmlspecialchars($row['paper_type']) ?>
+                            <input type="hidden" name="paper[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
+                            <input type="hidden" name="paper[<?= $row['id'] ?>][paper_type]" value="<?= htmlspecialchars($row['paper_type']) ?>">
+                          </td>
+                          <td><input type="number" step="0.01" min="0" name="paper[<?= $row['id'] ?>][orig_price]" value="<?= $row['orig_price'] ?>" class="form-control form-control-sm" required></td>
+                          <td><input type="number" step="0.01" min="0" name="paper[<?= $row['id'] ?>][disc_price]" value="<?= $row['disc_price'] ?>" class="form-control form-control-sm" required></td>
+                          <td><input type="number" step="0.01" min="0" name="paper[<?= $row['id'] ?>][short_price]" value="<?= $row['short_price'] ?>" class="form-control form-control-sm" required></td>
+                          <td><input type="number" step="0.01" min="0" name="paper[<?= $row['id'] ?>][long_price]" value="<?= $row['long_price'] ?>" class="form-control form-control-sm" required></td>
+                          <td>
+                            <input type="number" step="0.0001" min="0" name="paper[<?= $row['id'] ?>][price_per_sheet]"
+                              value="<?= htmlspecialchars($row['price_per_sheet'] ?? '') ?>" class="form-control form-control-sm" placeholder="0.0000">
+                            <?php if (($row['price_per_sheet'] ?? 0) <= 0): ?>
+                              <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px">Auto: ₱<?= number_format($row['disc_price'] / 500, 4) ?></div>
+                            <?php endif; ?>
+                          </td>
+                          <td><input type="number" step="0.01" min="0" name="paper[<?= $row['id'] ?>][cutting_cost]" value="<?= $row['cutting_cost'] ?>" class="form-control form-control-sm" required></td>
+                          <td><input type="date" name="paper[<?= $row['id'] ?>][effective_date]" value="<?= $row['effective_date'] ?>" class="form-control form-control-sm" required></td>
+                        </tr>
+                      <?php endforeach; ?>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
 
+            <!-- ── ORDINARY PAPER ── -->
+            <div class="tab-content-pane <?= $active === 'cut-prices' ? 'active' : '' ?>" id="tab-cut-prices">
+              <div class="price-card">
+                <div class="price-card-header">
+                  <h6>
+                    <div class="card-icon"><i class="bi bi-scissors"></i></div>Ordinary Paper Prices
+                  </h6>
+                  <span style="font-size:11.5px;color:var(--text-muted)"><?= count($ordinary_prices) ?> products</span>
+                </div>
+                <div class="table-scroll">
+                  <table class="price-table">
+                    <thead>
+                      <tr>
+                        <th>Paper Name</th>
+                        <th>Size / Group</th>
+                        <th>Price / Ream (₱)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <?php foreach ($ordinary_prices as $row): ?>
+                        <tr>
+                          <td>
+                            <?= htmlspecialchars($row['product_name']) ?>
+                            <input type="hidden" name="ordinary[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
+                          </td>
+                          <td>
+                            <span class="badge-pill">
+                              <?= htmlspecialchars($row['product_group']) ?>
+                            </span>
+                          </td>
+                          <td>
+                            <input type="number" step="0.01" min="0" name="ordinary[<?= $row['id'] ?>][unit_price]"
+                              value="<?= htmlspecialchars($row['unit_price']) ?>" class="form-control" required>
+                          </td>
+                        </tr>
+                      <?php endforeach; ?>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
 
-      <!-- ── RISO PRINTING PRICES ── -->
-      <div class="tab-content-pane <?= $active === 'riso-prices' ? 'active' : '' ?>" id="tab-riso-prices">
+            <!-- ── SPECIAL PAPER ── -->
+            <div class="tab-content-pane <?= $active === 'special-prices' ? 'active' : '' ?>" id="tab-special-prices">
+              <div class="price-card">
+                <div class="price-card-header">
+                  <h6>
+                    <div class="card-icon"><i class="bi bi-gem"></i></div>Special Paper Prices
+                  </h6>
+                  <span style="font-size:11.5px;color:var(--text-muted)"><?= count($special_prices) ?> products</span>
+                </div>
+                <div class="table-scroll">
+                  <table class="price-table">
+                    <thead>
+                      <tr>
+                        <th>Paper Name</th>
+                        <th>Size / Group</th>
+                        <th>Price / Sheet (₱)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <?php foreach ($special_prices as $row): ?>
+                        <tr>
+                          <td>
+                            <?= htmlspecialchars($row['product_name']) ?>
+                            <input type="hidden" name="special[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
+                          </td>
+                          <td>
+                            <span class="badge-pill">
+                              <?= htmlspecialchars($row['product_group']) ?>
+                            </span>
+                          </td>
+                          <td>
+                            <input type="number" step="0.0001" min="0" name="special[<?= $row['id'] ?>][unit_price]"
+                              value="<?= htmlspecialchars($row['unit_price']) ?>" class="form-control" required>
+                          </td>
+                        </tr>
+                      <?php endforeach; ?>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
 
-        <div class="section-banner warm">
-          <div class="icon"><i class="bi bi-printer"></i></div>
-          <div>
-            <div class="title">Riso Printing Price Matrix</div>
-            <div class="sub">Prices are per ream (500 sheets). Back-to-back adds a flat &#8369;200 surcharge to the total.</div>
-          </div>
-        </div>
+            <!-- ── PRINTING TYPES ── -->
+            <div class="tab-content-pane <?= $active === 'printing-types' ? 'active' : '' ?>" id="tab-printing-types">
+              <div class="price-card">
+                <div class="price-card-header">
+                  <h6>
+                    <div class="card-icon"><i class="bi bi-printer-fill"></i></div>Printing Types
+                  </h6>
+                  <span style="font-size:11.5px;color:var(--text-muted)"><?= count($printing_types) ?> types</span>
+                </div>
+                <div class="table-scroll">
+                  <table class="price-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Base Cost (₱)</th>
+                        <th>Per Sheet (₱)</th>
+                        <th>Apply to Paper?</th>
+                        <th>Effective Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <?php foreach ($printing_types as $row):
+                        $isDigital = stripos($row['name'], 'digital') !== false;
+                        $isRiso = stripos($row['name'], 'riso') !== false;
+                      ?>
+                        <tr <?= ($isDigital || $isRiso) ? 'style="background:#f8faff"' : '' ?>>
+                          <td>
+                            <span style="font-weight:600"><?= htmlspecialchars($row['name']) ?></span>
+                            <?php if ($isDigital): ?>
+                              <div style="margin-top:3px">
+                              </div>
+                            <?php elseif ($isRiso): ?>
+                              <div style="margin-top:3px">
+                              </div>
+                            <?php endif; ?>
+                            <input type="hidden" name="printing[<?= $row['id'] ?>][id]" value="<?= $row['id'] ?>">
+                          </td>
+                          <?php if ($isDigital || $isRiso): ?>
+                            <td colspan="3" style="text-align:center;color:var(--text-muted);font-size:12.5px;font-style:italic">
+                              - not used for <?= $isDigital ? 'Digital' : 'Riso' ?> printing -
+                              <input type="hidden" name="printing[<?= $row['id'] ?>][base_cost]" value="<?= $row['base_cost'] ?>">
+                              <input type="hidden" name="printing[<?= $row['id'] ?>][per_sheet_cost]" value="<?= $row['per_sheet_cost'] ?>">
+                              <input type="hidden" name="printing[<?= $row['id'] ?>][apply_to_paper_cost]" value="0">
+                            </td>
+                          <?php else: ?>
+                            <td><input type="number" step="0.01" min="0" name="printing[<?= $row['id'] ?>][base_cost]" value="<?= $row['base_cost'] ?>" class="form-control form-control-sm" required></td>
+                            <td><input type="number" step="0.0001" min="0" name="printing[<?= $row['id'] ?>][per_sheet_cost]" value="<?= $row['per_sheet_cost'] ?>" class="form-control form-control-sm" required></td>
+                            <td>
+                              <div class="form-check form-switch d-flex justify-content-center">
+                                <input class="form-check-input" type="checkbox" name="printing[<?= $row['id'] ?>][apply_to_paper_cost]" value="1" <?= $row['apply_to_paper_cost'] ? 'checked' : '' ?>>
+                              </div>
+                            </td>
+                          <?php endif; ?>
+                          <td><input type="date" name="printing[<?= $row['id'] ?>][effective_date]" value="<?= $row['effective_date'] ?>" class="form-control form-control-sm" required></td>
+                        </tr>
+                      <?php endforeach; ?>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
 
-        <div class="price-card">
-          <div class="price-card-header">
-            <h6>
-              <div class="card-icon" style="background:#fff3e0;color:#e67e22"><i class="bi bi-printer"></i></div>Riso Paper Prices (per Ream)
-            </h6>
-            <span style="font-size:11.5px;color:var(--text-muted)"><?= count($riso_prices_list) ?> entries</span>
-          </div>
-          <div class="table-scroll">
-            <table class="price-table">
-              <thead>
-                <tr>
-                  <th style="background:var(--warning);color:#fff">Paper Name</th>
-                  <th style="background:var(--warning);color:#fff">Size</th>
-                  <th style="background:var(--warning);color:#fff">Price / Ream (&#8369;)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php
-                $sizeLabels = ['short' => 'Short (8.5x11)', 'long' => 'Long (8.5x13)', 'a4' => 'A4 (8.5x11)'];
-                $lastPaper  = null;
-                foreach ($riso_prices_list as $row):
-                  $isNewPaper = $row['paper_name'] !== $lastPaper;
-                  $lastPaper  = $row['paper_name'];
-                ?>
-                  <?php if ($isNewPaper): ?>
-                    <tr>
-                      <td colspan="3" style="background:#fff8f0;font-weight:700;font-size:12px;color:#92400e;padding:8px 16px;border-bottom:1px solid #f0d9c0">
-                        <i class="bi bi-file-earmark me-1"></i><?= htmlspecialchars($row['paper_name']) ?>
-                      </td>
-                    </tr>
-                  <?php endif; ?>
-                  <tr>
-                    <td style="padding-left:28px;color:var(--text-muted);font-size:12.5px">
-                      <?= htmlspecialchars($row['paper_name']) ?>
-                    </td>
-                    <td>
-                      <span class="badge-pill warm">
-                        <?= htmlspecialchars($sizeLabels[$row['size_label']] ?? strtoupper($row['size_label'])) ?>
-                      </span>
-                    </td>
-                    <td>
-                      <input type="number" step="0.01" min="0"
-                        name="riso[<?= $row['id'] ?>][price]"
-                        value="<?= htmlspecialchars($row['price_per_ream']) ?>"
-                        class="form-control" required>
-                    </td>
-                  </tr>
+            <!-- ── DIGITAL PRINTING PRICES ── -->
+            <div class="tab-content-pane <?= $active === 'digital-prices' ? 'active' : '' ?>" id="tab-digital-prices">
+
+              <!-- Info banner -->
+              <div class="section-banner">
+                <div class="icon"><i class="bi bi-display"></i></div>
+                <div>
+                  <div class="title">Digital Printing Price Matrix</div>
+                  <div class="sub">Set per-paper prices for each digital printing option. Back-to-back printing doubles the price automatically in the calculator.</div>
+                </div>
+              </div>
+
+              <?php
+              $paperTypes = [
+                'bond'    => ['icon' => 'bi-file-earmark',  'label' => 'Bond Paper'],
+                'photo'   => ['icon' => 'bi-image',          'label' => 'Photo Paper'],
+                'glossy'  => ['icon' => 'bi-stars',          'label' => 'C2S Glossy Paper'],
+                'sticker' => ['icon' => 'bi-tag',            'label' => 'Sticker Paper'],
+              ];
+              $firstPt = array_key_first($paperTypes);
+              ?>
+
+              <!-- Paper type sub-tabs -->
+              <div class="digital-paper-tabs mb-4">
+                <?php foreach ($paperTypes as $ptKey => $ptInfo): ?>
+                  <button type="button" class="dp-tab-btn <?= $ptKey === $firstPt ? 'active' : '' ?>"
+                    data-dptab="<?= $ptKey ?>" onclick="switchDpTab('<?= $ptKey ?>')">
+                    <i class="<?= $ptInfo['icon'] ?>"></i> <?= $ptInfo['label'] ?>
+                  </button>
                 <?php endforeach; ?>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div><!-- /tab-riso-prices -->
+              </div>
 
-      </div><!-- /price-tab-content -->
-    </form><!-- /masterForm -->
-    </div><!-- /price-shell -->
+              <?php foreach ($paperTypes as $ptKey => $ptInfo): ?>
+                <div class="dp-content <?= $ptKey === $firstPt ? 'active' : '' ?>" id="dptab-<?= $ptKey ?>">
+                  <div class="price-card">
+                    <div class="price-card-header">
+                      <h6>
+                        <div class="card-icon"><i class="<?= $ptInfo['icon'] ?>"></i></div>
+                        <?= $ptInfo['label'] ?> - Prices per Paper
+                      </h6>
+                      <span style="font-size:11.5px;color:var(--text-muted)">Edit prices below - click Save All when done</span>
+                    </div>
+                    <div class="card-body" style="padding:20px">
+                      <div class="color-mode-grid">
+                        <?php foreach (['colored' => ['label' => '🎨 Colored', 'class' => 'colored'], 'bw' => ['label' => '⬛ Black & White', 'class' => 'bw']] as $cmKey => $cmInfo): ?>
+                          <div class="cm-panel">
+                            <div class="cm-panel-header <?= $cmInfo['class'] ?>">
+                              <?= $cmInfo['label'] ?>
+                            </div>
 
-  </div><!-- /container -->
+                            <?php if ($ptKey === 'bond'): ?>
+                              <?php foreach (['short' => 'Short (8.5×11 in)', 'long' => 'Long (8.5×13 in)'] as $sizeKey => $sizeLabel): ?>
+                                <div class="dp-size-header"><?= $sizeLabel ?></div>
+                                <?php
+                                $ctLabels = ['text_only' => 'Text Only', 'image_text' => 'Image with Text', 'image_only' => 'Image Only'];
+                                foreach ($ctLabels as $ctKey => $ctLabel):
+                                  // Find DB row
+                                  $dbRow = null;
+                                  foreach ($digital_rows as $dr) {
+                                    if ($dr['paper_type'] === $ptKey && $dr['color_mode'] === $cmKey && $dr['size_label'] === $sizeKey && $dr['content_type'] === $ctKey) {
+                                      $dbRow = $dr;
+                                      break;
+                                    }
+                                  }
+                                  $price = $dbRow ? $dbRow['price_per_paper'] : 0;
+                                  $rowId = $dbRow ? $dbRow['id'] : 0;
+                                ?>
+                                  <div class="dp-row">
+                                    <div class="dp-row-label"><?= $ctLabel ?></div>
+                                    <?php if ($rowId): ?>
+                                      <div class="dp-price-wrapper">
+                                        <span class="dp-peso">₱</span>
+                                        <input type="number" step="0.01" min="0"
+                                          name="digital[<?= $rowId ?>][price]"
+                                          value="<?= number_format($price, 2, '.', '') ?>"
+                                          class="dp-price-input" required>
+                                      </div>
+                                    <?php else: ?>
+                                      <span style="font-size:11px;color:var(--text-muted)">N/A</span>
+                                    <?php endif; ?>
+                                  </div>
+                                <?php endforeach; ?>
+                              <?php endforeach; ?>
+
+                            <?php else: ?>
+                              <?php
+                              $rows = $digital_indexed[$ptKey][$cmKey] ?? [];
+                              foreach ($rows as $dr):
+                              ?>
+                                <div class="dp-row">
+                                  <div class="dp-row-label"><?= htmlspecialchars($dr['size_label']) ?></div>
+                                  <div class="dp-price-wrapper">
+                                    <span class="dp-peso">₱</span>
+                                    <input type="number" step="0.01" min="0"
+                                      name="digital[<?= $dr['id'] ?>][price]"
+                                      value="<?= number_format($dr['price_per_paper'], 2, '.', '') ?>"
+                                      class="dp-price-input" required>
+                                  </div>
+                                </div>
+                              <?php endforeach; ?>
+                              <?php if (empty($rows)): ?>
+                                <div style="padding:14px;font-size:12px;color:var(--text-muted);text-align:center">No entries found</div>
+                              <?php endif; ?>
+                            <?php endif; ?>
+
+                          </div><!-- /cm-panel -->
+                        <?php endforeach; ?>
+                      </div><!-- /color-mode-grid -->
+                    </div>
+                  </div>
+                </div><!-- /dp-content -->
+              <?php endforeach; ?>
+
+            </div><!-- /tab-digital-prices -->
+
+
+            <!-- ── RISO PRINTING PRICES ── -->
+            <div class="tab-content-pane <?= $active === 'riso-prices' ? 'active' : '' ?>" id="tab-riso-prices">
+
+              <div class="section-banner warm">
+                <div class="icon"><i class="bi bi-printer"></i></div>
+                <div>
+                  <div class="title">Riso Printing Price Matrix</div>
+                  <div class="sub">Prices are per ream (500 sheets). Back-to-back adds a flat &#8369;200 surcharge to the total.</div>
+                </div>
+              </div>
+
+              <div class="price-card">
+                <div class="price-card-header">
+                  <h6>
+                    <div class="card-icon" style="background:#fff3e0;color:#e67e22"><i class="bi bi-printer"></i></div>Riso Paper Prices (per Ream)
+                  </h6>
+                  <span style="font-size:11.5px;color:var(--text-muted)"><?= count($riso_prices_list) ?> entries</span>
+                </div>
+                <div class="table-scroll">
+                  <table class="price-table">
+                    <thead>
+                      <tr>
+                        <th style="background:var(--warning);color:#fff">Paper Name</th>
+                        <th style="background:var(--warning);color:#fff">Size</th>
+                        <th style="background:var(--warning);color:#fff">Price / Ream (&#8369;)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <?php
+                      $sizeLabels = ['short' => 'Short (8.5x11)', 'long' => 'Long (8.5x13)', 'a4' => 'A4 (8.5x11)'];
+                      $lastPaper  = null;
+                      foreach ($riso_prices_list as $row):
+                        $isNewPaper = $row['paper_name'] !== $lastPaper;
+                        $lastPaper  = $row['paper_name'];
+                      ?>
+                        <?php if ($isNewPaper): ?>
+                          <tr>
+                            <td colspan="3" style="background:#fff8f0;font-weight:700;font-size:12px;color:#92400e;padding:8px 16px;border-bottom:1px solid #f0d9c0">
+                              <i class="bi bi-file-earmark me-1"></i><?= htmlspecialchars($row['paper_name']) ?>
+                            </td>
+                          </tr>
+                        <?php endif; ?>
+                        <tr>
+                          <td style="padding-left:28px;color:var(--text-muted);font-size:12.5px">
+                            <?= htmlspecialchars($row['paper_name']) ?>
+                          </td>
+                          <td>
+                            <span class="badge-pill warm">
+                              <?= htmlspecialchars($sizeLabels[$row['size_label']] ?? strtoupper($row['size_label'])) ?>
+                            </span>
+                          </td>
+                          <td>
+                            <input type="number" step="0.01" min="0"
+                              name="riso[<?= $row['id'] ?>][price]"
+                              value="<?= htmlspecialchars($row['price_per_ream']) ?>"
+                              class="form-control" required>
+                          </td>
+                        </tr>
+                      <?php endforeach; ?>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div><!-- /tab-riso-prices -->
+
+          </div><!-- /price-tab-content -->
+        </form><!-- /masterForm -->
+      </div><!-- /price-shell -->
+
+    </div><!-- /container -->
   </div><!-- /main-content -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../assets/js/pages/manage_prices.js"></script>

@@ -605,6 +605,7 @@ $wa_nav = array_values(array_filter($wa_nav, function ($item) use ($wa_can_finan
                 <li><a href="products.php" onclick="goToLastProductPage()"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
                 <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
                 <li><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+                <li><a href="quotation.php"><i class="fas fa-calculator"></i> <span>Quotation</span></a></li>
                 <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
                 <li><a href="website_admin.php" class="active"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
                 <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
@@ -659,7 +660,9 @@ $wa_nav = array_values(array_filter($wa_nav, function ($item) use ($wa_can_finan
                 </button>
                 <div class="site-pop site-pop--end" id="notifyPop" hidden>
                     <div class="site-pop-title">Needs attention</div>
-                    <div id="notifyList"><div class="site-pop-empty">You're all caught up.</div></div>
+                    <div id="notifyList">
+                        <div class="site-pop-empty">You're all caught up.</div>
+                    </div>
                 </div>
             </div>
             <div class="site-tool">
@@ -722,7 +725,8 @@ $wa_nav = array_values(array_filter($wa_nav, function ($item) use ($wa_can_finan
                 document.querySelectorAll('.site-link').forEach(a => {
                     const on = a.dataset.page === name;
                     a.classList.toggle('is-active', on);
-                    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+                    if (on) a.setAttribute('aria-current', 'page');
+                    else a.removeAttribute('aria-current');
                 });
                 document.querySelectorAll('.site-sublink').forEach(a => {
                     a.classList.toggle('is-active', name === 'admin_orders.php' && a.dataset.status === status);
@@ -747,12 +751,12 @@ $wa_nav = array_values(array_filter($wa_nav, function ($item) use ($wa_can_finan
             if (n('pricing') > 0) items.push(['fa-file-invoice', 'info', plural(n('pricing'), 'pricing request', 'pricing requests'), 'Needs a quote', n('pricing'), 'website/admin_pricing_estimates.php']);
             if (n('chats') > 0) items.push(['fa-comments', 'info', plural(n('chats'), 'unread message', 'unread messages'), 'Customer chat', n('chats'), 'website/admin_chat.php']);
             const total = items.reduce((sum, i) => sum + i[4], 0);
-            document.getElementById('notifyList').innerHTML = items.length
-                ? items.map(i => '<a class="site-pop-item" target="contentFrame" href="' + i[5] + '">'
-                    + '<span class="site-pop-icon site-pop-icon--' + i[1] + '"><i class="fas ' + i[0] + '" aria-hidden="true"></i></span>'
-                    + '<span class="site-pop-text"><strong>' + i[2] + '</strong><small>' + i[3] + '</small></span>'
-                    + '<span class="site-pop-count">' + (i[4] > 99 ? '99+' : i[4]) + '</span></a>').join('')
-                : '<div class="site-pop-empty">You\'re all caught up.</div>';
+            document.getElementById('notifyList').innerHTML = items.length ?
+                items.map(i => '<a class="site-pop-item" target="contentFrame" href="' + i[5] + '">' +
+                    '<span class="site-pop-icon site-pop-icon--' + i[1] + '"><i class="fas ' + i[0] + '" aria-hidden="true"></i></span>' +
+                    '<span class="site-pop-text"><strong>' + i[2] + '</strong><small>' + i[3] + '</small></span>' +
+                    '<span class="site-pop-count">' + (i[4] > 99 ? '99+' : i[4]) + '</span></a>').join('') :
+                '<div class="site-pop-empty">You\'re all caught up.</div>';
             document.getElementById('notifyDot').hidden = items.length === 0;
             document.getElementById('notifyBtn').setAttribute('aria-label', items.length ? 'Notifications, ' + total + ' need attention' : 'Notifications');
         }
@@ -760,7 +764,9 @@ $wa_nav = array_values(array_filter($wa_nav, function ($item) use ($wa_can_finan
         async function refreshBadgeCounts() {
             if (document.hidden) return;
             try {
-                const response = await fetch(BADGE_COUNTS_URL, { credentials: 'include' });
+                const response = await fetch(BADGE_COUNTS_URL, {
+                    credentials: 'include'
+                });
                 if (!response.ok) return;
                 const counts = await response.json();
                 document.querySelectorAll('.site-badge[data-badge-key]').forEach(badge => {

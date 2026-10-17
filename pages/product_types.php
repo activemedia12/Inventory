@@ -353,10 +353,11 @@ if ($options_fid > 0) {
                 <li><a href="papers.php"><i class="fas fa-boxes"></i> <span>Products</span></a></li>
                 <li><a href="delivery.php"><i class="fas fa-truck"></i> <span>Deliveries</span></a></li>
                 <li class="active"><a href="job_orders.php"><i class="fas fa-clipboard-list"></i> <span>Job Orders</span></a></li>
+                <li><a href="quotation.php"><i class="fas fa-calculator"></i> <span>Quotation</span></a></li>
                 <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
                 <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
                 <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
-                  <li><a href="manage_users.php"><i class="fas fa-user-shield"></i> <span>Manage Users</span></a></li>
+                    <li><a href="manage_users.php"><i class="fas fa-user-shield"></i> <span>Manage Users</span></a></li>
                 <?php endif; ?>
                 <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
             </ul>

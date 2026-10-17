@@ -226,6 +226,20 @@ document.addEventListener("DOMContentLoaded", function () {
   // not a filter — strip it before deciding whether to save/restore.
   const filterParams = new URLSearchParams(window.location.search);
   filterParams.delete("created_id");
+  // save_job_order_cost.php redirects to ?updated=1&id=<jobId>. Those are
+  // one-time signals, not filters: remember the job (so we can scroll back
+  // to it) and strip them, otherwise they get saved as the "filter URL" and
+  // wipe the user's real filters.
+  const costUpdatedId =
+    filterParams.get("updated") === "1" ? filterParams.get("id") : null;
+  if (costUpdatedId && /^\d+$/.test(costUpdatedId)) {
+    sessionStorage.setItem(
+      "jo_cost_return",
+      JSON.stringify({ id: costUpdatedId, ts: Date.now(), saved: true }),
+    );
+  }
+  filterParams.delete("updated");
+  filterParams.delete("id");
   const cleanQuery = filterParams.toString();
   const cleanHref =
     window.location.origin +
@@ -1533,8 +1547,12 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // ✅ Scroll to alert if it exists
+  // (unless we're returning from paper_cost.php / edit_job.php — then the
+  // "return to job" block at the bottom of this file scrolls to that job)
   const alert = document.querySelector(".alert");
-  if (alert) {
+  if (getCostReturnTarget()) {
+    // handled by restoreCostReturnPosition below
+  } else if (alert) {
     window.scrollTo({
       top: 0,
       behavior: "smooth",
@@ -2690,3 +2708,139 @@ function setDummyPaperFields() {
     if (el && (!el.value || el.value === "")) el.value = val;
   });
 }
+
+// ───────────────────────────────────────────────────────────────────
+// Remember which job order the user opened Expenses (paper_cost.php) for,
+// so that after saving they land back on the same row instead of the
+// top of the list. Also written by edit_job.php's "re-save expenses" notice.
+// ───────────────────────────────────────────────────────────────────
+const COST_RETURN_KEY = "jo_cost_return";
+const COST_RETURN_TTL_MS = 30 * 60 * 1000; // ignore stale entries
+
+// Returns { id, ts } if there's a fresh job to return to, else null.
+// A failed save (alert-danger) is shown at the top, so we don't jump then.
+function getCostReturnTarget() {
+  try {
+    const raw = sessionStorage.getItem(COST_RETURN_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || !data.id || Date.now() - data.ts > COST_RETURN_TTL_MS) {
+      sessionStorage.removeItem(COST_RETURN_KEY);
+      return null;
+    }
+    if (document.querySelector(".alert-danger")) {
+      sessionStorage.removeItem(COST_RETURN_KEY);
+      return null;
+    }
+    return data;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Capture-phase so it still fires even if the card stops propagation.
+document.addEventListener(
+  "click",
+  function (e) {
+    const link =
+      e.target.closest &&
+      e.target.closest(
+        'a[href*="paper_cost.php"], [onclick*="paper_cost.php"], [data-href*="paper_cost.php"]',
+      );
+    if (!link) return;
+
+    let id = null;
+    const row = link.closest('[id^="job-order-row-"]');
+    if (row) id = row.id.replace("job-order-row-", "");
+    if (!id) {
+      const src =
+        link.getAttribute("href") ||
+        link.getAttribute("data-href") ||
+        link.getAttribute("onclick") ||
+        "";
+      const m = src.match(/paper_cost\.php\?(?:[^'"]*&)?id=(\d+)/);
+      if (m) id = m[1];
+    }
+    if (id) {
+      try {
+        sessionStorage.setItem(
+          COST_RETURN_KEY,
+          JSON.stringify({ id: String(id), ts: Date.now() }),
+        );
+      } catch (err) {}
+    }
+  },
+  true,
+);
+
+document.addEventListener(
+  "DOMContentLoaded",
+  function restoreCostReturnPosition() {
+    // The saved-filters listener at the top may be about to redirect this page
+    // to the filtered URL — don't consume the target until the real page loads.
+    const fp = new URLSearchParams(window.location.search);
+    fp.delete("created_id");
+    fp.delete("updated");
+    fp.delete("id");
+    if (!fp.toString()) {
+      const savedFilterUrl = sessionStorage.getItem("jo_filter_url");
+      const here =
+        window.location.origin +
+        window.location.pathname +
+        window.location.hash;
+      if (savedFilterUrl && savedFilterUrl !== here) return;
+    }
+
+    // Drop ?updated=1&id=… from the address bar so a refresh doesn't repeat this.
+    const cleanUrlParams = new URLSearchParams(window.location.search);
+    if (cleanUrlParams.has("updated") || cleanUrlParams.has("id")) {
+      cleanUrlParams.delete("updated");
+      cleanUrlParams.delete("id");
+      const q = cleanUrlParams.toString();
+      window.history.replaceState(
+        {},
+        "",
+        window.location.pathname + (q ? "?" + q : "") + window.location.hash,
+      );
+    }
+
+    const target = getCostReturnTarget();
+    if (!target) return;
+    sessionStorage.removeItem(COST_RETURN_KEY); // one-shot
+
+    // save_job_order_cost.php sets no alert message, so confirm with a toast.
+    if (target.saved) showBottomLeftToast("Expenses saved.", 2500);
+
+    // The success alert lives at the top of the page and would be scrolled
+    // out of view, so mirror it as a toast.
+    const okAlert = document.querySelector(".alert-success");
+    if (okAlert) {
+      const msg = okAlert.textContent.trim();
+      if (msg) showBottomLeftToast(msg, 3000);
+    }
+
+    let attempts = 0;
+    (function tryScroll() {
+      const row = document.getElementById("job-order-row-" + target.id);
+      if (!row) {
+        if (attempts++ < 5) setTimeout(tryScroll, 150);
+        return;
+      }
+
+      // Open any collapsed client / project / date folders the row sits in.
+      for (
+        let el = row.parentElement;
+        el && el !== document.body;
+        el = el.parentElement
+      ) {
+        if (window.getComputedStyle(el).display === "none") {
+          el.style.display = "block";
+        }
+      }
+
+      row.scrollIntoView({ block: "center" });
+      row.classList.add("newly-created-row"); // reuse the existing highlight
+      setTimeout(() => row.classList.remove("newly-created-row"), 2500);
+    })();
+  },
+);

@@ -52,11 +52,29 @@ $return_to = ($_SERVER['REQUEST_METHOD'] === 'POST')
 // Cut-size options — matches job_orders.php (up to 1/50). Defined at file
 // scope so both the POST handler and the GET-rendered form/JS data can use it.
 $cut_size_map = [
-    '1/2' => 2, '1/3' => 3, '1/4' => 4, '1/6' => 6, '1/8' => 8, '1/10' => 10,
-    '1/12' => 12, '1/14' => 14, '1/16' => 16, '1/18' => 18, '1/20' => 20,
-    '1/22' => 22, '1/24' => 24, '1/25' => 25, '1/26' => 26, '1/28' => 28,
-    '1/30' => 30, '1/32' => 32, '1/36' => 36, '1/40' => 40, '1/48' => 48,
-    '1/50' => 50, 'whole' => 1,
+    '1/2' => 2,
+    '1/3' => 3,
+    '1/4' => 4,
+    '1/6' => 6,
+    '1/8' => 8,
+    '1/10' => 10,
+    '1/12' => 12,
+    '1/14' => 14,
+    '1/16' => 16,
+    '1/18' => 18,
+    '1/20' => 20,
+    '1/22' => 22,
+    '1/24' => 24,
+    '1/25' => 25,
+    '1/26' => 26,
+    '1/28' => 28,
+    '1/30' => 30,
+    '1/32' => 32,
+    '1/36' => 36,
+    '1/40' => 40,
+    '1/48' => 48,
+    '1/50' => 50,
+    'whole' => 1,
 ];
 
 // Whether this job order is a non-paper product type (t-shirts, mugs, etc.)
@@ -65,7 +83,8 @@ $is_non_paper = !empty($job['product_type_id']);
 // Renders one repeatable "paper group" block (Paper Type / Size / Cut Size /
 // Copies per Set + its own color sequence). Mirrors job_orders.php's create
 // form so both use the same paper_group[idx][...] field naming.
-function render_paper_group_html($idx, $group, $cut_size_map, $inventory, $spoilage_map = [], $collapsed = false) {
+function render_paper_group_html($idx, $group, $cut_size_map, $inventory, $spoilage_map = [], $collapsed = false)
+{
     $pg_type   = $group['paper_type'] ?? '';
     $pg_size   = $group['paper_size'] ?? '';
     $pg_custom = $group['custom_paper_size'] ?? '';
@@ -91,7 +110,7 @@ function render_paper_group_html($idx, $group, $cut_size_map, $inventory, $spoil
         : 'Not yet configured';
 
     ob_start();
-    ?>
+?>
     <div class="paper-group<?= $collapsed ? ' collapsed' : '' ?>" data-group-index="<?= $idx ?>" data-presize='<?= htmlspecialchars(json_encode($pg_size), ENT_QUOTES) ?>' data-preseq='<?= htmlspecialchars(json_encode($pg_seq), ENT_QUOTES) ?>' data-prespoil='<?= htmlspecialchars(json_encode($pg_spoil), ENT_QUOTES) ?>'>
         <div class="pg-header">
             <div class="pg-header-left">
@@ -147,7 +166,7 @@ function render_paper_group_html($idx, $group, $cut_size_map, $inventory, $spoil
             </div>
         </div>
     </div>
-    <?php
+<?php
     return ob_get_clean();
 }
 
@@ -156,13 +175,14 @@ function render_paper_group_html($idx, $group, $cut_size_map, $inventory, $spoil
 // copies-per-set/multi-color list, since it's just "this product consumes
 // paper stock X at quantity ÷ cut size sheets", possibly from more than one
 // paper type.
-function render_np_paper_group_html($idx, $group, $cut_size_map, $inventory) {
+function render_np_paper_group_html($idx, $group, $cut_size_map, $inventory)
+{
     $pg_type  = $group['paper_type'] ?? '';
     $pg_size  = $group['paper_size'] ?? '';
     $pg_cut   = $group['cut_size'] ?? 'whole';
     $pg_color = $group['color'] ?? '';
     ob_start();
-    ?>
+?>
     <div class="np-paper-group" data-group-index="<?= $idx ?>" data-presize='<?= htmlspecialchars(json_encode($pg_size), ENT_QUOTES) ?>' data-precolor='<?= htmlspecialchars(json_encode($pg_color), ENT_QUOTES) ?>' style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:10px;">
         <div class="form-group" style="margin:0;">
             <label style="font-size:11px;">Paper Type</label>
@@ -201,7 +221,7 @@ function render_np_paper_group_html($idx, $group, $cut_size_map, $inventory) {
             <i class="fas fa-times-circle"></i>
         </button>
     </div>
-    <?php
+<?php
     return ob_get_clean();
 }
 
@@ -448,45 +468,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         product_type_id = ?
         WHERE id = ?");
 
-    $stmt->bind_param(
-        "ssssssiisssssissssssssssssssssssssii",
-        $log_date,
-        $client_name,
-        $client_address,
-        $contact_person,
-        $contact_number,
-        $project_name,
-        $quantity,
-        $number_of_sets,
-        $product_size,
-        $serial_range,
-        $paper_size,
-        $custom_paper_size,
-        $paper_type,
-        $copies_per_set,
-        $binding_type,
-        $custom_binding,
-        $special_instructions,
-        $paper_sequence_str,
-        $tin,
-        $client_by,
-        $tax_type,
-        $ocn_number,
-        $date_issued,
-        $billing_number,
-        $invoice_number,
-        $taxpayer_name,
-        $rdo_code,
-        $province,
-        $city,
-        $barangay,
-        $street,
-        $building_no,
-        $floor_no,
-        $zip_code,
-        $product_type_id,
-        $job_id
-    );
+        $stmt->bind_param(
+            "ssssssiisssssissssssssssssssssssssii",
+            $log_date,
+            $client_name,
+            $client_address,
+            $contact_person,
+            $contact_number,
+            $project_name,
+            $quantity,
+            $number_of_sets,
+            $product_size,
+            $serial_range,
+            $paper_size,
+            $custom_paper_size,
+            $paper_type,
+            $copies_per_set,
+            $binding_type,
+            $custom_binding,
+            $special_instructions,
+            $paper_sequence_str,
+            $tin,
+            $client_by,
+            $tax_type,
+            $ocn_number,
+            $date_issued,
+            $billing_number,
+            $invoice_number,
+            $taxpayer_name,
+            $rdo_code,
+            $province,
+            $city,
+            $barangay,
+            $street,
+            $building_no,
+            $floor_no,
+            $zip_code,
+            $product_type_id,
+            $job_id
+        );
     }
 
     if (!$stmt->execute()) {
@@ -676,6 +696,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // PRG redirect — back to wherever the user came from (preserving any
     // filters/pagination on the job orders list), falling back to the
     // plain list if that isn't available or safe.
+    // ── Did this edit change anything the saved Expenses were built from? ──
+    // Expenses (job_orders.grand_total, saved from paper_cost.php) are derived
+    // from quantity, sets per bind, print type and the paper groups
+    // (type / size / cut size / colors). If any of those changed on a job that
+    // already has saved expenses, those numbers are now stale and need to be
+    // re-saved on paper_cost.php.
+    $norm_sig = function ($type, $size, $cut, $colors) {
+        $colors = is_array($colors) ? $colors : explode(',', (string)$colors);
+        $colors = array_values(array_filter(array_map(fn($c) => strtolower(trim($c)), $colors), fn($c) => $c !== ''));
+        sort($colors); // color order doesn't change the cost
+        $cut = trim((string)$cut);
+        return strtolower(trim((string)$type)) . '|' . strtolower(trim((string)$size)) . '|' . ($cut !== '' ? $cut : 'whole') . '|' . implode(',', $colors);
+    };
+
+    $old_sigs = [];
+    if (!empty($job_paper_items)) {
+        foreach ($job_paper_items as $g) {
+            $old_sigs[] = $norm_sig($g['paper_type'], $g['paper_size'], $g['cut_size'], $g['paper_sequence']);
+        }
+    } elseif (empty($job['product_type_id'])) {
+        // Legacy paper job saved before job_order_paper_items existed.
+        $old_sigs[] = $norm_sig($job['paper_type'], $job['paper_size'], $job['product_size'], $job['paper_sequence']);
+    }
+    $new_sigs = [];
+    foreach ($groups_for_deduction as $g) {
+        $new_sigs[] = $norm_sig($g['paper_type'], $g['paper_size'], $g['cut_size'], $g['paper_sequence']);
+    }
+    sort($old_sigs);
+    sort($new_sigs);
+
+    $expense_reasons = [];
+    if ($quantity !== (int)$job['quantity']) {
+        $expense_reasons[] = 'Order Quantity: ' . (int)$job['quantity'] . ' → ' . $quantity;
+    }
+    if ($number_of_sets !== (int)$job['number_of_sets']) {
+        $expense_reasons[] = 'Sets per Bind: ' . (int)$job['number_of_sets'] . ' → ' . $number_of_sets;
+    }
+    if ((int)($job['product_type_id'] ?? 0) !== (int)($product_type_id ?? 0)) {
+        $expense_reasons[] = 'Print Type changed';
+    }
+    if ($old_sigs !== $new_sigs) {
+        $expense_reasons[] = 'Paper type / size / cut size / colors changed';
+    }
+
+    $had_saved_expenses = floatval($job['grand_total'] ?? 0) > 0;
+
     if (!empty($usage_failed)) {
         $_SESSION['message'] = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Job order updated, but paper stock could NOT be deducted: "
             . htmlspecialchars($usage_failed[0])
@@ -683,6 +749,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $_SESSION['message'] = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> Job order updated successfully.</div>";
     }
+
+    // Expenses are stale → stay on the edit page and show the "re-save
+    // expenses" notice (it carries $return_to forward for the "Later" button).
+    if ($had_saved_expenses && !empty($expense_reasons)) {
+        $_SESSION['expense_recalc_notice'] = [
+            'job_id'    => $job_id,
+            'reasons'   => $expense_reasons,
+            'return_to' => $return_to,
+        ];
+        header("Location: edit_job.php?id=$job_id");
+        exit;
+    }
+
     header("Location: $return_to");
     exit;
 }
@@ -821,6 +900,19 @@ $product_query->close();
 
 $message = $_SESSION['message'] ?? null;
 unset($_SESSION['message']);
+
+// One-time "your changes affect the expenses" notice set by the POST handler.
+$expense_notice = null;
+if (
+    !empty($_SESSION['expense_recalc_notice'])
+    && (int)($_SESSION['expense_recalc_notice']['job_id'] ?? 0) === $job_id
+) {
+    $expense_notice = $_SESSION['expense_recalc_notice'];
+    // Cancel/Later should go back to the list the user originally came from,
+    // not to this page (the redirect made the Referer point at itself).
+    $return_to = resolve_return_url((string)($expense_notice['return_to'] ?? ''), 'job_orders.php');
+}
+unset($_SESSION['expense_recalc_notice']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -857,7 +949,7 @@ unset($_SESSION['message']);
                 <li><a href="clients.php"><i class="fa fa-address-book"></i> <span>Client Information</span></a></li>
                 <li><a href="website_admin.php"><i class="fa fa-earth-americas"></i> <span>Website</span></a></li>
                 <?php if (($_SESSION['role'] ?? '') === 'super_admin'): ?>
-                  <li><a href="manage_users.php"><i class="fas fa-user-shield"></i> <span>Manage Users</span></a></li>
+                    <li><a href="manage_users.php"><i class="fas fa-user-shield"></i> <span>Manage Users</span></a></li>
                 <?php endif; ?>
                 <li><a href="../accounts/logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
             </ul>
@@ -900,295 +992,295 @@ unset($_SESSION['message']);
 
                     <!-- ── Client Info ── -->
                     <div class="tab-content active" id="client-info">
-                      <div class="tab-grid">
-                        <div class="form-section">
-                            <h3 class="section-title"><i class="fas fa-info-circle"></i> Basic Information</h3>
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Company / Trade Name *</label>
-                                    <input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($job['client_name']) ?>" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>Taxpayer Name</label>
-                                    <input type="text" name="taxpayer_name" class="form-control" value="<?= htmlspecialchars($job['taxpayer_name'] ?? '') ?>">
-                                </div>
-                                <div class="form-group">
-                                    <label>TIN</label>
-                                    <input type="text" name="tin" class="form-control" value="<?= htmlspecialchars($job['tin'] ?? '') ?>">
-                                </div>
-                                <div class="form-group">
-                                    <label>Tax Type *</label>
-                                    <div class="radio-group">
-                                        <?php foreach (['VAT', 'NONVAT', 'VAT-EXEMPT', 'NON-VAT EXEMPT', 'EXEMPT'] as $tt): ?>
-                                            <div class="radio-option">
-                                                <input type="radio" name="tax_type" value="<?= $tt ?>" <?= ($job['tax_type'] ?? '') === $tt ? 'checked' : '' ?> required>
-                                                <label><?= $tt ?></label>
-                                            </div>
-                                        <?php endforeach; ?>
+                        <div class="tab-grid">
+                            <div class="form-section">
+                                <h3 class="section-title"><i class="fas fa-info-circle"></i> Basic Information</h3>
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label>Company / Trade Name *</label>
+                                        <input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($job['client_name']) ?>" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Taxpayer Name</label>
+                                        <input type="text" name="taxpayer_name" class="form-control" value="<?= htmlspecialchars($job['taxpayer_name'] ?? '') ?>">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>TIN</label>
+                                        <input type="text" name="tin" class="form-control" value="<?= htmlspecialchars($job['tin'] ?? '') ?>">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Tax Type *</label>
+                                        <div class="radio-group">
+                                            <?php foreach (['VAT', 'NONVAT', 'VAT-EXEMPT', 'NON-VAT EXEMPT', 'EXEMPT'] as $tt): ?>
+                                                <div class="radio-option">
+                                                    <input type="radio" name="tax_type" value="<?= $tt ?>" <?= ($job['tax_type'] ?? '') === $tt ? 'checked' : '' ?> required>
+                                                    <label><?= $tt ?></label>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>RDO Code</label>
+                                        <input type="text" name="rdo_code" class="form-control" value="<?= htmlspecialchars($job['rdo_code'] ?? '') ?>">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Client By *</label>
+                                        <input type="text" name="client_by" class="form-control" value="<?= htmlspecialchars($job['client_by'] ?? '') ?>" required>
                                     </div>
                                 </div>
-                                <div class="form-group">
-                                    <label>RDO Code</label>
-                                    <input type="text" name="rdo_code" class="form-control" value="<?= htmlspecialchars($job['rdo_code'] ?? '') ?>">
-                                </div>
-                                <div class="form-group">
-                                    <label>Client By *</label>
-                                    <input type="text" name="client_by" class="form-control" value="<?= htmlspecialchars($job['client_by'] ?? '') ?>" required>
+                            </div>
+
+                            <div class="form-section">
+                                <h3 class="section-title"><i class="fas fa-address-card"></i> Contact</h3>
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label>Contact Person *</label>
+                                        <input type="text" name="contact_person" class="form-control" value="<?= htmlspecialchars($job['contact_person']) ?>" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Contact Number *</label>
+                                        <input type="text" name="contact_number" class="form-control" value="<?= htmlspecialchars($job['contact_number']) ?>" required>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="form-section">
-                            <h3 class="section-title"><i class="fas fa-address-card"></i> Contact</h3>
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Contact Person *</label>
-                                    <input type="text" name="contact_person" class="form-control" value="<?= htmlspecialchars($job['contact_person']) ?>" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>Contact Number *</label>
-                                    <input type="text" name="contact_number" class="form-control" value="<?= htmlspecialchars($job['contact_number']) ?>" required>
+                            <div class="form-section span-2">
+                                <h3 class="section-title"><i class="fas fa-map-marker-alt"></i> Address</h3>
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label>Province *</label>
+                                        <select id="province" name="province" class="form-control" required>
+                                            <option value="">Select Province</option>
+                                            <?php foreach ($provinces as $prov): ?>
+                                                <option value="<?= htmlspecialchars($prov) ?>" <?= ($job['province'] ?? '') === $prov ? 'selected' : '' ?>><?= htmlspecialchars($prov) ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>City / Municipality *</label>
+                                        <select id="city" name="city" class="form-control" required>
+                                            <option value="<?= htmlspecialchars($job['city'] ?? '') ?>" selected><?= htmlspecialchars($job['city'] ?? 'Select City') ?></option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Barangay</label>
+                                        <input type="text" name="barangay" class="form-control" value="<?= htmlspecialchars($job['barangay'] ?? '') ?>" placeholder="e.g. San Isidro">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Street</label>
+                                        <input type="text" name="street" class="form-control" value="<?= htmlspecialchars($job['street'] ?? '') ?>" placeholder="e.g. Rizal St.">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Building / Block</label>
+                                        <input type="text" name="building_no" class="form-control" value="<?= htmlspecialchars($job['building_no'] ?? '') ?>">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Lot / Room No.</label>
+                                        <input type="text" name="floor_no" class="form-control" value="<?= htmlspecialchars($job['floor_no'] ?? '') ?>">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>ZIP Code</label>
+                                        <input type="text" name="zip_code" class="form-control" value="<?= htmlspecialchars($job['zip_code'] ?? '') ?>">
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="form-section span-2">
-                            <h3 class="section-title"><i class="fas fa-map-marker-alt"></i> Address</h3>
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Province *</label>
-                                    <select id="province" name="province" class="form-control" required>
-                                        <option value="">Select Province</option>
-                                        <?php foreach ($provinces as $prov): ?>
-                                            <option value="<?= htmlspecialchars($prov) ?>" <?= ($job['province'] ?? '') === $prov ? 'selected' : '' ?>><?= htmlspecialchars($prov) ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>City / Municipality *</label>
-                                    <select id="city" name="city" class="form-control" required>
-                                        <option value="<?= htmlspecialchars($job['city'] ?? '') ?>" selected><?= htmlspecialchars($job['city'] ?? 'Select City') ?></option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Barangay</label>
-                                    <input type="text" name="barangay" class="form-control" value="<?= htmlspecialchars($job['barangay'] ?? '') ?>" placeholder="e.g. San Isidro">
-                                </div>
-                                <div class="form-group">
-                                    <label>Street</label>
-                                    <input type="text" name="street" class="form-control" value="<?= htmlspecialchars($job['street'] ?? '') ?>" placeholder="e.g. Rizal St.">
-                                </div>
-                                <div class="form-group">
-                                    <label>Building / Block</label>
-                                    <input type="text" name="building_no" class="form-control" value="<?= htmlspecialchars($job['building_no'] ?? '') ?>">
-                                </div>
-                                <div class="form-group">
-                                    <label>Lot / Room No.</label>
-                                    <input type="text" name="floor_no" class="form-control" value="<?= htmlspecialchars($job['floor_no'] ?? '') ?>">
-                                </div>
-                                <div class="form-group">
-                                    <label>ZIP Code</label>
-                                    <input type="text" name="zip_code" class="form-control" value="<?= htmlspecialchars($job['zip_code'] ?? '') ?>">
-                                </div>
-                            </div>
                         </div>
-
-                      </div>
                     </div>
 
                     <!-- ── Order Details ── -->
                     <div class="tab-content" id="order-details">
-                      <div class="tab-grid">
-                        <div class="form-section">
-                            <h3 class="section-title"><i class="fas fa-project-diagram"></i> Project Information</h3>
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Project Name *</label>
-                                    <input type="text" name="project_name" class="form-control" value="<?= htmlspecialchars($job['project_name']) ?>" required>
+                        <div class="tab-grid">
+                            <div class="form-section">
+                                <h3 class="section-title"><i class="fas fa-project-diagram"></i> Project Information</h3>
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label>Project Name *</label>
+                                        <input type="text" name="project_name" class="form-control" value="<?= htmlspecialchars($job['project_name']) ?>" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Serial Range *</label>
+                                        <input type="text" name="serial_range" class="form-control" value="<?= htmlspecialchars($job['serial_range']) ?>" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Order Date *</label>
+                                        <input type="date" name="log_date" class="form-control" value="<?= htmlspecialchars($job['log_date']) ?>" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>OCN Number</label>
+                                        <input type="text" name="ocn_number" class="form-control" value="<?= htmlspecialchars($job['ocn_number'] ?? '') ?>">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Date Issued</label>
+                                        <input type="date" name="date_issued" class="form-control" value="<?= htmlspecialchars($job['date_issued'] ?? '') ?>">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Billing Statement Number</label>
+                                        <input type="text" name="billing_number" class="form-control" placeholder="e.g. 451" value="<?= htmlspecialchars($job['billing_number'] ?? '') ?>">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Service Invoice Number</label>
+                                        <input type="text" name="invoice_number" class="form-control" placeholder="e.g. 451" value="<?= htmlspecialchars($job['invoice_number'] ?? '') ?>">
+                                    </div>
                                 </div>
-                                <div class="form-group">
-                                    <label>Serial Range *</label>
-                                    <input type="text" name="serial_range" class="form-control" value="<?= htmlspecialchars($job['serial_range']) ?>" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>Order Date *</label>
-                                    <input type="date" name="log_date" class="form-control" value="<?= htmlspecialchars($job['log_date']) ?>" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>OCN Number</label>
-                                    <input type="text" name="ocn_number" class="form-control" value="<?= htmlspecialchars($job['ocn_number'] ?? '') ?>">
-                                </div>
-                                <div class="form-group">
-                                    <label>Date Issued</label>
-                                    <input type="date" name="date_issued" class="form-control" value="<?= htmlspecialchars($job['date_issued'] ?? '') ?>">
-                                </div>
-                                <div class="form-group">
-                                    <label>Billing Statement Number</label>
-                                    <input type="text" name="billing_number" class="form-control" placeholder="e.g. 451" value="<?= htmlspecialchars($job['billing_number'] ?? '') ?>">
-                                </div>
-                                <div class="form-group">
-                                    <label>Service Invoice Number</label>
-                                    <input type="text" name="invoice_number" class="form-control" placeholder="e.g. 451" value="<?= htmlspecialchars($job['invoice_number'] ?? '') ?>">
+                            </div>
+                            <div class="form-section">
+                                <h3 class="section-title"><i class="fas fa-cubes"></i> Quantity &amp; Sets</h3>
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label>Order Quantity *</label>
+                                        <input type="number" id="quantity" name="quantity" min="1" class="form-control" value="<?= $job['quantity'] ?>" required>
+                                        <?php $ppb_note = floatval($job['price_per_booklet'] ?? 0); ?>
+                                        <?php if ($ppb_note > 0): ?>
+                                            <small style="color:var(--gray);display:block;margin-top:4px;">
+                                                <i class="fas fa-link"></i> Total Cost is linked to Price per Booklet (₱<?= number_format($ppb_note, 2) ?>) — it will auto-update to match the quantity above on save.
+                                            </small>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="form-group" id="number-of-sets-group">
+                                        <label>Sets per Bind *</label>
+                                        <input type="number" id="number_of_sets" name="number_of_sets" min="1" class="form-control" value="<?= $job['number_of_sets'] ?>" required>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="form-section">
-                            <h3 class="section-title"><i class="fas fa-cubes"></i> Quantity &amp; Sets</h3>
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Order Quantity *</label>
-                                    <input type="number" id="quantity" name="quantity" min="1" class="form-control" value="<?= $job['quantity'] ?>" required>
-                                    <?php $ppb_note = floatval($job['price_per_booklet'] ?? 0); ?>
-                                    <?php if ($ppb_note > 0): ?>
-                                        <small style="color:var(--gray);display:block;margin-top:4px;">
-                                            <i class="fas fa-link"></i> Total Cost is linked to Price per Booklet (₱<?= number_format($ppb_note, 2) ?>) — it will auto-update to match the quantity above on save.
-                                        </small>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="form-group" id="number-of-sets-group">
-                                    <label>Sets per Bind *</label>
-                                    <input type="number" id="number_of_sets" name="number_of_sets" min="1" class="form-control" value="<?= $job['number_of_sets'] ?>" required>
-                                </div>
-                            </div>
-                        </div>
-                      </div>
                     </div>
 
                     <!-- ── Specifications ── -->
                     <div class="tab-content" id="specifications">
-                      <div class="tab-grid">
+                        <div class="tab-grid">
 
-                        <div class="form-section span-2">
-                            <h3 class="section-title"><i class="fas fa-tags"></i> Print Type</h3>
-                            <div class="form-grid">
-                                <div class="form-group" style="grid-column: 1 / -1;">
-                                    <div id="print-type-selector" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;">
-                                        <label class="print-type-option" data-type="paper">
-                                            <input type="radio" name="print_category" value="paper" <?= !$is_non_paper ? 'checked' : '' ?> style="display:none;">
-                                            <div class="print-type-card <?= !$is_non_paper ? 'active' : '' ?>">
-                                                <i class="fas fa-file-alt"></i>
-                                                <span>Receipts</span>
-                                            </div>
-                                        </label>
-                                        <?php foreach ($active_product_types as $pt): ?>
-                                            <label class="print-type-option" data-type="pt_<?= $pt['id'] ?>">
-                                                <input type="radio" name="print_category" value="pt_<?= $pt['id'] ?>" <?= ((int)($job['product_type_id'] ?? 0) === (int)$pt['id']) ? 'checked' : '' ?> style="display:none;">
-                                                <div class="print-type-card <?= ((int)($job['product_type_id'] ?? 0) === (int)$pt['id']) ? 'active' : '' ?>">
-                                                    <i class="fas <?= htmlspecialchars($pt['icon'] ?? 'fa-print') ?>"></i>
-                                                    <span><?= htmlspecialchars($pt['name']) ?></span>
+                            <div class="form-section span-2">
+                                <h3 class="section-title"><i class="fas fa-tags"></i> Print Type</h3>
+                                <div class="form-grid">
+                                    <div class="form-group" style="grid-column: 1 / -1;">
+                                        <div id="print-type-selector" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;">
+                                            <label class="print-type-option" data-type="paper">
+                                                <input type="radio" name="print_category" value="paper" <?= !$is_non_paper ? 'checked' : '' ?> style="display:none;">
+                                                <div class="print-type-card <?= !$is_non_paper ? 'active' : '' ?>">
+                                                    <i class="fas fa-file-alt"></i>
+                                                    <span>Receipts</span>
                                                 </div>
                                             </label>
-                                        <?php endforeach; ?>
+                                            <?php foreach ($active_product_types as $pt): ?>
+                                                <label class="print-type-option" data-type="pt_<?= $pt['id'] ?>">
+                                                    <input type="radio" name="print_category" value="pt_<?= $pt['id'] ?>" <?= ((int)($job['product_type_id'] ?? 0) === (int)$pt['id']) ? 'checked' : '' ?> style="display:none;">
+                                                    <div class="print-type-card <?= ((int)($job['product_type_id'] ?? 0) === (int)$pt['id']) ? 'active' : '' ?>">
+                                                        <i class="fas <?= htmlspecialchars($pt['icon'] ?? 'fa-print') ?>"></i>
+                                                        <span><?= htmlspecialchars($pt['name']) ?></span>
+                                                    </div>
+                                                </label>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        <input type="hidden" name="product_type_id" id="selected_product_type_id" value="<?= htmlspecialchars($job['product_type_id'] ?? '') ?>">
                                     </div>
-                                    <input type="hidden" name="product_type_id" id="selected_product_type_id" value="<?= htmlspecialchars($job['product_type_id'] ?? '') ?>">
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="form-section" id="paper-specs-section" style="<?= $is_non_paper ? 'display:none' : '' ?>">
-                            <h3 class="section-title"><i class="fas fa-file-alt"></i> Paper Types Used</h3>
-                            <div id="paper-groups-container"><?php
-                                if (!empty($job_paper_items)) {
-                                    $total_groups = count($job_paper_items);
-                                    foreach ($job_paper_items as $gi => $g) {
-                                        $g['paper_sequence'] = array_map('trim', explode(',', $g['paper_sequence'] ?? ''));
-                                        echo render_paper_group_html($gi, $g, $cut_size_map, $inventory, $spoilage_map, $total_groups > 1);
-                                    }
-                                } else {
-                                    // Legacy job with no job_order_paper_items rows yet — synthesize
-                                    // one group from the job's existing single-value columns.
-                                    echo render_paper_group_html(0, [
-                                        'paper_type'        => $job['paper_type'],
-                                        'paper_size'        => $job['paper_size'],
-                                        'custom_paper_size' => $job['custom_paper_size'],
-                                        'cut_size'          => $job['product_size'],
-                                        'copies_per_set'    => $job['copies_per_set'],
-                                        'paper_sequence'    => array_map('trim', explode(',', $job['paper_sequence'] ?? '')),
-                                    ], $cut_size_map, $inventory, $spoilage_map, false);
-                                }
-                            ?></div>
-                            <button type="button" id="addPaperGroupBtn" class="btn btn-outline" style="margin-top:6px;">
-                                <i class="fas fa-plus"></i> Add Another Paper Type
-                            </button>
-                            <small style="color:var(--gray,#888);display:block;margin-top:6px;">
-                                Add a separate paper type/size for each part of the job that uses different stock (e.g. cover vs. inner pages). Quantity and Sets per Bind apply to all of them.
-                            </small>
-
-                            <!-- Legacy single-value fields, kept only for the non-paper "Paper
-                                 Stock Used" flow below, which still writes its single choice here. -->
-                            <input type="hidden" id="paper_type" name="paper_type" value="">
-                            <input type="hidden" id="paper_size" name="paper_size" value="">
-                            <input type="hidden" id="custom_paper_size" name="custom_paper_size" value="">
-                            <input type="hidden" id="product_size" name="product_size" value="">
-                            <input type="hidden" id="copies_per_set" name="copies_per_set" value="">
-                        </div>
-
-                        <div class="form-section" id="paper-binding-section" style="<?= $is_non_paper ? 'display:none' : '' ?>">
-                            <h3 class="section-title"><i class="fas fa-book"></i> Binding &amp; Finishing</h3>
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Binding Type *</label>
-                                    <select id="binding_type" name="binding_type" class="form-control" required>
-                                        <option value="Booklet" <?= $job['binding_type'] === 'Booklet' ? 'selected' : '' ?>>Booklet</option>
-                                        <option value="Pad" <?= $job['binding_type'] === 'Pad'     ? 'selected' : '' ?>>Pad</option>
-                                        <option value="Custom" <?= $job['binding_type'] === 'Custom'  ? 'selected' : '' ?>>Custom</option>
-                                    </select>
-                                    <input type="text" id="custom_binding" name="custom_binding" class="form-control" style="margin-top:.5rem;<?= $job['binding_type'] === 'Custom' ? '' : 'display:none' ?>" value="<?= htmlspecialchars($job['custom_binding']) ?>" placeholder="Enter custom binding">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-section">
-                            <h3 class="section-title"><i class="fas fa-comment-dots"></i> Special Instructions</h3>
-                            <div class="form-group">
-                                <textarea name="special_instructions" class="form-control"><?= htmlspecialchars($job['special_instructions']) ?></textarea>
-                            </div>
-                        </div>
-
-                        <!-- ── Non-paper Dynamic Fields Section ── -->
-                        <div class="form-section span-2" id="nonpaper-specs-section" style="<?= $is_non_paper ? '' : 'display:none' ?>">
-                            <h3 class="section-title"><i class="fas fa-sliders-h"></i> Job Specifications</h3>
-                            <div id="dynamic-fields-container" class="form-grid"></div>
-
-                            <!-- Paper stock section: only shown for product types flagged as "requires paper" -->
-                            <div id="np-paper-stock-section" style="display:<?= ($is_non_paper && !empty($job_paper_items)) ? 'block' : 'none' ?>;margin-top:16px;padding:14px 16px;background:#f5f5f5;border-radius:10px;">
-                                <label style="font-weight:600;font-size:13px;display:block;margin-bottom:10px;">
-                                    <i class="fas fa-scroll"></i> Paper Stock Used
-                                </label>
-                                <div id="np-paper-groups-container"><?php
-                                    if ($is_non_paper) {
-                                        foreach ($job_paper_items as $gi => $g) {
-                                            $colors = array_map('trim', explode(',', $g['paper_sequence'] ?? ''));
-                                            $color = $colors[0] ?? '';
-                                            if ($color === 'Any') $color = '';
-                                            echo render_np_paper_group_html($gi, [
-                                                'paper_type' => $g['paper_type'],
-                                                'paper_size' => $g['paper_size'],
-                                                'cut_size'   => $g['cut_size'],
-                                                'color'      => $color,
-                                            ], $cut_size_map, $inventory);
-                                        }
-                                    }
-                                ?></div>
-                                <button type="button" id="addNpPaperGroupBtn" class="btn btn-outline btn-sm" style="margin-top:4px;">
+                            <div class="form-section" id="paper-specs-section" style="<?= $is_non_paper ? 'display:none' : '' ?>">
+                                <h3 class="section-title"><i class="fas fa-file-alt"></i> Paper Types Used</h3>
+                                <div id="paper-groups-container"><?php
+                                                                    if (!empty($job_paper_items)) {
+                                                                        $total_groups = count($job_paper_items);
+                                                                        foreach ($job_paper_items as $gi => $g) {
+                                                                            $g['paper_sequence'] = array_map('trim', explode(',', $g['paper_sequence'] ?? ''));
+                                                                            echo render_paper_group_html($gi, $g, $cut_size_map, $inventory, $spoilage_map, $total_groups > 1);
+                                                                        }
+                                                                    } else {
+                                                                        // Legacy job with no job_order_paper_items rows yet — synthesize
+                                                                        // one group from the job's existing single-value columns.
+                                                                        echo render_paper_group_html(0, [
+                                                                            'paper_type'        => $job['paper_type'],
+                                                                            'paper_size'        => $job['paper_size'],
+                                                                            'custom_paper_size' => $job['custom_paper_size'],
+                                                                            'cut_size'          => $job['product_size'],
+                                                                            'copies_per_set'    => $job['copies_per_set'],
+                                                                            'paper_sequence'    => array_map('trim', explode(',', $job['paper_sequence'] ?? '')),
+                                                                        ], $cut_size_map, $inventory, $spoilage_map, false);
+                                                                    }
+                                                                    ?></div>
+                                <button type="button" id="addPaperGroupBtn" class="btn btn-outline" style="margin-top:6px;">
                                     <i class="fas fa-plus"></i> Add Another Paper Type
                                 </button>
-                                <small style="color:#888;font-size:11px;display:block;margin-top:8px;">
-                                    Defaults come from this product type's settings but can be changed, added to, or removed per order. Order Quantity ÷ Cut Size sheets will be deducted from each paper stock.
+                                <small style="color:var(--gray,#888);display:block;margin-top:6px;">
+                                    Add a separate paper type/size for each part of the job that uses different stock (e.g. cover vs. inner pages). Quantity and Sets per Bind apply to all of them.
                                 </small>
+
+                                <!-- Legacy single-value fields, kept only for the non-paper "Paper
+                                 Stock Used" flow below, which still writes its single choice here. -->
+                                <input type="hidden" id="paper_type" name="paper_type" value="">
+                                <input type="hidden" id="paper_size" name="paper_size" value="">
+                                <input type="hidden" id="custom_paper_size" name="custom_paper_size" value="">
+                                <input type="hidden" id="product_size" name="product_size" value="">
+                                <input type="hidden" id="copies_per_set" name="copies_per_set" value="">
                             </div>
 
-                            <!-- Cost estimate display -->
-                            <div id="np-cost-estimate" style="display:none;margin-top:16px;padding:14px 18px;background:#f5f5f5;border-radius:10px;border-left:4px solid var(--primary,#2f6feb);">
-                                <strong style="font-size:13px;color:#888;">Estimated Project Price</strong>
-                                <div style="font-size:20px;font-weight:700;color:var(--primary,#2f6feb);margin-top:4px;">
-                                    ₱<span id="np-cost-value">0.00</span>
+                            <div class="form-section" id="paper-binding-section" style="<?= $is_non_paper ? 'display:none' : '' ?>">
+                                <h3 class="section-title"><i class="fas fa-book"></i> Binding &amp; Finishing</h3>
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label>Binding Type *</label>
+                                        <select id="binding_type" name="binding_type" class="form-control" required>
+                                            <option value="Booklet" <?= $job['binding_type'] === 'Booklet' ? 'selected' : '' ?>>Booklet</option>
+                                            <option value="Pad" <?= $job['binding_type'] === 'Pad'     ? 'selected' : '' ?>>Pad</option>
+                                            <option value="Custom" <?= $job['binding_type'] === 'Custom'  ? 'selected' : '' ?>>Custom</option>
+                                        </select>
+                                        <input type="text" id="custom_binding" name="custom_binding" class="form-control" style="margin-top:.5rem;<?= $job['binding_type'] === 'Custom' ? '' : 'display:none' ?>" value="<?= htmlspecialchars($job['custom_binding']) ?>" placeholder="Enter custom binding">
+                                    </div>
                                 </div>
-                                <small style="color:#888;font-size:11px;">This price will be auto-saved as the initial project cost only while none has been set yet. Adjust later via "Set Total Cost".</small>
                             </div>
-                            <input type="hidden" name="np_estimated_cost" id="np_estimated_cost" value="0">
+
+                            <div class="form-section">
+                                <h3 class="section-title"><i class="fas fa-comment-dots"></i> Special Instructions</h3>
+                                <div class="form-group">
+                                    <textarea name="special_instructions" class="form-control"><?= htmlspecialchars($job['special_instructions']) ?></textarea>
+                                </div>
+                            </div>
+
+                            <!-- ── Non-paper Dynamic Fields Section ── -->
+                            <div class="form-section span-2" id="nonpaper-specs-section" style="<?= $is_non_paper ? '' : 'display:none' ?>">
+                                <h3 class="section-title"><i class="fas fa-sliders-h"></i> Job Specifications</h3>
+                                <div id="dynamic-fields-container" class="form-grid"></div>
+
+                                <!-- Paper stock section: only shown for product types flagged as "requires paper" -->
+                                <div id="np-paper-stock-section" style="display:<?= ($is_non_paper && !empty($job_paper_items)) ? 'block' : 'none' ?>;margin-top:16px;padding:14px 16px;background:#f5f5f5;border-radius:10px;">
+                                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:10px;">
+                                        <i class="fas fa-scroll"></i> Paper Stock Used
+                                    </label>
+                                    <div id="np-paper-groups-container"><?php
+                                                                        if ($is_non_paper) {
+                                                                            foreach ($job_paper_items as $gi => $g) {
+                                                                                $colors = array_map('trim', explode(',', $g['paper_sequence'] ?? ''));
+                                                                                $color = $colors[0] ?? '';
+                                                                                if ($color === 'Any') $color = '';
+                                                                                echo render_np_paper_group_html($gi, [
+                                                                                    'paper_type' => $g['paper_type'],
+                                                                                    'paper_size' => $g['paper_size'],
+                                                                                    'cut_size'   => $g['cut_size'],
+                                                                                    'color'      => $color,
+                                                                                ], $cut_size_map, $inventory);
+                                                                            }
+                                                                        }
+                                                                        ?></div>
+                                    <button type="button" id="addNpPaperGroupBtn" class="btn btn-outline btn-sm" style="margin-top:4px;">
+                                        <i class="fas fa-plus"></i> Add Another Paper Type
+                                    </button>
+                                    <small style="color:#888;font-size:11px;display:block;margin-top:8px;">
+                                        Defaults come from this product type's settings but can be changed, added to, or removed per order. Order Quantity ÷ Cut Size sheets will be deducted from each paper stock.
+                                    </small>
+                                </div>
+
+                                <!-- Cost estimate display -->
+                                <div id="np-cost-estimate" style="display:none;margin-top:16px;padding:14px 18px;background:#f5f5f5;border-radius:10px;border-left:4px solid var(--primary,#2f6feb);">
+                                    <strong style="font-size:13px;color:#888;">Estimated Project Price</strong>
+                                    <div style="font-size:20px;font-weight:700;color:var(--primary,#2f6feb);margin-top:4px;">
+                                        ₱<span id="np-cost-value">0.00</span>
+                                    </div>
+                                    <small style="color:#888;font-size:11px;">This price will be auto-saved as the initial project cost only while none has been set yet. Adjust later via "Set Total Cost".</small>
+                                </div>
+                                <input type="hidden" name="np_estimated_cost" id="np_estimated_cost" value="0">
+                            </div>
                         </div>
-                      </div>
                     </div>
                 </div>
 
@@ -1199,6 +1291,68 @@ unset($_SESSION['message']);
             </form>
         </div>
     </div>
+
+    <?php if ($expense_notice): ?>
+        <!-- ── Expenses Need Re-saving Notice ── -->
+        <div id="expenseRecalcModal" style="
+    display:flex; position:fixed; inset:0; z-index:10000;
+    background:rgba(20,23,31,0.55); backdrop-filter:blur(2px); align-items:center; justify-content:center;">
+            <div style="
+      background:#fff; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.25);
+      max-width:480px; width:90%; padding:32px 28px;">
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                    <div style="
+          background:#fdf2df; border-radius:50%; width:44px; height:44px;
+          display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <i class="fas fa-calculator" style="color:#b6790a; font-size:20px;"></i>
+                    </div>
+                    <h5 style="margin:0; font-weight:700; font-size:17px; color:#1a1a1a;">Expenses need to be re-saved</h5>
+                </div>
+                <p style="color:#555; margin:0 0 12px; font-size:14px;">
+                    Job order #<?= (int)$job_id ?> was updated, but the changes below affect its computed expenses:
+                </p>
+                <ul style="color:#1a1a1a; font-size:14px; font-weight:600; margin:0 0 16px; padding-left:20px;">
+                    <?php foreach ($expense_notice['reasons'] as $reason): ?>
+                        <li><?= htmlspecialchars($reason) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+                <p style="color:#555; font-size:14px; margin:0 0 24px;">
+                    The saved expenses still reflect the old values. Open the expense calculator and press
+                    <strong>Save Expenses</strong> again so the totals match this job order.
+                </p>
+                <div style="display:flex; gap:12px; justify-content:flex-end; flex-wrap:wrap;">
+                    <a id="expenseLaterBtn" href="<?= htmlspecialchars($return_to) ?>" style="
+          padding:9px 20px; border-radius:7px; border:1px solid #ccc; text-decoration:none;
+          background:#fff; color:#555; font-size:14px; cursor:pointer; font-weight:500;">
+                        Later
+                    </a>
+                    <a id="expenseGoBtn" href="paper_cost.php?id=<?= (int)$job_id ?>" style="
+          padding:9px 20px; border-radius:7px; border:none; text-decoration:none;
+          background:var(--primary,#2f6feb); color:#fff; font-size:14px; cursor:pointer; font-weight:600;">
+                        <i class="fas fa-arrow-right"></i> Go to Expenses
+                    </a>
+                </div>
+            </div>
+        </div>
+        <script>
+            // Remember which job we're on so job_orders.php can scroll back to it
+            // after the expenses are saved (or if the user chooses "Later").
+            (function() {
+                var jobId = <?= (int)$job_id ?>;
+
+                function remember() {
+                    try {
+                        sessionStorage.setItem('jo_cost_return', JSON.stringify({
+                            id: jobId,
+                            ts: Date.now()
+                        }));
+                    } catch (e) {}
+                }
+                document.getElementById('expenseGoBtn').addEventListener('click', remember);
+                document.getElementById('expenseLaterBtn').addEventListener('click', remember);
+            })();
+        </script>
+    <?php endif; ?>
 
     <!-- ── Insufficient Stock Confirmation Modal ── -->
     <div id="insufficientStockModal" style="
@@ -1261,9 +1415,9 @@ unset($_SESSION['message']);
             npPaperColor: <?= json_encode($np_uses_paper ? $np_saved_color : '') ?>,
             npCutSize: <?= json_encode($job['product_size'] ?? 'whole') ?>
         };
-    </script>                                        
+    </script>
 
-    <script src="../assets/js/pages/edit_job.js"></script>                                        
+    <script src="../assets/js/pages/edit_job.js"></script>
 </body>
 
 </html>
