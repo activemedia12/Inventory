@@ -4008,3 +4008,42 @@ body.modal-open {
     animation: none;
   }
 }
+
+/* Save-preset modal: Update / Save as new copy + include-quantity choices */
+.q-modal .q-choices {
+  display: grid;
+  gap: 8px;
+}
+.q-modal .q-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--q-line);
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.q-modal .q-choice input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--q-primary);
+  box-shadow: none;
+}
+.q-modal .q-choice:has(input:checked) {
+  border-color: var(--q-primary);
+  background: var(--q-primary-soft);
+}
+.q-modal .q-choice .q-hint {
+  margin-left: 4px;
+}
+#presetName[readonly] {
+  background: var(--q-soft);
+  cursor: not-allowed;
+}

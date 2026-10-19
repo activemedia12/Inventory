@@ -220,6 +220,7 @@ $quote_data = [
             </select>
             <button type="button" class="q-btn q-btn-primary" id="btnLoadPreset"><i class="fas fa-folder-open"></i> Load</button>
             <button type="button" class="q-btn" id="btnSavePreset" <?= deny_attr('save_presets') ?>><i class="fas fa-floppy-disk"></i> Save current as preset</button>
+            <button type="button" class="q-btn" id="btnOverwritePreset" title="Replace the selected preset with the current setup" <?= deny_attr('save_presets') ?>><i class="fas fa-rotate"></i> Overwrite</button>
             <button type="button" class="q-btn q-btn-danger" id="btnDeletePreset" title="Delete selected preset" aria-label="Delete selected preset" <?= deny_attr('save_presets') ?>><i class="fas fa-trash"></i></button>
             <span class="q-presets-spacer"></span>
             <button type="button" class="q-btn" id="btnResetQuote"><i class="fas fa-rotate-left"></i> Reset</button>
@@ -637,8 +638,13 @@ $quote_data = [
             <h3 id="savePresetTitle">Save as preset</h3>
             <p class="q-modal-sub">Reuse this setup any time with today's price lists.</p>
             <div class="q-modal-form">
+                <div class="q-choices" id="presetModeRow" style="display:none;">
+                    <label class="q-choice"><input type="radio" name="presetMode" value="update" checked> <span>Update “<b id="presetModeName"></b>”</span></label>
+                    <label class="q-choice"><input type="radio" name="presetMode" value="new"> <span>Save as new copy</span></label>
+                </div>
                 <div class="q-field"><label for="presetName">Preset name <span class="q-req">*</span></label><input type="text" id="presetName" maxlength="100" placeholder="e.g. OR 3-ply Carbonless, 50 sets" autocomplete="off"></div>
                 <div class="q-field"><label for="presetDesc">Description</label><input type="text" id="presetDesc" maxlength="255" placeholder="Optional" autocomplete="off"></div>
+                <label class="q-choice"><input type="checkbox" id="presetIncludeQty" checked> <span>Include order quantity <small class="q-hint">(leave off for a general preset)</small></span></label>
                 <small class="q-hint">Saves the specs, printing, labor hours, expenses and selling settings. It never stores prices, so a loaded preset always uses today's price lists.</small>
                 <div id="savePresetError" class="q-error" style="display:none;" role="alert"></div>
             </div>

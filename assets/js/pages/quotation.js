@@ -1198,7 +1198,7 @@
 
   // ── Letterhead: edit once here. Empty lines are simply not printed. ──
   const COMPANY = {
-    name: "Active Media Designs & Printing",
+    name: "Active Media Designs and Printing",
     logo: "../assets/images/plainlogo.png",
     tagline: "", // e.g. "Printing · Layout · Signage"
     address: "30-C Fausta Road, Mabolo, Malolos City, Bulacan 3000",
@@ -1739,8 +1739,10 @@
     }, 420);
   });
 
-  function applyState(raw, message) {
+  function applyState(raw, message, keepQty) {
+    const prevQty = S.qty;
     S = E.normalizeState(raw);
+    if (keepQty) S.qty = prevQty; // preset has no quantity: keep what's entered
     const notes = E.validateState(S);
     renderAll();
     showNotes(notes);
@@ -1758,7 +1760,8 @@
       if (res.missing) showNotes([res.missing]);
     } else {
       const p = presets.find((x) => "p:" + x.id === v);
-      if (p) applyState(p.data, `Loaded “${p.name}”.`);
+      if (p)
+        applyState(p.data, `Loaded “${p.name}”.`, !("qty" in (p.data || {})));
     }
   });
 
@@ -1985,9 +1988,50 @@
   })();
 
   // Save modal
+  let saveCtx = null; // the saved preset selected when the modal opened
+  const saveMode = () =>
+    saveCtx
+      ? ($('input[name="presetMode"]:checked') || {}).value || "update"
+      : "new";
+  function applySaveMode() {
+    const name = $("#presetName");
+    const desc = $("#presetDesc");
+    if (saveCtx && saveMode() === "update") {
+      name.value = saveCtx.name;
+      name.readOnly = true;
+      desc.value = saveCtx.description || "";
+    } else {
+      name.readOnly = false;
+      name.value = saveCtx ? saveCtx.name + " (copy)" : "";
+      desc.value = saveCtx ? saveCtx.description || "" : "";
+    }
+  }
+  document.querySelectorAll('input[name="presetMode"]').forEach((r) =>
+    r.addEventListener("change", () => {
+      applySaveMode();
+      if (saveMode() === "new") {
+        $("#presetName").focus();
+        $("#presetName").select();
+      }
+    }),
+  );
+  const lastUpdated = (who, when) =>
+    who || when
+      ? ` Last updated${who ? " by " + who : ""}${when ? " on " + String(when).slice(0, 10) : ""}.`
+      : "";
   function openSaveModal() {
-    $("#presetName").value = "";
-    $("#presetDesc").value = "";
+    // If a saved preset is selected, offer "Update" (default) or "Save as new copy".
+    saveCtx =
+      presets.find((x) => "p:" + x.id === $("#presetSelect").value) || null;
+    $("#presetModeRow").style.display = saveCtx ? "" : "none";
+    $("#presetIncludeQty").checked = saveCtx
+      ? "qty" in (saveCtx.data || {})
+      : true;
+    if (saveCtx) {
+      $("#presetModeName").textContent = saveCtx.name;
+      $('input[name="presetMode"][value="update"]').checked = true;
+    }
+    applySaveMode();
     $("#savePresetError").style.display = "none";
     openModal($("#savePresetModal"), $("#presetName"));
   }
@@ -2007,6 +2051,7 @@
     }
     const data = E.clone(S);
     delete data.quote; // client/project/ref belong to one quote, not a reusable preset
+    if (!$("#presetIncludeQty").checked) delete data.qty;
     const btn = $("#confirmSavePreset");
     btn.disabled = true;
     btn.classList.add("loading");
@@ -2030,7 +2075,7 @@
         if (res.code === "exists") {
           return askConfirm({
             title: "Replace existing preset?",
-            text: `A preset named “${name}” already exists. Saving will replace it.`,
+            text: `A preset named “${name}” already exists. Saving will replace it.${lastUpdated(res.updated_by, res.updated_at)}`,
             okLabel: "Replace",
           }).then((yes) => {
             if (yes) {
@@ -2052,9 +2097,22 @@
         btn.classList.remove("loading");
       });
   }
-  $("#confirmSavePreset").addEventListener("click", () => doSavePreset(false));
+  function submitSave() {
+    if (saveMode() === "update" && saveCtx) {
+      // explicit "Update": confirm once, then replace without a second prompt
+      return askConfirm({
+        title: "Update preset?",
+        text: `“${saveCtx.name}” will be replaced with the current setup.${lastUpdated(saveCtx.updated_by || saveCtx.created_by, saveCtx.updated_at)}`,
+        okLabel: "Update",
+      }).then((yes) => {
+        if (yes) doSavePreset(true);
+      });
+    }
+    doSavePreset(false);
+  }
+  $("#confirmSavePreset").addEventListener("click", submitSave);
   $("#presetName").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") doSavePreset(false);
+    if (e.key === "Enter") submitSave();
   });
 
   $("#btnDeletePreset").addEventListener("click", () => {
@@ -2077,6 +2135,45 @@
           res.success ? "" : "warn",
         );
         if (res.success) loadPresets();
+      });
+    });
+  });
+
+  // Overwrite the selected saved preset with the current setup (name and
+  // description are kept; only the data is replaced).
+  $("#btnOverwritePreset").addEventListener("click", () => {
+    const v = $("#presetSelect").value;
+    if (!v) return toast("Choose a saved preset to overwrite.", "warn");
+    if (!v.startsWith("p:"))
+      return toast(
+        "Starter templates can't be overwritten. Use “Save current as preset”.",
+        "warn",
+      );
+    const p = presets.find((x) => "p:" + x.id === v);
+    if (!p) return;
+    askConfirm({
+      title: "Overwrite preset?",
+      text: `“${p.name}” will be replaced with the current setup.${lastUpdated(p.updated_by || p.created_by, p.updated_at)}`,
+      okLabel: "Overwrite",
+    }).then((yes) => {
+      if (!yes) return;
+      const data = E.clone(S);
+      delete data.quote; // client/project/ref belong to one quote, not a preset
+      if (!("qty" in (p.data || {}))) delete data.qty; // keep it quantity-free
+      postForm({
+        action: "save",
+        name: p.name,
+        description: p.description || "",
+        category: S.category,
+        data: JSON.stringify(data),
+        overwrite: "1",
+      }).then((res) => {
+        toast(
+          res.message ||
+            (res.success ? "Preset updated." : "Couldn't overwrite."),
+          res.success ? "" : "warn",
+        );
+        if (res.success) loadPresets(v);
       });
     });
   });
@@ -2194,11 +2291,107 @@
         });
     }
   }
+  // Active chip = the last visible section whose top has passed the line just
+  // under the sticky nav (re-measured on every scroll, so it never goes stale).
+  // A clicked chip stays pinned while the smooth scroll runs and afterwards,
+  // until the user scrolls away from where it landed.
+  const qNavEl = $("#qNav");
+  let navBusy = false; // programmatic scroll in progress
+  let pinned = null; // chip id chosen by click
+  let pinScroll = null; // scroll position where the pin settled
+  let settleTimer = null;
+  let lastActive = null;
+  const scrollerOf = (t) =>
+    !t || t === document || t === window
+      ? document.scrollingElement || document.documentElement
+      : t;
+  function updateActiveChip(scroller) {
+    if (navBusy) return;
+    const navBottom = qNavEl ? qNavEl.getBoundingClientRect().bottom : 0;
+    const line = Math.min(Math.max(navBottom, 0), 140) + 28;
+    const vis = formSections.filter(
+      (s) => s.getBoundingClientRect().height > 0,
+    );
+    if (!vis.length) return;
+    if (pinned) {
+      if (
+        scroller &&
+        pinScroll !== null &&
+        Math.abs(scroller.scrollTop - pinScroll) < 40
+      )
+        return; // still where the click landed
+      pinned = null; // user scrolled on: back to automatic
+    }
+    let active = vis[0].id;
+    vis.forEach((s) => {
+      if (s.getBoundingClientRect().top <= line) active = s.id;
+    });
+    // Scrolled to the very end: the last section can't reach the line, so it
+    // wins as soon as it is fully on screen.
+    if (
+      scroller &&
+      scroller.scrollTop > 0 &&
+      scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4
+    ) {
+      const last = vis[vis.length - 1];
+      if (last.getBoundingClientRect().bottom <= window.innerHeight + 8)
+        active = last.id;
+    }
+    if (
+      active !== lastActive &&
+      chips.some((c) => c.dataset.target === active)
+    ) {
+      lastActive = active;
+      setActiveChip(active);
+    }
+  }
+  let navTick = false;
+  document.addEventListener(
+    "scroll",
+    (e) => {
+      const sc = scrollerOf(e.target);
+      if (navBusy) {
+        // wait for the smooth scroll to finish, then pin the clicked chip
+        clearTimeout(settleTimer);
+        settleTimer = setTimeout(() => {
+          navBusy = false;
+          pinScroll = sc.scrollTop;
+        }, 160);
+        return;
+      }
+      if (navTick) return;
+      navTick = true;
+      requestAnimationFrame(() => {
+        navTick = false;
+        updateActiveChip(sc);
+      });
+    },
+    { passive: true, capture: true },
+  );
+  window.addEventListener("resize", () => updateActiveChip(null));
+  // Collapsing/expanding a card moves everything below it: re-measure after the animation
+  document.addEventListener("click", (e) => {
+    if (e.target.closest && e.target.closest(".q-section-head, #qToggleAll"))
+      setTimeout(() => updateActiveChip(null), 480);
+  });
+
   chips.forEach((chip) =>
     chip.addEventListener("click", () => {
       const sec = document.getElementById(chip.dataset.target);
       if (!sec) return;
       openSection(sec);
+      pinned = chip.dataset.target;
+      pinScroll = null;
+      lastActive = pinned;
+      navBusy = true;
+      clearTimeout(settleTimer);
+      // no scroll event (already there / instant jump): release after a moment
+      settleTimer = setTimeout(
+        () => {
+          navBusy = false;
+        },
+        reduceMotion ? 120 : 900,
+      );
       setActiveChip(chip.dataset.target);
       sec.scrollIntoView({
         behavior: reduceMotion ? "auto" : "smooth",
@@ -2206,26 +2399,7 @@
       });
     }),
   );
-  if ("IntersectionObserver" in window) {
-    const inView = new Map();
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((en) =>
-          en.isIntersecting
-            ? inView.set(en.target.id, en.boundingClientRect.top)
-            : inView.delete(en.target.id),
-        );
-        let best = null;
-        inView.forEach((top, id) => {
-          if (best === null || top < inView.get(best)) best = id;
-        });
-        if (best && chips.some((c) => c.dataset.target === best))
-          setActiveChip(best);
-      },
-      { rootMargin: "-90px 0px -55% 0px" },
-    );
-    formSections.forEach((s) => io.observe(s));
-  }
+  updateActiveChip(null);
 
   // Switch feedback: expanding ring + tiny haptic tick
   document.addEventListener("change", (e) => {

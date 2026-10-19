@@ -33,11 +33,18 @@ $inventory->query("
         category VARCHAR(40) NOT NULL DEFAULT 'paper',
         data LONGTEXT NOT NULL,
         created_by VARCHAR(100) DEFAULT NULL,
+        updated_by VARCHAR(100) DEFAULT NULL,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uq_quotation_preset_name (name)
     )
 ");
+
+// Older installs: add the updated_by column once.
+$col = $inventory->query("SHOW COLUMNS FROM quotation_presets LIKE 'updated_by'");
+if ($col && $col->num_rows === 0) {
+    $inventory->query("ALTER TABLE quotation_presets ADD COLUMN updated_by VARCHAR(100) DEFAULT NULL AFTER created_by");
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $method === 'POST' ? ($_POST['action'] ?? '') : ($_GET['action'] ?? 'list');
@@ -45,7 +52,7 @@ $action = $method === 'POST' ? ($_POST['action'] ?? '') : ($_GET['action'] ?? 'l
 // ── List ────────────────────────────────────────────────────────────
 if ($method === 'GET' && $action === 'list') {
     $rows = $inventory
-        ->query("SELECT id, name, description, category, data, created_by, updated_at FROM quotation_presets ORDER BY name ASC")
+        ->query("SELECT id, name, description, category, data, created_by, updated_by, updated_at FROM quotation_presets ORDER BY name ASC")
         ->fetch_all(MYSQLI_ASSOC);
 
     $presets = [];
@@ -58,6 +65,7 @@ if ($method === 'GET' && $action === 'list') {
             'description' => $r['description'],
             'category'    => $r['category'],
             'created_by'  => $r['created_by'],
+            'updated_by'  => $r['updated_by'],
             'updated_at'  => $r['updated_at'],
             'data'        => $decoded,
         ];
@@ -102,23 +110,29 @@ if ($action === 'save') {
     $json = json_encode($decoded); // re-encode so only clean JSON is ever stored
     $by   = $_SESSION['username'] ?? null;
 
-    $chk = $inventory->prepare("SELECT id FROM quotation_presets WHERE name = ?");
+    $chk = $inventory->prepare("SELECT id, created_by, updated_by, updated_at FROM quotation_presets WHERE name = ?");
     $chk->bind_param("s", $name);
     $chk->execute();
     $existing = $chk->get_result()->fetch_assoc();
     $chk->close();
 
     if ($existing && !$overwrite) {
-        out(['success' => false, 'code' => 'exists', 'message' => 'A preset with this name already exists.']);
+        out([
+            'success'    => false,
+            'code'       => 'exists',
+            'message'    => 'A preset with this name already exists.',
+            'updated_by' => $existing['updated_by'] ?: $existing['created_by'],
+            'updated_at' => $existing['updated_at'],
+        ]);
     }
 
     if ($existing) {
         $id = (int)$existing['id'];
-        $stmt = $inventory->prepare("UPDATE quotation_presets SET description = ?, category = ?, data = ?, created_by = ? WHERE id = ?");
+        $stmt = $inventory->prepare("UPDATE quotation_presets SET description = ?, category = ?, data = ?, updated_by = ? WHERE id = ?");
         $stmt->bind_param("ssssi", $desc, $cat, $json, $by, $id);
     } else {
-        $stmt = $inventory->prepare("INSERT INTO quotation_presets (name, description, category, data, created_by) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssss", $name, $desc, $cat, $json, $by);
+        $stmt = $inventory->prepare("INSERT INTO quotation_presets (name, description, category, data, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("ssssss", $name, $desc, $cat, $json, $by, $by);
     }
 
     if ($stmt->execute()) {
