@@ -439,7 +439,7 @@ $quote_data = [
                         <span class="q-section-titles">
                             <span class="q-section-step"></span>
                             <span class="q-section-title">Quote details</span>
-                            <small class="q-section-hint">Optional &mdash; shown on the printed quote</small>
+                            <small class="q-section-hint">Optional &dash; shown on the printed quote</small>
                         </span>
                         <i class="fas fa-chevron-down q-section-chevron"></i>
                     </button>
@@ -474,7 +474,7 @@ $quote_data = [
                         <div class="card-header">
                             <div>
                                 <p class="stat-label">Selling price</p>
-                                <h3 id="kpiFinal">&mdash;</h3>
+                                <h3 id="kpiFinal">&dash;</h3>
                             </div>
                             <div class="card-icon"><i class="fas fa-peso-sign"></i></div>
                         </div>
@@ -484,7 +484,7 @@ $quote_data = [
                         <div class="card-header">
                             <div>
                                 <p class="stat-label">Total expenses</p>
-                                <h3 id="kpiExpenses">&mdash;</h3>
+                                <h3 id="kpiExpenses">&dash;</h3>
                             </div>
                             <div class="card-icon"><i class="fas fa-receipt"></i></div>
                         </div>
@@ -494,7 +494,7 @@ $quote_data = [
                         <div class="card-header">
                             <div>
                                 <p class="stat-label">Profit</p>
-                                <h3 id="kpiProfit">&mdash;</h3>
+                                <h3 id="kpiProfit">&dash;</h3>
                             </div>
                             <div class="card-icon"><i class="fas fa-chart-line"></i></div>
                         </div>
@@ -504,7 +504,7 @@ $quote_data = [
                         <div class="card-header">
                             <div>
                                 <p class="stat-label">Profit margin</p>
-                                <h3 id="kpiMargin">&mdash;</h3>
+                                <h3 id="kpiMargin">&dash;</h3>
                             </div>
                             <div class="card-icon"><i class="fas fa-percent"></i></div>
                         </div>
@@ -573,7 +573,7 @@ $quote_data = [
                 <span class="q-section-icon"><i class="fas fa-code-compare"></i></span>
                 <span class="q-section-titles">
                     <span class="q-section-title">Scenario comparison</span>
-                    <small class="q-section-hint">Up to 4 &mdash; e.g. Digital vs. Riso, or 500 vs. 1000 pcs</small>
+                    <small class="q-section-hint">Up to 4 &dash; e.g. Digital vs. Riso, or 500 vs. 1000 pcs</small>
                 </span>
                 <span class="q-count" id="cmpCount">0/4</span>
                 <i class="fas fa-chevron-down q-section-chevron"></i>

@@ -1198,11 +1198,14 @@
 
   // ── Letterhead: edit once here. Empty lines are simply not printed. ──
   const COMPANY = {
-    name: "Active Media Designs and Printing",
+    name: "Active Media Designs & Printing",
     logo: "../assets/images/plainlogo.png",
     tagline: "", // e.g. "Printing · Layout · Signage"
-    address: "", // e.g. "123 Main St., San Pedro, Laguna"
-    contact: "", // e.g. "0917 000 0000 · hello@example.com"
+    address: "30-C Fausta Road, Mabolo, Malolos City, Bulacan 3000",
+    phone: "896-3194", // landline as listed; add the area code or a mobile no. if you like
+    email: "activemediaprint@gmail.com",
+    website: "", // e.g. "www.example.com"
+    tin: "", // e.g. "000-000-000-000" (printed as "TIN ...")
   };
   const nl2br = (s) => esc(String(s).trim()).replace(/\n/g, "<br>");
   const pctTxt = (n) => String(Math.round(n * 100) / 100) + "%";
@@ -1266,30 +1269,47 @@
         `<tr class="tot"><td>Total incl. VAT</td><td class="r">${peso(r.final + r.vat)}</td></tr>`,
       );
     }
+    for (let i = t.length - 1; i >= 0; i--) {
+      if (t[i].indexOf('class="tot"') > -1) {
+        t[i] = t[i].replace('class="tot"', 'class="tot grand"');
+        break;
+      }
+    }
     if (disc && r.base + r.layout > 0)
       t.push(
         `<tr class="qp-save"><td colspan="2">You save ${peso(disc.amount)} with this quotation.</td></tr>`,
       );
 
-    // ── Header ──
-    const sub = [COMPANY.tagline, COMPANY.address, COMPANY.contact]
+    // ── Header: company (logo, name, details) on the left, document title + meta on the right ──
+    const coLines = [
+      COMPANY.tagline,
+      COMPANY.address,
+      [COMPANY.phone, COMPANY.email].filter(Boolean).join("  ·  "),
+      COMPANY.website,
+      COMPANY.tin ? "TIN " + COMPANY.tin : "",
+    ]
       .filter(Boolean)
       .map((l) => `<div>${esc(l)}</div>`)
+      .join("");
+    const stripCells = [
+      q.ref ? ["Quote no.", q.ref] : null,
+      ["Date", D.today],
+      ["Valid until", validUntil()],
+    ]
+      .filter(Boolean)
+      .map((m) => `<div><small>${esc(m[0])}</small><b>${esc(m[1])}</b></div>`)
       .join("");
     const head = `<div class="qp-head">
         <div class="qp-brand">
           ${COMPANY.logo ? `<img class="qp-logo" src="${esc(COMPANY.logo)}" alt="" onerror="this.remove()">` : ""}
-          <div><div class="qp-co">${esc(COMPANY.name)}</div>${sub ? `<div class="qp-sub">${sub}</div>` : ""}</div>
-        </div>
-        <div class="qp-doc">
-          <h1>Quotation</h1>
-          <div class="qp-meta">
-            ${q.ref ? `<div><b>Quote no.</b> ${esc(q.ref)}</div>` : ""}
-            <div><b>Date</b> ${esc(D.today)}</div>
-            <div><b>Valid until</b> ${esc(validUntil())}</div>
+          <div class="qp-brand-text">
+            <div class="qp-co">${esc(COMPANY.name)}</div>
+            ${coLines ? `<div class="qp-sub">${coLines}</div>` : ""}
           </div>
         </div>
-      </div>`;
+        <div class="qp-doc"><h1>Quotation</h1></div>
+      </div>
+      <div class="qp-strip">${stripCells}</div>`;
 
     // ── Prepared for / project details ──
     const toLines = [
@@ -1309,16 +1329,20 @@
       ["Prepared by", X.preparedBy],
     ].filter((x) => x[1]);
     const info = `<div class="qp-cols2">
-        <div><div class="qp-label">Prepared for</div>${toLines || '<div class="qp-muted">-</div>'}</div>
-        <div><div class="qp-label">Project details</div>
+        <div class="qp-card"><div class="qp-label">Prepared for</div>${toLines || '<div class="qp-muted">-</div>'}</div>
+        <div class="qp-card"><div class="qp-label">Project details</div>
           <table class="qp-kv"><tbody>${kv.map((x) => `<tr><td>${esc(x[0])}</td><td>${esc(x[1])}</td></tr>`).join("")}</tbody></table></div>
       </div>`;
 
     const notes = X.notes.trim()
       ? `<div class="qp-block"><div class="qp-label">Notes</div><p>${nl2br(X.notes)}</p></div>`
       : "";
-    const terms = `<div class="qp-block"><div class="qp-label">Terms</div>
-        <p>All prices are in Philippine Peso (₱). This quotation is an estimate based on current prices and is valid until ${esc(validUntil())}. Final amounts are confirmed on the job order.</p></div>`;
+    const terms = `<div class="qp-block"><div class="qp-label">Terms &amp; conditions</div>
+        <ol class="qp-terms">
+          <li>All prices are in Philippine Peso (₱).</li>
+          <li>This quotation is an estimate based on current prices and is valid until ${esc(validUntil())}.</li>
+          <li>Final amounts are confirmed on the job order.</li>
+        </ol></div>`;
     const sign = `<div class="qp-sign">
         <div><span class="qp-line"></span><small>Prepared by${X.preparedBy ? ": " + esc(X.preparedBy) : ""}</small></div>
         <div><span class="qp-line"></span><small>Conforme - customer signature over printed name &amp; date</small></div>
@@ -1466,6 +1490,7 @@
 
     $("#quotePrintArea").classList.toggle("qp-emp", emp);
     $("#quotePrintArea").innerHTML = `
+      <div class="qp-page">
       ${head}
       ${info}
       <table class="qp-table"><thead><tr><th>Description</th><th class="r">Qty</th><th class="r">Unit price</th><th class="r">Amount</th></tr></thead><tbody>${itemRow}</tbody></table>
@@ -1473,6 +1498,7 @@
       ${notes}
       ${terms}
       ${sign}
+      </div>
       ${internal}`;
   }
 

@@ -8,7 +8,10 @@
    ===================================================================== */
 
 .quote-page,
-.q-float {
+.q-float,
+.q-modal,
+.q-toast-stack,
+.q-mini-bar {
   --q-primary: var(--primary, #4f5eff);
   --q-primary-soft: var(
     --primary-light,
@@ -35,7 +38,10 @@
 
 @supports (color: color-mix(in srgb, red 50%, blue)) {
   .quote-page,
-  .q-float {
+  .q-float,
+  .q-modal,
+  .q-toast-stack,
+  .q-mini-bar {
     --q-glow: color-mix(in srgb, var(--q-primary) 35%, transparent);
     --q-ring: color-mix(in srgb, var(--q-primary) 14%, transparent);
   }
@@ -45,7 +51,9 @@ body.modal-open {
   overflow: hidden;
 }
 
-.quote-page * {
+.quote-page *,
+.q-modal,
+.q-modal * {
   box-sizing: border-box;
 }
 .quote-page small {
@@ -1385,6 +1393,7 @@ body.modal-open {
 }
 
 .quote-page .q-field input:not([type="checkbox"]),
+.q-modal .q-field input:not([type="checkbox"]),
 .quote-page .q-field select,
 .quote-page .q-field textarea,
 .quote-page .q-presets select,
@@ -1408,6 +1417,7 @@ body.modal-open {
     background-color 0.2s ease;
 }
 .quote-page .q-field input:not([type="checkbox"]):hover,
+.q-modal .q-field input:not([type="checkbox"]):hover,
 .quote-page .q-field select:hover,
 .quote-page .q-presets select:hover,
 .quote-page .q-seq-row select:hover,
@@ -1416,6 +1426,7 @@ body.modal-open {
   border-color: #cbd5e1;
 }
 .quote-page input:not([type="checkbox"]):focus,
+.q-modal input:not([type="checkbox"]):focus,
 .quote-page select:focus,
 .quote-page textarea:focus {
   outline: none;
@@ -3064,9 +3075,9 @@ body.modal-open {
   }
 }
 
-/* Short bond paper = US Letter (8.5 × 11 in) */
+/* A4 (210 × 297 mm) */
 @page {
-  size: letter;
+  size: A4;
   margin: 12mm 14mm;
 }
 @media print {
@@ -3335,8 +3346,9 @@ body.modal-open {
   .qp-int-banner {
     padding: 7px 10px;
     margin-bottom: 14px;
-    background: #1c1c1c;
-    color: #fff;
+    background: #fff;
+    border: 1px dashed #888;
+    color: #444;
     text-align: center;
     font-size: 11.5px;
     font-weight: 700;
@@ -3671,4 +3683,295 @@ body.modal-open {
 }
 :is(#digitalSection, #risoSection) .q-check small {
   color: #b6790a;
+}
+
+/* ---------------------------------------------------------------------
+   Save-preset modal: left-aligned header, divider, footer bar
+   (scoped to #savePresetModal so the confirm modal is unchanged)
+   --------------------------------------------------------------------- */
+#savePresetModal .q-modal-card {
+  max-width: 480px;
+  padding: 0;
+  text-align: left;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 68px 1fr;
+  column-gap: 14px;
+  align-content: start;
+}
+#savePresetModal .q-modal-icon {
+  grid-row: 1 / span 2;
+  grid-column: 1;
+  width: 44px;
+  height: 44px;
+  margin: 24px 0 0 24px;
+  border-radius: 12px;
+  font-size: 17px;
+}
+#savePresetModal .q-modal-card h3 {
+  grid-column: 2;
+  margin: 24px 56px 0 0;
+  font-size: 16px;
+}
+#savePresetModal .q-modal-sub {
+  grid-column: 2;
+  margin: 2px 24px 0 0;
+  font-size: 13px;
+}
+#savePresetModal .q-modal-form {
+  grid-column: 1 / -1;
+  margin-top: 20px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--q-line);
+  gap: 14px;
+}
+#savePresetModal .q-modal-form .q-hint {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--q-soft);
+  font-size: 12px;
+}
+#savePresetModal .q-modal-actions {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 14px 24px;
+  justify-content: flex-end;
+  border-top: 1px solid var(--q-line);
+  background: var(--q-soft);
+}
+#savePresetModal .q-modal-actions .q-btn {
+  flex: 0 0 auto;
+  min-width: 110px;
+}
+
+/* ---------------------------------------------------------------------
+   Printed quotation, receipt style: A4, full page, ink-saving
+   (no filled areas, no solid black: thin dashed rules and soft greys)
+   --------------------------------------------------------------------- */
+@media print {
+  #quotePrintArea {
+    color: #333;
+    font-size: 13.5px;
+    line-height: 1.5;
+    border: 0;
+    padding: 0;
+  }
+  /* Customer sheet fills the A4 page; the signature block sinks to the bottom */
+  .qp-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 262mm;
+  }
+
+  /* Letterhead */
+  .qp-head {
+    align-items: flex-start;
+    gap: 20px;
+    margin: 0 0 14px;
+    padding: 0 0 14px;
+    border-bottom: 1px dashed #888;
+  }
+  .qp-brand {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 14px;
+    text-align: left;
+  }
+  .qp-logo {
+    height: 66px;
+    max-width: 96px;
+  }
+  .qp-co {
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
+  }
+  .qp-sub {
+    margin-top: 4px;
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: #666;
+  }
+  .qp-doc {
+    text-align: right;
+  }
+  .qp-doc h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    color: #333;
+  }
+
+  /* Quote no. / date / valid until: one plain row between dashed rules */
+  .qp-strip {
+    display: flex;
+    margin: 0 0 18px;
+    padding: 0 0 12px;
+    border: 0;
+    border-bottom: 1px dashed #888;
+    border-radius: 0;
+    background: none;
+  }
+  .qp-strip > div {
+    flex: 1;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  .qp-strip small {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #888;
+  }
+  .qp-strip b {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+  }
+
+  /* Prepared for / project details: plain columns, no boxes */
+  .qp-cols2 {
+    gap: 0 32px;
+    margin-bottom: 22px;
+  }
+  .qp-cols2 > div,
+  .qp-cols2 > .qp-card {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+  .qp-label,
+  .qp-cols2 .qp-label,
+  .qp-block .qp-label {
+    margin-bottom: 6px;
+    padding: 0;
+    border: 0;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #888;
+  }
+  .qp-strong {
+    font-size: 15px;
+    font-weight: 700;
+    color: #333;
+  }
+  .qp-kv {
+    font-size: 13px;
+  }
+  .qp-kv td:first-child {
+    color: #888;
+  }
+
+  /* Items */
+  .qp-table {
+    font-size: 13.5px;
+  }
+  .qp-table th {
+    padding: 8px 8px;
+    background: none;
+    color: #777;
+    border: 0;
+    border-top: 1px dashed #888;
+    border-bottom: 1px dashed #888;
+  }
+  .qp-table th.qp-no,
+  .qp-table .qp-no {
+    width: 34px;
+    text-align: center;
+    color: #888;
+  }
+  .qp-table td {
+    padding: 14px 8px;
+    border-bottom: 1px dashed #bbb;
+  }
+  .qp-spec {
+    font-size: 12px;
+    color: #666;
+  }
+  .qp-table .r,
+  .qp-totals .r {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Totals */
+  .qp-totals {
+    width: 52%;
+    margin: 12px 0 0 auto;
+    font-size: 13.5px;
+  }
+  .qp-totals td {
+    padding: 5px 8px;
+  }
+  .qp-totals tr.tot td {
+    background: none;
+    border-top: 1px dashed #888;
+    color: #333;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .qp-totals tr.tot.grand td {
+    padding: 10px 8px;
+    background: none;
+    color: #333;
+    font-size: 18px;
+    border-top: 1px solid #777;
+    border-bottom: 3px double #777;
+  }
+  .qp-totals .qp-save td {
+    color: #777;
+  }
+
+  /* Notes / terms */
+  .qp-block {
+    margin-top: 22px;
+    font-size: 12.5px;
+    color: #555;
+  }
+  .qp-terms {
+    margin: 0;
+    padding-left: 18px;
+  }
+  .qp-terms li {
+    margin: 2px 0;
+  }
+
+  /* Signatures pinned to the bottom of the page, then a receipt-style footer */
+  .qp-sign {
+    margin-top: auto;
+    padding-top: 40px;
+  }
+  .qp-line {
+    border-bottom: 1px solid #888;
+  }
+  .qp-sign small {
+    font-size: 11px;
+    font-weight: 400;
+    color: #777;
+  }
+  .qp-thanks {
+    margin-top: 22px;
+    padding-top: 12px;
+    border-top: 1px dashed #888;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: #777;
+  }
+
+  /* Employee costing sheet: soften the remaining heavy rules */
+  .qp-internal h3,
+  .qp-mini tr.tot td {
+    border-color: #999;
+  }
+  .qp-int-title span,
+  .qp-int-title em {
+    color: #777;
+  }
 }
