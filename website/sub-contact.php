@@ -87,7 +87,7 @@ $navOpen = isset($_COOKIE['sideNavOpen']) && $_COOKIE['sideNavOpen'] === '1';
                             <div class="info-card-body">
                                 <h3>Call Us</h3>
                                 <p>Main: <a href="tel:+0447964101">(044) 796-4101</a></p>
-                                <p>Support: <a href="tel:+639987916018">(+63) 998-791-6018</a></p>
+                                <p>Support: <a href="tel:+639475996785">(+63) 947-599-6785</a></p>
                             </div>
                         </div>
 
